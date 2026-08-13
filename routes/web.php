@@ -194,6 +194,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::delete('/auctions/{auction}/cards/export/{token}', [AuctionAdminController::class, 'deleteCardExport'])->name('auctions.cards.export.destroy');
     // Every archive this auction has produced — see AuctionAdminController::cardExports().
     Route::get('/auctions/{auction}/card-exports', [AuctionAdminController::class, 'cardExports'])->name('auctions.card-exports');
+    // One player's poster, rendered on the spot — no job, no zip. See playerPoster().
+    Route::get('/auctions/{auction}/poster/{auctionPlayer}', [AuctionAdminController::class, 'playerPoster'])->name('auctions.player-poster');
 
     Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player');
     // Broadcast screens picker — the ticker and LED wall had no home in the menu.

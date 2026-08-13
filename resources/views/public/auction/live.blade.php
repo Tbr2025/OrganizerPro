@@ -1113,6 +1113,43 @@
             animation: shuffleRevealPop 0.5s ease-out 0.1s forwards;
             opacity: 0;
         }
+    
+        /* The sealed banner's motion. See the markup for why a still bar is a problem. */
+        .sealed-banner { overflow: hidden; }
+
+        .sealed-sheen {
+            position: absolute; inset: 0;
+            background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,.14) 50%, transparent 80%);
+            transform: translateX(-100%);
+            animation: sealed-sweep 2.6s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes sealed-sweep { to { transform: translateX(100%); } }
+
+        /* A live indicator beside the heading, the same idiom as the LIVE dot elsewhere. */
+        .sealed-dot {
+            display: inline-block; width: 9px; height: 9px; margin-right: 10px;
+            border-radius: 50%; background: #fde68a; vertical-align: middle;
+            animation: sealed-pulse 1.1s ease-in-out infinite;
+        }
+
+        @keyframes sealed-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .35; transform: scale(.7); }
+        }
+
+        /* Each name the draw cycles through lands with a small snap. */
+        .sealed-draw-name.is-cycling { animation: draw-flick .09s ease-out; }
+        .sealed-draw-name.is-winner  { animation: draw-land .5s cubic-bezier(.2,1.6,.3,1); color: #fde68a !important; }
+
+        @keyframes draw-flick { from { opacity: .45; transform: translateY(-6px); } }
+        @keyframes draw-land  { 0% { transform: scale(.7); opacity: 0; } 60% { transform: scale(1.12); } 100% { transform: scale(1); opacity: 1; } }
+
+        @media (prefers-reduced-motion: reduce) {
+            .sealed-sheen, .sealed-dot,
+            .sealed-draw-name.is-cycling, .sealed-draw-name.is-winner { animation: none; }
+        }
     </style>
 </head>
 
@@ -1525,15 +1562,32 @@
 
         {{-- Sealed round. The hall and the stream must be told that bidding has gone
              private, or a frozen price looks like a stalled auction. --}}
-        <div id="sealed-banner" class="hidden"
+        <div id="sealed-banner" class="hidden sealed-banner"
              style="position:absolute;top:0;left:0;right:0;z-index:30;padding:14px 0;text-align:center;
                     background:linear-gradient(90deg,rgba(88,28,135,0.95),rgba(147,51,234,0.95));
                     border-bottom:3px solid #c084fc;">
-            <div style="font-size:13px;font-weight:900;letter-spacing:6px;text-transform:uppercase;color:#e9d5ff;">
+            {{-- A moving sheen along the bar. A sealed round freezes the price, so a still banner
+                 over a still figure is indistinguishable from a stalled screen — the motion is the
+                 only thing telling a hall that something is happening. --}}
+            <div class="sealed-sheen" aria-hidden="true"></div>
+
+            <div style="position:relative;font-size:13px;font-weight:900;letter-spacing:6px;text-transform:uppercase;color:#e9d5ff;">
+                <span class="sealed-dot" aria-hidden="true"></span>
                 <span id="sealed-banner-title">Closed Bid</span>
             </div>
-            <div style="font-size:26px;font-weight:900;color:#fff;line-height:1.1;margin-top:2px;">
+            <div style="position:relative;font-size:26px;font-weight:900;color:#fff;line-height:1.1;margin-top:2px;">
                 <span id="sealed-banner-line"></span>
+            </div>
+
+            {{-- The draw. Cycles the tied teams and lands on the winner, so the room watches the
+                 result arrive rather than reading that a draw happened somewhere. --}}
+            <div id="sealed-draw" class="hidden" style="position:relative;margin-top:8px;">
+                <div style="font-size:12px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#fde68a;">
+                    <span id="sealed-draw-label">Drawing a lot</span>
+                </div>
+                <div id="sealed-draw-name" class="sealed-draw-name"
+                     style="font-size:40px;font-weight:900;color:#fff;line-height:1.05;"></div>
+                <div id="sealed-draw-amount" style="font-size:15px;font-weight:700;color:#e9d5ff;"></div>
             </div>
         </div>
         @endif
@@ -2189,7 +2243,96 @@
                     : text;
             }
 
+            renderSealedDraw(sealedState.tie);
+
             banner.classList.remove('hidden');
+        }
+
+        /* The name currently showing in the draw, and the timer cycling it. */
+        let _drawCycle = null;
+        let _drawSettledFor = null;
+
+        /**
+         * The tie, and the draw that settles it.
+         *
+         * Two states share this block. `tie` lists the teams and the amount they matched, because
+         * "TIE — going to a re-bid" told a hall nothing about who or how much. `awaiting_lot` cycles
+         * those names until the server records a winner, and then lands on it.
+         *
+         * The cycling is decoration over a decision already made: the lot is drawn on the server
+         * from a recorded seed before any of this runs, so the animation cannot influence it and a
+         * screen that joins late simply shows the winner without the spin.
+         */
+        function renderSealedDraw(tie) {
+            const wrap = document.getElementById('sealed-draw');
+            if (! wrap) return;
+
+            const nameEl = document.getElementById('sealed-draw-name');
+            const amountEl = document.getElementById('sealed-draw-amount');
+            const labelEl = document.getElementById('sealed-draw-label');
+
+            const teams = tie?.teams || [];
+
+            if (! tie || teams.length === 0) {
+                wrap.classList.add('hidden');
+                if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
+                _drawSettledFor = null;
+                return;
+            }
+
+            wrap.classList.remove('hidden');
+
+            if (amountEl) {
+                amountEl.textContent = tie.amount
+                    ? `${teams.length} teams matched at ${formatMillions(tie.amount)}`
+                    : `${teams.length} teams tied`;
+            }
+
+            const winner = tie.lot_winner_team_id
+                ? teams.find(t => Number(t.id) === Number(tie.lot_winner_team_id))
+                : null;
+
+            if (winner) {
+                // Settle once. Without this guard every poll re-runs the landing animation and the
+                // winner's name pops every two seconds for the rest of the round.
+                if (_drawSettledFor === winner.id) return;
+                _drawSettledFor = winner.id;
+
+                if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
+
+                if (labelEl) labelEl.textContent = 'Lot drawn';
+                if (nameEl) {
+                    nameEl.textContent = winner.name;
+                    nameEl.classList.remove('is-cycling');
+                    nameEl.classList.add('is-winner');
+                }
+
+                return;
+            }
+
+            _drawSettledFor = null;
+            if (labelEl) labelEl.textContent = teams.length ? 'Drawing a lot' : '';
+
+            // Already cycling — leave it be, or each poll restarts the sequence.
+            if (_drawCycle) return;
+
+            let i = 0;
+
+            const tick = () => {
+                if (! nameEl) return;
+
+                nameEl.textContent = teams[i % teams.length].name;
+                nameEl.classList.remove('is-winner');
+                // Re-add per frame so the keyframe restarts on every name.
+                nameEl.classList.remove('is-cycling');
+                void nameEl.offsetWidth;
+                nameEl.classList.add('is-cycling');
+
+                i++;
+            };
+
+            tick();
+            _drawCycle = setInterval(tick, 160);
         }
 
         /**

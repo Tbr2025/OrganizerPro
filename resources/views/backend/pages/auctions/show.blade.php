@@ -371,8 +371,17 @@
                                 </p>
                                 @foreach($posterTemplates as $posterTemplate)
                                     <button type="button"
+                                            {{-- The rows actually on screen, by id.
+                                                 Passing null let the server re-derive the set from
+                                                 the status chip alone, so a search for "k" narrowing
+                                                 the list to three exported all eight — the button
+                                                 said (3) and the dialog said 8 of 8. The filters are
+                                                 search + team + status together and only this page
+                                                 knows what they add up to. --}}
                                             @click="open = false; $store.cardExport.start(
-                                                {{ $auction->id }}, null, true, {{ $posterTemplate->id }},
+                                                {{ $auction->id }},
+                                                filteredPlayers.map(p => p.player_id),
+                                                true, {{ $posterTemplate->id }},
                                                 ['sold', 'unsold'].includes(statusFilter) ? statusFilter : 'all')"
                                             class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
                                         <span class="font-semibold block truncate text-gray-900 dark:text-white">{{ $posterTemplate->name }}</span>
@@ -384,10 +393,9 @@
                                 @endforeach
                                 {{-- The chips also offer On Auction and Waiting, neither of which
                                      has an outcome. Say so rather than exporting them as "all". --}}
-                                <p class="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100 dark:border-gray-800"
-                                   x-show="!['sold', 'unsold'].includes(statusFilter)">
-                                    Every player in the auction. Pick the <b>Sold</b> or <b>Unsold</b>
-                                    chip first to export just those.
+                                <p class="px-3 py-2 text-[10px] text-gray-400 border-t border-gray-100 dark:border-gray-800">
+                                    Exports the <b x-text="filteredPlayers.length"></b> player(s) currently
+                                    listed — search, team and status all count.
                                 </p>
                             </div>
                         @else

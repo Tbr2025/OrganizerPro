@@ -58,6 +58,8 @@ class AuctionPoolController extends Controller
             'pools.players.player.battingProfile:id,style',
             'pools.players.player.bowlingProfile:id,style',
             'pools.players.team:id,name',
+            // The buying team, named on each sold row — "sold" alone did not say to whom.
+            'pools.players.soldToTeam:id,name',
             // Unsold holding pools name the pool they collect for.
             'pools.parentPool:id,name',
         ]);

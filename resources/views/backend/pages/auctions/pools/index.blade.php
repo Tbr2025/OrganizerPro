@@ -461,14 +461,36 @@
                                     @if($ap->is_retained)
                                         <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 whitespace-nowrap">Icon Player{{ $ap->team ? ' · '.$ap->team->name : '' }}{{ (float) $ap->retained_price > 0 ? ' · ' . $auction->formatAmount($ap->retained_price) : '' }}</span>@if((float) $ap->retained_price <= 0)<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 whitespace-nowrap" title="No retention price — this player currently costs their team nothing.">no price</span>@endif
                                     @elseif($ap->player?->playerType)<span class="text-[10px] text-gray-400">{{ $ap->player->playerType->name }}</span>@endif
-                                    @if($ap->status !== 'waiting')<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ $ap->status }}</span>@endif
+                                    {{-- "sold" on its own left the obvious question unanswered: sold
+                                         to WHOM. The buying team is the whole result of the lot and
+                                         the reason anybody reads this list afterwards. --}}
+                                    @if($ap->status === 'sold')
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 whitespace-nowrap">
+                                            sold{{ $ap->soldToTeam ? ' · ' . $ap->soldToTeam->name : '' }}{{ (float) $ap->final_price > 0 ? ' · ' . $auction->formatAmount($ap->final_price) : '' }}
+                                        </span>
+                                    @elseif($ap->status !== 'waiting')
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{{ $ap->status }}</span>
+                                    @endif
                                 </span>
-                                @if($ap->status === 'waiting')
-                                <button type="button" :disabled="busy"
-                                        @click="confirmRemovePlayers([{{ $ap->player_id }}])"
-                                        class="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
-                                        title="Remove from pool">&times;</button>
-                                @endif
+
+                                <span class="flex items-center gap-1.5 shrink-0">
+                                    @if($posterTemplates->isNotEmpty())
+                                        {{-- One player's poster, rendered on the spot. Going through
+                                             the export queue for a single PNG means a job, a zip and
+                                             a progress dialog to fetch one file. --}}
+                                        <a href="{{ route('admin.auctions.player-poster', [$auction, $ap]) }}"
+                                           class="text-xs text-gray-400 hover:text-amber-600"
+                                           title="Download this player's poster">
+                                            <iconify-icon icon="lucide:image-down" width="15"></iconify-icon>
+                                        </a>
+                                    @endif
+                                    @if($ap->status === 'waiting')
+                                    <button type="button" :disabled="busy"
+                                            @click="confirmRemovePlayers([{{ $ap->player_id }}])"
+                                            class="text-xs text-gray-400 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            title="Remove from pool">&times;</button>
+                                    @endif
+                                </span>
                             </div>
                             @endforeach
                         </div>

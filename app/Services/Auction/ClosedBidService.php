@@ -388,7 +388,55 @@ class ClosedBidService
                 'limit' => $timer['limit'] ?? null,
                 'expired' => (bool) ($timer['expired'] ?? false),
             ],
+
+            /*
+             * The tie, once the reveal has happened — and only then.
+             *
+             * A tied amount before the reveal would hand the room the very figure the round exists
+             * to keep private, so this is gated on the states that only follow a reveal. After it,
+             * the amount and the names have already been announced out loud; the wall repeating
+             * them is what lets a hall of people follow a draw instead of watching a static
+             * "going to a re-bid".
+             */
+            'tie' => in_array($round->state, [
+                AuctionClosedBidRound::STATE_TIE,
+                AuctionClosedBidRound::STATE_AWAITING_LOT,
+            ], true) ? [
+                'amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
+                'teams' => $this->tiedTeamsFor($round),
+                // Set the moment the draw lands, which is the wall's cue to stop cycling.
+                'lot_winner_team_id' => $round->lot_winner_team_id,
+                'drawn_at' => $round->lot_drawn_at?->toIso8601String(),
+            ] : null,
         ];
+    }
+
+    /**
+     * The tied teams, named, in a stable order.
+     *
+     * Ordered by id rather than by however `tied_team_ids` happened to be built, so the wall's
+     * draw animation cycles the same sequence on every screen in the room — two projectors
+     * shuffling names in different orders reads as two different draws.
+     *
+     * @return list<array{id: int, name: string, logo: string|null}>
+     */
+    private function tiedTeamsFor(AuctionClosedBidRound $round): array
+    {
+        $ids = array_map('intval', $round->tied_team_ids ?? []);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        return ActualTeam::whereIn('id', $ids)
+            ->orderBy('id')
+            ->get(['id', 'name', 'team_logo'])
+            ->map(fn (ActualTeam $team) => [
+                'id' => (int) $team->id,
+                'name' => (string) $team->name,
+                'logo' => $team->team_logo ? asset('storage/' . $team->team_logo) : null,
+            ])
+            ->all();
     }
 
     /*

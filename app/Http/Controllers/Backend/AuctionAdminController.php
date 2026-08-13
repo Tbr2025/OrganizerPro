@@ -2523,6 +2523,50 @@ class AuctionAdminController extends Controller
         return response()->json($export->fresh()->toProgressPayload());
     }
 
+    /**
+     * One player's poster, rendered now and downloaded.
+     *
+     * Not through the export queue: that exists because three hundred cards outlive a request,
+     * and a single poster drawn with GD is milliseconds. Sending one player through a job, a zip
+     * and a progress dialog to fetch one PNG is machinery for its own sake.
+     */
+    public function playerPoster(Request $request, Auction $auction, AuctionPlayer $auctionPlayer)
+    {
+        $this->authorize('auction.view');
+
+        abort_unless($auctionPlayer->auction_id === $auction->id, 404);
+
+        $template = TournamentTemplate::where('tournament_id', $auction->tournament_id)
+            ->whereIn('type', [
+                TournamentTemplate::TYPE_AUCTION_POSTER,
+                TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+            ])
+            ->when($request->integer('template'), fn ($q, $id) => $q->whereKey($id))
+            ->orderByDesc('is_default')
+            ->first();
+
+        if (! $template) {
+            return back()->with('error', 'No auction poster has been designed for this tournament yet.');
+        }
+
+        $auctionPlayer->loadMissing(['player', 'soldToTeam', 'pool', 'sourcePool']);
+
+        $stored = app(\App\Services\Poster\TemplateRenderService::class)->renderTemplate(
+            $template,
+            app(\App\Services\Poster\AuctionPosterData::class)->forPlayer($auctionPlayer),
+            false,
+            // Hide anything with no value, so one design serves the lot announcement and the
+            // sold poster alike.
+            true
+        );
+
+        $path = Storage::disk('public')->path($stored);
+        $name = app(\App\Services\Auction\AuctionCardRenderer::class)->filename($auctionPlayer, true);
+
+        // Deleted after sending: it is a one-off render, not something the public disk should keep.
+        return response()->download($path, $name)->deleteFileAfterSend(true);
+    }
+
     /** Delete one archive and its zip. */
     public function deleteCardExport(Auction $auction, string $token)
     {
