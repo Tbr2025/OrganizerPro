@@ -89,7 +89,12 @@ class RenderAuctionCards implements ShouldQueue
             return;
         }
 
-        $players = AuctionPlayer::with('player')
+        /*
+         * `soldToTeam`, `pool` and `sourcePool` are read by the FILENAME, and `player` by the
+         * render. Eager-loaded together so a chunk of twenty costs four queries rather than
+         * eighty.
+         */
+        $players = AuctionPlayer::with(['player', 'soldToTeam', 'pool', 'sourcePool'])
             ->whereIn('id', $chunk)
             ->get()
             ->keyBy('id');

@@ -365,15 +365,21 @@ class AuctionCardExportProgressTest extends TestCase
          * overlay"), and taking the suffix from it named every file in a mixed export -sold.
          * In a zip of two hundred the filename is the only thing telling them apart.
          */
-        $this->assertStringEndsWith('-sold.png', $renderer->filename($sold->fresh(), true));
-        $this->assertStringEndsWith('-unsold.png', $renderer->filename($unsold->fresh(), true));
+        /*
+         * player-team-pool-id.png. A zip of three hundred is sorted by name in a file manager, so
+         * the parts somebody searches for have to be IN the name — the old `042-lungi-ngidi-sold`
+         * led with the lot number, which nobody looks things up by, and named no team at all.
+         */
+        $this->assertStringContainsString('buyers', $renderer->filename($sold->fresh(), true));
+        $this->assertStringEndsWith('-' . $sold->player_id . '.png', $renderer->filename($sold->fresh(), true));
 
-        // Not yet called: no suffix at all, rather than claiming an outcome the auction has
-        // not reached.
+        // No team to name, so the outcome takes that slot.
+        $this->assertStringContainsString('-unsold-', $renderer->filename($unsold->fresh(), true));
+
+        // Not yet called: neither sold nor unsold.
         $name = $renderer->filename($waiting->fresh(), true);
-        $this->assertStringNotContainsString('-sold', $name);
-        $this->assertStringNotContainsString('-unsold', $name);
-        $this->assertStringStartsWith('009-', $name);
+        $this->assertStringContainsString('-unassigned-', $name);
+        $this->assertStringEndsWith('-' . $waiting->player_id . '.png', $name);
     }
 
     /** @return list<int> the auction_player ids an export resolved to */

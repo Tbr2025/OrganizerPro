@@ -127,15 +127,38 @@ class AuctionCardRenderer
      */
     public function filename(AuctionPlayer $auctionPlayer, bool $withResult): string
     {
-        $name = Str::slug($auctionPlayer->player->name ?? 'player') ?: 'player';
-        $lot = $auctionPlayer->lot_number ? str_pad((string) $auctionPlayer->lot_number, 3, '0', STR_PAD_LEFT) : 'x';
+        /*
+         * player-team-pool-id.png
+         *
+         * A zip of three hundred of these is opened in a file manager and sorted by name, so
+         * every part somebody would search for has to be IN the name: who it is, which team ended
+         * up with them, and which pool they came out of. It was `042-lungi-ngidi-sold.png`, which
+         * put the lot number first — an ordering nobody looks things up by — and named the team
+         * nowhere at all.
+         *
+         * The player id closes it rather than a random four digits: two players can share a name,
+         * and a random suffix would make the same player's card a different file on every export,
+         * so a re-run could not overwrite the old one.
+         */
+        $slug = fn (?string $value, string $fallback) => Str::slug((string) $value) ?: $fallback;
 
-        $outcome = match (true) {
-            $auctionPlayer->sold_to_team_id !== null => '-sold',
-            in_array($auctionPlayer->status, ['unsold', 'passed', 'skipped'], true) => '-unsold',
-            default => '',
-        };
+        $name = $slug($auctionPlayer->player->name ?? null, 'player');
 
-        return sprintf('%s-%s%s.png', $lot, $name, $outcome);
+        // The buying team, or the outcome when there is no team to name.
+        $team = $auctionPlayer->soldToTeam
+            ? $slug($auctionPlayer->soldToTeam->name, 'team')
+            : (in_array($auctionPlayer->status, ['unsold', 'passed', 'skipped'], true) ? 'unsold' : 'unassigned');
+
+        /*
+         * The pool they came FROM. An unsold player has been moved to the shared pile, so `pool`
+         * would read "unsold" for all of them and lose the one thing that distinguishes them —
+         * `source_pool_id` is what remembers.
+         */
+        $pool = $slug(
+            $auctionPlayer->sourcePool?->name ?? $auctionPlayer->pool?->name ?? null,
+            'no-pool'
+        );
+
+        return sprintf('%s-%s-%s-%d.png', $name, $team, $pool, $auctionPlayer->player_id);
     }
 }

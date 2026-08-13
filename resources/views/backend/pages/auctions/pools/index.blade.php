@@ -350,7 +350,11 @@
                                 <div x-data="{ open: false, status: 'sold' }" class="relative ml-auto">
                                     <button type="button" @click="open = !open"
                                             class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600">
-                                        Posters
+                                        {{-- Says its scope, so "Posters" cannot mean two different
+                                             sizes of job depending on what is ticked. --}}
+                                        <span x-text="selectedInPool({{ $pool->id }}).length
+                                            ? `Posters (${selectedInPool({{ $pool->id }}).length})`
+                                            : 'Posters (pool)'"></span>
                                     </button>
                                     <div x-show="open" x-cloak @click.outside="open = false"
                                          class="absolute right-0 z-40 mt-1 w-72 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl overflow-hidden">
@@ -373,8 +377,15 @@
                                         </div>
                                         @foreach($posterTemplates as $posterTemplate)
                                             <button type="button"
-                                                    @click="open = false; Alpine.store('cardExport').start(
-                                                        {{ $auction->id }}, null, true, {{ $posterTemplate->id }}, status, {{ $pool->id }})"
+                                                    {{-- The ticked players when any are ticked, the whole pool
+                                             otherwise. Passing null unconditionally meant a
+                                             selection of one quietly became a run of three hundred
+                                             and seven — the checkboxes were right there and
+                                             ignored. --}}
+                                        @click="open = false; Alpine.store('cardExport').start(
+                                                        {{ $auction->id }},
+                                                        selectedInPool({{ $pool->id }}).length ? selectedInPool({{ $pool->id }}) : null,
+                                                        true, {{ $posterTemplate->id }}, status, {{ $pool->id }})"
                                                     class="w-full text-left px-3 py-2 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
                                                 <span class="font-semibold block truncate text-gray-900 dark:text-white">{{ $posterTemplate->name }}</span>
                                                 <span class="text-gray-400">
