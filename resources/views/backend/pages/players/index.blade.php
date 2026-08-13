@@ -13,13 +13,19 @@
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Search, filter, and manage all players.</p>
             </div>
             <div class="flex items-center gap-2">
-                {{-- Export the whole visible set, no selection needed. The selection-bound buttons
-                     lower down only appear once rows are ticked, so "export everything" had no
-                     control at all — which is the usual reason for opening this page. --}}
-                <a href="{{ route('admin.players.export-xlsx') }}"
+                {{-- Export what is on screen, filters and all.
+                     This linked to the export with NO query string and was labelled "Export All",
+                     and the controller obliged — so a page filtered to one tournament produced a
+                     workbook of every player in the organization, pending and rejected included.
+                     The filters travel now, and the label says which of the two it is doing. --}}
+                @php
+                    $exportFilters = array_filter(request()->query(), fn ($v) => $v !== null && $v !== '');
+                    unset($exportFilters['page']);
+                @endphp
+                <a href="{{ route('admin.players.export-xlsx', $exportFilters) }}"
                    class="btn btn-secondary inline-flex items-center gap-2">
                     <iconify-icon icon="lucide:file-spreadsheet" width="16"></iconify-icon>
-                    Export All (Excel)
+                    {{ $exportFilters ? 'Export Filtered (Excel)' : 'Export All (Excel)' }}
                 </a>
 
                 @can('player.create')
@@ -36,16 +42,22 @@
             <form method="GET" action="{{ route('admin.players.index') }}" id="playerFilterForm">
                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-4">
 
-                    {{-- Tournament — first, full width --}}
-                    <div class="sm:col-span-2">
-                        <label for="tournament" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
-                        <select name="tournament" id="tournament" class="form-control mt-1" onchange="document.getElementById('playerFilterForm').submit()">
-                            <option value="">All Tournaments</option>
-                            @foreach ($tournaments as $t)
-                                <option value="{{ $t->id }}" @selected(request('tournament') == $t->id)>{{ $t->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    {{-- Tournament — first, full width.
+                         Shown when there is something to choose between, rather than to a list of
+                         roles: an empty dropdown is noise, and an Organizer with tournaments wants
+                         this filter every bit as much as a Superadmin does. `$tournaments` is
+                         already scoped by Tournament::forUser(). --}}
+                    @if ($tournaments->isNotEmpty())
+                        <div class="sm:col-span-2">
+                            <label for="tournament" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Tournament</label>
+                            <select name="tournament" id="tournament" class="form-control mt-1" onchange="document.getElementById('playerFilterForm').submit()">
+                                <option value="">All Tournaments</option>
+                                @foreach ($tournaments as $t)
+                                    <option value="{{ $t->id }}" @selected(request('tournament') == $t->id)>{{ $t->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
 
                     {{-- Search --}}
                     <div class="lg:col-span-2">

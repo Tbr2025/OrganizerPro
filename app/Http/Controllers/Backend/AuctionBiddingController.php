@@ -55,8 +55,37 @@ class AuctionBiddingController extends Controller
 
                 $isPreviewMode = true;
             } else {
-                // Show team selector for admin
-                $allTeams = ActualTeam::forTournament($auction->tournament_id)->get();
+                /*
+                 * The teams that are actually IN this auction, with the figures that matter.
+                 *
+                 * `ActualTeam::forTournament()` alone listed every side the tournament has a row
+                 * for — pending registrations included — which is the same mistake the sealed
+                 * board had: a team nobody approved appearing with a purse beside it.
+                 * `participatingTeams()` is the one definition of who may spend money here, and
+                 * the organizer panel and the ticker already use it.
+                 */
+                $allTeams = $this->pools->participatingTeams($auction);
+
+                /*
+                 * And the counts the screen was getting wrong.
+                 *
+                 * It showed `$team->players()->count()`, which is hasMany(ActualTeamUser) —
+                 * EVERY membership row regardless of role. Squad of Cuba read "6 players" for
+                 * four players, a manager and an owner. Worse, it was not scoped to this
+                 * tournament and knew nothing of the auction, so it could not answer the
+                 * question actually being asked at this screen: how far through is this squad.
+                 */
+                $allTeams = $allTeams->map(function (ActualTeam $team) use ($auction) {
+                    $purse = $this->pools->teamPurseState($auction, $team->id);
+
+                    $team->setAttribute('squad_filled', $purse['slots_filled']);
+                    $team->setAttribute('squad_required', $purse['slots_required']);
+                    $team->setAttribute('squad_remaining', $purse['slots_remaining']);
+                    $team->setAttribute('purse_remaining', $purse['remaining']);
+                    $team->setAttribute('retained_count', $purse['retained_count'] ?? 0);
+
+                    return $team;
+                });
 
                 $breadcrumbs = ['title' => __('Select Team')];
 

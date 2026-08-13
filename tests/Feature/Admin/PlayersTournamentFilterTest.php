@@ -30,7 +30,16 @@ class PlayersTournamentFilterTest extends TestCase
 
     private function playerRegisteredFor(Organization $org, Tournament $t, string $name): Player
     {
+        /*
+         * The Player role is not decoration — the list requires it
+         * (`whereHas('user.roles', 'Player')`) to keep orphaned and staff accounts out. Without
+         * it this fixture built players the page is designed never to show, so the test failed
+         * on the role guard while claiming to be about the tournament filter.
+         */
+        $playerRole = Role::firstOrCreate(['name' => 'Player', 'guard_name' => 'web']);
+
         $user = User::factory()->create(['organization_id' => $org->id]);
+        $user->assignRole($playerRole);
         $player = Player::create([
             'organization_id' => $org->id, 'user_id' => $user->id,
             'name' => $name, 'email' => strtolower($name) . '@x.test', 'status' => 'approved',
@@ -85,9 +94,20 @@ class PlayersTournamentFilterTest extends TestCase
         $user = User::factory()->create(['organization_id' => $org->id]);
         $user->assignRole($role);
 
-        // The tournament filter UI must not render for a non-Superadmin.
+        /*
+         * No tournaments to choose between, so no tournament filter.
+         *
+         * Asserted against the filter CONTROL rather than the words "All Tournaments", which
+         * also appear in the retain modal's own tournament picker further down the page — so the
+         * old assertion could never pass regardless of the filter, and was failing for a reason
+         * that had nothing to do with what it was testing.
+         *
+         * The rule is now "is there anything to filter by" rather than "which role is this":
+         * an empty dropdown is noise, and an Organizer WITH tournaments wants this filter every
+         * bit as much as a Superadmin does.
+         */
         $this->actingAs($user)->get(route('admin.players.index', ['tournament' => 999]))
             ->assertOk()
-            ->assertDontSee('All Tournaments');
+            ->assertDontSee('id="tournament"', escape: false);
     }
 }

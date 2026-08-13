@@ -41,11 +41,34 @@
                                     </div>
                                 @endif
                             </div>
+                            {{-- Where this squad has got to, which is what somebody opening this
+                                 screen mid-auction actually wants to know. It used to read
+                                 "N players" from hasMany(ActualTeamUser) — every membership row
+                                 regardless of role, so a team with four players, a manager and an
+                                 owner reported six, and nothing said how many were still to buy or
+                                 what was left to spend. --}}
                             <div class="flex-1 min-w-0">
                                 <p class="font-semibold text-gray-800 dark:text-white truncate">{{ $team->name }}</p>
-                                <p class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ $team->players_count ?? $team->players()->count() }} players
-                                </p>
+                                <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                                    <span class="text-gray-600 dark:text-gray-300">
+                                        <span class="font-semibold">{{ $team->squad_filled }}</span>/{{ $team->squad_required }} squad
+                                    </span>
+                                    @if($team->retained_count)
+                                        <span class="text-purple-600 dark:text-purple-400">
+                                            {{ $team->retained_count }} icon
+                                        </span>
+                                    @endif
+                                    @if($team->squad_remaining > 0)
+                                        <span class="text-amber-600 dark:text-amber-400">
+                                            {{ $team->squad_remaining }} still to buy
+                                        </span>
+                                    @else
+                                        <span class="text-emerald-600 dark:text-emerald-400">squad complete</span>
+                                    @endif
+                                    <span class="text-gray-500 dark:text-gray-400">
+                                        {{ $auction->formatAmount($team->purse_remaining) }} left
+                                    </span>
+                                </div>
                             </div>
                             <div class="flex-shrink-0">
                                 <i class="fas fa-chevron-right text-gray-400"></i>

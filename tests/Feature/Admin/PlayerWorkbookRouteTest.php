@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Admin;
 
 use App\Models\Organization;
+use App\Models\Player;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -51,6 +52,79 @@ class PlayerWorkbookRouteTest extends TestCase
             (string) $response->headers->get('content-type'),
             'The export should answer with a workbook, not with a player page.'
         );
+    }
+
+    #[Test]
+    public function the_export_honours_the_filters_the_list_was_showing(): void
+    {
+        $admin = $this->admin();
+        $org = Organization::find($admin->organization_id);
+
+        $playerRole = Role::firstOrCreate(['name' => 'Player', 'guard_name' => 'web']);
+
+        $make = function (string $name, string $status) use ($org, $playerRole) {
+            $user = User::factory()->create(['organization_id' => $org->id]);
+            $user->assignRole($playerRole);
+
+            return Player::create([
+                'organization_id' => $org->id,
+                'user_id' => $user->id,
+                'name' => $name,
+                'email' => strtolower(str_replace(' ', '', $name)) . '@x.test',
+                'status' => $status,
+            ]);
+        };
+
+        $approved = $make('KeepMe', 'approved');
+        $rejected = $make('DropMe', 'rejected');
+
+        /*
+         * The list defaults to `status=approved`; the export defaulted to no status at all, so
+         * every pending and rejected player came out of it as though they were on the books.
+         * That is the failure mode this pins: not "does a filter work" but "does the export
+         * agree with the page it was launched from".
+         */
+        $defaultSheet = $this->sheetText($admin, '/admin/players/export-xlsx');
+
+        $this->assertStringContainsString('KeepMe', $defaultSheet);
+        $this->assertStringNotContainsString('DropMe', $defaultSheet);
+
+        // And an explicit filter narrows it further.
+        $this->assertStringNotContainsString(
+            'KeepMe',
+            $this->sheetText($admin, '/admin/players/export-xlsx?search=Nobody')
+        );
+
+        // A filter that does match still returns the row, so the assertion above is not passing
+        // for the trivial reason that every export is empty.
+        $this->assertStringContainsString(
+            'KeepMe',
+            $this->sheetText($admin, '/admin/players/export-xlsx?search=KeepMe')
+        );
+    }
+
+    /**
+     * The worksheet's text, read out of the .xlsx.
+     *
+     * The response is a file download and an .xlsx is a zip, so asserting on the response body
+     * asserts on compressed bytes — which passes and fails for reasons that have nothing to do
+     * with the rows in it.
+     */
+    private function sheetText($admin, string $url): string
+    {
+        $response = $this->actingAs($admin)->get($url)->assertOk();
+
+        $path = tempnam(sys_get_temp_dir(), 'sheet-') . '.xlsx';
+        // A BinaryFileResponse, not a streamed one — read the file it points at.
+        file_put_contents($path, file_get_contents($response->baseResponse->getFile()->getPathname()));
+
+        $zip = new \ZipArchive();
+        $this->assertTrue($zip->open($path) === true, 'The export should be a readable xlsx.');
+        $xml = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        @unlink($path);
+
+        return $xml;
     }
 
     #[Test]

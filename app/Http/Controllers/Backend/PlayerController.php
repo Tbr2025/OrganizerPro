@@ -117,216 +117,16 @@ class PlayerController extends Controller
         $this->checkAuthorization(Auth::user(), ['player.view']);
 
         // 1. Read all potential filters from the request
-        $filters = [
-            'search' => request('search'),
-            'actual_team_id' => request('actual_team_id'),
-            'role' => request('role'),
-            'batting_profile' => request('batting_profile'),
-            'bowling_profile' => request('bowling_profile'),
-            'status' => request('status', 'approved'),
-            'updated_sort' => request('updated_sort'),
-            'player_mode' => request('player_mode'),
-            'tournament' => request('tournament'),
-            'sort' => request('sort'),
-            'need_transport' => request('need_transport'),
-            'source' => request('source'),
-            'verification' => request('verification'),
-        ];
+        $filters = $this->playerFilters();
 
         // 2. Start the base query with all necessary relationships for performance
         $user = Auth::user();
-        $query = Player::with([
-            'user.organization',
-            'user.actualTeams', // <-- CRITICAL: Load the actual team relationship
-            'user.roles',
-            'team',
-            'actualTeam',
-            'playerType',
-            'location',
-            'battingProfile',
-            'bowlingProfile',
-            'creator', // who added the player (null = self-registered)
-            'registeredTournaments', // tournament tags in the listing
-            'registrations' => fn ($q) => $q->with('tournament:id,name,slug')->latest(),
-        ]);
-
-        // Filter out orphaned player records (no associated user)
-        $query->whereNotNull('user_id');
-
-        // Only show users who have the 'player' role (they may also have other roles)
-        $query->whereHas('user.roles', fn ($q) => $q->where('name', 'Player'));
-
-        // 3. Apply role-based data scoping
-        if ($user->hasRole('Superadmin')) {
-            // Superadmins see all players. No initial scope is applied.
-        } elseif ($user->hasRole('Team Manager') && ! $user->hasRole('Admin')) {
-            // Team Managers only see players from their own team(s)
-            $teamIds = $user->actualTeams->pluck('id')->toArray();
-            if (! empty($teamIds)) {
-                $query->whereIn('actual_team_id', $teamIds);
-            } else {
-                $query->whereRaw('1 = 0');
-            }
-        } elseif ($user->organization_id) {
-            /*
-             * Everyone who belongs to this organization — by ownership, by registration, or
-             * by team.
-             *
-             * This was `whereIn('actual_team_id', $orgTeamIds)` alone, and a player with no
-             * team has `actual_team_id = NULL`, which `IN (...)` never matches. So the list
-             * showed only players already assigned to a squad and silently hid everyone who
-             * had merely registered — which, before an auction has run, is nearly all of
-             * them. They looked like they had never registered at all.
-             *
-             * Registration is checked as well as ownership because a retained player can
-             * have a NULL `organization_id` (they may never have registered themselves), and
-             * `players.organization_id` is checked as well as registration because a player
-             * created directly by an organizer has no registration row yet.
-             */
-            $orgTeamIds = \App\Models\ActualTeam::whereHas('tournament', function ($q) use ($user) {
-                $q->where('organization_id', $user->organization_id);
-            })->pluck('id')->toArray();
-
-            $query->where(function ($q) use ($user, $orgTeamIds) {
-                $q->where('organization_id', $user->organization_id)
-                    ->orWhereHas('registrations.tournament', function ($t) use ($user) {
-                        $t->where('organization_id', $user->organization_id);
-                    });
-
-                if (! empty($orgTeamIds)) {
-                    $q->orWhereIn('actual_team_id', $orgTeamIds);
-                }
-            });
-        } else {
-            $query->whereRaw('1 = 0');
-        }
-
-        // 4. Apply all user-selected filters to the query
-        $players = $query
-            ->when($filters['search'], function ($q) use ($filters) {
-                $q->where(fn ($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
-            })
-            ->when($filters['actual_team_id'], function ($q) use ($filters) {
-                $q->where('actual_team_id', $filters['actual_team_id']);
-            })
-            ->when($filters['role'], function ($q) use ($filters) {
-                if ($filters['role'] === 'Wicket Keeper') {
-                    $q->where('is_wicket_keeper', true);
-                } elseif ($filters['role'] === 'Unknown') {
-                    $q->whereDoesntHave('playerType');
-                } else {
-                    $q->whereHas('playerType', fn ($typeQuery) => $typeQuery->where('type', $filters['role']));
-                }
-            })
-            ->when($filters['batting_profile'], function ($q) use ($filters) {
-                $q->whereHas('battingProfile', fn ($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
-            })->when($filters['player_mode'] ?? null, function ($q, $filters) {
-                if ($filters === 'retained') {
-                    // This is correct. It filters a simple column on the main table.
-                    $q->where('player_mode', 'retained');
-                } elseif ($filters === 'normal') {
-                    $q->where(function ($subQ) {
-                        $subQ->where('player_mode', 'normal')
-                            ->orWhereNull('player_mode');
-                    });
-                }
-            })
-            ->when($filters['bowling_profile'], function ($q) use ($filters) {
-                $q->whereHas('bowlingProfile', fn ($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
-            })
-            ->when($filters['need_transport'] ?? null, function ($q) {
-                $q->where('transportation_required', true);
-            })
-            ->when($filters['source'] ?? null, function ($q) use ($filters) {
-                if ($filters['source'] === 'direct') {
-                    $q->whereNotNull('created_by');
-                } elseif ($filters['source'] === 'registration') {
-                    $q->whereNull('created_by');
-                }
-            })
-            ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
-                if ($filters['status'] === 'approved') {
-                    $q->where('status', 'approved');
-                } elseif ($filters['status'] === 'pending') {
-                    $q->where(fn ($q) => $q->where('status', 'pending')->orWhereNull('status'));
-                } elseif ($filters['status'] === 'queued') {
-                    $q->where('status', 'queued');
-                } elseif ($filters['status'] === 'rejected') {
-                    $q->where('status', 'rejected');
-                }
-            })
-            // Filter by the tournament the player is assigned to (via actual team).
-            ->when($filters['tournament'], function ($q) use ($filters) {
-                $tournamentTeamIds = ActualTeam::forTournament($filters['tournament'])->pluck('id');
-                $q->whereIn('actual_team_id', $tournamentTeamIds);
-            })
-            // Sort: explicit "sort" dropdown wins; else legacy updated_sort; else newest-updated.
-            ->when(true, function ($q) use ($filters) {
-                switch ($filters['sort']) {
-                    case 'name_asc':   $q->orderBy('name');
-                        break;
-                    case 'name_desc':  $q->orderByDesc('name');
-                        break;
-                    case 'newest':     $q->orderByDesc('created_at');
-                        break;
-                    case 'oldest':     $q->orderBy('created_at');
-                        break;
-                    case 'recently_updated': $q->orderByDesc('updated_at');
-                        break;
-                    default:
-                        if (in_array($filters['updated_sort'], ['asc', 'desc'], true)) {
-                            $q->orderBy('updated_at', $filters['updated_sort']);
-                        } else {
-                            $q->orderByDesc('updated_at');
-                        }
-                }
-            });
+        $query = $this->filteredPlayerQuery($filters, $user);
+        $players = $query;
 
         // Branch: verification filter needs post-fetch computation
         if ($filters['verification']) {
-            $allPlayers = $query->get();
-
-            $allPlayers = $allPlayers->filter(function ($player) use ($filters) {
-                $reg = $player->registrations->first();
-                $regVerified = (array) ($reg?->verified_fields ?? []);
-                $regSettings = $reg?->tournament?->settings;
-                $vLayout = PlayerFormConfig::getFormLayout($regSettings, false);
-                $vCustom = $reg?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
-                $skip = ['name', 'image', 'terms_and_conditions'];
-                $vTotal = 0;
-                $vDone = 0;
-                if ($player->image_path) {
-                    $vTotal++;
-                    if (in_array('image', $regVerified, true)) {
-                        $vDone++;
-                    }
-                }
-                foreach ($vLayout as $sec) {
-                    foreach ($sec['fields'] as $fk) {
-                        if (in_array($fk, $skip, true)) {
-                            continue;
-                        }
-                        $vTotal++;
-                        if (in_array($fk, $regVerified, true)) {
-                            $vDone++;
-                        }
-                    }
-                    foreach (($vCustom->where('section', $sec['key']) ?? collect()) as $scf) {
-                        $vTotal++;
-                        if (in_array('cf_' . $scf->id, $regVerified, true)) {
-                            $vDone++;
-                        }
-                    }
-                }
-                $pct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
-
-                return match ($filters['verification']) {
-                    'full' => $pct === 100,
-                    'partial' => $pct > 0 && $pct < 100,
-                    'none' => $pct === 0,
-                    default => true,
-                };
-            });
+            $allPlayers = $this->applyVerificationFilter($query->get(), $filters['verification']);
 
             $page = request()->input('page', 1);
             $perPage = 100;
@@ -399,6 +199,275 @@ class PlayerController extends Controller
         ]);
     }
 
+    /**
+     * Narrow a loaded collection to how completely each player has been verified.
+     *
+     * Cannot be a query: the percentage is worked out from the per-tournament field layout of
+     * whichever registration the player has, so the rows have to be in memory first. That is why
+     * it sits beside filteredPlayerQuery() rather than inside it — and why the export needs it
+     * too, because "the ones nobody has verified" is exactly what somebody opens a spreadsheet
+     * to chase.
+     *
+     * @param  \Illuminate\Support\Collection<int, Player>  $players
+     * @return \Illuminate\Support\Collection<int, Player>
+     */
+    private function applyVerificationFilter($players, ?string $mode)
+    {
+        if (! $mode) {
+            return $players;
+        }
+
+        return $players->filter(function ($player) use ($mode) {
+                $reg = $player->registrations->first();
+                $regVerified = (array) ($reg?->verified_fields ?? []);
+                $regSettings = $reg?->tournament?->settings;
+                $vLayout = PlayerFormConfig::getFormLayout($regSettings, false);
+                $vCustom = $reg?->tournament?->customFields?->where('form', 'player')->where('visible', true) ?? collect();
+                $skip = ['name', 'image', 'terms_and_conditions'];
+                $vTotal = 0;
+                $vDone = 0;
+                if ($player->image_path) {
+                    $vTotal++;
+                    if (in_array('image', $regVerified, true)) {
+                        $vDone++;
+                    }
+                }
+                foreach ($vLayout as $sec) {
+                    foreach ($sec['fields'] as $fk) {
+                        if (in_array($fk, $skip, true)) {
+                            continue;
+                        }
+                        $vTotal++;
+                        if (in_array($fk, $regVerified, true)) {
+                            $vDone++;
+                        }
+                    }
+                    foreach (($vCustom->where('section', $sec['key']) ?? collect()) as $scf) {
+                        $vTotal++;
+                        if (in_array('cf_' . $scf->id, $regVerified, true)) {
+                            $vDone++;
+                        }
+                    }
+                }
+                $pct = $vTotal > 0 ? (int) round(($vDone / $vTotal) * 100) : 0;
+
+                return match ($mode) {
+                    'full' => $pct === 100,
+                    'partial' => $pct > 0 && $pct < 100,
+                    'none' => $pct === 0,
+                    default => true,
+                };
+        });
+    }
+
+    /**
+     * The filters the players list understands, read off the request.
+     *
+     * Shared with the export, which had its own idea of what a filter was — namely none.
+     */
+    private function playerFilters(): array
+    {
+        return [
+            'search' => request('search'),
+            'actual_team_id' => request('actual_team_id'),
+            'role' => request('role'),
+            'batting_profile' => request('batting_profile'),
+            'bowling_profile' => request('bowling_profile'),
+            'status' => request('status', 'approved'),
+            'updated_sort' => request('updated_sort'),
+            'player_mode' => request('player_mode'),
+            'tournament' => request('tournament'),
+            'sort' => request('sort'),
+            'need_transport' => request('need_transport'),
+            'source' => request('source'),
+            'verification' => request('verification'),
+        ];
+    }
+
+    /**
+     * The players this user may see, narrowed by the list's filters.
+     *
+     * Extracted so the LIST and the EXPORT are the same query.
+     *
+     * `exportXlsx()` used to build its own — org scope and nothing else — so a workbook
+     * exported from a filtered page contained every player in the organization, including
+     * the pending and rejected ones the list never shows (`status` defaults to `approved`
+     * here, and defaulted to nothing there). Thirteen filters plus the role scoping below
+     * were simply absent. Two definitions of "which players" is the whole bug; one is the
+     * only arrangement in which they cannot drift apart again.
+     *
+     * The `verification` filter is NOT applied here — it needs per-tournament field layouts
+     * and can only be computed after the rows are loaded. See applyVerificationFilter().
+     */
+    private function filteredPlayerQuery(array $filters, $user)
+    {
+        $query = Player::with([
+            'user.organization',
+            'user.actualTeams', // <-- CRITICAL: Load the actual team relationship
+            'user.roles',
+            'team',
+            'actualTeam',
+            'playerType',
+            'location',
+            'battingProfile',
+            'bowlingProfile',
+            'creator', // who added the player (null = self-registered)
+            'registeredTournaments', // tournament tags in the listing
+            'registrations' => fn ($q) => $q->with('tournament:id,name,slug')->latest(),
+        ]);
+
+        // Filter out orphaned player records (no associated user)
+        $query->whereNotNull('user_id');
+
+        // Only show users who have the 'player' role (they may also have other roles)
+        $query->whereHas('user.roles', fn ($q) => $q->where('name', 'Player'));
+
+        // 3. Apply role-based data scoping
+        if ($user->hasRole('Superadmin')) {
+            // Superadmins see all players. No initial scope is applied.
+        } elseif ($user->hasRole('Team Manager') && ! $user->hasRole('Admin')) {
+            // Team Managers only see players from their own team(s)
+            $teamIds = $user->actualTeams->pluck('id')->toArray();
+            if (! empty($teamIds)) {
+                $query->whereIn('actual_team_id', $teamIds);
+            } else {
+                $query->whereRaw('1 = 0');
+            }
+        } elseif ($user->organization_id) {
+            /*
+             * Everyone who belongs to this organization — by ownership, by registration, or
+             * by team.
+             *
+             * This was `whereIn('actual_team_id', $orgTeamIds)` alone, and a player with no
+             * team has `actual_team_id = NULL`, which `IN (...)` never matches. So the list
+             * showed only players already assigned to a squad and silently hid everyone who
+             * had merely registered — which, before an auction has run, is nearly all of
+             * them. They looked like they had never registered at all.
+             *
+             * Registration is checked as well as ownership because a retained player can
+             * have a NULL `organization_id` (they may never have registered themselves), and
+             * `players.organization_id` is checked as well as registration because a player
+             * created directly by an organizer has no registration row yet.
+             */
+            $orgTeamIds = \App\Models\ActualTeam::whereHas('tournament', function ($q) use ($user) {
+                $q->where('organization_id', $user->organization_id);
+            })->pluck('id')->toArray();
+
+            $query->where(function ($q) use ($user, $orgTeamIds) {
+                $q->where('organization_id', $user->organization_id)
+                    ->orWhereHas('registrations.tournament', function ($t) use ($user) {
+                        $t->where('organization_id', $user->organization_id);
+                    });
+
+                if (! empty($orgTeamIds)) {
+                    $q->orWhereIn('actual_team_id', $orgTeamIds);
+                }
+            });
+        } else {
+            $query->whereRaw('1 = 0');
+        }
+
+        // 4. Apply all user-selected filters to the query
+        return $query
+            ->when($filters['search'], function ($q) use ($filters) {
+                $q->where(fn ($q) => $q->where('name', 'like', "%{$filters['search']}%")->orWhere('email', 'like', "%{$filters['search']}%"));
+            })
+            ->when($filters['actual_team_id'], function ($q) use ($filters) {
+                $q->where('actual_team_id', $filters['actual_team_id']);
+            })
+            ->when($filters['role'], function ($q) use ($filters) {
+                if ($filters['role'] === 'Wicket Keeper') {
+                    $q->where('is_wicket_keeper', true);
+                } elseif ($filters['role'] === 'Unknown') {
+                    $q->whereDoesntHave('playerType');
+                } else {
+                    $q->whereHas('playerType', fn ($typeQuery) => $typeQuery->where('type', $filters['role']));
+                }
+            })
+            ->when($filters['batting_profile'], function ($q) use ($filters) {
+                $q->whereHas('battingProfile', fn ($profileQuery) => $profileQuery->where('style', $filters['batting_profile']));
+            })->when($filters['player_mode'] ?? null, function ($q, $filters) {
+                if ($filters === 'retained') {
+                    // This is correct. It filters a simple column on the main table.
+                    $q->where('player_mode', 'retained');
+                } elseif ($filters === 'normal') {
+                    $q->where(function ($subQ) {
+                        $subQ->where('player_mode', 'normal')
+                            ->orWhereNull('player_mode');
+                    });
+                }
+            })
+            ->when($filters['bowling_profile'], function ($q) use ($filters) {
+                $q->whereHas('bowlingProfile', fn ($profileQuery) => $profileQuery->where('style', 'like', '%' . $filters['bowling_profile'] . '%'));
+            })
+            ->when($filters['need_transport'] ?? null, function ($q) {
+                $q->where('transportation_required', true);
+            })
+            ->when($filters['source'] ?? null, function ($q) use ($filters) {
+                if ($filters['source'] === 'direct') {
+                    $q->whereNotNull('created_by');
+                } elseif ($filters['source'] === 'registration') {
+                    $q->whereNull('created_by');
+                }
+            })
+            ->when($filters['status'] && $filters['status'] !== 'all', function ($q) use ($filters) {
+                if ($filters['status'] === 'approved') {
+                    $q->where('status', 'approved');
+                } elseif ($filters['status'] === 'pending') {
+                    $q->where(fn ($q) => $q->where('status', 'pending')->orWhereNull('status'));
+                } elseif ($filters['status'] === 'queued') {
+                    $q->where('status', 'queued');
+                } elseif ($filters['status'] === 'rejected') {
+                    $q->where('status', 'rejected');
+                }
+            })
+            /*
+             * Everyone connected to this tournament: on one of its squads, OR registered for it.
+             *
+             * Squad membership alone was the whole test, and a player with no squad has
+             * `actual_team_id = NULL`, which `IN (...)` never matches. Before an auction has run
+             * that is nearly everybody — so filtering the list by tournament returned almost
+             * nobody, and the people it hid were exactly the ones being prepared for the
+             * auction. The same mistake was fixed for the organization scope above; this filter
+             * was left with it.
+             *
+             * Registration is checked as well as squad because the two answer different
+             * questions: a retained player may be on a squad without ever registering, and a
+             * registrant has no squad until the auction places them.
+             */
+            ->when($filters['tournament'], function ($q) use ($filters) {
+                $tournamentTeamIds = ActualTeam::forTournament($filters['tournament'])->pluck('id');
+
+                $q->where(function ($w) use ($filters, $tournamentTeamIds) {
+                    $w->whereHas('registrations', fn ($r) => $r->where('tournament_id', $filters['tournament']));
+
+                    if ($tournamentTeamIds->isNotEmpty()) {
+                        $w->orWhereIn('actual_team_id', $tournamentTeamIds);
+                    }
+                });
+            })
+            // Sort: explicit "sort" dropdown wins; else legacy updated_sort; else newest-updated.
+            ->when(true, function ($q) use ($filters) {
+                switch ($filters['sort']) {
+                    case 'name_asc':   $q->orderBy('name');
+                        break;
+                    case 'name_desc':  $q->orderByDesc('name');
+                        break;
+                    case 'newest':     $q->orderByDesc('created_at');
+                        break;
+                    case 'oldest':     $q->orderBy('created_at');
+                        break;
+                    case 'recently_updated': $q->orderByDesc('updated_at');
+                        break;
+                    default:
+                        if (in_array($filters['updated_sort'], ['asc', 'desc'], true)) {
+                            $q->orderBy('updated_at', $filters['updated_sort']);
+                        } else {
+                            $q->orderByDesc('updated_at');
+                        }
+                }
+            });
+    }
     public function create(Request $request): View
     {
         $this->checkAuthorization(Auth::user(), ['player.create']);
@@ -456,21 +525,31 @@ class PlayerController extends Controller
             'player_ids.*' => 'exists:players,id',
         ]);
 
-        $query = Player::with([
-            'team', 'actualTeam', 'playerType', 'location',
-            'battingProfile', 'bowlingProfile', 'kitSize',
-            'user.organization', 'organization',
-        ]);
+        /*
+         * The SAME query the list is showing, not a second opinion about it.
+         *
+         * This used to be `Player::with(...)` plus an organization scope and nothing else. So a
+         * workbook exported from a filtered page held every player in the organization — the
+         * thirteen filters on the list were absent, and so was the role scoping that keeps a
+         * Team Manager to their own squads. `status` was the worst of it: the list defaults to
+         * `approved`, this defaulted to nothing, so the export quietly included every pending
+         * and rejected player as though they were on the books.
+         */
+        $filters = $this->playerFilters();
 
-        // A selection when one is sent, otherwise everything this user may see. The listing is
-        // already scoped by organization for a non-Superadmin, and the same rule applies here.
+        $query = $this->filteredPlayerQuery($filters, Auth::user())
+            ->with(['kitSize', 'organization']);
+
+        // A ticked selection wins over the filters — it is a narrower answer to the same
+        // question, and the checkboxes are on the filtered rows to begin with.
         if ($ids = $request->input('player_ids')) {
             $query->whereIn('id', $ids);
-        } elseif (! Auth::user()->hasRole('Superadmin') && Auth::user()->organization_id) {
-            $query->where('organization_id', Auth::user()->organization_id);
         }
 
-        $players = $query->orderBy('name')->get();
+        $players = $query->get();
+
+        // Verification is computed after loading — see applyVerificationFilter().
+        $players = $this->applyVerificationFilter($players, $filters['verification'])->values();
 
         // How each player was acquired, for the two auction columns — one query for the lot.
         app(\App\Services\Auction\SquadAcquisitionService::class)->attachForOwnTeams($players);
