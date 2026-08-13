@@ -22,7 +22,10 @@
             height: 910px;
             /* Set your card image height */
             background: url('/images/player-card.jpeg') no-repeat center center;
-            background-size: auto;
+            /* Fill the canvas — see live.blade.php: an artwork that is not exactly the
+               template's canvas was drawn at 1:1 and centred, so it sat offset under every
+               element positioned against that canvas. */
+            background-size: 100% 100%;
             /* Keep original image size */
         }
 

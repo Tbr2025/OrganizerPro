@@ -168,8 +168,23 @@
              */
             overflow: hidden;
             @if($backgroundUrl)
+            /*
+             * The artwork fills the canvas — it does not sit at 1:1 inside it.
+             *
+             * `background-size: auto` drew the image at its own pixel size and centred it, so an
+             * artwork that was not EXACTLY the template's canvas was silently cropped and offset.
+             * Production's background is 1920x1080 against a 1601x900 canvas, so its printed
+             * table sat about 1.2x away from the element positions laid over it: every figure
+             * landed off its panel, while the same template with a 1600x900 artwork looked
+             * perfect. Nothing about the positions was wrong — the picture underneath them was
+             * the wrong size.
+             *
+             * 100% 100% rather than `cover`: the canvas defines the coordinate space, so the
+             * artwork must map onto it exactly. Anything that crops re-introduces the same class
+             * of drift for a template whose aspect differs slightly.
+             */
             background: url('{{ $backgroundUrl }}') no-repeat center center;
-            background-size: auto;
+            background-size: 100% 100%;
             @endif
         }
 

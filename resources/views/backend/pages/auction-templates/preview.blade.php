@@ -116,7 +116,8 @@
             height: {{ $template->canvas_height }}px;
             @if($template->background_image)
             background: url('{{ asset('storage/' . $template->background_image) }}') no-repeat center center;
-            background-size: cover;
+            /* Matches the wall and the editor exactly — see _form.blade.php. */
+            background-size: 100% 100%;
             @else
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             border: 2px dashed #444;

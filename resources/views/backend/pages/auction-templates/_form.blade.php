@@ -546,7 +546,10 @@
             <div id="canvas-wrapper" class="overflow-auto rounded-lg border-2 border-gray-300 dark:border-gray-600" style="max-height: 75vh;">
                 <div id="canvas-container" style="position:relative;width:{{ $cw }}px;height:{{ $ch }}px;transform-origin:top left;
                     @if($isEdit && $template->background_image)
-                    background: url('{{ asset('storage/' . $template->background_image) }}') no-repeat center center;background-size:cover;
+                    {{-- 100% 100%, matching the wall. The editor used `cover` while the wall used `auto`, so an
+                         artwork whose size differed from the canvas was framed differently in the two —
+                         and an element dragged to the right place here landed somewhere else there. --}}
+                    background: url('{{ asset('storage/' . $template->background_image) }}') no-repeat center center;background-size:100% 100%;
                     @else
                     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
                     @endif
