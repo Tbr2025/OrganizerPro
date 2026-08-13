@@ -184,9 +184,42 @@ class OrganizerPanelStateTest extends TestCase
         $this->assertNotFalse($lockAt);
         $this->assertNotFalse($excludedAt);
         $this->assertLessThan($lockAt, $excludedAt, 'The excluded-team refusal must come before the lock.');
+    }
 
-        // The lock also disables the chips, so a double-tap cannot post twice.
-        $this->assertStringContainsString('|| this._isBidding;', $html);
+    #[Test]
+    public function a_click_during_an_in_flight_raise_is_queued_rather_than_dropped(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        $html = $this->panel($org, $auction);
+
+        /*
+         * The strip used to go inert for the whole round trip and the second click was thrown
+         * away, so an auctioneer taking raises at the speed a room calls them found the board
+         * unresponsive between every pair of clicks.
+         *
+         * Requests still leave one at a time — two concurrent posts would each read the same
+         * current price and produce the same figure — but the click is remembered.
+         */
+        $this->assertStringNotContainsString(
+            '|| this._isBidding;',
+            $html,
+            'An in-flight raise must not disable every other team.'
+        );
+
+        $this->assertStringContainsString('this._bidQueue.push({ teamId, stepIndex });', $html);
+        $this->assertStringContainsString('_drainBidQueue()', $html);
+
+        /*
+         * The double-tap guard that the disable used to provide now comes from the optimistic
+         * update: it sets the new leader synchronously, and a team already leading is refused
+         * on the line above.
+         */
+        $this->assertStringContainsString(
+            'if (this.currentPlayer?.current_bid_team_id == teamId) return;',
+            $html
+        );
+        $this->assertStringContainsString('_applyOptimisticRaise(team, teamId, stepIndex)', $html);
     }
 
     #[Test]

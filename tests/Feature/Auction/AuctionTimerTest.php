@@ -152,7 +152,7 @@ class AuctionTimerTest extends TestCase
     }
 
     #[Test]
-    public function expiry_in_auto_sell_mode_marks_a_bidless_player_unsold(): void
+    public function expiry_in_auto_sell_mode_leaves_a_bidless_player_on_the_block(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org, ['timer_expiry_action' => Auction::TIMER_AUTO_SELL]);
@@ -162,12 +162,21 @@ class AuctionTimerTest extends TestCase
         Carbon::setTestNow(now());
         $auction->update(['timer_started_at' => now()->subSeconds(120)]);
 
+        /*
+         * The clock does not set a player unsold.
+         *
+         * It used to pass them the moment it ran out with no bids, moving them off the block
+         * and into the unsold pile before anyone in the room had finished speaking — and in a
+         * hall the last seconds are exactly when a hand goes up. Auto-sell means what it says:
+         * if there is a bid, award it. An absence of bids is a judgement about whether the room
+         * is finished, and only the person running it can make that.
+         */
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.timer-expired', $auction), ['auction_player_id' => $ap->id])
             ->assertOk()
-            ->assertJsonPath('action', 'unsold');
+            ->assertJsonPath('action', 'locked');
 
-        $this->assertSame('unsold', $ap->fresh()->status);
+        $this->assertSame('on_auction', $ap->fresh()->status);
     }
 
     #[Test]

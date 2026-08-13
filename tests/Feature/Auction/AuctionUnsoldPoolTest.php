@@ -211,7 +211,7 @@ class AuctionUnsoldPoolTest extends TestCase
     }
 
     #[Test]
-    public function an_auto_sell_expiry_with_no_bids_sets_the_player_aside(): void
+    public function an_auto_sell_expiry_with_no_bids_leaves_the_player_where_they_are(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org, ['timer_expiry_action' => Auction::TIMER_AUTO_SELL]);
@@ -226,11 +226,13 @@ class AuctionUnsoldPoolTest extends TestCase
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.timer-expired', $auction), ['auction_player_id' => $ap->id])
             ->assertOk()
-            ->assertJsonPath('action', 'unsold');
+            ->assertJsonPath('action', 'locked');
 
-        $unsoldPool = AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->first();
-        $this->assertNotNull($unsoldPool);
-        $this->assertSame($unsoldPool->id, $ap->fresh()->auction_pool_id);
+        // Nothing is set aside by a clock. The pile is not even opened, because opening it is
+        // a consequence of a decision nobody has made yet.
+        $this->assertNull(AuctionPool::where('auction_id', $auction->id)->where('is_unsold_pool', true)->first());
+        $this->assertSame($pool->id, $ap->fresh()->auction_pool_id);
+        $this->assertSame('on_auction', $ap->fresh()->status);
     }
 
     #[Test]

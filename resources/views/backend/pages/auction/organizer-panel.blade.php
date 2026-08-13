@@ -3179,6 +3179,14 @@ function auctionOrganizerPanel() {
          * screen driving the room -- the standalone offline panel has always allowed it.
          */
         _isBidding: false,
+        /**
+         * Raises clicked while one is already in flight.
+         *
+         * Requests go out strictly one at a time — two concurrent posts would each read the
+         * same current price and produce the same figure — but a click is queued rather than
+         * discarded, so an auctioneer taking raises at the speed a room calls them loses none.
+         */
+        _bidQueue: [],
 
         async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding') return;
@@ -3203,11 +3211,27 @@ function auctionOrganizerPanel() {
                 return;
             }
 
-            // A double-tap on a hall touchscreen posted twice and the price climbed two
-            // increments. The chips are also :disabled while this is held, so the guard is
-            // visible as well as enforced.
-            if (this._isBidding) return;
-            this._isBidding = true;
+            /*
+             * A raise already in flight does not block this one — it queues behind it.
+             *
+             * Rejecting the click meant an auctioneer taking raises at the speed a room calls
+             * them lost every second one, and the board sat unresponsive in between. Requests
+             * still go out strictly one at a time, because two concurrent posts would each read
+             * the same current price and produce the same figure; but the click is remembered
+             * rather than discarded, and the optimistic update below makes the board move now.
+             *
+             * The double-tap this used to guard is handled by that optimistic update instead:
+             * it sets the new leader synchronously, and a team that is already leading cannot
+             * be bid for. Capped so a stuck finger cannot run the price away.
+             */
+            if (this._isBidding) {
+                if (this._bidQueue.length < 4) {
+                    this._bidQueue.push({ teamId, stepIndex });
+                    this._applyOptimisticRaise(team, teamId, stepIndex);
+                }
+
+                return;
+            }
 
             // An armed jump applies to this one bid, then disarms.
             if (stepIndex === null && this.armedStepIndex !== null) {
@@ -3219,27 +3243,38 @@ function auctionOrganizerPanel() {
              * Show the raise NOW, then reconcile with the server.
              *
              * The price and the leader used to change only once the round trip came back, so in
-             * a hall the chip was pressed and nothing happened for as long as the request took —
-             * which is the lag being reported. The server remains the authority: its
-             * `current_price` overwrites this a moment later, and a refusal puts back exactly
-             * what was on screen before.
-             *
-             * The optimistic price is only applied for an ordinary increment. A quick-bid jump
-             * has an amount this panel does not compute, so that case shows the new leader and
-             * leaves the figure to the response rather than flashing a wrong number.
+             * a hall the chip was pressed and nothing happened for as long as the request took.
+             * The server remains the authority: its `current_price` overwrites this a moment
+             * later, and a refusal puts back exactly what was on screen before.
+             */
+            this._applyOptimisticRaise(team, teamId, stepIndex);
+
+            this._postBid(teamId, stepIndex);
+        },
+
+        /**
+         * Send one raise, and reconcile the board with what the server says.
+         *
+         * Separate from bidForTeam because a queued click has already been validated and has
+         * already moved the board — re-entering the front door would re-run the "that team
+         * already leads" refusal against the optimistic state the click itself produced, and
+         * quietly drop it.
+         */
+        async _postBid(teamId, stepIndex) {
+            if (! this.currentPlayer) return;
+
+            this._isBidding = true;
+
+            /*
+             * Snapshotted AFTER the optimistic update, because that is the state a failure has
+             * to return to — not the state before whichever queued raise happened to be first.
+             * The two-second poll reconciles anything this cannot.
              */
             const previous = {
                 bid: this.currentBid,
                 leader: this.winningTeamName,
                 teamId: this.currentPlayer.current_bid_team_id,
             };
-
-            if (team) this.winningTeamName = team.name;
-            this.currentPlayer.current_bid_team_id = teamId;
-            if (stepIndex === null && this.nextBidAmount) {
-                this.currentBid = this.nextBidAmount;
-            }
-            this.resetBiddingTimer();
 
             try {
                 const response = await fetch('/admin/auctions/add-bid', {
@@ -3275,7 +3310,43 @@ function auctionOrganizerPanel() {
                 this.toast('That bid did not go through.', 'error');
             } finally {
                 this._isBidding = false;
+                this._drainBidQueue();
             }
+        },
+
+        /**
+         * Show a raise before the server has confirmed it.
+         *
+         * Split out so a queued click can move the board at the moment it is clicked rather
+         * than when its turn comes — which is the whole point of queueing rather than dropping.
+         * The server's figure overwrites this either way.
+         */
+        _applyOptimisticRaise(team, teamId, stepIndex) {
+            if (team) this.winningTeamName = team.name;
+            if (this.currentPlayer) this.currentPlayer.current_bid_team_id = teamId;
+
+            // Only for an ordinary increment: a quick-bid jump has an amount this panel does
+            // not compute, so it shows the new leader and leaves the figure to the response.
+            if (stepIndex === null && this.nextBidAmount) {
+                this.currentBid = this.nextBidAmount;
+            }
+
+            this.resetBiddingTimer();
+        },
+
+        /** Send the next queued raise, now that the previous one has settled. */
+        _drainBidQueue() {
+            const next = this._bidQueue.shift();
+
+            if (! next) return;
+
+            /*
+             * `_postBid` rather than `bidForTeam`: the click has already been validated and
+             * already moved the board. Re-entering the front door would re-run the
+             * "that team already leads" refusal against the optimistic state this very click
+             * produced, and silently drop itself.
+             */
+            this._postBid(next.teamId, next.stepIndex);
         },
 
         // Offline bidding methods
@@ -3705,11 +3776,21 @@ function auctionOrganizerPanel() {
             return !this.currentPlayer
                 || this.displayState !== 'bidding'
                 || this.currentPlayer?.current_bid_team_id == team.id
-                || !!team.excluded
-                // While a bid is in flight the whole strip is inert, so a double-tap on a hall
-                // touchscreen cannot post twice. bidForTeam() holds the same flag; this is what
-                // makes the guard visible instead of a click that appears to do nothing.
-                || this._isBidding;
+                || !!team.excluded;
+            /*
+             * NOT disabled while a bid is in flight.
+             *
+             * The whole strip used to go inert for the round trip, so an auctioneer taking
+             * raises at the speed a room actually calls them found the board unresponsive
+             * between every pair of clicks, and the second click was dropped rather than
+             * queued. That is the lag being reported.
+             *
+             * The double-tap it was guarding against is already impossible: `bidForTeam` applies
+             * the new leader optimistically before it posts, so the clause directly above —
+             * a team that is already leading cannot be bid for — refuses the second tap on the
+             * same chip immediately. A tap on a DIFFERENT chip is a real next bid, and now
+             * queues behind the one in flight instead of being thrown away.
+             */
         },
 
         teamTooltip(team) {

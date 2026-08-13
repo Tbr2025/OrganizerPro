@@ -1726,18 +1726,28 @@ class AuctionOrganizerController extends Controller
             ]);
         }
 
-        // auto_sell: award to the highest standing bidder, or mark unsold.
+        // auto_sell: award to the highest standing bidder. Nothing more.
         $winningBid = $auctionPlayer->liveBids()->orderByDesc('amount')->first();
 
         if (! $winningBid || ! $winningBid->team_id) {
-            $passRequest = new Request(['auction_player_id' => $auctionPlayer->id]);
-            $this->passPlayer($passRequest, $auction);
-
+            /*
+             * The clock does NOT set a player unsold.
+             *
+             * It used to pass them automatically the moment it ran out with no bids — moving
+             * them off the block and into the unsold pile before anyone in the room had
+             * finished speaking. In a hall the last seconds are exactly when a hand goes up,
+             * and recovering meant an UNDO that also had to be explained to the auctioneer.
+             *
+             * Auto-sell means what it says: if there is a bid, award it. An absence of bids is
+             * not a result the clock is entitled to record — that is a judgement about whether
+             * the room is finished, and only the person running it can make it. So the player
+             * stays on the block and the panel says so; PASS is one key away.
+             */
             return response()->json([
                 'success' => true,
-                'message' => 'Time up with no bids — player is unsold.',
+                'message' => 'Time up with no bids. The player is still on the block — press PASS to set them aside, or keep taking bids.',
                 'handled' => true,
-                'action' => 'unsold',
+                'action' => 'locked',
             ]);
         }
 
