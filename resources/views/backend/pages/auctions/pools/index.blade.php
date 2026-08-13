@@ -341,10 +341,13 @@
                                      button should not claim the one it is not producing. --}}
                                 <span x-text="`Download ${selectedInPool({{ $pool->id }}).length} {{ $posterTemplates->isNotEmpty() ? 'poster' : 'card' }}(s)`"></span>
                             </button>
-                            <button type="button" x-show="selectedInPool({{ $pool->id }}).length" :disabled="busy"
-                                    @click="confirmRemovePlayers(selectedInPool({{ $pool->id }}))"
+                            {{-- Counts only the removable ones. Now that a sold player can be
+                                 ticked for a poster, a selection of eight sold players would
+                                 otherwise offer to remove eight and remove none. --}}
+                            <button type="button" x-show="removableInPool({{ $pool->id }}).length" :disabled="busy"
+                                    @click="confirmRemovePlayers(removableInPool({{ $pool->id }}))"
                                     class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
-                                <span x-text="`Remove ${selectedInPool({{ $pool->id }}).length} from pool`"></span>
+                                <span x-text="`Remove ${removableInPool({{ $pool->id }}).length} from pool`"></span>
                             </button>
 
                             @if($posterTemplates->isNotEmpty())
@@ -414,20 +417,26 @@
                                     ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
                                     : 'border-gray-100 dark:border-gray-700'">
                                 <span class="flex items-center gap-2 min-w-0">
-                                    @if($ap->status === 'waiting')
-                                        <input type="checkbox"
-                                               data-player-select
-                                               data-player-id="{{ $ap->player_id }}"
-                                               data-player-name="{{ $ap->player->name ?? 'Player #'.$ap->player_id }}"
-                                               data-pool-of="{{ $pool->id }}"
-                                               class="h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer shrink-0"
-                                               :checked="selectedPlayers.includes({{ $ap->player_id }})"
-                                               @change="togglePlayer({{ $ap->player_id }})"
-                                               aria-label="Select {{ $ap->player->name ?? 'player' }}">
-                                    @else
-                                        {{-- Sold or on the block: not removable, so not selectable. --}}
-                                        <span class="inline-block w-4 shrink-0"></span>
-                                    @endif
+                                    {{-- Every player gets a tick, sold or not.
+                                         This was rendered only for `waiting`, on the reasoning that
+                                         a sold player is not removable — true, but the tick had
+                                         since grown a second job: it is also what picks players for
+                                         a poster run. So a completed pool had nothing selectable in
+                                         it, and the posters an organizer actually wants — the sold
+                                         ones, with the buying team and the price on them — were the
+                                         only posters the screen refused to produce.
+                                         Removability travels as an attribute instead, and the
+                                         Remove action reads it. --}}
+                                    <input type="checkbox"
+                                           data-player-select
+                                           data-player-id="{{ $ap->player_id }}"
+                                           data-player-name="{{ $ap->player->name ?? 'Player #'.$ap->player_id }}"
+                                           data-pool-of="{{ $pool->id }}"
+                                           @if($ap->status === 'waiting') data-removable="1" @endif
+                                           class="h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer shrink-0"
+                                           :checked="selectedPlayers.includes({{ $ap->player_id }})"
+                                           @change="togglePlayer({{ $ap->player_id }})"
+                                           aria-label="Select {{ $ap->player->name ?? 'player' }}">
                                     <span class="text-xs text-gray-400 w-5">{{ $ap->is_retained ? '★' : ($ap->lot_number ?? '–') }}</span>
 
                                     {{-- The same summary the players list gives: face, name, and how
@@ -474,16 +483,20 @@
                                 </span>
 
                                 <span class="flex items-center gap-1.5 shrink-0">
-                                    @if($posterTemplates->isNotEmpty())
-                                        {{-- One player's poster, rendered on the spot. Going through
-                                             the export queue for a single PNG means a job, a zip and
-                                             a progress dialog to fetch one file. --}}
-                                        <a href="{{ route('admin.auctions.player-poster', [$auction, $ap]) }}"
-                                           class="text-xs text-gray-400 hover:text-amber-600"
-                                           title="Download this player's poster">
-                                            <iconify-icon icon="lucide:image-down" width="15"></iconify-icon>
-                                        </a>
-                                    @endif
+                                    {{-- One player's poster, rendered on the spot. Going through
+                                         the export queue for a single PNG means a job, a zip and
+                                         a progress dialog to fetch one file.
+
+                                         Not gated on a designed poster any more: with no template
+                                         this whole control vanished, so on a tournament that had
+                                         never opened the poster editor the screen simply had no
+                                         download on it and no way to say why. The server falls back
+                                         to the LED wall card, which every auction has. --}}
+                                    <a href="{{ route('admin.auctions.player-poster', [$auction, $ap]) }}"
+                                       class="text-xs text-gray-400 hover:text-amber-600"
+                                       title="Download this player's {{ $posterTemplates->isNotEmpty() ? 'poster' : 'card' }}">
+                                        <iconify-icon icon="lucide:image-down" width="15"></iconify-icon>
+                                    </a>
                                     @if($ap->status === 'waiting')
                                     <button type="button" :disabled="busy"
                                             @click="confirmRemovePlayers([{{ $ap->player_id }}])"
@@ -693,6 +706,21 @@ function poolManager(auctionId) {
             return this.selectedPlayers.filter(id => ids.includes(id));
         },
 
+        /**
+         * The ticked players in this pool that can actually leave it.
+         *
+         * A tick means two things now — "include in the poster run" and "remove from the pool" —
+         * and only the first applies to a player who has already been sold or is on the block.
+         * Read off the DOM rather than tracked in state, so it cannot drift from what is rendered.
+         */
+        removableInPool(poolId) {
+            const removable = this._playerBoxes(poolId)
+                .filter(el => el.hasAttribute('data-removable'))
+                .map(el => Number(el.getAttribute('data-player-id')));
+
+            return this.selectedInPool(poolId).filter(id => removable.includes(id));
+        },
+
         poolFullySelected(poolId) {
             const ids = this.playerIdsInPool(poolId);
             return ids.length > 0 && ids.every(id => this.selectedPlayers.includes(id));
@@ -747,8 +775,24 @@ function poolManager(auctionId) {
         },
 
         confirmRemovePlayers(ids) {
-            const list = (ids || []).filter(id => !this.playerRemoved.includes(id));
-            if (!list.length) return;
+            /*
+             * Removable only, whoever asked. The per-row × is rendered for waiting players alone,
+             * but the bulk path takes a list, and a sold player in it would be sent to a server
+             * that refuses them — reported back as a failure the operator did not cause.
+             */
+            const removable = Array.from(this.$root.querySelectorAll('input[data-player-select][data-removable]'))
+                .map(el => Number(el.getAttribute('data-player-id')));
+
+            const asked = (ids || []).filter(id => !this.playerRemoved.includes(id));
+            const list = asked.filter(id => removable.includes(id));
+
+            if (!list.length) {
+                if (asked.length) {
+                    this.toast('Those players are already sold or on the block — a result cannot be undone by removing them from a pool.', 'error');
+                }
+
+                return;
+            }
 
             this.confirmBox = {
                 open: true,

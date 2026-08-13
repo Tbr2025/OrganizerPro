@@ -416,9 +416,28 @@
                                     <span class="text-amber-200 font-semibold">Pick</span> on the winning team's row
                                     above. Recorded as an organizer decision rather than a draw.
                                 </p>
-                                <input type="text" x-model="sealedManualReason"
-                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600"
+                                <input type="text" x-model="sealedManualReason" x-ref="sealedManualReason"
+                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600 transition-colors"
+                                       :class="sealedReasonFlash ? 'border-amber-400 ring-2 ring-amber-500/40' : ''"
                                        placeholder="e.g. slips drawn at the desk by the tournament referee">
+
+                                {{-- The three answers this box almost always gets, as one tap each.
+                                     The reason is required so the decision can be defended later,
+                                     but typing a sentence on a phone while a tied board is on the
+                                     wall is what made the requirement feel like an obstruction
+                                     rather than a record. Still free text — these are a shortcut,
+                                     not the only permitted answers. --}}
+                                <div class="flex flex-wrap gap-1.5 mt-2">
+                                    <template x-for="reason in LOT_REASONS" :key="reason">
+                                        <button type="button" @click="sealedManualReason = reason"
+                                                class="px-2 py-1 rounded-md border text-[10px] font-semibold transition-colors"
+                                                :class="sealedManualReason === reason
+                                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-200'
+                                                    : 'bg-gray-950 border-gray-700 text-gray-400 hover:text-amber-200 hover:border-amber-500/40'"
+                                                x-text="reason"></button>
+                                    </template>
+                                </div>
+
                                 <p x-show="!sealedManualReason.trim()" class="text-gray-600 text-[10px] mt-1.5">
                                     Pick stays refused until this is filled in.
                                 </p>
@@ -1451,6 +1470,10 @@
             _lotSpinTimeout: null,
             LOT_SPIN_MS: 15000,
             sealedManualReason: '',
+            // Briefly rings the reason box when a Pick is refused for want of one.
+            sealedReasonFlash: false,
+            // The usual three, offered as one tap each — see the note beside them in the markup.
+            LOT_REASONS: ['Slips drawn at the desk', 'Coin toss', 'Organizer decision'],
             shufflePhase: 'spinning', // 'spinning' | 'reveal'
             shuffleDisplayName: '',
             shuffleSelectedPlayer: null,
@@ -2426,7 +2449,12 @@
             /** The physical draw: the organizer records who won it, and why. */
             async sealedResolveManual(teamId) {
                 if (! this.sealedManualReason.trim()) {
+                    // Point at the box, not just at the rule — it sits below the team rows.
                     this.toast('An unexplained override cannot be defended later.', 'error', 'Reason required');
+                    this.sealedReasonFlash = true;
+                    setTimeout(() => { this.sealedReasonFlash = false; }, 1600);
+                    this.$refs.sealedManualReason?.focus();
+
                     return;
                 }
 

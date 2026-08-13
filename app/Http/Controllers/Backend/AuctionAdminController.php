@@ -2545,11 +2545,25 @@ class AuctionAdminController extends Controller
             ->orderByDesc('is_default')
             ->first();
 
-        if (! $template) {
-            return back()->with('error', 'No auction poster has been designed for this tournament yet.');
-        }
-
         $auctionPlayer->loadMissing(['player', 'soldToTeam', 'pool', 'sourcePool']);
+
+        $name = app(\App\Services\Auction\AuctionCardRenderer::class)->filename($auctionPlayer, true);
+
+        /*
+         * No designed poster: fall back to the LED wall card, which every auction has.
+         *
+         * This used to redirect back with "No auction poster has been designed for this
+         * tournament yet." — and the pools screen hid the download control in exactly the same
+         * case, so the message was unreachable and the screen simply had no download on it. An
+         * organizer reading that screen after a pool completes concludes the download broke when
+         * the players sold. The bulk export already falls back this way; the single one did not.
+         */
+        if (! $template) {
+            $path = app(\App\Services\Auction\AuctionCardRenderer::class)
+                ->render($auction, $auctionPlayer, true);
+
+            return response()->download($path, $name)->deleteFileAfterSend(true);
+        }
 
         $stored = app(\App\Services\Poster\TemplateRenderService::class)->renderTemplate(
             $template,
@@ -2561,7 +2575,6 @@ class AuctionAdminController extends Controller
         );
 
         $path = Storage::disk('public')->path($stored);
-        $name = app(\App\Services\Auction\AuctionCardRenderer::class)->filename($auctionPlayer, true);
 
         // Deleted after sending: it is a one-off render, not something the public disk should keep.
         return response()->download($path, $name)->deleteFileAfterSend(true);

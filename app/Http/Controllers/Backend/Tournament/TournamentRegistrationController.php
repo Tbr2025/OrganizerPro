@@ -62,22 +62,50 @@ class TournamentRegistrationController extends Controller
 
         $query->where('tournament_registrations.type', $type);
 
+        /*
+         * Who counts as an Icon Player — a player their team KEPT before the auction.
+         *
+         * This read `players.player_mode = 'retained'`, which cannot answer the question.
+         * AuctionSaleService sets that column to `retained` when a player is SOLD as well as
+         * when one is kept (see SquadAcquisitionService, written for this exact confusion), so
+         * the column really means "claimed by a team". Two consequences on this page: every
+         * player bought in the room drifted out of Unretained and into Icon Player as the
+         * auction ran, and `player_mode` is one global column, so a player kept by their team in
+         * a DIFFERENT tournament was counted as an icon player here.
+         *
+         * The auction row is the authority: `is_retained` is set when a team keeps a player and
+         * is never set by a sale. Scoped to THIS tournament's auction, so the answer is about
+         * this competition.
+         *
+         * `player_mode` survives only as the fallback for a player with no auction row at all —
+         * a tournament whose auction has not been set up yet has nowhere else to look, and
+         * before this change that was the only thing the page read.
+         */
+        $isIconPlayer = function ($q) use ($tournament) {
+            $auctionRow = fn ($sub) => $sub->from('auction_players')
+                ->join('auctions', 'auctions.id', '=', 'auction_players.auction_id')
+                ->whereColumn('auction_players.player_id', 'tournament_registrations.player_id')
+                ->where('auctions.tournament_id', $tournament->id);
+
+            $q->whereExists(fn ($sub) => $auctionRow($sub)->where('auction_players.is_retained', true))
+                ->orWhere(function ($fallback) use ($auctionRow) {
+                    $fallback->whereNotExists(fn ($sub) => $auctionRow($sub))
+                        ->whereExists(fn ($sub) => $sub->from('players')
+                            ->whereColumn('players.id', 'tournament_registrations.player_id')
+                            ->where('players.player_mode', 'retained'));
+                });
+        };
+
         if ($status === 'retained') {
             $query->where('tournament_registrations.status', 'approved')
-                  ->where('players.player_mode', 'retained');
+                  ->where($isIconPlayer);
         } elseif ($status === 'unretained') {
             $query->where('tournament_registrations.status', 'approved')
-                  ->where(function ($q) {
-                      $q->whereNull('players.player_mode')
-                        ->orWhere('players.player_mode', '!=', 'retained');
-                  });
+                  ->whereNot($isIconPlayer);
         } elseif ($status === 'approved') {
-            // Approved tab excludes retained players (they have their own tab)
+            // Approved tab excludes icon players (they have their own tab)
             $query->where('tournament_registrations.status', 'approved')
-                  ->where(function ($q) {
-                      $q->whereNull('players.player_mode')
-                        ->orWhere('players.player_mode', '!=', 'retained');
-                  });
+                  ->whereNot($isIconPlayer);
         } elseif ($status && $status !== 'all') {
             $query->where('tournament_registrations.status', $status);
         }
@@ -180,12 +208,18 @@ class TournamentRegistrationController extends Controller
             'rejectedCount' => $countBase()->rejected()->count(),
             'cancelledCount' => $countBase()->cancelled()->count(),
             'queuedCount' => $countBase()->queued()->count(),
-            'retainedCount' => $countBase()->approved()
-                ->whereHas('player', fn ($q) => $q->where('player_mode', 'retained'))
-                ->count(),
-            'unretainedCount' => $countBase()->approved()
-                ->whereHas('player', fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
-                ->count(),
+            /*
+             * The same definition the tabs use, so a card and the tab it links to cannot disagree.
+             *
+             * The old unretained count also had an ungrouped `orWhere` inside a whereHas — which
+             * compiles to `(player_id = players.id AND mode <> 'retained') OR mode IS NULL`, so a
+             * single player anywhere in the table with a NULL player_mode would have made the
+             * EXISTS true for every approved registration and reported all of them as unretained.
+             * Nothing on live has a NULL player_mode today, which is the only reason the number
+             * looked right.
+             */
+            'retainedCount' => $countBase()->approved()->where($isIconPlayer)->count(),
+            'unretainedCount' => $countBase()->approved()->whereNot($isIconPlayer)->count(),
             'filters' => compact('type', 'status', 'search', 'sort', 'direction', 'playingTeam', 'tournamentType'),
             'filterDefinitions' => $filterDefinitions,
             'playerPool' => $playerPool,

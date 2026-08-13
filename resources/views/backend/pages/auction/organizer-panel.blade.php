@@ -552,9 +552,21 @@
                                         <button x-show="entry.withdrawn && !sealed.revealed"
                                                 @click="sealedEntryCommand(entry.entry_id, 'reinstate')"
                                                 class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-emerald-400">Restore</button>
+                                        {{-- Says why it is refused BEFORE the click.
+                                             This was always clickable and answered with a toast —
+                                             "an unexplained override cannot be defended later" —
+                                             which names the rule but not the field, and the field is
+                                             in a different panel below the rows. Mid-tie, with the
+                                             hall watching, that reads as Pick being broken. The
+                                             offline panel had already been given the disabled state;
+                                             this one had not. --}}
                                         <button x-show="sealed.state === 'awaiting_lot' && (sealed.tied_team_ids || []).includes(entry.team_id)"
                                                 @click="sealedResolveManual(entry.team_id)"
-                                                class="px-2 py-0.5 rounded bg-amber-600/30 border border-amber-500/40 text-amber-200 text-[10px]">Pick</button>
+                                                :disabled="!sealedManualReason.trim()"
+                                                :title="sealedManualReason.trim()
+                                                    ? 'Record this team as the winner of the physical draw'
+                                                    : 'Give the reason for the physical draw first — the box is below'"
+                                                class="px-2 py-0.5 rounded bg-amber-600/30 border border-amber-500/40 text-amber-200 text-[10px] disabled:opacity-40 disabled:cursor-not-allowed">Pick</button>
                                     </div>
                                 </div>
                             </template>
@@ -700,9 +712,28 @@
                                     <span class="text-amber-200 font-semibold">Pick</span> on the winning team's row
                                     above. Recorded as an organizer decision rather than a draw.
                                 </p>
-                                <input type="text" x-model="sealedManualReason"
-                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600"
+                                <input type="text" x-model="sealedManualReason" x-ref="sealedManualReason"
+                                       class="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-xs placeholder-gray-600 transition-colors"
+                                       :class="sealedReasonFlash ? 'border-amber-400 ring-2 ring-amber-500/40' : ''"
                                        placeholder="e.g. slips drawn at the desk by the tournament referee">
+
+                                {{-- The three answers this box almost always gets, as one tap each.
+                                     The reason is required so the decision can be defended later,
+                                     but typing a sentence on a phone while a tied board is on the
+                                     wall is what made the requirement feel like an obstruction
+                                     rather than a record. Still free text — these are a shortcut,
+                                     not the only permitted answers. --}}
+                                <div class="flex flex-wrap gap-1.5 mt-2">
+                                    <template x-for="reason in LOT_REASONS" :key="reason">
+                                        <button type="button" @click="sealedManualReason = reason"
+                                                class="px-2 py-1 rounded-md border text-[10px] font-semibold transition-colors"
+                                                :class="sealedManualReason === reason
+                                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-200'
+                                                    : 'bg-gray-950 border-gray-700 text-gray-400 hover:text-amber-200 hover:border-amber-500/40'"
+                                                x-text="reason"></button>
+                                    </template>
+                                </div>
+
                                 <p x-show="!sealedManualReason.trim()" class="text-gray-600 text-[10px] mt-1.5">
                                     Pick stays refused until this is filled in.
                                 </p>
@@ -2245,6 +2276,10 @@ function auctionOrganizerPanel() {
         sealedAmountsVisible: false,
         sealedAdjustAmount: {},
         sealedManualReason: '',
+        // Briefly rings the reason box when a Pick is refused for want of one.
+        sealedReasonFlash: false,
+        // The usual three, offered as one tap each — see the note beside them in the markup.
+        LOT_REASONS: ['Slips drawn at the desk', 'Coin toss', 'Organizer decision'],
 
         /*
          * Which teams to invite into the NEXT sealed round, before Open Entry is pressed.
@@ -3143,7 +3178,16 @@ function auctionOrganizerPanel() {
 
         async sealedResolveManual(teamId) {
             if (!this.sealedManualReason.trim()) {
+                /*
+                 * Point at the box, do not just name the rule. The reason field is in a panel
+                 * below the team rows, so a toast on its own left the organizer looking for
+                 * something the message never mentioned.
+                 */
                 this.toast('An unexplained override cannot be defended later.', 'error', 'Reason required');
+                this.sealedReasonFlash = true;
+                setTimeout(() => { this.sealedReasonFlash = false; }, 1600);
+                this.$refs.sealedManualReason?.focus();
+
                 return;
             }
             const data = await this.sealedCommand('resolve-manual', { team_id: teamId, reason: this.sealedManualReason });
