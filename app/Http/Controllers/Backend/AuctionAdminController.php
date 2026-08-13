@@ -371,6 +371,7 @@ class AuctionAdminController extends Controller
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
             'show_squad_values' => 'nullable|boolean',
+            'show_acquisition_badge' => 'nullable|boolean',
             // Whether this auction ignores the tournament's squad rules — Auction::rule().
             'overrides_tournament_rules' => 'nullable|boolean',
             'start_at' => 'required|date',
@@ -508,6 +509,7 @@ class AuctionAdminController extends Controller
                  * absence there correctly means "new auctions show values".
                  */
                 'overrides_tournament_rules' => $request->boolean('overrides_tournament_rules'),
+                'show_acquisition_badge' => $request->boolean('show_acquisition_badge', true),
                 'show_squad_values' => $request->has('show_squad_values')
                     ? $request->boolean('show_squad_values')
                     : true,
@@ -1469,6 +1471,7 @@ class AuctionAdminController extends Controller
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
             'show_squad_values' => 'nullable|boolean',
+            'show_acquisition_badge' => 'nullable|boolean',
             // Whether this auction ignores the tournament's squad rules — Auction::rule().
             'overrides_tournament_rules' => 'nullable|boolean',
             'bid_rules' => 'required|array|min:1',
@@ -1597,6 +1600,7 @@ class AuctionAdminController extends Controller
                  * absence there correctly means "new auctions show values".
                  */
                 'overrides_tournament_rules' => $request->boolean('overrides_tournament_rules'),
+                'show_acquisition_badge' => $request->boolean('show_acquisition_badge', true),
                 'show_squad_values' => $request->has('show_squad_values')
                     ? $request->boolean('show_squad_values')
                     : true,

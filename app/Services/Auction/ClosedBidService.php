@@ -578,6 +578,21 @@ class ClosedBidService
         return DB::transaction(function () use ($round, $actor, $teamIds) {
             $round = AuctionClosedBidRound::lockForUpdate()->find($round->id);
 
+            /*
+             * Bidding is happening, so the auction is running.
+             *
+             * A sealed round can be started with no pool active — reopening a pool is what lifts
+             * `completed` elsewhere, and this path never goes through it. So the panel showed
+             * COMPLETED across the top of a live sealed board with five teams awaiting, which is
+             * the status every other screen reads to decide whether the auction is on.
+             *
+             * Only `completed` is lifted, for the same reason as in activatePool(): `paused` has
+             * its own Resume and `scheduled` means the organizer has not started yet.
+             */
+            if ($round->auction && $round->auction->status === 'completed') {
+                $round->auction->update(['status' => 'running']);
+            }
+
             if ($round->state === AuctionClosedBidRound::STATE_COLLECTING) {
                 return ['handled' => false, 'message' => 'That round is already running.', 'round' => $round];
             }

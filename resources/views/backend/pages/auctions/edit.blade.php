@@ -781,8 +781,7 @@
                                  Useful to the organizer, awkward on a team manager's screen —
                                  which is often on a shared table, where what a rival paid for a
                                  player is exactly the number people lean over to read. The
-                                 Icon Player / Icon Player badge is unaffected either way; only the
-                                 money is withheld. --}}
+                                 badge is a separate switch below; only the money is withheld here. --}}
                             <label class="mt-4 flex items-start gap-3 cursor-pointer">
                                 {{-- An unticked checkbox posts nothing, and the server cannot tell
                                      "unticked" from "this form has no such field" — so the toggle
@@ -799,6 +798,25 @@
                                     <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                                         Turn this off to keep the prices to yourself. Players are still
                                         badged as Icon Player or Auction.
+                                    </span>
+                                </span>
+                            </label>
+
+                            {{-- The badge itself, beside the money. Two different disclosures: a
+                                 competition may be happy for everyone to see who bought whom and
+                                 still not want a rival's KEPT players advertised. --}}
+                            <label class="mt-3 flex items-start gap-3 cursor-pointer">
+                                <input type="hidden" name="show_acquisition_badge" value="0">
+                                <input type="checkbox" name="show_acquisition_badge" value="1"
+                                       x-model="auctionData.show_acquisition_badge"
+                                       class="mt-0.5 w-4 h-4 accent-blue-600">
+                                <span>
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-white">
+                                        Show the Icon Player / Auction badge
+                                    </span>
+                                    <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        The label and its icon on squad lists — a padlock for a player kept
+                                        before the auction, a hammer for one bought in the room.
                                     </span>
                                 </span>
                             </label>

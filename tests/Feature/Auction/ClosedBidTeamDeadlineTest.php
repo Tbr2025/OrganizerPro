@@ -187,7 +187,17 @@ class ClosedBidTeamDeadlineTest extends TestCase
         // Managers type this on a laptop at a shared table. Hidden by default is the only
         // setting that protects the first bid of a round, before anyone presses anything.
         $this->assertStringContainsString('sealedAmountHidden: true', $html);
-        $this->assertStringContainsString("sealedAmountHidden ? 'password' : 'number'", $html);
+
+        /*
+         * Blurred, not `type=password`. A password field cannot carry step/min/max, so all three
+         * had to be nulled out whenever the mask was on — the spinner stopped stepping and the
+         * browser stopped enforcing the floor at exactly the moment somebody was typing a figure
+         * they could not read. The blur clears on focus and hover, so it is legible to whoever is
+         * typing and unreadable across a table.
+         */
+        $this->assertStringContainsString("sealedAmountHidden ? 'is-masked' : ''", $html);
+        $this->assertStringContainsString('.sealed-amount.is-masked', $html);
+        $this->assertStringNotContainsString("'password' : 'number'", $html);
     }
 
     #[Test]

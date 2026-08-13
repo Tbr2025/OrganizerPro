@@ -25,6 +25,7 @@ class Auction extends Model
         'amount_unit',
         'amount_unit_label',
         'show_squad_values',
+        'show_acquisition_badge',
         'overrides_tournament_rules',
         'notifications_enabled',
         'email_test_mode',
@@ -98,6 +99,7 @@ class Auction extends Model
         'final_call_interval_seconds' => 'integer',
         'notifications_enabled' => 'boolean',
         'show_squad_values' => 'boolean',
+        'show_acquisition_badge' => 'boolean',
         'overrides_tournament_rules' => 'boolean',
         'email_test_mode' => 'boolean',
         'emails_flushed_at' => 'datetime',
@@ -206,7 +208,10 @@ class Auction extends Model
             return (bool) $this->tournament->settings->show_acquisition_badge;
         }
 
-        return true;
+        // Overriding, so this auction answers for itself — the same shape as
+        // showsSquadValues(). Without its own column an overriding auction had no way to say
+        // anything and silently fell back to always-on.
+        return (bool) ($this->show_acquisition_badge ?? true);
     }
 
     public function showsSquadValues(): bool
@@ -740,6 +745,22 @@ class Auction extends Model
     /** Must a team explicitly accept the purse conditions before it may bid? */
     public function closedBidRequiresAcceptance(): bool
     {
+        /*
+         * Never in an offline room.
+         *
+         * Acceptance exists so a team can read its purse, its remaining places and its ceiling
+         * and say yes before committing. In an offline auction the organizer is calling the
+         * round in front of everyone and the teams are in the room — there is nothing to accept
+         * that has not just been said out loud, and the screen ends up offering ACCEPT and
+         * WITHDRAW where the only useful control is the amount box.
+         *
+         * Decided here rather than in the view so the API and the UI cannot disagree: the state
+         * payload, the submit guard and the team's screen all read this one method.
+         */
+        if ($this->open_bid_mode === 'offline') {
+            return false;
+        }
+
         return $this->closed_bid_requires_acceptance !== null
             ? (bool) $this->closed_bid_requires_acceptance
             : true;

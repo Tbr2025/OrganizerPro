@@ -57,6 +57,30 @@
     .bidding-wrapper ::-webkit-scrollbar { width: 4px; }
     .bidding-wrapper ::-webkit-scrollbar-track { background: transparent; }
     .bidding-wrapper ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    /*
+     * The sealed amount's privacy mask.
+     *
+     * Blur rather than dots: a number input keeps its step, min and max — `type=password` cannot
+     * carry them, so all three had to be nulled out whenever the mask was on, and the spinner
+     * stopped stepping and the browser stopped enforcing the floor at exactly the moment somebody
+     * was typing a figure they could not read.
+     *
+     * It is also better privacy in a hall: unreadable across a table, legible to whoever is
+     * typing it, because it clears on focus and on hover.
+     */
+    .sealed-amount.is-masked {
+        filter: blur(7px);
+        transition: filter .12s ease-out;
+    }
+
+    .sealed-amount.is-masked:focus,
+    .sealed-amount.is-masked:hover {
+        filter: none;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .sealed-amount.is-masked { transition: none; }
+    }
 </style>
 @endpush
 
@@ -392,8 +416,15 @@
                              The organizer can press Start while a team is still `invited`, and the
                              accept panel only rendered for entry_open — so that team was left with
                              no way to accept AND no bid box: a dead end while the clock ran. --}}
+                        {{-- Not in an offline room. The organizer is calling the round in front of
+                             everyone and the teams are in it — there is nothing to accept that has
+                             not just been said out loud, and ACCEPT / WITHDRAW crowd out the one
+                             control that matters. `requires_acceptance` is false for offline
+                             auctions server-side (Auction::closedBidRequiresAcceptance), so the
+                             bid box below opens directly. --}}
                         <template x-if="sealed.active
                                         && sealed.invited !== false
+                                        && sealed.requires_acceptance
                                         && ['entry_open','collecting'].includes(sealed.state)
                                         && ['invited','may_opt_in'].includes(sealedEntryState)">
                             <div class="bg-gray-900/60 border border-purple-500/25 rounded-lg p-3.5">
@@ -556,21 +587,30 @@
                                                  decimal point and 9.1 could not be entered at all. --}}
                                             <div class="flex items-center bg-gray-800/80 border rounded-md"
                                                  :class="sealedStepViolation ? 'border-red-500/40' : 'border-gray-700/50 focus-within:border-cyan-500/60'">
-                                                {{-- :type toggles number/password for the privacy mask.
-                                                     A password field cannot carry step/min/max, so those are
-                                                     bound conditionally; the real limits are enforced by
-                                                     sealedCanSubmit and, finally, by the server. --}}
-                                                <input :type="sealedAmountHidden ? 'password' : 'number'"
+                                                {{-- Blurred, not a password field.
+                                                     `type=password` cannot carry step/min/max, so all three
+                                                     had to be nulled out whenever the mask was on — the
+                                                     spinner stopped stepping and the browser stopped
+                                                     enforcing the floor at exactly the moment somebody was
+                                                     typing a number they could not read.
+
+                                                     A blur keeps a real number input and is better
+                                                     privacy in a hall: the figure is unreadable over a
+                                                     shoulder but sharpens for the person typing it, because
+                                                     it clears on focus and on hover. The eye above still
+                                                     toggles it outright. --}}
+                                                <input type="number"
                                                        x-model="sealedInputM"
                                                        @keydown.enter.prevent="sealedCanSubmit && sealedSubmit()"
-                                                       :step="sealedAmountHidden ? null : toM(sealed.step)"
-                                                       :min="sealedAmountHidden ? null : toM(sealed.floor)"
-                                                       :max="sealedAmountHidden ? null : toM(sealedCeiling)"
+                                                       :step="toM(sealed.step)"
+                                                       :min="toM(sealed.floor)"
+                                                       :max="toM(sealedCeiling)"
                                                        :disabled="sealedExpired"
                                                        autocomplete="off"
                                                        inputmode="decimal"
-                                                       class="w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold disabled:opacity-50"
-                                                       :placeholder="sealedAmountHidden ? '••••' : toM(sealed.floor)">
+                                                       class="sealed-amount w-full px-2.5 py-2 bg-transparent text-white text-base text-center focus:outline-none font-bold disabled:opacity-50"
+                                                       :class="sealedAmountHidden ? 'is-masked' : ''"
+                                                       :placeholder="toM(sealed.floor)">
                                                 <span class="pr-2.5 text-gray-500 font-semibold text-xs">M</span>
                                             </div>
                                         </div>
