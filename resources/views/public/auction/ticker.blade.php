@@ -124,6 +124,25 @@
         #lt-name-1, #lt-name-2 { font-weight: 900; line-height: 1.02; letter-spacing: 1px; text-transform: uppercase; }
         #lt-name-1 { font-size: 34px; }
         #lt-name-2 { font-size: 42px; }
+        #lt-name-badges {
+            display: flex; align-items: center; justify-content: center;
+            gap: 6px; margin-top: 4px; white-space: nowrap;
+        }
+        #lt-name-badges:empty { display: none; }
+        #lt-name-badges .lt-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            padding: 1px 7px; border-radius: 5px;
+            font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
+        }
+        #lt-name-badges .lt-badge svg { width: 12px; height: 12px; }
+        #lt-name-badges .lt-wk {
+            background: rgba(251, 146, 60, 0.22); color: #fdba74;
+            border: 1px solid rgba(251, 146, 60, 0.45);
+        }
+        #lt-name-badges .lt-travel {
+            background: rgba(56, 189, 248, 0.18); color: #7dd3fc;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
         #lt-name-text.long #lt-name-1 { font-size: 27px; }
         #lt-name-text.long #lt-name-2 { font-size: 33px; }
 
@@ -266,6 +285,9 @@
                 <div id="lt-name-text">
                     <div id="lt-name-1"></div>
                     <div id="lt-name-2"></div>
+                    {{-- Wicket keeper and travel plan, under the name inside the same plate so
+                         they travel with it and cannot overlap the cells either side. --}}
+                    <div id="lt-name-badges"></div>
                 </div>
             </div>
             <div class="lt-cell" id="lt-bid">
@@ -629,6 +651,30 @@
         document.getElementById('lt-name-1').textContent = first;
         document.getElementById('lt-name-2').textContent = last || first;
         nameText.classList.toggle('long', Math.max(first.length, (last || first).length) >= 13);
+
+        /*
+         * What the hall needs beside the name: whether they keep wicket, and when they are here.
+         * Same two fields the LED wall and the pools list read, so no screen can disagree.
+         */
+        const badges = [];
+
+        if (p.is_wicket_keeper) {
+            badges.push(
+                '<span class="lt-badge lt-wk">'
+                + '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a4 4 0 00-4 4v1.2A3 3 0 004 10v4a4 4 0 004 4h4a4 4 0 004-4v-4a3 3 0 00-2-2.8V6a4 4 0 00-4-4zm-2 4a2 2 0 114 0v1H8V6z"/></svg>'
+                + 'WK</span>'
+            );
+        }
+
+        if (p.travel_plan_label) {
+            badges.push(
+                '<span class="lt-badge lt-travel">'
+                + '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>'
+                + esc(p.travel_plan_label) + '</span>'
+            );
+        }
+
+        document.getElementById('lt-name-badges').innerHTML = badges.join('');
 
         const img = document.getElementById('lt-img');
         const photo = document.getElementById('lt-photo');

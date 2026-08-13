@@ -716,6 +716,39 @@
             50% { opacity: 1; transform: scale(1.05); }
         }
 
+        /* Wicket keeper and travel plan, beside the name. Scaled off the name's own font size
+           so they stay in proportion at whatever size the template sets it to. */
+        #player-name-badges {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35em;
+            margin-left: 0.5em;
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        #player-name-badges .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25em;
+            padding: 0.12em 0.45em;
+            border-radius: 0.4em;
+            font-size: 0.34em;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            line-height: 1.6;
+        }
+        #player-name-badges .badge-wk {
+            background: rgba(251, 146, 60, 0.22);
+            color: #fdba74;
+            border: 1px solid rgba(251, 146, 60, 0.45);
+        }
+        #player-name-badges .badge-travel {
+            background: rgba(56, 189, 248, 0.18);
+            color: #7dd3fc;
+            border: 1px solid rgba(56, 189, 248, 0.4);
+        }
+        #player-name-badges svg { width: 1em; height: 1em; }
+
         #player-name {
             position: absolute;
             {!! elementStyle($positions, 'player_name', ['top'=>210,'left'=>545,'fontSize'=>46,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
@@ -1480,7 +1513,10 @@
 
         <!-- Player Name -->
         @if(isVisible($positions, 'player_name'))
-        <h1 id="player-name" class="text-4xl font-bold">Player Name</h1>
+        {{-- Badges sit INSIDE the name element so a template author dragging the name in the
+             editor carries them with it — a second positioned element would have to be moved
+             again every time, and would drift out of line the moment a name wrapped. --}}
+        <h1 id="player-name" class="text-4xl font-bold">Player Name<span id="player-name-badges"></span></h1>
         @endif
 
         <!-- Player Role -->
@@ -2383,7 +2419,24 @@
             });
 
             // Player details
-            document.getElementById('player-name').textContent = p.player.name;
+            /*
+             * The name, then what the room needs beside it.
+             *
+             * textContent on the <h1> would wipe the badge span with the old name, so the name
+             * goes into its own node. A keeper is worth calling out because it changes who wants
+             * the player, and the travel plan because it decides whether they can turn up at all
+             * — both were on the organizer's screen and on nothing the hall could see.
+             */
+            const nameEl = document.getElementById('player-name');
+            const badgesEl = document.getElementById('player-name-badges');
+
+            if (badgesEl) {
+                nameEl.childNodes[0].nodeValue = p.player.name;
+            } else {
+                nameEl.textContent = p.player.name;
+            }
+
+            renderNameBadges(p.player);
 
             const playerType = p.player.player_type || p.player.playerType;
             document.getElementById('player-role').textContent = displayLabel(
@@ -3489,6 +3542,47 @@
          * question three different ways. Hidden by visibility rather than display, so a template
          * author dragging the element in the editor still sees where it sits.
          */
+        /**
+         * Wicket keeper and travel plan, beside the player's name.
+         *
+         * Both read from the same fields every other screen uses — `is_wicket_keeper` and the
+         * model's `travel_plan_label` accessor — so the wall cannot disagree with the panel or
+         * the pools list about either. Nothing is drawn when there is nothing to say.
+         */
+        function renderNameBadges(player) {
+            const el = document.getElementById('player-name-badges');
+            if (! el) return;
+
+            const parts = [];
+
+            if (player?.is_wicket_keeper) {
+                parts.push(
+                    '<span class="badge badge-wk">'
+                    + '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a4 4 0 00-4 4v1.2A3 3 0 004 10v4a4 4 0 004 4h4a4 4 0 004-4v-4a3 3 0 00-2-2.8V6a4 4 0 00-4-4zm-2 4a2 2 0 114 0v1H8V6z"/></svg>'
+                    + 'WK</span>'
+                );
+            }
+
+            const travel = player?.travel_plan_label;
+
+            if (travel) {
+                parts.push(
+                    '<span class="badge badge-travel">'
+                    + '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>'
+                    + escapeHtml(travel) + '</span>'
+                );
+            }
+
+            el.innerHTML = parts.join('');
+        }
+
+        /** Text into markup, since the badges are built as HTML. */
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            })[c]);
+        }
+
         function renderTravelPlan(player) {
             const el = document.getElementById('travel-plan');
             if (! el) return;

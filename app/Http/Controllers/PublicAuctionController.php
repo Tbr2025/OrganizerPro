@@ -525,6 +525,17 @@ class PublicAuctionController extends Controller
                 // The right-hand cell of the lower third is narrow; full team names overflow.
                 'leading_team_short' => $current->currentBidTeam?->display_name,
                 'lot_number' => $current->lot_number,
+                /*
+                 * Two facts the hall needs beside the name, and neither was on this feed.
+                 *
+                 * A keeper changes who wants the player, and the travel plan decides whether
+                 * they can turn up at all — both were on the organizer's screen and on nothing
+                 * anybody watching could see. `travel_plan_label` is the model's own accessor,
+                 * the same one the wall, the panel and the downloaded card read, so the four
+                 * cannot answer it differently.
+                 */
+                'is_wicket_keeper' => (bool) $current->player?->is_wicket_keeper,
+                'travel_plan_label' => $current->player?->travel_plan_label,
                 'stats' => $this->careerStats($current->player),
             ] : null,
             'timer' => [
