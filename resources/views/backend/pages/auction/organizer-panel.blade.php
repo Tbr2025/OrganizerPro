@@ -2955,6 +2955,13 @@ function auctionOrganizerPanel() {
 
                             // Allow a fresh time-up announcement for this player.
                             this._timerFiredForPlayer = null;
+                            /*
+                             * The bid ordering belonged to the player who just left the block,
+                             * and a raise of ours still in flight belonged to them too. Carried
+                             * across, both would judge this player's first snapshots stale.
+                             */
+                            this._lastAppliedBidId = 0;
+                            this._clearPendingBid();
                             this.sealedBids = [];
                             // A team selection made for the last player's sealed round must not
                             // silently carry into this one.
@@ -3096,6 +3103,13 @@ function auctionOrganizerPanel() {
          * somebody who has merely gone back into the queue.
          */
         _clearForNextPlayer() {
+            /*
+             * The bid ordering belongs to the player just finished. Carried into the next lot it
+             * would make that lot's first snapshots look stale — see _snapshotPredatesLocalBid().
+             */
+            this._lastAppliedBidId = 0;
+            this._clearPendingBid();
+
             this.auctionStatus = 'running';
             this.displayState = 'waiting';
             this.currentPlayer = null;
@@ -4390,6 +4404,24 @@ function auctionOrganizerPanel() {
                 if (result?.success) {
                     this.statusText = result.message;
                     this.toast(result.message, 'success', 'Undone');
+
+                    /*
+                     * Undo is the one thing that moves the bid ordering BACKWARDS.
+                     *
+                     * The staleness guard treats a snapshot whose newest bid id is behind
+                     * `_lastAppliedBidId` as out of date and holds the price — which is right for
+                     * a slow poll and exactly wrong here, because voiding the newest bid is
+                     * *supposed* to leave a lower id. Without this reset the panel went on
+                     * showing the undone figure — "Undid a bid of 4M, price is back to 3.5M"
+                     * over a board still reading 4M — until some later raise climbed past the
+                     * stale token.
+                     *
+                     * Cleared rather than lowered: the next poll is the authority now, and any
+                     * raise of ours still in flight belongs to the state that was just undone.
+                     */
+                    this._lastAppliedBidId = 0;
+                    this._clearPendingBid();
+
                     // Pull fresh state rather than guessing what changed.
                     await this.pollAuctionState();
                 }
