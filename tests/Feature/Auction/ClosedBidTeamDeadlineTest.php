@@ -390,4 +390,51 @@ class ClosedBidTeamDeadlineTest extends TestCase
         $this->assertStringContainsString('isSubmitting || sealedExpired', $html);
         $this->assertStringContainsString('Sealed bid completed', $html);
     }
+
+    #[Test]
+    public function an_organizer_working_from_a_team_screen_can_accept_and_submit(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round] = $this->scenario();
+
+        $this->closedBids()->openEntry($round, null, [$team->id]);
+        $this->closedBids()->start($round->fresh());
+
+        /*
+         * The GET polls carried ?team_id= and the ACTIONS did not — so an organizer could see the
+         * round from a team's screen and then be told to "open this from a team's screen" the
+         * moment they pressed Accept, because the request arrived with no team on it at all.
+         */
+        $admin = $this->makeSuperadmin($org);
+        $url = route('team.auction.bidding.api.closed-bid.accept', $auction) . '?team_id=' . $team->id;
+
+        $this->actingAs($admin)->postJson($url)->assertOk();
+        $this->assertSame('accepted', $round->fresh()->entries()->where('actual_team_id', $team->id)->value('state'));
+
+        $this->actingAs($admin)->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction) . '?team_id=' . $team->id,
+            ['amount' => 9_100_000]
+        )->assertOk();
+
+        $this->assertSame(9_100_000.0, (float) $round->fresh()->entries()->where('actual_team_id', $team->id)->value('amount'));
+    }
+
+    #[Test]
+    public function the_organizer_may_correct_an_amount_the_team_itself_cannot_change(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'team' => $team, 'round' => $round, 'user' => $user] = $this->scenario();
+
+        $this->closedBids()->accept($round, $team);
+        $this->closedBids()->submit($round, $team, 9_000_000, null);
+
+        // One bid per team per round, and the team cannot revise it.
+        $this->assertFalse($this->closedBids()->submit($round->fresh(), $team, 9_500_000, null)['handled']);
+
+        // The organizer still can — deliberately, attributed, and undoable.
+        $this->actingAs($this->makeSuperadmin($org))->postJson(
+            route('team.auction.bidding.api.closed-bid.submit', $auction) . '?team_id=' . $team->id,
+            ['amount' => 9_500_000]
+        )->assertOk();
+
+        $this->assertSame(9_500_000.0, (float) $round->fresh()->entries()->where('actual_team_id', $team->id)->value('amount'));
+    }
 }

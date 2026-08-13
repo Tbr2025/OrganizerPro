@@ -1184,7 +1184,12 @@ function teamBiddingPanel() {
             const timeout = setTimeout(() => abort.abort(), 15000);
 
             try {
-                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/${path}`, {
+                {{-- teamQuery() here too, not only on the polls.
+                     The GET polls carried ?team_id= and these did not, so an organizer working
+                     from a team's screen could SEE the round and then be told to "open this from
+                     a team's screen" the moment they pressed Accept — the action arrived with no
+                     team on it at all. --}}
+                const res = await fetch(`/admin/team/auction/${this.auctionId}/api/closed-bid/${path}${this.teamQuery()}`, {
                     method: 'POST',
                     signal: abort.signal,
                     headers: {
@@ -1431,7 +1436,7 @@ function teamBiddingPanel() {
             this.bidError = "";
             this.bidSuccess = "";
             try {
-                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/place-bid", {
+                const res = await fetch("/admin/team/auction/" + this.auctionId + "/api/place-bid" + this.teamQuery(), {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').content, "Accept": "application/json" },
                     body: JSON.stringify({ auction_player_id: this.player.id })
