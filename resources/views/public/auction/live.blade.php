@@ -2592,6 +2592,23 @@
         // Listen to public channel for real-time events
         if (! CARD_PAYLOAD)
         window.Echo.channel(`auction.${auctionId}`)
+            /*
+             * A sealed round moved — opened, locked, revealed, tied, drawn or awarded.
+             *
+             * Nothing was pushed for any of this, so the wall kept showing open bidding until
+             * somebody reloaded it, and the tie-break draw appeared after the fact rather than
+             * as it happened. The frame carries no amounts — only THAT the state changed — so
+             * the refresh re-reads the feed, which applies the same disclosure rules it always
+             * has.
+             *
+             * On `auction.X`, with the raises and sales. AuctionStatusUpdate uses its own
+             * `auction.public.X`, and a listener on the wrong one of the two is simply never
+             * called.
+             */
+            .listen('.sealed.changed', (event) => {
+                console.info('[Live] sealed round:', event?.state);
+                refreshNow('sealed:' + (event?.state ?? '?'));
+            })
             .listen('.player-on-sold', (event) => {
                 console.log('[Live] Player sold event:', event);
                 const auctionPlayer = event.auctionPlayer;

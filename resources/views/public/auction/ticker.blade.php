@@ -973,7 +973,10 @@
                paths to keep in step. */
             window.Echo.channel(`auction.${auctionId}`)
                 .listen('.player.onbid', () => refreshNow('player-onbid'))
-                .listen('.player-on-sold', () => refreshNow('sold'));
+                .listen('.player-on-sold', () => refreshNow('sold'))
+                // A sealed round opening, locking, revealing or drawing its lot. Nothing was
+                // pushed for any of it before, so the ticker only caught up on its own poll.
+                .listen('.sealed.changed', (e) => refreshNow('sealed:' + (e?.state ?? '?')));
 
             /* Pause, resume, end and restart publish on their own channel. Without this the
                strip would count down through a pause until the heartbeat came round — on air. */

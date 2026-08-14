@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Events\SealedRoundChanged;
 use App\Models\Auction;
+use App\Support\AfterResponse;
 use App\Models\AuctionClosedBidEntry;
 use App\Models\AuctionPlayer;
 use App\Services\Auction\ClosedBidService;
@@ -118,6 +120,9 @@ class ClosedBidRoundController extends Controller
         if (! $round) {
             return response()->json(['success' => false, 'message' => 'Could not open a sealed round.'], 422);
         }
+
+        // The moment the room goes sealed — the one every other screen most needs pushed.
+        AfterResponse::run(fn () => SealedRoundChanged::announce($round->fresh()));
 
         return response()->json([
             'success' => true,
@@ -320,6 +325,25 @@ class ClosedBidRoundController extends Controller
         }
 
         $result = $do($round);
+
+        /*
+         * Tell every other screen, now, that the round moved.
+         *
+         * The sealed path broadcast nothing at all, so the wall and the ticker learned about a
+         * sealed round only from their own poll behind a one-second feed cache — in practice the
+         * wall kept showing open bidding until somebody reloaded it, and the tie-break draw
+         * appeared after the fact rather than as it happened. In a hall this is the moment
+         * everyone is watching, and it was the one moment nothing was pushed.
+         *
+         * Announced HERE rather than inside the eight service methods that move a round, because
+         * this is the single point they all pass through — one place that cannot be forgotten
+         * when a ninth is added. The payload carries no amounts: listeners re-read the feed,
+         * which applies the same disclosure rules it always has.
+         *
+         * After the response, like the raise broadcast: ShouldBroadcastNow calls Pusher inline,
+         * and the organizer should not wait on a third party's network to see their own click.
+         */
+        AfterResponse::run(fn () => SealedRoundChanged::announce($round->fresh()));
 
         return response()->json([
             'success' => true,
