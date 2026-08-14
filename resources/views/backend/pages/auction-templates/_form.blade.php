@@ -569,6 +569,17 @@
                             'bid_label' => ['label' => 'Bid Label', 'type' => 'text', 'borderColor' => '236,72,153', 'content' => 'SOLD PRICE'],
                             'base_price' => ['label' => 'Base Price', 'type' => 'text', 'borderColor' => '250,204,21', 'content' => '1 M'],
                             'travel_plan' => ['label' => 'Travel Plan', 'type' => 'text', 'borderColor' => '56,189,248', 'content' => '12 Mar – 20 Mar'],
+                            /*
+                             * The club a player currently turns out for.
+                             *
+                             * AuctionTemplate has listed this as an element and given it a default
+                             * position since it was added — but this map is what the editor draws
+                             * its palette from, and the key was never added here. So the wall could
+                             * render it, the model could position it, and no organizer could place
+                             * it or switch it on: an element that existed everywhere except the one
+                             * screen where it is chosen.
+                             */
+                            'playing_team' => ['label' => 'Current Playing Team', 'type' => 'text', 'borderColor' => '132,204,22', 'content' => 'Colombo CC'],
                             'sold_badge' => ['label' => 'Sold Badge', 'type' => 'box', 'borderColor' => '16,185,129', 'content' => ''],
                             'team_logo' => ['label' => 'Team Logo', 'type' => 'box', 'borderColor' => '6,182,212', 'content' => '<span class="text-cyan-400 text-xs">TEAM LOGO</span>'],
                             'highest_bidder' => ['label' => 'Highest Bidder', 'type' => 'text', 'borderColor' => '0,255,0', 'content' => 'Thunder Kings'],
