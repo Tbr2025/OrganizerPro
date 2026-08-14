@@ -1530,17 +1530,28 @@
                 <div class="flex-1"></div>
 
                 {{-- Timer toggle. Offline only: online bidding needs the clock. --}}
+                {{-- Looks disabled when it IS disabled.
+                     The button already refused while bidding is online — the clock is what
+                     closes a round when teams stall — but it carried no disabled styling, so it
+                     looked pressable and a click did nothing at all. Not even the refusal toast
+                     fired, because a disabled button never reaches its handler. "Not working"
+                     was exactly the right description. --}}
                 <button @click="toggleTimer()"
                         :disabled="openBidMode !== 'offline'"
-                        class="px-2 py-1 rounded text-[10px] font-semibold transition whitespace-nowrap flex-shrink-0"
+                        class="px-2 py-1 rounded text-[10px] font-semibold transition whitespace-nowrap flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                         :class="timerEnabled
                             ? 'bg-blue-600/20 border border-blue-500/40 text-blue-300'
                             : 'bg-gray-800 border border-gray-700 text-gray-500'"
                         :title="openBidMode !== 'offline'
-                            ? 'The timer is required while bidding is online'
+                            ? 'The timer is required while bidding is online — switch to Offline to turn it off'
                             : (timerEnabled ? 'Turn the bid timer off' : 'Turn the bid timer on')">
                     TIMER <span x-text="timerEnabled ? 'ON' : 'OFF'"></span>
                 </button>
+
+                {{-- And says why, rather than leaving a greyed control to be puzzled over on a
+                     screen nobody can hover. --}}
+                <span x-show="openBidMode !== 'offline'" x-cloak
+                      class="text-[10px] text-gray-500 flex-shrink-0">needs offline</span>
                 <span x-show="timerEnabled" class="text-[10px] text-gray-500 flex-shrink-0"
                       x-text="timerExpiryAction === 'auto_sell' ? 'auto-sell at 0' : 'manual at 0'"></span>
             </div>
