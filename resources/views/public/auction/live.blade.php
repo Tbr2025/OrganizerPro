@@ -3511,6 +3511,17 @@ HTML;
             if (!sealedState) {
                 banner.classList.add('hidden');
                 renderSealedOverlay(null);
+
+                /*
+                 * Clear the DRAW surface too.
+                 *
+                 * This returned without touching it, so "DRAWING A LOT" stayed on the wall for
+                 * ever: the round retires the moment its spin is over, sealed goes null, and the
+                 * one function that hides the draw was never reached. Nothing the organizer
+                 * pressed afterwards — draw, next player, sell — could take it down, because none
+                 * of them produce a sealed state either.
+                 */
+                renderSealedDraw(null);
                 return;
             }
 
@@ -3766,7 +3777,9 @@ HTML;
             const surface = document.getElementById('draw-overlay');
             if (! wrap) return;
 
-            // The draw owns the wall while it runs; nothing else needs to be visible behind it.
+            /* The draw owns the wall while it runs, and gives it back the moment it does not.
+               Hidden whenever there is no tie to show — including when the round has gone
+               entirely, which is how it used to get stuck up there. */
             surface?.classList.toggle('hidden', ! (tie?.teams || []).length);
 
             const nameEl = document.getElementById('sealed-draw-name');

@@ -78,57 +78,6 @@
         z-index: 9999;
     }
 
-    /*
-     * ── The draw, on the desk ──
-     *
-     * The same ring the wall turns, at panel size: the person pressing DRAW LOT should be
-     * watching what the hall is watching, not a button. Transform-only, on the compositor, so a
-     * fifteen-second spin costs a panel that is also polling and taking bids nothing.
-     */
-    #panel-draw-ring {
-        position: relative;
-        height: 132px;
-        perspective: 900px;
-        perspective-origin: 50% 45%;
-    }
-    .panel-draw-inner {
-        position: absolute; inset: 0;
-        transform-style: preserve-3d;
-        animation: panelDrawSpin 2.4s linear infinite;
-    }
-    .panel-draw-inner.settling {
-        animation: none;
-        transition: transform 1.6s cubic-bezier(0.16, 0.9, 0.2, 1);
-    }
-    @keyframes panelDrawSpin {
-        from { transform: rotateY(0deg); }
-        to   { transform: rotateY(-360deg); }
-    }
-    .panel-draw-card {
-        position: absolute; top: 50%; left: 50%;
-        width: 128px; height: 92px; margin: -46px 0 0 -64px;
-        border-radius: 12px;
-        background: linear-gradient(180deg, rgba(30,41,59,0.95), rgba(2,6,23,0.98));
-        border: 2px solid rgba(251,191,36,0.4);
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 6px; padding: 8px;
-        backface-visibility: hidden;
-        transition: border-color .4s ease, opacity .4s ease, box-shadow .4s ease;
-    }
-    .panel-draw-card img { width: 34px; height: 34px; object-fit: contain; }
-    .panel-draw-card span {
-        font-size: 11px; font-weight: 800; color: #fff; text-align: center;
-        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    }
-    .panel-draw-card.is-winner {
-        border-color: #fde68a;
-        box-shadow: 0 0 34px rgba(253,230,138,0.55);
-    }
-    .panel-draw-card.is-loser { opacity: 0.25; }
-
-    @media (prefers-reduced-motion: reduce) {
-        .panel-draw-inner { animation: none; }
-    }
 </style>
 @endpush
 
@@ -471,13 +420,42 @@
                             </p>
                         </div>
 
-                        {{-- Tie banner --}}
+                        {{-- The tie, and what to do about it.
+                             This stated the tie and stopped there. The next round then opened by
+                             itself, so the desk went straight from "two teams matched" into a
+                             fresh entry board with no moment in between to say so out loud — and
+                             when the rounds were used up there was no obvious way forward either.
+
+                             The warning now carries the decision: open the next round, or settle
+                             it here. Nothing moves until the organizer picks one. --}}
                         <template x-if="sealed.tie_amount && ['tie','awaiting_lot'].includes(sealed.state)">
-                            <div class="mb-4 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-center font-bold">
-                                TIE — <span x-text="(sealed.tied_team_ids || []).length"></span> teams at
-                                <span x-text="formatCurrency(sealed.tie_amount)"></span>.
-                                <span x-show="sealed.state === 'tie'">Round <span x-text="sealed.round_number + 1"></span> of <span x-text="sealed.total_rounds"></span> available.</span>
-                                <span x-show="sealed.state === 'awaiting_lot'">The re-bid rounds are used up.</span>
+                            <div class="mb-4 px-4 py-4 rounded-xl bg-amber-500/15 border-2 border-amber-500/50 text-center">
+                                <div class="text-amber-300 font-black text-lg">
+                                    TIE &mdash; <span x-text="(sealed.tied_team_ids || []).length"></span> teams at
+                                    <span x-text="formatCurrency(sealed.tie_amount)"></span>
+                                </div>
+
+                                <p class="text-amber-200/80 text-xs mt-1">
+                                    <span x-show="sealed.state === 'tie'">
+                                        Round <span x-text="sealed.round_number + 1"></span> of
+                                        <span x-text="sealed.total_rounds"></span> is available. The tied teams
+                                        re-enter; nobody else can.
+                                    </span>
+                                    <span x-show="sealed.state === 'awaiting_lot'">
+                                        The re-bid rounds are used up &mdash; settle it with a draw below, or
+                                        pick a winner at the desk.
+                                    </span>
+                                </p>
+
+                                {{-- The way forward, on the warning itself. `startRebid` opens the next
+                                     round with its own clock, so the timer restarts when this is pressed
+                                     and not before. --}}
+                                <div class="mt-3 flex flex-wrap gap-2 justify-center" x-show="sealed.state === 'tie'">
+                                    <button @click="sealedStartRebid()"
+                                            class="px-5 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-sm font-black">
+                                        START ROUND <span x-text="sealed.round_number + 1"></span>
+                                    </button>
+                                </div>
                             </div>
                         </template>
 
@@ -790,28 +768,12 @@
                              a per-team Pick and an unlabelled reason box — so which one you
                              were choosing, and what each meant, had to be inferred. They are
                              two deliberate answers to the same question and now say so. --}}
-                        {{-- The draw, turning here as well as on the wall.
-                             Shown only once `drawn_at` exists — that is the server recording that
-                             DRAW LOT was actually pressed. Before then there is nothing to animate
-                             and a ring turning under a button nobody has touched would say a draw
-                             was under way when it is not.
-
-                             Same `drawn_at` and `spin_ms` the wall reads, so the two land together
-                             rather than the desk seeing the winner first. --}}
-                        <template x-if="sealed.tie?.drawn_at && (sealed.tie?.teams || []).length">
-                            <div class="mt-4 px-4 py-5 rounded-xl bg-gray-900/70 border border-amber-500/30 text-center">
-                                <div class="text-amber-300 text-[10px] uppercase tracking-[0.25em] font-bold mb-3"
-                                     x-text="panelDrawSettled ? 'Lot drawn' : 'Drawing a lot'"></div>
-
-                                <div id="panel-draw-ring">
-                                    <div class="panel-draw-inner" id="panel-draw-inner"></div>
-                                </div>
-
-                                <div class="mt-3 text-white text-lg font-black" x-text="panelDrawName"></div>
-                                <div class="text-gray-400 text-[11px]"
-                                     x-text="sealed.tie?.amount ? ((sealed.tie?.teams || []).length + ' teams matched at ' + formatCurrency(sealed.tie.amount)) : ''"></div>
-                            </div>
-                        </template>
+                        {{-- No draw animation on this screen.
+                             A ring turned here as well as on the wall, on the same clock. The desk
+                             does not need to watch chance being taken — the organizer pressed the
+                             button and wants the name, so the result is toasted the moment the
+                             server returns it and the winner's row is marked below. The spin stays
+                             where the room is looking. --}}
 
                         <div x-show="sealed.state === 'awaiting_lot'" class="mt-4 grid gap-3 md:grid-cols-2">
 
@@ -3593,10 +3555,6 @@ function auctionOrganizerPanel() {
                 const data = await res.json();
                 this.sealed = data.closed_bid || { active: false };
 
-                /* After the state lands, not before: the ring reads `sealed.tie` and would
-                   otherwise paint one poll behind the round it is animating. */
-                this.$nextTick(() => this.renderPanelDraw());
-
                 // One spin length, from the server. The wall holds its own animation for exactly
                 // this window, so the hall never sees the result before the person who drew it.
                 if (this.sealed?.tie?.spin_ms) {
@@ -3621,10 +3579,7 @@ function auctionOrganizerPanel() {
                     body: JSON.stringify({ auction_player_id: this.currentPlayer?.id, ...body }),
                 });
                 const data = await res.json();
-                if (data.closed_bid) {
-                    this.sealed = data.closed_bid;
-                    this.$nextTick(() => this.renderPanelDraw());
-                }
+                if (data.closed_bid) this.sealed = data.closed_bid;
                 // A refusal is reported, but a no-op is not an error: two panels both
                 // pressing Lock is ordinary operation, not a mistake to shout about.
                 if (data.message) {
@@ -3795,16 +3750,20 @@ function auctionOrganizerPanel() {
             const data = await this.sealedCommand('lot');
             if (!data?.handled) return;
 
+            /*
+             * No animation at the desk — the answer, immediately.
+             *
+             * The organizer does not need to be shown chance being taken; they pressed the
+             * button and they need the name so they can call it. The spin belongs on the wall,
+             * where the room is watching, and it is a one-second flash there.
+             */
             const winnerId = data.closed_bid?.winner_team_id;
-            const entrants = tied.map(e => ({ id: e.team_id, name: e.team_name, image_path: e.team_logo || null }));
-            const winner = entrants.find(e => e.id === winnerId) || entrants[0];
+            const winnerName = (tied.find(e => e.team_id === winnerId) || {}).team_name;
 
-            if (winner) {
-                // Long enough to read as a draw rather than a flicker. The winner is already
-                // decided and recorded server-side, so the length of the spin changes only
-                // what the room watches, never the result.
-                await this._runShuffleAnimation(winner, entrants, { spinMs: this.LOT_SPIN_MS });
+            if (winnerName) {
+                this.toast(`Lot drawn — ${winnerName}.`, 'success');
             }
+
             this._fireConfetti();
         },
 
@@ -3981,112 +3940,6 @@ function auctionOrganizerPanel() {
          * the squad reserve is still checked, the sealed ceiling still holds, and it lands on
          * the undo stack like any other raise.
          */
-        /* The draw shown at the desk: the name currently facing front, and whether it has landed. */
-        panelDrawName: '',
-        panelDrawSettled: false,
-        _panelDrawKey: null,
-        _panelDrawTimer: null,
-
-        /**
-         * Turn the ring, and land it on the winner at the same moment the wall does.
-         *
-         * Driven entirely by the server's `drawn_at` and `spin_ms`. The winner is recorded the
-         * instant DRAW LOT is pressed, so a screen that settles as soon as it sees one would show
-         * the result to the desk fifteen seconds before the hall — which is the bug this shape of
-         * code exists to avoid, and it is the same shape the wall uses.
-         */
-        renderPanelDraw() {
-            const tie = this.sealed?.tie;
-            const teams = tie?.teams || [];
-            const inner = document.getElementById('panel-draw-inner');
-
-            if (! inner || ! tie?.drawn_at || ! teams.length) {
-                this._panelDrawKey = null;
-                this.panelDrawName = '';
-                this.panelDrawSettled = false;
-
-                if (this._panelDrawTimer !== null) {
-                    clearTimeout(this._panelDrawTimer);
-                    this._panelDrawTimer = null;
-                }
-
-                return;
-            }
-
-            // Rebuilt only when the set of teams changes, or every poll would restart the spin.
-            const key = teams.map((t) => t.id).join(',');
-
-            if (this._panelDrawKey !== key) {
-                this._panelDrawKey = key;
-
-                const step = 360 / teams.length;
-                const radius = Math.max(120, Math.round(70 / Math.tan(Math.PI / Math.max(teams.length, 2))));
-
-                inner.innerHTML = teams.map((team, i) => {
-                    const angle = i * step;
-                    const crest = team.logo ? `<img src="${team.logo}" alt="">` : '';
-
-                    return `<div class="panel-draw-card" data-team="${team.id}" data-angle="${angle}"
-                                 style="transform: rotateY(${angle}deg) translateZ(${radius}px);">`
-                        + crest + `<span>${team.name}</span></div>`;
-                }).join('');
-
-                inner.classList.remove('settling');
-                inner.style.transform = '';
-                this.panelDrawSettled = false;
-            }
-
-            const winner = tie.lot_winner_team_id
-                ? teams.find((t) => Number(t.id) === Number(tie.lot_winner_team_id))
-                : null;
-
-            /*
-             * Off the server's remaining figure, not off this machine's clock.
-             *
-             * The desk reported the ring "stopping immediately", which is what a clock comparison
-             * does when the two clocks disagree — PHP here runs in Asia/Dubai while the database
-             * and OS are UTC. A remaining figure cannot disagree with anything.
-             */
-            const remainingMs = Number(tie.spin_remaining_ms) || 0;
-            const stillSpinning = remainingMs > 0;
-
-            /* Settles itself when the window ends, rather than waiting for the next poll to
-               notice — the panel polls every 2s during a sealed round and 30s otherwise, and a
-               ring that lands whenever the next request happens to arrive is not synchronised
-               with the hall watching the same draw. */
-            if (stillSpinning && this._panelDrawTimer === null) {
-                this._panelDrawTimer = setTimeout(() => {
-                    this._panelDrawTimer = null;
-                    this.fetchSealedState();
-                }, remainingMs + 120);
-            }
-
-            if (winner && ! stillSpinning) {
-                if (this.panelDrawSettled) return;
-                this.panelDrawSettled = true;
-
-                const card = inner.querySelector(`.panel-draw-card[data-team="${winner.id}"]`);
-                const angle = Number(card?.dataset.angle) || 0;
-
-                // Two extra turns before landing, so it reads as slowing down rather than stopping.
-                inner.classList.add('settling');
-                inner.style.transform = `rotateY(${-angle - 720}deg)`;
-
-                inner.querySelectorAll('.panel-draw-card').forEach((node) => {
-                    const isWinner = node.dataset.team === String(winner.id);
-                    node.classList.toggle('is-winner', isWinner);
-                    node.classList.toggle('is-loser', ! isWinner);
-                });
-
-                this.panelDrawName = winner.name;
-
-                return;
-            }
-
-            this.panelDrawSettled = false;
-            this.panelDrawName = '';
-        },
-
         async stepBidUp() {
             if (! this.canStepBid) return;
             if (! this.guardControl('correct the price')) return;
