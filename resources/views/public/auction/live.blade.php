@@ -568,6 +568,30 @@
         #reel .rp .amt { margin-top: 6px; font-size: 34px; font-weight: 900;
             color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums; }
 
+        /* ── Ads on the reel ── */
+        #reel .slide.ad { display: flex; align-items: center; justify-content: center; }
+        #reel .slide.ad img {
+            max-width: 88%; max-height: 88%; object-fit: contain;
+            border-radius: 14px;
+        }
+        #reel .slide.ad .cap {
+            position: absolute; bottom: 6%; left: 0; right: 0; text-align: center;
+            font-size: 20px; font-weight: 700; letter-spacing: 0.08em;
+            text-transform: uppercase; color: rgba(255,255,255,0.75);
+        }
+
+        #reel-sponsors {
+            display: flex; align-items: center; justify-content: center;
+            gap: 34px; flex-wrap: wrap;
+            padding-top: 18px; margin-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.12);
+        }
+        #reel-sponsors.hidden { display: none; }
+        #reel-sponsors img {
+            height: 46px; width: auto; object-fit: contain;
+            opacity: 0.85;
+        }
+
         /* A new player arriving. Short, and opacity plus a small rise only — nothing that
            reflows the card or moves the artwork a template author positioned. */
         @keyframes cardArrived {
@@ -1334,7 +1358,13 @@
          style="position:fixed;inset:0;z-index:140;background:rgba(2,6,23,0.97);
                 display:flex;flex-direction:column;padding:36px 44px;">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;gap:24px;">
-            <div id="sold-board-title" style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
+            <div style="display:flex;align-items:center;gap:18px;min-width:0;">
+                {{-- The event's own mark, so a break still carries the tournament's identity
+                     rather than reading as a generic slideshow. --}}
+                <img id="reel-logo" class="hidden" alt=""
+                     style="height:60px;width:auto;object-fit:contain;flex-shrink:0;">
+                <div id="sold-board-title" style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
+            </div>
 
             {{-- What the room is waiting for.
                  A board with no explanation reads as the auction having stopped. If a sealed
@@ -1364,6 +1394,11 @@
              a reel that reads across a hall cannot be the same layout as a list that fits
              three hundred. --}}
         <div id="reel" class="hidden" style="flex:1;position:relative;"></div>
+
+        {{-- The sponsors, along the bottom of every slide rather than on one of them. A logo
+             that appears for six seconds in twelve has been shown half as often as the deal
+             said; a strip is on screen for the whole break. --}}
+        <div id="reel-sponsors" class="hidden"></div>
     </div>
 
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
@@ -2147,9 +2182,18 @@
                 ? `<img src="${escapeHtml(row.player.image)}" alt="">`
                 : `<div class="blank">${escapeHtml(nm.substring(0, 2).toUpperCase())}</div>`;
 
+            /* The buying team's badge beside its name — a hall reads a crest faster than a
+               name, and on a board of top buys the team is half the story. */
+            const crest = row?.sold_to_team?.logo_path;
+            const team = tm
+                ? '<div class="tm">'
+                    + (crest ? `<img class="crest" src="${escapeHtml(crest)}" alt="">` : '')
+                    + `<span>${escapeHtml(tm)}</span></div>`
+                : '';
+
             return '<div class="rp">' + face
                 + `<div class="nm">${escapeHtml(nm)}</div>`
-                + (tm ? `<div class="tm">${escapeHtml(tm)}</div>` : '')
+                + team
                 + `<div class="amt">${formatMillions(Number(row?.final_price) || 0)}</div>`
                 + '</div>';
         }
@@ -2179,16 +2223,49 @@
 
             const order = shuffled(top);
 
+            /* Highest first WITHIN a slide: the shuffle decides which five appear together,
+               and this makes those five read as a top-buys board rather than an arbitrary set. */
             for (let i = 0; i < order.length; i += REEL_PER_SLIDE) {
-                _reelSlides.push(order.slice(i, i + REEL_PER_SLIDE));
+                _reelSlides.push({
+                    kind: 'players',
+                    rows: order.slice(i, i + REEL_PER_SLIDE)
+                        .sort((a, b) => Number(b.final_price) - Number(a.final_price)),
+                });
             }
 
-            el.innerHTML = _reelSlides
-                .map((slide) => '<div class="slide">' + slide.map(reelCard).join('') + '</div>')
-                .join('');
+            /*
+             * Ads interleaved BETWEEN player slides, one after each.
+             *
+             * Not grouped at the end, where a break cut short shows none of them; not on every
+             * slide, which turns the reel into an ad break. Alternating means a sponsor is seen
+             * as often as the players are, and the reel still reads as an auction recap.
+             */
+            if (_reelAds.length) {
+                const mixed = [];
+
+                _reelSlides.forEach((slide, i) => {
+                    mixed.push(slide);
+                    const ad = _reelAds[i % _reelAds.length];
+                    if (ad) mixed.push({ kind: 'ad', ad });
+                });
+
+                _reelSlides = mixed;
+            }
+
+            el.innerHTML = _reelSlides.map((slide) => {
+                if (slide.kind === 'ad') {
+                    return '<div class="slide ad">'
+                        + `<img src="${escapeHtml(slide.ad.url)}" alt="">`
+                        + (slide.ad.caption ? `<div class="cap">${escapeHtml(slide.ad.caption)}</div>` : '')
+                        + '</div>';
+                }
+
+                return '<div class="slide">' + slide.rows.map(reelCard).join('') + '</div>';
+            }).join('');
 
             const show = () => {
                 const nodes = el.querySelectorAll('.slide');
+                if (! nodes.length) return;
                 nodes.forEach((n, i) => n.classList.toggle('on', i === _reelIndex));
                 _reelIndex = (_reelIndex + 1) % nodes.length;
             };
@@ -3132,7 +3209,19 @@
                     // Re-seeded every poll, so the local tick cannot drift and a screen that
                     // joins mid-break picks the countdown up where the room is.
                     _breakRemaining = (data?.break_remaining ?? null);
-                    applySoldBoard(data?.public_board);
+
+                    /*
+                     * A player on the block outranks any board.
+                     *
+                     * The auction is the thing the room is here for, and a reel left up over a
+                     * live lot hides the bidding from everyone watching. The organizer does not
+                     * have to remember to take it down: putting somebody up IS taking it down.
+                     * The stored flag is untouched, so ending the lot brings the board back
+                     * without another press.
+                     */
+                    const somebodyUp = data?.auctionPlayer?.status === 'on_auction';
+
+                    applySoldBoard(somebodyUp ? null : data?.public_board);
 
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;

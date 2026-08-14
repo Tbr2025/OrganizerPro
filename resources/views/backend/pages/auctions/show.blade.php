@@ -56,7 +56,13 @@
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
                             Live Panel
                         </a>
-                        <a href="{{ route('admin.auctions.pools.index', $auction) }}"
+                        {{-- Sponsor artwork for the wall and the ticker. Beside the pools because both are
+                 things set up before the room fills, not during it. --}}
+            <a href="{{ route('admin.auctions.ads.index', $auction) }}"
+               class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                Ads &amp; Sponsors
+            </a>
+            <a href="{{ route('admin.auctions.pools.index', $auction) }}"
                             class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium shadow-sm">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7H5m14 14H5"/></svg>
                             Manage Pools

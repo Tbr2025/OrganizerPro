@@ -264,6 +264,20 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         ->name('auctions.players.addBid');
     // Lift the leading team off a bid without changing the price — a raise recorded against
     // the wrong team. See AuctionAdminController::clearBidTeam().
+    /*
+     * Sponsor artwork for an auction's public screens. Under the auction rather than the
+     * tournament: sponsorship is sold per event, and one tournament can run an auction for one
+     * sponsor and a later one for another.
+     */
+    Route::get('/auctions/{auction}/ads', [\App\Http\Controllers\Backend\AuctionAdController::class, 'index'])
+        ->name('auctions.ads.index');
+    Route::post('/auctions/{auction}/ads', [\App\Http\Controllers\Backend\AuctionAdController::class, 'store'])
+        ->name('auctions.ads.store');
+    Route::put('/auctions/{auction}/ads/{ad}', [\App\Http\Controllers\Backend\AuctionAdController::class, 'update'])
+        ->name('auctions.ads.update');
+    Route::delete('/auctions/{auction}/ads/{ad}', [\App\Http\Controllers\Backend\AuctionAdController::class, 'destroy'])
+        ->name('auctions.ads.destroy');
+
     // Every auctioned player across auctions, with sold/unsold/team/upcoming filters — the
     // questions a pool-scoped list cannot answer. See AuctionAdminController::auctionedPlayers().
     Route::get('/auctions/auctioned-players', [AuctionAdminController::class, 'auctionedPlayers'])

@@ -273,6 +273,14 @@
         .sb-card .tm .crest { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .sb-card .amt { font-size: 18px; font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
+        #sb-sponsors {
+            display: none; align-items: center; justify-content: center; gap: 26px;
+            flex-wrap: wrap; padding-top: 14px; margin-top: 12px;
+            border-top: 1px solid var(--edge);
+        }
+        #sb-sponsors img { height: 34px; width: auto; object-fit: contain; opacity: 0.85; }
+        #sb-sponsors img.ev { height: 44px; opacity: 1; }
+
         #idle {
             position: fixed; bottom: 132px; left: 64px;
             padding: 22px 40px;
@@ -680,6 +688,27 @@
 
     setInterval(breakClock, 1000);
 
+    /* The strip and the event's mark, on for any board. A sponsor shown on one slide in twelve
+       has been shown far less than the deal said; a strip is on screen for the whole break. */
+    function renderSponsors(sponsors, logoUrl) {
+        const head = document.getElementById('sold-board-head');
+        if (! head) return;
+
+        let strip = document.getElementById('sb-sponsors');
+
+        if (! strip) {
+            strip = document.createElement('div');
+            strip.id = 'sb-sponsors';
+            head.parentNode.appendChild(strip);
+        }
+
+        const list = Array.isArray(sponsors) ? sponsors : [];
+
+        strip.innerHTML = (logoUrl ? `<img class="ev" src="${esc(logoUrl)}" alt="">` : '')
+            + list.map((a) => `<img src="${esc(a.url)}" alt="">`).join('');
+        strip.style.display = (list.length || logoUrl) ? 'flex' : 'none';
+    }
+
     function renderSoldBoard(rows) {
         const grid = document.getElementById('sold-board-grid');
         const count = document.getElementById('sold-board-count');
@@ -721,6 +750,8 @@
         fetch(`/auction/${auctionId}/sold-players`)
             .then((res) => res.json())
             .then((data) => {
+                renderSponsors(data?.sponsors, data?.tournamentLogo);
+
                 const rows = data?.soldPlayers || [];
 
                 /* The reel is the same cards, cut down to the biggest buys and shuffled — a
@@ -888,7 +919,10 @@
                 // The board, if the organizer has it up. From the feed, so a ticker opened or
                 // reloaded mid-board comes back to the board.
                 _breakRemaining = (d.break_remaining ?? null);
-                applySoldBoard(d.public_board);
+                /* A player on the block outranks any board: the auction is what the stream is
+                   for, and a reel over a live lot hides the bidding from everyone watching. The
+                   stored flag is untouched, so the board returns when the lot ends. */
+                applySoldBoard(d.current_player ? null : d.public_board);
 
                 lastCurrentPlayer = d.current_player || null;
                 lastSealed = d.closed_bid || null;

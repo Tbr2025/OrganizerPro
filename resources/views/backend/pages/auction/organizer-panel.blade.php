@@ -1849,37 +1849,20 @@
                      The room wants to see where the money has gone and the only answer used to
                      be this screen. Lit while it is up, because a board left on the wall through
                      the next lot is the failure worth making obvious. --}}
-                <button @click="toggleSoldBoard('sold')" :disabled="soldBoardBusy"
-                        :class="soldBoardShowing === 'sold'
+                {{-- One control for the screens, not four.
+                     Two board buttons and a minutes box sat on the busiest strip in the panel,
+                     each doing part of one decision — what plays, where, and for how long. A
+                     popup holds the decision together and gives the strip back to the controls
+                     that are pressed every lot. --}}
+                <button type="button" @click="showScreensModal = true"
+                        :class="soldBoardShowing
                             ? 'bg-amber-500 text-black hover:bg-amber-400'
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
-                        class="px-3 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors disabled:opacity-40 whitespace-nowrap"
-                        :title="soldBoardShowing === 'sold' ? 'Take the sold board off the screens' : 'Show every sold player on the wall and ticker'">
-                    <span x-text="soldBoardShowing === 'sold' ? 'Hide Sold' : 'Show Sold'"></span>
-                </button>
-
-                {{-- How long the break is. Sent with the board, so the wall counts DOWN to a
-                     time the organizer actually named — "back in 6:00" is the question a hall
-                     is asking, where an elapsed clock answers it from the wrong end. Blank or 0
-                     puts a board up with no clock, which is right for a sealed round or a board
-                     shown mid-lot. --}}
-                <div class="flex items-center gap-1 flex-shrink-0">
-                    <input type="number" min="0" max="180" step="1" x-model.number="breakMinutes"
-                           class="w-12 h-8 px-1.5 rounded bg-gray-800 border border-gray-700 text-gray-200 text-xs text-center"
-                           title="Break length in minutes — sent with the board">
-                    <span class="text-[10px] text-gray-500">min</span>
-                </div>
-
-                {{-- The reel, for a pause: the biggest buys on rotating slides. Shuffled each
-                     time it goes up, so a break does not replay the same five faces in the same
-                     order. --}}
-                <button @click="toggleSoldBoard('highlights')" :disabled="soldBoardBusy"
-                        :class="soldBoardShowing === 'highlights'
-                            ? 'bg-amber-500 text-black hover:bg-amber-400'
-                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
-                        class="px-3 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors disabled:opacity-40 whitespace-nowrap"
-                        :title="soldBoardShowing === 'highlights' ? 'Take the reel off the screens' : 'Play the top buys on the wall and ticker'">
-                    <span x-text="soldBoardShowing === 'highlights' ? 'Hide Reel' : 'Play Reel'"></span>
+                        class="px-3 h-8 rounded flex items-center gap-1.5 text-xs font-bold transition-colors whitespace-nowrap">
+                    <iconify-icon icon="lucide:monitor-play" width="14"></iconify-icon>
+                    <span x-text="soldBoardShowing
+                        ? (soldBoardShowing === 'highlights' ? 'Reel on' : 'Board on')
+                        : 'Screens'"></span>
                 </button>
 
                 <button @click="toggleFullscreen()" class="w-8 h-8 rounded flex items-center justify-center bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" title="Toggle Fullscreen (F)">
@@ -2182,6 +2165,76 @@
 
          Every class below is already used elsewhere in resources/views, so the server's
          Tailwind build has them; z-[9999]/z-[99999] clear this file's z-50 ceiling. --}}
+    {{-- What the public screens are showing.
+         One decision in one place: which board, on which screens, and how long the break is.
+         Applied on Apply rather than on each control, so an organizer setting up a break does
+         not put a half-configured board on the wall while they are still choosing. --}}
+    <div x-show="showScreensModal" x-cloak @keydown.escape.window="showScreensModal = false"
+         class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div @click.outside="showScreensModal = false"
+             class="w-full max-w-md rounded-2xl bg-gray-900 border border-gray-700 shadow-2xl p-6">
+            <h3 class="text-lg font-bold text-white mb-1">Public screens</h3>
+            <p class="text-xs text-gray-400 mb-5">
+                What the wall and the ticker show instead of the live card. A player going on the
+                block takes any board down by itself.
+            </p>
+
+            <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Show</label>
+            <div class="grid grid-cols-3 gap-2 mb-5">
+                <template x-for="opt in [
+                    { value: null, label: 'Live card' },
+                    { value: 'sold', label: 'Sold board' },
+                    { value: 'highlights', label: 'Top buys reel' },
+                ]" :key="opt.label">
+                    <button type="button" @click="screensBoard = opt.value"
+                            :class="screensBoard === opt.value
+                                ? 'bg-amber-500 text-black border-amber-400'
+                                : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'"
+                            class="px-2 py-2 rounded-lg border text-xs font-bold transition-colors"
+                            x-text="opt.label"></button>
+                </template>
+            </div>
+
+            <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Where</label>
+            <div class="grid grid-cols-3 gap-2 mb-5">
+                <template x-for="opt in [
+                    { value: 'both', label: 'Both' },
+                    { value: 'wall', label: 'LED wall' },
+                    { value: 'ticker', label: 'Ticker' },
+                ]" :key="opt.value">
+                    <button type="button" @click="screensTarget = opt.value"
+                            :disabled="!screensBoard"
+                            :class="screensTarget === opt.value
+                                ? 'bg-indigo-600 text-white border-indigo-500'
+                                : 'bg-gray-800 text-gray-300 border-gray-700 hover:border-gray-500'"
+                            class="px-2 py-2 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40"
+                            x-text="opt.label"></button>
+                </template>
+            </div>
+
+            <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
+                Break length
+            </label>
+            <div class="flex items-center gap-2 mb-6">
+                <input type="number" min="0" max="180" step="1" x-model.number="breakMinutes"
+                       :disabled="!screensBoard"
+                       class="w-20 px-2 py-2 rounded-lg bg-gray-800 border border-gray-700 text-white text-sm text-center disabled:opacity-40">
+                <span class="text-xs text-gray-400">minutes &mdash; 0 for no clock</span>
+            </div>
+
+            <div class="flex items-center justify-end gap-3">
+                <button type="button" @click="showScreensModal = false"
+                        class="px-4 py-2 rounded-lg border border-gray-600 text-gray-300 text-sm font-medium">
+                    Cancel
+                </button>
+                <button type="button" @click="applyScreens()" :disabled="soldBoardBusy"
+                        class="px-4 py-2 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 disabled:opacity-50">
+                    Apply
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2 pointer-events-none">
         <template x-for="t in toasts" :key="t.id">
             <div class="pointer-events-auto flex items-start gap-3 max-w-md px-4 py-3 rounded-xl shadow-2xl bg-gray-900 border border-white/10 border-l-4"
@@ -3823,11 +3876,25 @@ function auctionOrganizerPanel() {
          * pushes the change as well as storing it, so the screens turn over when the button is
          * pressed rather than up to two seconds later.
          */
-        async toggleSoldBoard(board) {
+        showScreensModal: false,
+        screensBoard: @js($auction->public_board),
+        screensTarget: @js($auction->public_board_target ?: 'both'),
+
+        /** Send the whole decision at once — see the dialog for why it is not applied per control. */
+        async applyScreens() {
+            await this.toggleSoldBoard(this.screensBoard, { exact: true, target: this.screensTarget });
+            this.showScreensModal = false;
+        },
+
+        async toggleSoldBoard(board, { exact = false, target = null } = {}) {
             if (this.soldBoardBusy) return;
 
-            // Pressing the button for the board already up takes it down.
-            const next = this.soldBoardShowing === board ? null : board;
+            /*
+             * From the dialog the value IS the choice — picking "Sold board" when it is already
+             * up must not toggle it off, because the operator may only be changing where it
+             * plays. From a bare button, pressing the same board again still takes it down.
+             */
+            const next = exact ? board : (this.soldBoardShowing === board ? null : board);
             const previous = this.soldBoardShowing;
             this.soldBoardBusy = true;
             // Optimistic, like a raise: the button is the one control whose state the operator
@@ -3843,12 +3910,18 @@ function auctionOrganizerPanel() {
                         'Accept': 'application/json',
                     },
                     // The clock only goes up WITH a board, never when taking one down.
-                    body: JSON.stringify({ board: next, break_minutes: next ? this.breakMinutes : 0 }),
+                    body: JSON.stringify({
+                        board: next,
+                        target: target || this.screensTarget || 'both',
+                        // The clock only goes up WITH a board, never when taking one down.
+                        break_minutes: next ? this.breakMinutes : 0,
+                    }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
                     this.soldBoardShowing = data.board ?? null;
+                    this.screensBoard = this.soldBoardShowing;
                     this.toast(data.message, 'success', 'Screens');
                 } else {
                     this.soldBoardShowing = previous;

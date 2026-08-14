@@ -57,6 +57,7 @@ class Auction extends Model
         'open_bid_mode',
         // Which board the public screens are showing instead of the live card, if any.
         'public_board',
+        'public_board_target',
         'break_ends_at',
         'online_bid_limit_from',
         'online_bid_limit_to',
@@ -669,6 +670,35 @@ class Auction extends Model
      * Never negative: a break that has run over shows 0, and the wall says so, rather than
      * counting up into a number that reads like a fault.
      */
+    /** Sponsor artwork for the public screens — see AuctionAd. */
+    public function ads()
+    {
+        return $this->hasMany(AuctionAd::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    /** Which screens a board plays on: `wall`, `ticker`, or `both`. */
+    public static function boardTargets(): array
+    {
+        return ['both', 'wall', 'ticker'];
+    }
+
+    /**
+     * Should THIS screen show the board the organizer put up?
+     *
+     * Asked by each screen for itself, so the wall and the ticker can be given different
+     * instructions without either having to know what the other was told.
+     */
+    public function boardShowsOn(string $screen): bool
+    {
+        if ($this->public_board === null) {
+            return false;
+        }
+
+        $target = $this->public_board_target ?: 'both';
+
+        return $target === 'both' || $target === $screen;
+    }
+
     public function breakRemaining(): ?int
     {
         if (! $this->break_ends_at) {

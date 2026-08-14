@@ -670,6 +670,9 @@ class AuctionOrganizerController extends Controller
             // How long the break is meant to last. Null or 0 puts a board up with no clock,
             // which is right for a sealed round or a board shown mid-lot.
             'break_minutes' => 'nullable|integer|min:0|max:180',
+            // Which screens it plays on. The wall is the room and the ticker is the stream, and
+            // filling a break in the hall is not the same decision as cutting away the broadcast.
+            'target' => 'nullable|in:' . implode(',', Auction::boardTargets()),
         ]);
 
         $board = $data['board'] ?? null;
@@ -692,6 +695,7 @@ class AuctionOrganizerController extends Controller
              * behind the live card would resurface on the next board with a time nobody set.
              */
             'break_ends_at' => ($board !== null && $minutes > 0) ? now()->addMinutes($minutes) : null,
+            'public_board_target' => $data['target'] ?? $auction->public_board_target ?? 'both',
         ]);
 
         \App\Support\AfterResponse::run(
@@ -702,6 +706,7 @@ class AuctionOrganizerController extends Controller
             'success' => true,
             'board' => $board,
             'break_remaining' => $auction->fresh()->breakRemaining(),
+            'target' => $auction->fresh()->public_board_target,
             'message' => match ($board) {
                 Auction::BOARD_SOLD => 'Sold board is on the screens.',
                 Auction::BOARD_HIGHLIGHTS => 'Highlights are on the screens.',

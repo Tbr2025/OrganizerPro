@@ -325,7 +325,7 @@ class PublicAuctionController extends Controller
                                  * plugged in or reloaded while the board is showing comes up on the board too —
                                  * a broadcast only reaches screens already listening.
                                  */
-                'public_board' => $auction->public_board,
+                'public_board' => $auction->boardShowsOn('wall') ? $auction->public_board : null,
                 'break_remaining' => $auction->breakRemaining(),
                 // Server-computed, so every screen announces the restart for the same window.
                 'restarting' => $auction->isRestarting(),
@@ -369,7 +369,7 @@ class PublicAuctionController extends Controller
             'success' => true,
             'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
-            'public_board' => $auction->public_board,
+            'public_board' => $auction->boardShowsOn('wall') ? $auction->public_board : null,
                 'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
@@ -423,7 +423,7 @@ class PublicAuctionController extends Controller
                 ] : null,
             ] : null,
             'auction_status' => $auction->status,
-            'public_board' => $auction->public_board,
+            'public_board' => $auction->boardShowsOn('wall') ? $auction->public_board : null,
                 'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
@@ -527,7 +527,7 @@ class PublicAuctionController extends Controller
         return response()->json([
             'success' => true,
             'auction_status' => $auction->status,
-            'public_board' => $auction->public_board,
+            'public_board' => $auction->boardShowsOn('ticker') ? $auction->public_board : null,
                 'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
@@ -654,9 +654,29 @@ class PublicAuctionController extends Controller
                 ];
             });
 
+        /*
+         * The sponsor artwork rides along with the board's own fetch.
+         *
+         * A board already pulls this endpoint when it goes up, and the reel needs the ads at the
+         * same moment — a second request would be a second chance to be slow on a venue uplink,
+         * for two lists that are always wanted together.
+         */
+        $ads = $auction->ads()->where('is_active', true)->get()
+            ->groupBy('kind')
+            ->map(fn ($rows) => $rows->map(fn ($ad) => [
+                'url' => $ad->url,
+                'caption' => $ad->caption,
+            ])->values());
+
         return response()->json([
             'success' => true,
             'soldPlayers' => $soldPlayers,
+            'adSlides' => $ads->get(\App\Models\AuctionAd::KIND_SLIDE, collect()),
+            'sponsors' => $ads->get(\App\Models\AuctionAd::KIND_SPONSOR, collect()),
+            // Drawn top-centre on the reel, so a break still carries the event's identity.
+            'tournamentLogo' => $auction->tournament?->logo
+                ? asset('storage/' . $auction->tournament->logo)
+                : null,
         ]);
     }
 }
