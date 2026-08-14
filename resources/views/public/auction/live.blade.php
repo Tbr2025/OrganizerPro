@@ -349,44 +349,52 @@ HTML;
             border-radius: 50%;
             pointer-events: none;
         }
-        .auction-seal::before { inset: 0; border: 6px solid currentColor; }
-        .auction-seal::after  { inset: 11px; border: 2px solid currentColor; opacity: 0.55; }
+        .auction-seal::before { inset: 0; border: 9px solid currentColor; }
+        .auction-seal::after  { inset: 15px; border: 3px solid rgba(255,255,255,0.65); opacity: 0.9; }
 
+        /*
+         * The word is the stamp.
+         *
+         * At 1.5em against a translucent fill this was a pale outline sitting on top of the card's
+         * own artwork — from the back of a hall it read as a smudge over the stats rather than as
+         * SOLD. The word is now the size of the seal, in white on a solid disc, which is what a
+         * stamp is: something pressed ON TO the design, not tinted into it.
+         */
         .auction-seal .seal-word {
-            font-size: 1.5em;
-            letter-spacing: 3px;
-            line-height: 1;
+            font-size: 2.35em;
+            letter-spacing: 2px;
+            line-height: 0.95;
+            color: #fff;
             z-index: 1;
         }
         .auction-seal .seal-sub {
-            font-size: 0.45em;
-            letter-spacing: 4px;
-            opacity: 0.75;
-            margin-top: 4px;
+            font-size: 0.5em;
+            letter-spacing: 5px;
+            opacity: 0.85;
+            color: #fff;
+            margin-top: 6px;
             z-index: 1;
         }
 
+        /* Solid, not tinted: a stamp is opaque or it is a watermark. */
         .sold-stamp {
-            color: #22c55e;
-            /* Radial fill so the seal reads as pressed wax rather than a flat box. */
-            background:
-                radial-gradient(circle at 35% 30%, rgba(34,197,94,0.30) 0%, rgba(34,197,94,0.10) 45%, rgba(2,10,6,0.88) 100%);
-            text-shadow: 0 0 18px rgba(34,197,94,0.75), 0 2px 4px rgba(0,0,0,0.6);
+            color: #16a34a;
+            background: radial-gradient(circle at 34% 28%, #22c55e 0%, #15803d 55%, #064e2b 100%);
+            text-shadow: 0 2px 6px rgba(0,0,0,0.55);
             box-shadow:
-                0 0 40px rgba(34,197,94,0.45),
-                inset 0 0 26px rgba(34,197,94,0.20),
-                0 10px 30px rgba(0,0,0,0.55);
+                0 0 46px rgba(34,197,94,0.5),
+                inset 0 3px 18px rgba(255,255,255,0.22),
+                0 14px 34px rgba(0,0,0,0.6);
         }
 
         .unsold-stamp {
-            color: #ef4444;
-            background:
-                radial-gradient(circle at 35% 30%, rgba(239,68,68,0.30) 0%, rgba(239,68,68,0.10) 45%, rgba(12,2,2,0.88) 100%);
-            text-shadow: 0 0 18px rgba(239,68,68,0.75), 0 2px 4px rgba(0,0,0,0.6);
+            color: #dc2626;
+            background: radial-gradient(circle at 34% 28%, #ef4444 0%, #b91c1c 55%, #4c0519 100%);
+            text-shadow: 0 2px 6px rgba(0,0,0,0.55);
             box-shadow:
-                0 0 40px rgba(239,68,68,0.45),
-                inset 0 0 26px rgba(239,68,68,0.20),
-                0 10px 30px rgba(0,0,0,0.55);
+                0 0 46px rgba(239,68,68,0.5),
+                inset 0 3px 18px rgba(255,255,255,0.2),
+                0 14px 34px rgba(0,0,0,0.6);
         }
         /*
          * The buyer's logo simply appears. It had its own fade-in on a delay, which was one more
@@ -441,12 +449,35 @@ HTML;
             color: #f59e0b !important;
         }
 
+        /*
+         * The result banner sits at the FOOT of the screen, and leaves.
+         *
+         * At 8% from the top it was landing straight on the card's own base price — a pill
+         * announcing the sale on top of the figure the sale was made at. Any fixed spot near the
+         * top will collide with something, because the card above it is laid out by whoever drew
+         * the template and every template puts different things there.
+         *
+         * The foot is the one band the templates leave alone (the sponsor strip owns the very
+         * bottom, and this clears it), and it fades itself out after a few seconds because it is
+         * an ANNOUNCEMENT, not a label: the stamp, the final price and the buyer's crest are all
+         * still on the card once it has gone.
+         */
         #result-banner {
-            position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
+            position: fixed; left: 50%; bottom: 96px; top: auto; transform: translateX(-50%);
             z-index: 9996; display: flex; align-items: center; gap: 18px;
             padding: 12px 38px; border-radius: 9999px;
-            background: rgba(2,6,23,0.88); backdrop-filter: blur(10px);
+            background: rgba(2,6,23,0.92); backdrop-filter: blur(10px);
             white-space: nowrap;
+            animation: resultBannerLife 7s ease-out forwards;
+        }
+        @keyframes resultBannerLife {
+            0%   { opacity: 0; transform: translateX(-50%) translateY(14px); }
+            6%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+            85%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #result-banner { animation: none; }
         }
         #result-banner #result-word {
             font-size: 1.9rem; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase;
@@ -3916,7 +3947,27 @@ HTML;
                     : (p.player?.name || '');
                 banner.classList.toggle('is-sold', p.status === 'sold');
                 banner.classList.toggle('is-unsold', p.status !== 'sold');
-                banner.classList.remove('hidden');
+
+                /*
+                 * Re-armed only when the RESULT changes, not on every poll.
+                 *
+                 * The banner now fades itself out after a few seconds, and a CSS animation does
+                 * not replay while its class is still on the element — so without a key the second
+                 * sale of the evening would show a banner that was already finished, and with a
+                 * naive re-arm every two-second poll would restart the fade and the banner would
+                 * never leave.
+                 */
+                const key = `${p.id}:${p.status}`;
+
+                if (banner.dataset.resultKey !== key) {
+                    banner.dataset.resultKey = key;
+                    banner.classList.remove('hidden');
+                    banner.style.animation = 'none';
+                    void banner.offsetWidth;
+                    banner.style.animation = '';
+                } else {
+                    banner.classList.remove('hidden');
+                }
             })();
 
             if (p.status === 'sold') {
