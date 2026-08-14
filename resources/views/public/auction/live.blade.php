@@ -2241,7 +2241,19 @@ HTML;
         <!-- Highest Bidder (shown during live bidding) -->
         @if(isVisible($positions, 'highest_bidder'))
         <div id="highest-bidder" class="hidden"><span id="bidder-name"></span></div>
+        @endif
 
+        {{-- Sealed round, OUTSIDE the highest-bidder gate.
+             This lived inside `@if(isVisible($positions, 'highest_bidder'))`, so a template with
+             the highest-bidder element switched off — which auction 11's is — shipped a wall with
+             no sealed banner and no draw in the DOM at all. Nothing appeared when bidding went
+             private and nothing appeared when a lot was drawn, and no amount of fixing the
+             animation could have shown it: the markup was never on the page.
+
+             This is not part of the template's design. It is the system saying what is happening
+             to the auction, and a template author switching off a bid label cannot mean "never
+             tell the hall a sealed round is running".
+         --}}
         {{-- Sealed round. The hall and the stream must be told that bidding has gone
              private, or a frozen price looks like a stalled auction. --}}
         <div id="sealed-banner" class="hidden sealed-banner"
@@ -2284,7 +2296,6 @@ HTML;
                 <div id="sealed-draw-amount" style="font-size:15px;font-weight:700;color:#e9d5ff;"></div>
             </div>
         </div>
-        @endif
 
         {{-- Custom Elements (text labels and shapes) --}}
         @foreach($positions as $cKey => $cVal)
