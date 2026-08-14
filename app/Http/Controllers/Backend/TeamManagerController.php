@@ -915,20 +915,48 @@ class TeamManagerController extends Controller
 
         $tournamentId = $team->tournament_id;
 
-        // Get all players with approved registration for this tournament
-        // Use withoutOrganizationScope() so players with NULL org_id are included
-        // Exclude all retained players (they're already locked to their teams)
+        /*
+         * Every approved player for this tournament — including the ones who have been SOLD.
+         *
+         * This excluded `player_mode = 'retained'`, meaning to drop pre-kept players, and
+         * AuctionSaleService sets that same value on a SALE. So every player who had actually
+         * been bought disappeared from the list the moment they were bought: on live, all six
+         * sold players were invisible here, which is the opposite of what a manager wants in
+         * front of them during an auction.
+         *
+         * `auction_players.is_retained` is the flag that tells a keep from a purchase, so the
+         * exclusion is now made against that, below, and only when there is an auction to ask.
+         */
         $query = Player::withoutOrganizationScope()->whereHas('registrations', function ($q) use ($tournamentId) {
             $q->where('tournament_id', $tournamentId)
               ->where('status', 'approved');
         })
-            ->where(function ($q) {
-                $q->where('player_mode', '!=', 'retained')
-                  ->orWhereNull('player_mode');
-            })
             ->with(['playerType', 'battingProfile', 'bowlingProfile', 'actualTeam', 'location', 'kitSize',
                 'registrations' => fn ($q) => $q->where('tournament_id', $tournamentId)->where('status', 'approved')->limit(1),
             ]);
+
+        /*
+         * Retained players stay out — they are locked to their team and were never on the block —
+         * and the auction status filter (sold / unsold / upcoming) is applied here so the list can
+         * answer "where does everyone stand" in one place.
+         */
+        $statuses = app(\App\Services\Auction\AuctionStatusService::class);
+        $auction = $statuses->auctionFor($tournamentId);
+        $auctionStatus = $request->get('auction_status');
+
+        if ($auction) {
+            $retainedIds = $statuses->retainedPlayerIds($auction);
+
+            if ($retainedIds !== []) {
+                $query->whereNotIn('players.id', $retainedIds);
+            }
+
+            if ($auctionStatus && array_key_exists($auctionStatus, \App\Services\Auction\AuctionStatusService::options())) {
+                $ids = $statuses->playerIdsWithStatus($auction, $auctionStatus);
+                // An empty set has to mean "none", not "no filter" — whereIn([]) is what says so.
+                $query->whereIn('players.id', $ids);
+            }
+        }
 
         // Search by name or jersey name
         if ($search = $request->get('search')) {
@@ -974,6 +1002,14 @@ class TeamManagerController extends Controller
         $bowlingProfiles = BowlingProfile::whereIn('id', (clone $baseIds)->whereNotNull('bowling_profile_id')->pluck('bowling_profile_id')->unique())->orderBy('style')->get();
         $teams = ActualTeam::where('tournament_id', $tournamentId)->orderBy('name')->get();
 
+        // Status, buying team and price for the page in front of us — one query, not twenty.
+        $statuses->attach(
+            $players instanceof \Illuminate\Pagination\LengthAwarePaginator
+                ? $players->getCollection()
+                : collect($players),
+            $auction
+        );
+
         $breadcrumbs = ['title' => __('Players')];
 
         // How each player was claimed, for the status column and the detail modal. Resolved
@@ -1005,7 +1041,9 @@ class TeamManagerController extends Controller
             'verifyFieldConfig',
             'verifyCustomFields',
             'filterDefinitions',
-            'playerPool'
+            'playerPool',
+            'auction',
+            'auctionStatus'
         ));
     }
 

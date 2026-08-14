@@ -164,6 +164,23 @@ class PlayerController extends Controller
         }
 
         /*
+         * Where each player stands in the auction, for the status column.
+         *
+         * Only when a tournament is chosen: a player kept in one competition and sold in another
+         * has two answers, and a list spanning every tournament cannot pick between them without
+         * inventing one. One query for the page either way — see AuctionStatusService::attach().
+         */
+        $auctionStatuses = app(\App\Services\Auction\AuctionStatusService::class);
+        $listAuction = $auctionStatuses->auctionFor($filters['tournament'] ? (int) $filters['tournament'] : null);
+
+        $auctionStatuses->attach(
+            $players instanceof \Illuminate\Pagination\LengthAwarePaginator
+                ? $players->getCollection()
+                : collect($players),
+            $listAuction
+        );
+
+        /*
          * The playing-team options, built from the same filtered scope with THIS filter removed —
          * so the list offers the clubs actually present under the current tournament and status,
          * and choosing one never empties the page. Same reason the registrations screen builds its
@@ -217,6 +234,7 @@ class PlayerController extends Controller
 
         // 6. Return the view and pass all necessary data
         return view('backend.pages.players.index', [
+            'listAuction' => $listAuction,
             'players' => $players,
             'filterTeams' => $filterTeams,
             'actualTeams' => $actualTeams,

@@ -70,6 +70,20 @@ use App\Http\Controllers\Public\MatchPublicController;
 use App\Http\Controllers\Public\TournamentsListController;
 use App\Http\Controllers\Public\PlayerDashboardController;
 use App\Http\Controllers\Backend\PlayerImageProcessController;
+
+/*
+ * `{auction}` is always a numeric id.
+ *
+ * Route::resource('auctions') registers `show` as GET /auctions/{auction}, and that happily
+ * matches /auctions/auctioned-players — the literal is taken as an id, model binding finds no
+ * auction called "auctioned-players", and the page 404s. The file already carries a comment about
+ * this trap catching /auctions/create; it caught the next literal route too, which is what a
+ * comment cannot prevent.
+ *
+ * Constraining the parameter fixes every one of them at once, including the ones nobody has added
+ * yet. Nothing is lost: an auction is bound by id everywhere in this application.
+ */
+Route::pattern('auction', '[0-9]+');
 use App\Models\Organization;
 use App\Models\Player;
 use App\Models\User;

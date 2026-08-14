@@ -18,7 +18,9 @@
     @php
         $tmFilterParams = array_merge(
             \App\Support\PlayerFilters::parameterNames($filterDefinitions),
-            ['search', 'team']
+            // `auction_status` belongs here too, or "Reset all" leaves the list filtered to
+            // Sold with nothing on screen saying why.
+            ['search', 'team', 'auction_status']
         );
     @endphp
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
@@ -45,6 +47,21 @@
                         @endforeach
                     </select>
                 </div>
+
+                {{-- Sold, unsold, still to come — the three states a manager watches an auction in.
+                     Only offered when the tournament HAS an auction; there is nothing to ask
+                     otherwise. --}}
+                @if(!empty($auction))
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{{ __('Auction status') }}</label>
+                    <select name="auction_status" class="form-control text-sm">
+                        <option value="">{{ __('All players') }}</option>
+                        @foreach(\App\Services\Auction\AuctionStatusService::options() as $value => $label)
+                            <option value="{{ $value }}" {{ request('auction_status') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
 
                 <div class="flex items-end gap-2">
                     <button type="submit"
@@ -156,6 +173,40 @@
                                         </span>
                                     @else
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">Available</span>
+                                    @endif
+
+                                    {{-- Where they stand in the AUCTION, which is a different
+                                         question from whether they are in somebody's squad: a
+                                         player can be unsold and unclaimed, or sold and therefore
+                                         claimed, and this list has to show both together. --}}
+                                    @if(!empty($auction) && $player->auction_status)
+                                        @php
+                                            $aBadge = match ($player->auction_status) {
+                                                'sold' => 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
+                                                'unsold' => 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+                                                'upcoming' => 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
+                                                default => 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+                                            };
+                                            $aLabel = match ($player->auction_status) {
+                                                'sold' => 'Sold',
+                                                'unsold' => 'Unsold',
+                                                'upcoming' => 'Upcoming',
+                                                default => 'Icon',
+                                            };
+                                        @endphp
+                                        <div class="mt-1 flex items-center gap-1.5 flex-wrap">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold {{ $aBadge }}">
+                                                {{ $aLabel }}
+                                            </span>
+                                            @if($player->auction_price)
+                                                <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                    {{ $auction->formatAmount($player->auction_price) }}
+                                                    @if($player->auction_team)
+                                                        &middot; {{ \Illuminate\Support\Str::limit($player->auction_team->name, 14) }}
+                                                    @endif
+                                                </span>
+                                            @endif
+                                        </div>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4">{{ $player->playerType->type ?? '-' }}</td>

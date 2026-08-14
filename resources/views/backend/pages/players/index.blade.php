@@ -376,6 +376,14 @@
                                 <th scope="col"
                                     class="py-3 px-3 w-24 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Status</th>
+                                {{-- Where they stand in the auction. Only meaningful once a
+                                     tournament is chosen — a player kept in one competition and
+                                     sold in another has two answers. --}}
+                                @if(!empty($listAuction))
+                                <th scope="col"
+                                    class="py-3 px-3 w-32 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                    Auction</th>
+                                @endif
                                 <th scope="col"
                                     class="py-3 px-3 w-28 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                                     Last Updated</th>
@@ -648,6 +656,40 @@
                                             @endif
                                         </div>
                                     </td>
+                                    @if(!empty($listAuction))
+                                    <td class="px-3 py-3.5 whitespace-nowrap text-sm">
+                                        @php
+                                            $aStatus = $player->auction_status ?? null;
+                                            $aBadge = match ($aStatus) {
+                                                'sold' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/10 dark:bg-emerald-500/10 dark:text-emerald-400',
+                                                'unsold' => 'bg-red-50 text-red-700 ring-red-600/10 dark:bg-red-500/10 dark:text-red-400',
+                                                'upcoming' => 'bg-sky-50 text-sky-700 ring-sky-600/10 dark:bg-sky-500/10 dark:text-sky-400',
+                                                'retained' => 'bg-purple-50 text-purple-700 ring-purple-600/10 dark:bg-purple-500/10 dark:text-purple-400',
+                                                default => 'bg-gray-50 text-gray-500 ring-gray-600/10 dark:bg-gray-500/10 dark:text-gray-400',
+                                            };
+                                            $aLabel = match ($aStatus) {
+                                                'sold' => 'Sold',
+                                                'unsold' => 'Unsold',
+                                                'upcoming' => 'Upcoming',
+                                                'retained' => 'Icon',
+                                                default => 'Not in auction',
+                                            };
+                                        @endphp
+                                        <div class="flex flex-col gap-0.5">
+                                            <span class="inline-flex w-fit items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 ring-inset {{ $aBadge }}">
+                                                {{ $aLabel }}
+                                            </span>
+                                            @if($player->auction_price)
+                                                <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                    {{ $listAuction->formatAmount($player->auction_price) }}
+                                                    @if($player->auction_team)
+                                                        &middot; {{ \Illuminate\Support\Str::limit($player->auction_team->name, 14) }}
+                                                    @endif
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    @endif
                                     <td class="px-3 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ $player->updated_at->diffForHumans() }}</td>
                                     <td class="px-3 py-3.5 whitespace-nowrap text-right text-sm font-medium">
