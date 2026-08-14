@@ -292,6 +292,23 @@
                               'text-orange-400': openBidMode === 'offline'
                           }"
                           x-text="openBidMode === 'offline' ? 'OFFLINE' : (bidType === 'closed' ? 'CLOSED BID' : 'OPEN BID')"></span>
+
+                    {{-- Whether OFFLINE will survive the next player.
+                         Two different states wore the same badge. Pressing Offline is a standing
+                         decision and holds for the rest of the auction; being put offline by the
+                         price rule (above `online_bid_limit_to`) lasts only for this player, and
+                         the next one starts online again at their base price. Identical on
+                         screen, so an organizer running the whole room by hand had no way to see
+                         that their offline was the temporary kind and would keep coming undone. --}}
+                    <span x-show="openBidMode === 'offline'" x-cloak
+                          class="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          :class="modeManuallyOverridden
+                              ? 'bg-orange-500/20 text-orange-300'
+                              : 'bg-gray-700/60 text-gray-400'"
+                          :title="modeManuallyOverridden
+                              ? 'You chose offline — it stays for every player until you press Live.'
+                              : 'Offline because of the price rule. The next player starts online again; press Offline to make it stick.'"
+                          x-text="modeManuallyOverridden ? 'held' : 'this player'"></span>
                 </div>
 
                 {{-- Closing call, compact. Shown in every mode: a sealed round has a clock
@@ -2487,6 +2504,7 @@ function auctionOrganizerPanel() {
         // The sealed threshold, while it still applies to this player — see the server's
         // BidIncrementService::openBidCeilingFor().
         openBidCeiling: null,
+        modeManuallyOverridden: @js((bool) $auction->mode_manually_overridden),
         bidIncrement: null,
         maxBidReached: false,
         quickBidSteps: [],
@@ -2991,6 +3009,8 @@ function auctionOrganizerPanel() {
                 this.nextBidAmount = data.next_bid_amount ?? null;
                 // Where open bidding stops, when a sealed threshold is still in force.
                 this.openBidCeiling = data.open_bid_ceiling ?? null;
+                // Whether OFFLINE is a standing choice or just this player — see the badge.
+                this.modeManuallyOverridden = !! data.mode_manually_overridden;
                 this.bidIncrement = data.bid_increment ?? null;
                 this.maxBidReached = !!data.max_bid_reached;
 
