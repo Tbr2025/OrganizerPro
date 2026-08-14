@@ -71,6 +71,9 @@ class Auction extends Model
         'background_image',
         'auction_logo',
         'waiting_background_image',
+        'sealed_logo',
+        'sealed_heading',
+        'sealed_message',
         'primary_color',
         'secondary_color',
         'max_squad_size',
@@ -1211,6 +1214,34 @@ class Auction extends Model
     public function getAuctionLogoUrlAttribute(): ?string
     {
         return $this->auction_logo ? asset('storage/' . $this->auction_logo) : null;
+    }
+
+    /**
+     * The mark shown on the wall while bidding is private.
+     *
+     * Falls back to the auction's own logo and then the tournament's, so a sealed round always
+     * has something to put in the middle of the screen — an organizer who has uploaded a logo
+     * once should not have to upload it again to have a sealed round look like their event.
+     */
+    public function getSealedLogoUrlAttribute(): ?string
+    {
+        if ($this->sealed_logo) {
+            return asset('storage/' . $this->sealed_logo);
+        }
+
+        return $this->auction_logo_url ?: ($this->tournament->logo_url ?? null);
+    }
+
+    /** The headline on the sealed screen. */
+    public function sealedHeading(): string
+    {
+        return trim((string) $this->sealed_heading) ?: 'Sealed Bid In Progress';
+    }
+
+    /** The line beneath it. */
+    public function sealedMessage(): string
+    {
+        return trim((string) $this->sealed_message) ?: 'Amounts are revealed once every team has submitted';
     }
 
     public function getWaitingBackgroundImageUrlAttribute(): ?string

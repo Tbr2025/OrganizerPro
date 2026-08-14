@@ -1991,10 +1991,19 @@ HTML;
             <span class="sealed-ring"></span>
             <span class="sealed-ring"></span>
             @php
-                $sealedLogos = array_values(array_filter([
-                    $auction->tournament->logo_url ?? null,
-                    $auction->auction_logo_url ?: null,
-                ]));
+                /*
+                 * The organizer's own mark first, when one has been set on the Sealed Bid Screen
+                 * page — that setting exists precisely so this screen can carry an event's own
+                 * branding rather than whatever logos happen to be on the auction.
+                 *
+                 * With nothing set it falls back to the tournament's and the auction's, as before.
+                 */
+                $sealedLogos = $auction->sealed_logo
+                    ? [$auction->sealed_logo_url]
+                    : array_values(array_filter([
+                        $auction->tournament->logo_url ?? null,
+                        $auction->auction_logo_url ?: null,
+                    ]));
             @endphp
             @if(count($sealedLogos))
                 <div class="sealed-crest-logos">
@@ -2008,8 +2017,12 @@ HTML;
         </div>
 
         <div>
-            <div class="sealed-heading" id="sealed-overlay-heading">Sealed Bid Is Happening Now</div>
-            <div class="sealed-sub" id="sealed-overlay-sub" style="margin-top:10px;">Please wait</div>
+            {{-- Set on the Sealed Bid Screen page; the built-in wording is the fallback. The JS
+                 below overwrites these per state, and reads its own defaults from these nodes. --}}
+            <div class="sealed-heading" id="sealed-overlay-heading"
+                 data-default="{{ $auction->sealedHeading() }}">{{ $auction->sealedHeading() }}</div>
+            <div class="sealed-sub" id="sealed-overlay-sub" style="margin-top:10px;"
+                 data-default="{{ $auction->sealedMessage() }}">{{ $auction->sealedMessage() }}</div>
             <div class="sealed-round" id="sealed-overlay-round" style="margin-top:14px;"></div>
 
             {{-- How long the teams have left.
@@ -3580,12 +3593,28 @@ HTML;
          */
         const SEALED_OVERLAY_STATES = ['pending', 'entry_open', 'collecting', 'locked'];
 
-        const SEALED_OVERLAY_COPY = {
-            pending:    ['Sealed Bid Is Happening Now', 'Please wait'],
-            entry_open: ['Sealed Bid Is Happening Now', 'Teams are joining the round — please wait'],
-            collecting: ['Sealed Bid Is Happening Now', 'Teams are entering their bids — please wait'],
-            locked:     ['Sealed Bids Are In', 'Result coming up — please wait'],
-        };
+        /*
+         * The organizer's own headline and message, from the Sealed Bid Screen settings.
+         *
+         * Read off the nodes rather than hard-coded here, so an auction that has set its own
+         * wording keeps it in every state — a tournament that does not run in English was
+         * otherwise handed four sentences it could not change.
+         *
+         * `locked` is the one state that says something different: the bids are IN and the result
+         * is coming, which is a fact about the round rather than a piece of branding.
+         */
+        function sealedCopyFor(state) {
+            const heading = document.getElementById('sealed-overlay-heading')?.dataset.default
+                || 'Sealed Bid In Progress';
+            const message = document.getElementById('sealed-overlay-sub')?.dataset.default
+                || 'Amounts are revealed once every team has submitted';
+
+            if (state === 'locked') {
+                return [heading, 'Bids are in — result coming up'];
+            }
+
+            return [heading, message];
+        }
 
         function renderSealedOverlay(sealed) {
             const overlay = document.getElementById('sealed-overlay');
@@ -3600,7 +3629,7 @@ HTML;
                 return;
             }
 
-            const [heading, sub] = SEALED_OVERLAY_COPY[state] || SEALED_OVERLAY_COPY.pending;
+            const [heading, sub] = sealedCopyFor(state);
             const headingEl = document.getElementById('sealed-overlay-heading');
             const subEl = document.getElementById('sealed-overlay-sub');
             const roundEl = document.getElementById('sealed-overlay-round');

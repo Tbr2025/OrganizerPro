@@ -303,6 +303,19 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::delete('/auctions/{auction}/operators/{operator}', [\App\Http\Controllers\Backend\AuctionOperatorController::class, 'destroy'])
         ->name('auctions.operators.destroy');
 
+    /*
+     * What the wall shows while bidding is private — logo and wording.
+     *
+     * `auction.edit` like the ads screen beside it: both are event setup rather than anything
+     * done during a lot, and the operator abilities deliberately do not reach configuration.
+     */
+    Route::get('/auctions/{auction}/sealed-screen', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'index'])
+        ->name('auctions.sealed-screen.index');
+    Route::post('/auctions/{auction}/sealed-screen', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'update'])
+        ->name('auctions.sealed-screen.update');
+    Route::delete('/auctions/{auction}/sealed-screen/logo', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'removeLogo'])
+        ->name('auctions.sealed-screen.logo.destroy');
+
     Route::get('/auctions/{auction}/ads', [\App\Http\Controllers\Backend\AuctionAdController::class, 'index'])
         ->name('auctions.ads.index');
     Route::post('/auctions/{auction}/ads', [\App\Http\Controllers\Backend\AuctionAdController::class, 'store'])

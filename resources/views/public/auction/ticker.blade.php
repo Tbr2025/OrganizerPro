@@ -1016,6 +1016,11 @@
      * settles as soon as it sees one gives the result away — here that would be to the stream,
      * ahead of the room.
      */
+    /* Set on the Sealed Bid Screen page; the built-in wording is the fallback. */
+    const SEALED_HEADING = @js($auction->sealedHeading());
+    const SEALED_MESSAGE = @js($auction->sealedMessage());
+    const SEALED_LOGO = @js($auction->sealed_logo ? $auction->sealed_logo_url : null);
+
     let ltDrawCycle = null;
     let ltDrawSettledFor = null;
 
@@ -1052,10 +1057,12 @@
             stop();
             ltDrawSettledFor = null;
             teamBox.classList.remove('is-on', 'winner', 'cycling');
-            title.textContent = 'Sealed Bid In Progress';
+            /* The organizer's own wording, from the Sealed Bid Screen settings — the same words
+               the wall carries, so the two screens in one room do not say different things. */
+            title.textContent = SEALED_HEADING;
             sub.textContent = sealed.round_number > 1
-                ? `Round ${sealed.round_number} of ${sealed.total_rounds || 1} — revealed once every team has submitted`
-                : 'Amounts are revealed once every team has submitted';
+                ? `${SEALED_MESSAGE} · round ${sealed.round_number} of ${sealed.total_rounds || 1}`
+                : SEALED_MESSAGE;
             return;
         }
 
@@ -1110,6 +1117,15 @@
     function renderOverlayLogos() {
         const wrap = document.getElementById('lt-overlay-logos');
         if (! wrap || wrap.dataset.filled) return;
+
+        /* The sealed screen's own mark wins when one is set — the same rule the wall follows,
+           so the band and the wall carry the same badge. */
+        if (SEALED_LOGO) {
+            wrap.innerHTML = `<img src="${SEALED_LOGO}" alt="">`;
+            wrap.dataset.filled = '1';
+
+            return;
+        }
 
         const sources = [
             document.querySelector('#lt-tournament-logo img'),
