@@ -2875,14 +2875,22 @@ HTML;
              */
             if (_reelAds.length) {
                 /*
-                 * One ad every REEL_AD_EVERY cards at most, however many are uploaded.
+                 * One ad every REEL_AD_EVERY cards — or once a cycle, whichever comes first.
                  *
                  * Spacing them by ads-to-players meant that uploading more artwork made the reel
-                 * MORE of an ad break — five ads against twenty players put one every four cards,
-                 * which is what a room notices and complains about. The gap is now a floor, so
-                 * extra uploads take longer to come round instead of crowding in.
+                 * MORE of an ad break, so the gap became a floor. That floor then swallowed the ads
+                 * entirely on a short reel: five sold players against a gap of six means `(i + 1) %
+                 * 6` never comes true, and an auction early in its evening showed no sponsor at all
+                 * while the feed was serving two. A gap wider than the reel is not a gap, it is an
+                 * off switch.
+                 *
+                 * Clamped to the number of cards, so the sponsor lands after the last one instead.
                  */
-                const every = Math.max(REEL_AD_EVERY, Math.round(_reelSlides.length / (_reelAds.length + 1)) || REEL_AD_EVERY);
+                const players = _reelSlides.length;
+                const every = Math.min(
+                    Math.max(REEL_AD_EVERY, Math.round(players / (_reelAds.length + 1)) || REEL_AD_EVERY),
+                    players
+                );
                 const mixed = [];
                 let adIndex = 0;
 
