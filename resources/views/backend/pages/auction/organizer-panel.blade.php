@@ -1100,6 +1100,20 @@
                                         class="w-9 h-9 shrink-0 rounded-lg bg-gray-800 border border-gray-600 text-gray-300 text-xl font-bold leading-none hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                                         title="Raise one step, same leading team">+</button>
                             </div>
+
+                            {{-- Take the team off the bid, leaving the amount standing.
+                                 For a raise recorded against the wrong team: the call WAS made
+                                 and the figure is right, it is the name on it that is wrong —
+                                 and retracting the raise would throw away both. With no leader
+                                 the next chip clicked TAKES the standing price rather than
+                                 raising it, so clearing and clicking the right team lands
+                                 exactly where the room is. --}}
+                            <button type="button" x-show="canStepBid" @click="clearBidTeam()"
+                                    :disabled="isSteppingBid"
+                                    class="mt-2 mx-auto block px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider text-gray-500 hover:text-amber-300 hover:bg-gray-800/60 disabled:opacity-30 transition-colors"
+                                    title="Remove the team from this bid and keep the price">
+                                Wrong team?
+                            </button>
                         </div>
 
                         {{-- Team Budget --}}
@@ -3673,6 +3687,60 @@ function auctionOrganizerPanel() {
                 await this.pollAuctionState();
             } catch (e) {
                 console.error('Step down error:', e);
+                this.toast('That did not go through.', 'error');
+            } finally {
+                this.isSteppingBid = false;
+            }
+        },
+
+        /**
+         * Lift the leading team off the bid, keeping the price.
+         *
+         * Confirmed, because it changes who the room believes is winning a player. Everything
+         * else stays: the amount, the bid history, the clock. Re-attaching is one click on the
+         * right chip, which under the opening-bid rule takes the standing price rather than
+         * raising it.
+         */
+        async clearBidTeam() {
+            if (! this.canStepBid || this.isSteppingBid) return;
+            if (! this.guardControl('correct the price')) return;
+
+            const leader = this.winningTeamName;
+
+            if (! await this.askConfirm(
+                `Take ${leader} off this bid?\n\nThe price stays at ${this.formatCurrency(this.currentBid)} with no team against it, and the next team you click takes it at that figure.`,
+                { title: 'Wrong team', danger: true }
+            )) return;
+
+            this.isSteppingBid = true;
+
+            try {
+                const res = await fetch('/admin/auctions/clear-bid-team', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auctionId: this.auctionId,
+                        playerID: this.currentPlayer.id,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (this.currentPlayer) this.currentPlayer.current_bid_team_id = null;
+                    this.winningTeamName = 'No Bids';
+                    // The board now says something the last snapshot did not; let the next poll
+                    // speak for it rather than holding a leader that has been deliberately removed.
+                    this._clearPendingBid();
+                    this.toast(data.message, 'success', 'Team removed');
+                } else {
+                    this.toast(data.message || 'That could not be changed.', 'error');
+                }
+            } catch (e) {
+                console.error('Clear team error:', e);
                 this.toast('That did not go through.', 'error');
             } finally {
                 this.isSteppingBid = false;

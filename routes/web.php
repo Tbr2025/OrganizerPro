@@ -262,6 +262,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/auctions/add-bid', [AuctionAdminController::class, 'addBid'])
         ->middleware('permission:auction.control|auction.edit')
         ->name('auctions.players.addBid');
+    // Lift the leading team off a bid without changing the price — a raise recorded against
+    // the wrong team. See AuctionAdminController::clearBidTeam().
+    Route::post('/auctions/clear-bid-team', [AuctionAdminController::class, 'clearBidTeam'])
+        ->name('auctions.players.clearBidTeam');
     Route::post('/auctions/decrease-bid', [AuctionAdminController::class, 'decreaseBid'])
         ->middleware('permission:auction.control|auction.edit')
         ->name('auctions.players.decreaseBid');

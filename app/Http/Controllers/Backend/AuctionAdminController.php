@@ -1411,6 +1411,65 @@ class AuctionAdminController extends Controller
     }
 
     /**
+     * Detach the leading team from the price, leaving the amount standing.
+     *
+     * For a raise recorded against the wrong team. Retracting it is not the same thing — the
+     * call WAS made and the figure is right; it is the name attached to it that is wrong, and
+     * the operator may not yet know whose it should be.
+     *
+     * It composes with the opening-bid rule rather than fighting it: with no leader, the next
+     * chip clicked TAKES the standing price instead of raising it, so clearing and then
+     * clicking the right team lands exactly where the room actually is.
+     *
+     * The bid rows are left alone. They are the record of what was called, and the price is
+     * unchanged — only the attribution is lifted. One consequence worth stating: UNDO still
+     * points at the last RAISE, so pressing it after a clear retracts that raise rather than
+     * restoring the team. Re-attaching is a click on a chip, which is why this does not add an
+     * undo type of its own.
+     */
+    public function clearBidTeam(Request $request)
+    {
+        $this->authorize('auction.edit');
+
+        $data = $request->validate([
+            'auctionId' => 'required|integer|exists:auctions,id',
+            'playerID' => 'required|integer|exists:auction_players,id',
+        ]);
+
+        $auction = Auction::findOrFail($data['auctionId']);
+        $player = AuctionPlayer::where('auction_id', $auction->id)->findOrFail($data['playerID']);
+
+        if ($player->status !== 'on_auction') {
+            return response()->json([
+                'success' => false,
+                'message' => 'That player is not on the block.',
+            ], 422);
+        }
+
+        // A sealed round owns the board; lifting the open-bid leader under it would leave the
+        // panel describing a state the round does not have.
+        if (app(\App\Services\Auction\ClosedBidService::class)->hasOpenRound($player)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A sealed round is running for this player. Cancel it first.',
+            ], 422);
+        }
+
+        $previousTeam = $player->currentBidTeam?->name;
+
+        $player->update(['current_bid_team_id' => null]);
+
+        return response()->json([
+            'success' => true,
+            'current_price' => (float) $player->current_price,
+            'current_bid_team_id' => null,
+            'message' => $previousTeam
+                ? sprintf('%s removed from the bid. The price stays at %s — click the team that made it.', $previousTeam, format_points($player->current_price))
+                : 'No team was attached to this bid.',
+        ]);
+    }
+
+    /**
      * Step the current price back down — i.e. retract the most recent raise.
      *
      * This delegates to the undo stack rather than computing a lower price of its
