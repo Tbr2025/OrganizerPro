@@ -1166,9 +1166,36 @@ class TeamManagerController extends Controller
             ->orderBy('name')
             ->get();
 
+        /*
+         * Purse and squad room for each of them, in an auction.
+         *
+         * A manager looking at the other teams is asking one question — who can still outbid me,
+         * and for how many players — and the page answered it with a headcount. The figures were
+         * already computed for the organizer's panel; teamPurseStates() gets them all at a fixed
+         * cost rather than five leaf queries per team, which is what made showing them here cheap
+         * enough to be worth doing.
+         *
+         * Open tournaments have no purse at all, so nothing is fetched and nothing is shown.
+         */
+        $purses = [];
+        $auction = null;
+
+        if ($isAuction) {
+            $auction = Auction::where('tournament_id', $tournamentId)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($auction) {
+                $purses = app(\App\Services\Auction\AuctionPoolService::class)
+                    ->teamPurseStates($auction, $otherTeams->pluck('id')->all());
+            }
+        }
+
         $breadcrumbs = ['title' => __('Other Teams')];
 
-        return view('backend.pages.team-manager.other-teams', compact('team', 'otherTeams', 'breadcrumbs'));
+        return view('backend.pages.team-manager.other-teams', compact(
+            'team', 'otherTeams', 'breadcrumbs', 'purses', 'auction', 'isAuction'
+        ));
     }
 
     /**
@@ -1212,9 +1239,31 @@ class TeamManagerController extends Controller
          */
         app(SquadAcquisitionService::class)->attach($players, $otherTeam);
 
+        /*
+         * The same purse and squad figures as the list, in full.
+         *
+         * A squad list without them answers "who did they buy" and not "what can they still do",
+         * which is the question a manager opens a rival's page to ask on an auction night.
+         */
+        $purse = null;
+        $auction = null;
+
+        if ($otherTeam->tournament && $otherTeam->tournament->isAuction()) {
+            $auction = Auction::where('tournament_id', $otherTeam->tournament_id)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($auction) {
+                $purse = app(\App\Services\Auction\AuctionPoolService::class)
+                    ->teamPurseState($auction, $otherTeam->id);
+            }
+        }
+
         $breadcrumbs = ['title' => $otherTeam->name . ' - Players'];
 
-        return view('backend.pages.team-manager.other-team-players', compact('team', 'otherTeam', 'players', 'wishlistedIds', 'breadcrumbs'));
+        return view('backend.pages.team-manager.other-team-players', compact(
+            'team', 'otherTeam', 'players', 'wishlistedIds', 'breadcrumbs', 'purse', 'auction'
+        ));
     }
 
     /**

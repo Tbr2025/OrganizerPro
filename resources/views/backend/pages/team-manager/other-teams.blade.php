@@ -39,11 +39,35 @@
                                 @endif
                             </div>
 
-                            {{-- Player Count Badge --}}
-                            <div class="hidden sm:flex items-center" style="flex-basis: 30%;">
+                            {{-- Squad and purse.
+                                 A manager looking at the other teams is asking one thing: who can
+                                 still outbid me, and for how many players. This answered it with a
+                                 headcount alone, which is the least useful half. --}}
+                            @php $purse = $purses[$otherTeam->id] ?? null; @endphp
+                            <div class="hidden sm:flex items-center gap-2 flex-wrap" style="flex-basis: 30%;">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                                     {{ $otherTeam->approved_players_count ?? 0 }} Players
                                 </span>
+
+                                @if($purse && $auction)
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                                          title="Purse left after everything they have bought and retained">
+                                        {{ $auction->formatAmount($purse['remaining'] ?? 0) }} left
+                                    </span>
+
+                                    @if(($purse['slots_remaining'] ?? null) !== null)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+                                              title="Places still to fill before their squad is complete">
+                                            {{ $purse['slots_remaining'] }} to fill
+                                        </span>
+                                    @endif
+
+                                    @if($purse['squad_full'] ?? false)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                            Squad full
+                                        </span>
+                                    @endif
+                                @endif
                             </div>
 
                             {{-- Arrow --}}

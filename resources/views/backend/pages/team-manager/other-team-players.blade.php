@@ -76,6 +76,54 @@
         </div>
     </div>
 
+    {{-- What they can still DO.
+         A squad list answers "who did they buy". On an auction night the question a manager opens
+         a rival's page to ask is what is left in their purse and how many places they still have
+         to fill — the figures that decide whether they can come back at you for the next player.
+
+         The same numbers the organizer's panel uses, from the same service, so no screen in the
+         room can quote a different purse. --}}
+    @if($purse && $auction)
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 text-center">
+        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Purse Left</div>
+            <div class="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                {{ $auction->formatAmount($purse['remaining'] ?? 0) }}
+            </div>
+        </div>
+        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Spent</div>
+            <div class="mt-1 text-2xl font-bold text-gray-800 dark:text-gray-200">
+                {{ $auction->formatAmount($purse['spent'] ?? 0) }}
+            </div>
+            <div class="text-[11px] text-gray-400 mt-0.5">
+                of {{ $auction->formatAmount($purse['allocated'] ?? 0) }}
+            </div>
+        </div>
+        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Places To Fill</div>
+            <div class="mt-1 text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {{ $purse['slots_remaining'] ?? '—' }}
+            </div>
+            <div class="text-[11px] text-gray-400 mt-0.5">
+                {{ $purse['slots_filled'] ?? 0 }} of {{ $purse['slots_required'] ?? 0 }} filled
+            </div>
+        </div>
+        <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow">
+            {{-- Not the purse: what they may actually put on ONE player once the squad reserve
+                 holds back enough to finish their side. That is the figure that says whether they
+                 can outbid you, and it is always lower than the purse. --}}
+            <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Max On One Player</div>
+            <div class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {{ $auction->formatAmount($purse['max_bid_allowed'] ?? 0) }}
+            </div>
+            @if($purse['squad_full'] ?? false)
+                <div class="text-[11px] font-bold text-amber-500 mt-0.5">Squad full</div>
+            @endif
+        </div>
+    </div>
+    @endif
+
     {{-- SQUAD TABLE --}}
     @if($players->count() > 0)
         @php
