@@ -2379,6 +2379,36 @@
             if (_reelSlides.length > 1) _reelTimer = setInterval(show, REEL_MS);
         }
 
+        /**
+         * The sponsor strip, and the event's own mark above it.
+         *
+         * Drawn for the whole auction rather than only during a break: a logo that appears when
+         * bidding stops has been shown far less than the deal said. Renders nothing at all when
+         * there is no artwork, so a wall with no sponsors is unchanged.
+         */
+        function renderSponsors(sponsors, logoUrl) {
+            const strip = document.getElementById('reel-sponsors');
+            const logo = document.getElementById('reel-logo');
+
+            if (logo) {
+                if (logoUrl) {
+                    logo.src = logoUrl;
+                    logo.classList.remove('hidden');
+                } else {
+                    logo.classList.add('hidden');
+                }
+            }
+
+            if (! strip) return;
+
+            const list = Array.isArray(sponsors) ? sponsors : [];
+
+            strip.innerHTML = list
+                .map((a) => `<img src="${escapeHtml(a.url)}" alt="">`)
+                .join('');
+            strip.classList.toggle('hidden', ! list.length);
+        }
+
         /*
          * The sponsors, fetched once at start-up.
          *
