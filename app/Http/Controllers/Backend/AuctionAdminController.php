@@ -421,6 +421,8 @@ class AuctionAdminController extends Controller
              * whole form came back unsaved because of a setting that governed nothing.
              */
             'online_bid_limit_to' => 'nullable|numeric|min:0',
+            // A warning threshold, not a rule: nothing is blocked by it. See the team dashboard.
+            'budget_alert_pct' => 'nullable|integer|min:1|max:99',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
 
             // Online or offline: who enters the bids for the whole auction. Nullable, not
@@ -550,6 +552,7 @@ class AuctionAdminController extends Controller
                 )),
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
+                'budget_alert_pct' => $validated['budget_alert_pct'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ], $brandingData, $this->biddingModeData($validated)));
 
@@ -1814,6 +1817,8 @@ class AuctionAdminController extends Controller
              * whole form came back unsaved because of a setting that governed nothing.
              */
             'online_bid_limit_to' => 'nullable|numeric|min:0',
+            // A warning threshold, not a rule: nothing is blocked by it. See the team dashboard.
+            'budget_alert_pct' => 'nullable|integer|min:1|max:99',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
             // See the matching rule in store().
             'open_bid_mode' => 'nullable|in:online,offline',
@@ -1933,6 +1938,7 @@ class AuctionAdminController extends Controller
                 )),
                 'online_bid_limit_from' => $validated['online_bid_limit_from'] ?? null,
                 'online_bid_limit_to' => $validated['online_bid_limit_to'] ?? null,
+                'budget_alert_pct' => $validated['budget_alert_pct'] ?? null,
                 'closed_bid_starts_at' => $validated['closed_bid_starts_at'] ?? null,
             ], $brandingData, $this->biddingModeData($validated)));
 

@@ -481,6 +481,10 @@ Route::middleware(['auth'])
         Route::get('/dashboard', [TeamManagerController::class, 'dashboard'])->name('dashboard');
         Route::get('/team', [TeamManagerController::class, 'viewTeam'])->name('team');
         Route::get('/auctions', [TeamManagerController::class, 'auctions'])->name('auctions');
+        // "I agree" on the budget warning. Stored rather than held in the session, so it
+        // survives the manager closing their laptop — see acknowledgeBudgetAlert().
+        Route::post('/budget-alert/ack', [TeamManagerController::class, 'acknowledgeBudgetAlert'])
+            ->name('budget-alert.ack');
 
         // Player management
         Route::get('/players/create', [TeamManagerController::class, 'createPlayer'])->name('players.create');

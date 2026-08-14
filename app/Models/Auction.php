@@ -58,6 +58,9 @@ class Auction extends Model
         // Which board the public screens are showing instead of the live card, if any.
         'public_board',
         'public_board_target',
+        'budget_alert_pct',
+        'ads_slides_enabled',
+        'ads_sponsors_enabled',
         'break_ends_at',
         'online_bid_limit_from',
         'online_bid_limit_to',
@@ -87,6 +90,8 @@ class Auction extends Model
     ];
     protected $casts = [
         'break_ends_at' => 'datetime',
+        'ads_slides_enabled' => 'boolean',
+        'ads_sponsors_enabled' => 'boolean',
 
         'start_at' => 'datetime',
         'end_at' => 'datetime',
@@ -670,6 +675,38 @@ class Auction extends Model
      * Never negative: a break that has run over shows 0, and the wall says so, rather than
      * counting up into a number that reads like a fault.
      */
+    /**
+     * Has this team's purse fallen below the warning threshold, and have they not said so?
+     *
+     * Returns the percentage remaining when a warning is due, and null when it is not — so a
+     * caller has the figure to show without asking a second question. Null covers every reason
+     * not to warn: the auction has no threshold, the team has no allocation to measure against,
+     * they are still above it, or they have already agreed.
+     *
+     * Measured on REMAINING against ALLOCATED, because that is what the threshold is phrased as.
+     * Spend would give the same answer from the other end, but "you have 62% left" is the
+     * sentence a manager needs and inverting it in the view is how the two drift apart.
+     */
+    public function budgetWarningFor(int $teamId, float $remaining, float $allocated): ?float
+    {
+        if ($this->budget_alert_pct === null || $allocated <= 0) {
+            return null;
+        }
+
+        $pct = ($remaining / $allocated) * 100;
+
+        if ($pct >= (float) $this->budget_alert_pct) {
+            return null;
+        }
+
+        $acknowledged = \DB::table('auction_budget_acks')
+            ->where('auction_id', $this->id)
+            ->where('actual_team_id', $teamId)
+            ->exists();
+
+        return $acknowledged ? null : round($pct, 1);
+    }
+
     /** Sponsor artwork for the public screens — see AuctionAd. */
     public function ads()
     {

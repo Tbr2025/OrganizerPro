@@ -673,6 +673,10 @@ class AuctionOrganizerController extends Controller
             // Which screens it plays on. The wall is the room and the ticker is the stream, and
             // filling a break in the hall is not the same decision as cutting away the broadcast.
             'target' => 'nullable|in:' . implode(',', Auction::boardTargets()),
+            // Saved with the rest of the decision, so "no ads tonight" survives a reload rather
+            // than being a switch somebody has to remember to flick again.
+            'ads_slides' => 'nullable|boolean',
+            'ads_sponsors' => 'nullable|boolean',
         ]);
 
         $board = $data['board'] ?? null;
@@ -696,6 +700,10 @@ class AuctionOrganizerController extends Controller
              */
             'break_ends_at' => ($board !== null && $minutes > 0) ? now()->addMinutes($minutes) : null,
             'public_board_target' => $data['target'] ?? $auction->public_board_target ?? 'both',
+            'ads_slides_enabled' => array_key_exists('ads_slides', $data)
+                ? (bool) $data['ads_slides'] : $auction->ads_slides_enabled,
+            'ads_sponsors_enabled' => array_key_exists('ads_sponsors', $data)
+                ? (bool) $data['ads_sponsors'] : $auction->ads_sponsors_enabled,
         ]);
 
         \App\Support\AfterResponse::run(
@@ -707,6 +715,8 @@ class AuctionOrganizerController extends Controller
             'board' => $board,
             'break_remaining' => $auction->fresh()->breakRemaining(),
             'target' => $auction->fresh()->public_board_target,
+            'ads_slides' => (bool) $auction->fresh()->ads_slides_enabled,
+            'ads_sponsors' => (bool) $auction->fresh()->ads_sponsors_enabled,
             'message' => match ($board) {
                 Auction::BOARD_SOLD => 'Sold board is on the screens.',
                 Auction::BOARD_HIGHLIGHTS => 'Highlights are on the screens.',

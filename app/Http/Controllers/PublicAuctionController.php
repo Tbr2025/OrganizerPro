@@ -671,8 +671,14 @@ class PublicAuctionController extends Controller
         return response()->json([
             'success' => true,
             'soldPlayers' => $soldPlayers,
-            'adSlides' => $ads->get(\App\Models\AuctionAd::KIND_SLIDE, collect()),
-            'sponsors' => $ads->get(\App\Models\AuctionAd::KIND_SPONSOR, collect()),
+            // Switched off at the auction, the artwork simply is not sent — the screens have
+            // nothing to decide and nothing to hide, and the uploads are untouched.
+            'adSlides' => $auction->ads_slides_enabled
+                ? $ads->get(\App\Models\AuctionAd::KIND_SLIDE, collect())
+                : collect(),
+            'sponsors' => $auction->ads_sponsors_enabled
+                ? $ads->get(\App\Models\AuctionAd::KIND_SPONSOR, collect())
+                : collect(),
             // Drawn top-centre on the reel, so a break still carries the event's identity.
             'tournamentLogo' => $auction->tournament?->logo
                 ? asset('storage/' . $auction->tournament->logo)

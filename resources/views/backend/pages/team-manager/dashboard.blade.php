@@ -25,6 +25,98 @@
         </div>
     @endif
 
+    {{-- The purse warning.
+         Shown for the first auction that is under its threshold — a manager with two auctions
+         running does not want two dialogs stacked, and the one that is short is the one that
+         matters. Nothing is blocked by it: a manager who wants to spend their last pound on one
+         player may still do it. It only makes sure they knew. --}}
+    @php
+        $budgetWarning = null;
+
+        foreach ($upcomingAuctions ?? [] as $warnAuction) {
+            $pct = $auctionBudgets[$warnAuction->id]['budget_warning_pct'] ?? null;
+
+            if ($pct !== null) {
+                $budgetWarning = ['auction' => $warnAuction, 'pct' => $pct];
+                break;
+            }
+        }
+    @endphp
+
+    @if($budgetWarning)
+        <div x-data="{
+                open: true,
+                /*
+                 * Close hides it for ten minutes; I agree stops it for good.
+                 *
+                 * The timer is deliberately client-side and the acknowledgement deliberately is
+                 * not: closing is a 'not now', which should not outlive the page, and agreeing
+                 * is an answer, which has to survive the laptop being shut.
+                 */
+                snooze() {
+                    this.open = false;
+                    setTimeout(() => { this.open = true; }, 10 * 60 * 1000);
+                },
+                async agree() {
+                    this.open = false;
+
+                    try {
+                        await fetch('{{ route('team-manager.budget-alert.ack') }}', {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                'Content-Type': 'application/json',
+                                Accept: 'application/json',
+                            },
+                            body: JSON.stringify({
+                                auction_id: {{ $budgetWarning['auction']->id }},
+                                team_id: {{ $team->id }},
+                            }),
+                        });
+                    } catch (e) {
+                        // Swallowed: the dialog is already closed and the next page load will
+                        // simply ask again, which is the safe way for this to fail.
+                        console.error('Budget ack failed', e);
+                    }
+                },
+             }"
+             x-show="open" x-cloak
+             class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4">
+            <div class="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 border border-amber-300 dark:border-amber-700 shadow-2xl p-6">
+                <div class="flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                        <iconify-icon icon="lucide:wallet" width="20" class="text-amber-600 dark:text-amber-400"></iconify-icon>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">Your purse is running low</h3>
+                        <p class="text-sm text-gray-600 dark:text-gray-300 mt-1.5">
+                            {{ $team->name }} has
+                            <span class="font-bold text-amber-600 dark:text-amber-400">{{ $budgetWarning['pct'] }}%</span>
+                            of its budget left in {{ $budgetWarning['auction']->name }}, with
+                            <span class="font-semibold">{{ $auctionBudgets[$budgetWarning['auction']->id]['squad_remaining'] ?? 0 }}</span>
+                            place(s) still to fill.
+                        </p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                            Nothing is blocked — you can still bid as you choose. This is a reminder
+                            so the last places are not left unaffordable.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex items-center justify-end gap-3">
+                    <button type="button" @click="snooze()"
+                            class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium">
+                        Close
+                    </button>
+                    <button type="button" @click="agree()"
+                            class="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-bold hover:bg-amber-600">
+                        I agree
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     {{-- Team Selector (if managing multiple teams, or an admin previewing any of them) --}}
     @if($teams->count() > 1)
         <div class="mb-6">

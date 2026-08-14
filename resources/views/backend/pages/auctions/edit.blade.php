@@ -389,6 +389,25 @@
                                          Where bidding opens is Base Price, and the opening bid
                                          takes that figure in both online and offline. The column
                                          stays on the table; only the control is gone. --}}
+                                    {{-- A warning for the team, not a rule for the auction.
+                                         Nothing is blocked by it: a manager who wants to spend
+                                         their last pound on one player may still do it. It only
+                                         makes sure they knew. --}}
+                                    <div>
+                                        <label for="budget_alert_pct" class="form-label text-xs">Warn Teams Below</label>
+                                        <div class="relative">
+                                            <input type="number" step="1" min="1" max="99" id="budget_alert_pct"
+                                                   name="budget_alert_pct"
+                                                   value="{{ old('budget_alert_pct', $auction->budget_alert_pct) }}"
+                                                   class="form-control pr-9" placeholder="e.g. 70">
+                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">%</span>
+                                        </div>
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            Once a team has less than this share of their purse left, their dashboard
+                                            says so every 10 minutes until they acknowledge it. Leave empty to switch off.
+                                        </p>
+                                    </div>
+
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
                                         <div class="relative">

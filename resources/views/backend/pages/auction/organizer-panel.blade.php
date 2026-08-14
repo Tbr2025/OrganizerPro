@@ -2212,6 +2212,22 @@
                 </template>
             </div>
 
+            {{-- The artwork switches, beside the board they play on.
+                 Each upload already has its own on/off, but turning a whole set off meant
+                 unticking every row — and an organizer who wants no ads through the closing
+                 lots was left deleting artwork they had just agreed with a sponsor. --}}
+            <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Artwork</label>
+            <div class="space-y-2 mb-5">
+                <label class="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" x-model="adsSlides" class="rounded border-gray-600 bg-gray-800 text-amber-500">
+                    <span class="text-xs text-gray-300">Ad slides <span class="text-gray-500">— between the player cards on the reel</span></span>
+                </label>
+                <label class="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" x-model="adsSponsors" class="rounded border-gray-600 bg-gray-800 text-amber-500">
+                    <span class="text-xs text-gray-300">Sponsor strip <span class="text-gray-500">— along the bottom of the wall</span></span>
+                </label>
+            </div>
+
             <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
                 Break length
             </label>
@@ -3890,6 +3906,8 @@ function auctionOrganizerPanel() {
         showScreensModal: false,
         screensBoard: @js($auction->public_board),
         screensTarget: @js($auction->public_board_target ?: 'both'),
+        adsSlides: @js((bool) $auction->ads_slides_enabled),
+        adsSponsors: @js((bool) $auction->ads_sponsors_enabled),
 
         /** Send the whole decision at once — see the dialog for why it is not applied per control. */
         async applyScreens() {
@@ -3924,6 +3942,8 @@ function auctionOrganizerPanel() {
                     body: JSON.stringify({
                         board: next,
                         target: target || this.screensTarget || 'both',
+                        ads_slides: this.adsSlides,
+                        ads_sponsors: this.adsSponsors,
                         // The clock only goes up WITH a board, never when taking one down.
                         break_minutes: next ? this.breakMinutes : 0,
                     }),
@@ -3933,6 +3953,10 @@ function auctionOrganizerPanel() {
                 if (data.success) {
                     this.soldBoardShowing = data.board ?? null;
                     this.screensBoard = this.soldBoardShowing;
+                    // Echoed back, so the dialog shows what was actually saved rather than what
+                    // was clicked — the two differ if a validation rule trims something.
+                    if (data.ads_slides !== undefined) this.adsSlides = !! data.ads_slides;
+                    if (data.ads_sponsors !== undefined) this.adsSponsors = !! data.ads_sponsors;
                     this.toast(data.message, 'success', 'Screens');
                 } else {
                     this.soldBoardShowing = previous;

@@ -12,6 +12,7 @@ use App\Models\Player;
 use App\Support\PlayerFilters;
 use App\Models\TournamentRegistration;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -72,7 +73,51 @@ class TeamManagerController extends Controller
             // Money split the same way as the squad.
             'retained_spent' => $state['retained_spent'],
             'auction_spent' => $state['auction_spent'],
+
+            /*
+             * How much of the purse is left as a share, when that is low enough to say so.
+             *
+             * Null unless the auction sets a threshold, the team is under it, and they have not
+             * acknowledged it — so the view has one thing to check rather than four. A manager
+             * watching one player at a time does not feel the shape of their own budget until it
+             * is too late to bid differently.
+             */
+            'budget_warning_pct' => $auction->budgetWarningFor(
+                $teamId,
+                (float) $state['remaining'],
+                (float) $state['allocated'],
+            ),
         ];
+    }
+
+    /**
+     * Record that a team has read the budget warning, so it stops coming back.
+     *
+     * Per team per auction and stored, not held in the session: the point of "I agree" is that
+     * it survives the manager closing their laptop. Closing the dialog instead is a client-side
+     * decision and deliberately writes nothing — it comes back in ten minutes, which is the
+     * difference between dismissing a warning and answering it.
+     */
+    public function acknowledgeBudgetAlert(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'auction_id' => 'required|integer|exists:auctions,id',
+            'team_id' => 'required|integer|exists:actual_teams,id',
+        ]);
+
+        // The team must be the caller's own. Without this any signed-in manager could silence
+        // another team's warning by posting their id.
+        $ownsTeam = Auth::user()->actualTeams()->whereKey($data['team_id'])->exists()
+            || Auth::user()->hasAnyRole(['Superadmin', 'Admin', 'Organizer']);
+
+        abort_unless($ownsTeam, 403);
+
+        \DB::table('auction_budget_acks')->updateOrInsert(
+            ['auction_id' => $data['auction_id'], 'actual_team_id' => $data['team_id']],
+            ['acknowledged_at' => now(), 'updated_at' => now(), 'created_at' => now()],
+        );
+
+        return response()->json(['success' => true]);
     }
 
     /**
