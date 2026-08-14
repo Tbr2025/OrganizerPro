@@ -1695,6 +1695,17 @@
                 </span>
             </div>
 
+            {{-- Taking bids but not ending lots: a real seat, and one that needs saying out loud,
+                 or the missing SELL reads as a broken panel rather than a deliberate split. --}}
+            <div x-show="canControl && !canSell" x-cloak
+                 class="bg-sky-500/10 border-t border-sky-500/30 px-4 py-2 flex items-center gap-2">
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-sky-300">Bid caller</span>
+                <span class="text-[11px] text-sky-200/80">
+                    You take the bids and run the clock. Selling, passing, undo and ending the auction
+                    belong to whoever holds that on this auction.
+                </span>
+            </div>
+
             <div class="h-14 bg-gray-900 border-t border-gray-800 flex items-center px-4 gap-2 overflow-x-auto">
 
                 {{-- Everything that CHANGES the auction, in one container.
@@ -1783,7 +1794,9 @@
 
                 <div class="w-px h-8 bg-gray-700"></div>
 
-                {{-- Undo: recovery for a wrong-team click. --}}
+                {{-- Undo: recovery for a wrong-team click. Reverses a completed sale, so it
+                     travels with SELL rather than with the bidding controls. --}}
+                <template x-if="canSell">
                 <button @click="undoLast()"
                         :disabled="!canUndo || isUndoing || auctionStatus === 'paused'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap flex items-center gap-1"
@@ -1793,6 +1806,7 @@
                             : (canUndo ? ('Undo (U): ' + (nextUndoLabel || 'last action')) : 'Nothing to undo')">
                     <span>&#8630;</span> UNDO
                 </button>
+                </template>
 
                 <div class="w-px h-8 bg-gray-700"></div>
 
@@ -1802,6 +1816,7 @@
                      allowed to answer. The server refuses it as well — the S shortcut gets
                      here without the button. --}}
                 <button @click="sellPlayer()"
+                        x-show="canSell" x-cloak
                         :disabled="!currentPlayer || displayState !== 'bidding' || auctionStatus === 'paused'"
                         :title="auctionStatus === 'paused' ? 'Paused — resume before selling' : 'Sell (S)'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
@@ -1809,11 +1824,13 @@
                 {{-- Greyed while paused for the same reason as SELL: passing a player is as
                      final as selling one, and the teams cannot bid to stop it. --}}
                 <button @click="passPlayer()"
+                        x-show="canSell" x-cloak
                         :disabled="!currentPlayer || displayState !== 'bidding' || !!currentPlayer?.current_bid_team_id || auctionStatus === 'paused'"
                         :title="auctionStatus === 'paused' ? 'Paused — resume before passing' : 'Pass (P)'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
                         :class="(currentPlayer && displayState === 'bidding' && !currentPlayer?.current_bid_team_id && auctionStatus !== 'paused') ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">PASS</button>
                 <button @click="rebidCurrentPlayer()"
+                        x-show="canSell" x-cloak
                         :disabled="!currentPlayer || displayState !== 'bidding'"
                         class="px-3 py-1.5 text-white text-sm font-bold rounded transition-colors whitespace-nowrap"
                         :class="(currentPlayer && displayState === 'bidding') ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-gray-700 cursor-not-allowed opacity-50'">RE-BID</button>
@@ -1827,7 +1844,7 @@
                         class="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold transition">
                     <span x-text="auctionStatus === 'paused' ? 'Resume' : 'Start'"></span>
                 </button>
-                <button @click="endAuction()" x-show="auctionStatus === 'running'"
+                <button @click="endAuction()" x-show="canSell && auctionStatus === 'running'"
                         class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition">End</button>
                 {{-- Restarts the RUNNING POOL when the auction is locked to one, and only
                      falls back to wiping the whole auction when it is not pool-locked.
@@ -1837,7 +1854,7 @@
                      has always had. Restarting everything is one option among several rather
                      than the only way back. --}}
                 <button @click="auctionStatus === 'completed' ? restartAfterEnd() : (activePool ? restartActivePool() : restartAuction())"
-                        x-show="auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused'"
+                        x-show="canSell && (auctionStatus === 'completed' || auctionStatus === 'running' || auctionStatus === 'paused')"
                         :title="activePool ? ('Restart ' + activePool.name + ' — its players go back on the block') : 'Restart the whole auction'"
                         class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white rounded text-xs font-semibold transition">Restart</button>
 
@@ -2363,6 +2380,10 @@ function auctionOrganizerPanel() {
          * does not offer buttons that would come back 403.
          */
         canControl: {{ ($canControl ?? true) ? 'true' : 'false' }},
+        /* Ending a lot is its own ability — see canSell() in AuctionOrganizerController.
+           An operator given `control` runs the clock and takes the bids; SELL, PASS,
+           RE-BID, UNDO, End and Restart need `sell` ticked as well. */
+        canSell: {{ ($canSell ?? ($canControl ?? true)) ? 'true' : 'false' }},
 
         // State
         auctionId: null,

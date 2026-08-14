@@ -1,3 +1,48 @@
+@php
+/*
+ * The waiting stage, defined once and used on both the waiting screen and the restart notice.
+ *
+ * It was two copies of a bat-and-ball SVG that had already drifted apart — the restart copy had
+ * lost the blade gradient and the ball's stitching. One string cannot drift from itself.
+ */
+$gavelStage = <<<'HTML'
+<div class="gavel-stage" style="z-index:1;">
+    <div class="gavel-base"></div>
+    <div class="gavel-block"></div>
+    <div class="gavel-flash"></div>
+
+    <svg class="auction-gavel" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="stage-gavel-wood" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#d09a5e"/>
+                <stop offset="38%" stop-color="#a9682f"/>
+                <stop offset="70%" stop-color="#7d4718"/>
+                <stop offset="100%" stop-color="#5c3211"/>
+            </linearGradient>
+            <linearGradient id="stage-gavel-handle" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#c08c52"/>
+                <stop offset="55%" stop-color="#8d571f"/>
+                <stop offset="100%" stop-color="#5a3010"/>
+            </linearGradient>
+        </defs>
+        <g transform="rotate(-38 16 92)">
+            <rect x="12" y="85" width="80" height="14" rx="7" fill="url(#stage-gavel-handle)"/>
+            <rect x="12" y="88" width="80" height="3" rx="1.5" fill="rgba(255,255,255,0.16)"/>
+            <rect x="12" y="85" width="12" height="14" rx="6" fill="#4a2709"/>
+        </g>
+        <g transform="rotate(52 78 44)">
+            <rect x="55" y="28" width="46" height="32" rx="8" fill="url(#stage-gavel-wood)"/>
+            <rect x="55" y="28" width="46" height="7" rx="4" fill="rgba(255,255,255,0.22)"/>
+            <rect x="63" y="28" width="4" height="32" fill="rgba(0,0,0,0.18)"/>
+            <rect x="89" y="28" width="4" height="32" fill="rgba(0,0,0,0.18)"/>
+            <rect x="53" y="26" width="6" height="36" rx="3" fill="#3f2208"/>
+            <rect x="97" y="26" width="6" height="36" rx="3" fill="#3f2208"/>
+        </g>
+    </svg>
+</div>
+HTML;
+@endphp
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -669,89 +714,114 @@
         }
         #card-container.card-arrived { animation: cardArrived 0.45s ease-out; }
 
-        /* ── Waiting screen: bat and ball ──
-           Pure CSS and inline SVG. No image and no library, so the screen has nothing to
-           download and cannot sit on a broken asset while a hall watches it. One shared
-           1.5s loop keeps the swing and the strike in sync — separate durations drift
-           apart within a few cycles and the bat starts missing. */
-        .cricket-stage {
+        /*
+         * ── Waiting screen: the gavel ──
+         *
+         * This was a cricket bat playing a shot at a ball, which is a fine thing to watch and the
+         * wrong sport: nothing is being bowled here, lots are being knocked down. A gavel striking
+         * a block says "auction" from the back of a hall without a word on the screen.
+         *
+         * Pure CSS and inline SVG. No image and no library, so the screen has nothing to download
+         * and cannot sit on a broken asset while a hall watches it. One shared 1.7s loop keeps the
+         * swing and the impact together — separate durations drift apart within a few cycles and
+         * the hammer starts landing on nothing.
+         */
+        .gavel-stage {
             position: relative;
-            /* Sized for a hall, not a laptop: at 460x250 on a projector this was a detail
-               in the middle of the screen rather than something anyone would look at. */
+            /* Sized for a hall, not a laptop. */
             width: 740px; height: 400px;
             margin-bottom: 12px;
         }
 
-        /* Pivots at the handle, like a real backlift. */
-        .cricket-bat {
-            position: absolute; left: 52%; top: 14px;
-            width: 100px; height: 322px;
-            transform-origin: 50% 9%;
-            animation: batSwing 1.5s cubic-bezier(0.34, 1.15, 0.5, 1) infinite;
-            filter: drop-shadow(0 10px 26px rgba(0,0,0,0.55));
+        /* Pivots at the butt of the handle, where a hand would hold it. */
+        .auction-gavel {
+            position: absolute; left: 118px; top: -24px;
+            width: 320px; height: 320px;
+            transform-origin: 13% 78%;
+            animation: gavelStrike 1.7s cubic-bezier(0.4, 0, 0.7, 1) infinite;
+            filter: drop-shadow(0 14px 30px rgba(0,0,0,0.6));
         }
-        @keyframes batSwing {
-            0%   { transform: translateX(-50%) rotate(16deg); }
-            26%  { transform: translateX(-50%) rotate(54deg); }   /* back-lift */
-            38%  { transform: translateX(-50%) rotate(-30deg); }  /* contact */
-            54%  { transform: translateX(-50%) rotate(-46deg); }  /* follow-through */
-            80%  { transform: translateX(-50%) rotate(16deg); }
-            100% { transform: translateX(-50%) rotate(16deg); }
-        }
-
-        .cricket-ball {
-            position: absolute; left: 50%; top: 46%;
-            width: 58px; height: 58px;
-            animation: ballPath 1.5s linear infinite;
-        }
-        @keyframes ballPath {
-            /* Pixel offsets, so they scale with the stage rather than staying put while
-               everything around them grew. */
-            0%   { transform: translate(336px, 74px) scale(0.75); opacity: 0; }
-            10%  { opacity: 1; }
-            34%  { transform: translate(26px, 42px) scale(1); opacity: 1; }
-            40%  { transform: translate(-38px, 6px) scale(1.1); opacity: 1; }
-            72%  { transform: translate(-272px, -138px) scale(0.9); opacity: 1; }
-            94%  { transform: translate(-464px, -262px) scale(0.65); opacity: 0; }
-            100% { transform: translate(-464px, -262px) scale(0.65); opacity: 0; }
+        /* Raised, a beat of wind-up, down onto the block, one rebound, and back up. The contact is
+           at 48% — the flash and the block's recoil are on the same clock. */
+        @keyframes gavelStrike {
+            0%   { transform: rotate(0deg); }
+            26%  { transform: rotate(-9deg); }
+            48%  { transform: rotate(45deg); }
+            57%  { transform: rotate(31deg); }
+            68%  { transform: rotate(42deg); }
+            88%  { transform: rotate(0deg); }
+            100% { transform: rotate(0deg); }
         }
 
-        /* Spin on an inner element, so it composes with the arc above instead of
-           overwriting its transform. */
-        .cricket-ball-spin {
-            width: 100%; height: 100%;
-            animation: ballSpin 0.28s linear infinite;
+        /* The sound block the gavel lands on, positioned where the head arrives. */
+        .gavel-block {
+            position: absolute; left: 280px; top: 262px;
+            width: 180px; height: 34px; border-radius: 8px;
+            background: linear-gradient(180deg, #b4763c 0%, #8b5220 45%, #5c3211 100%);
+            box-shadow: 0 12px 26px rgba(0,0,0,0.55), inset 0 2px 0 rgba(255,255,255,0.22);
+            animation: blockTakeHit 1.7s ease-out infinite;
         }
-        @keyframes ballSpin { to { transform: rotate(360deg); } }
+        .gavel-block::after {
+            content: ''; position: absolute; left: 8%; right: 8%; bottom: -9px; height: 9px;
+            border-radius: 0 0 6px 6px;
+            background: linear-gradient(180deg, #4a2709, #2f1805);
+        }
+        @keyframes blockTakeHit {
+            0%, 44%   { transform: translateY(0) scaleY(1); }
+            50%       { transform: translateY(3px) scaleY(0.9); }
+            60%, 100% { transform: translateY(0) scaleY(1); }
+        }
 
         /* Flash at the moment of contact, on the same clock as the swing. */
-        .cricket-spark {
-            position: absolute; left: 50%; top: 46%;
-            width: 190px; height: 190px; margin: -66px 0 0 -72px;
+        .gavel-flash {
+            position: absolute; left: 370px; top: 250px;
+            width: 260px; height: 260px; margin: -130px 0 0 -130px;
             border-radius: 50%;
             background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(var(--primary-rgb),0.5) 40%, transparent 70%);
             opacity: 0; pointer-events: none;
-            animation: sparkPop 1.5s linear infinite;
+            animation: gavelFlash 1.7s linear infinite;
         }
-        @keyframes sparkPop {
-            0%, 33% { opacity: 0; transform: scale(0.4); }
-            39%     { opacity: 1; transform: scale(1.25); }
-            48%     { opacity: 0; transform: scale(1.7); }
+        @keyframes gavelFlash {
+            0%, 44% { opacity: 0; transform: scale(0.4); }
+            50%     { opacity: 1; transform: scale(1.2); }
+            62%     { opacity: 0; transform: scale(1.7); }
             100%    { opacity: 0; transform: scale(1.7); }
         }
 
-        /* The ground the bat stands on — a thin brand-tinted crease. */
-        .cricket-crease {
-            position: absolute; left: 50%; bottom: 18px;
+        /* The bench it all stands on — a thin brand-tinted line. */
+        .gavel-base {
+            position: absolute; left: 50%; bottom: 42px;
             width: 420px; height: 4px; margin-left: -210px;
             background: linear-gradient(90deg, transparent, rgba(var(--primary-rgb),0.75), transparent);
             border-radius: 2px;
         }
-        .cricket-crease::after {
+        .gavel-base::after {
             content: ''; position: absolute; left: 50%; top: -1px;
             width: 90px; height: 5px; margin-left: -45px; border-radius: 3px;
             background: rgba(var(--primary-rgb), 0.9);
             box-shadow: 0 0 22px rgba(var(--primary-rgb), 0.8);
+        }
+
+        /* Which pool is on the block, named. A hall follows an evening by its pools, and the wall
+           never said which one had been selected — see #stage-pool, set from the live feed. */
+        .stage-pool {
+            display: inline-flex; align-items: center; gap: 12px;
+            padding: 12px 28px; border-radius: 999px;
+            background: rgba(2,6,23,0.55);
+            border: 1px solid rgba(var(--primary-rgb),0.45);
+            box-shadow: 0 0 40px rgba(var(--primary-rgb),0.25);
+            font-size: 30px; font-weight: 900; letter-spacing: 0.08em;
+            color: #fff; text-transform: uppercase;
+        }
+        .stage-pool .stage-pool-dot {
+            width: 14px; height: 14px; border-radius: 50%;
+            background: rgba(var(--primary-rgb), 1);
+            box-shadow: 0 0 18px rgba(var(--primary-rgb), 0.9);
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        .stage-pool .stage-pool-sub {
+            font-size: 15px; font-weight: 700; letter-spacing: 0.16em;
+            color: rgba(255,255,255,0.6);
         }
 
         /* ── Waiting screen floating orbs ── */
@@ -1304,48 +1374,15 @@
             @endif
         </div>
         @endif
-        <div class="cricket-stage" style="z-index:1;">
-            <div class="cricket-crease"></div>
-
-            {{-- Bat: blade, shoulder and grip, drawn rather than loaded. --}}
-            <svg class="cricket-bat" viewBox="0 0 62 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="25" y="0" width="12" height="20" rx="5" fill="#0f172a" stroke="rgba(255,255,255,0.18)"/>
-                <rect x="24" y="16" width="14" height="58" rx="7" fill="#1f2937"/>
-                <path d="M24 30h14M24 40h14M24 50h14M24 60h14" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
-                <rect x="27" y="70" width="8" height="16" fill="#c8a15a"/>
-                <path d="M14 84h34a6 6 0 0 1 6 6v88a10 10 0 0 1-10 10H18a10 10 0 0 1-10-10V90a6 6 0 0 1 6-6z"
-                      fill="url(#blade)" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-                <path d="M31 92v92" stroke="rgba(0,0,0,0.18)" stroke-width="2"/>
-                <defs>
-                    <linearGradient id="blade" x1="8" y1="84" x2="54" y2="188" gradientUnits="userSpaceOnUse">
-                        <stop stop-color="#f2d9a8"/>
-                        <stop offset="0.55" stop-color="#dcb877"/>
-                        <stop offset="1" stop-color="#b8935a"/>
-                    </linearGradient>
-                </defs>
-            </svg>
-
-            <div class="cricket-spark"></div>
-
-            {{-- Ball: leather, seam and stitching. --}}
-            <div class="cricket-ball">
-                <svg class="cricket-ball-spin" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="18" cy="18" r="17" fill="url(#leather)" stroke="rgba(0,0,0,0.35)"/>
-                    <path d="M6 9c6 5 6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
-                    <path d="M30 9c-6 5-6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
-                    <path d="M13 8.5l2 2M12 13l2 2M12 18l2 2M12 23l2 2M13 27.5l2 2"
-                          stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity="0.75"/>
-                    <ellipse cx="12" cy="11" rx="5" ry="4" fill="rgba(255,255,255,0.16)"/>
-                    <defs>
-                        <radialGradient id="leather" cx="0.35" cy="0.3" r="0.85">
-                            <stop stop-color="#e0413b"/>
-                            <stop offset="0.6" stop-color="#a81f21"/>
-                            <stop offset="1" stop-color="#6b0f12"/>
-                        </radialGradient>
-                    </defs>
-                </svg>
-            </div>
+        {{-- Which pool is on the block. A hall follows an evening by its pools, and the wall
+             never said which one had been selected. Hidden until the feed names one. --}}
+        <div id="stage-pool" class="stage-pool hidden" style="margin-bottom:22px;position:relative;z-index:1;">
+            <span class="stage-pool-dot"></span>
+            <span id="stage-pool-name"></span>
+            <span class="stage-pool-sub">NOW IN PLAY</span>
         </div>
+
+        {!! $gavelStage !!}
         {{-- Headline, subline and progress are all set by renderWaitingScreen(). The
              auction being `running` is not the same as a player being on the block, so a
              hall that has already sold forty players must not be told it is still
@@ -1383,23 +1420,14 @@
          style="position:fixed;inset:0;z-index:150;display:flex;flex-direction:column;
                 justify-content:center;align-items:center;
                 background:radial-gradient(circle at 50% 40%, #1e1b4b 0%, #0a0a0a 70%);">
-        <div class="cricket-stage" style="margin-bottom:10px;">
-            <div class="cricket-crease"></div>
-            <svg class="cricket-bat" viewBox="0 0 62 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="25" y="0" width="12" height="20" rx="5" fill="#0f172a" stroke="rgba(255,255,255,0.18)"/>
-                <rect x="24" y="16" width="14" height="58" rx="7" fill="#1f2937"/>
-                <rect x="27" y="70" width="8" height="16" fill="#c8a15a"/>
-                <path d="M14 84h34a6 6 0 0 1 6 6v88a10 10 0 0 1-10 10H18a10 10 0 0 1-10-10V90a6 6 0 0 1 6-6z"
-                      fill="#dcb877" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
-            </svg>
-            <div class="cricket-spark"></div>
-            <div class="cricket-ball">
-                <svg class="cricket-ball-spin" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="18" cy="18" r="17" fill="#a81f21" stroke="rgba(0,0,0,0.35)"/>
-                    <path d="M6 9c6 5 6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
-                    <path d="M30 9c-6 5-6 13 0 18" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>
-                </svg>
-            </div>
+        {!! $gavelStage !!}
+
+        {{-- The pool being restarted, named. "RESTARTING AUCTION" over a wall of people who only
+             care about one pool said less than it could. --}}
+        <div id="restart-pool" class="stage-pool hidden" style="margin-bottom:18px;">
+            <span class="stage-pool-dot"></span>
+            <span id="restart-pool-name"></span>
+            <span class="stage-pool-sub">BACK ON THE BLOCK</span>
         </div>
 
         <h1 style="font-size:64px;font-weight:900;letter-spacing:0.06em;color:#a78bfa;
@@ -2321,6 +2349,8 @@
             title.textContent = heading;
             sub.textContent = subline;
 
+            renderStagePool(p.pool_name);
+
             // The rail is meaningless before anyone has been through the block.
             if (bar && fill && text) {
                 if (started && total > 0 && done > 0) {
@@ -2334,6 +2364,43 @@
                     bar.classList.add('hidden');
                 }
             }
+        }
+
+        /*
+         * ── "Pool A is selected" ──
+         *
+         * The wall counted lots and never said which pool they belonged to, so a room that follows
+         * an evening by its pools — marquee players, then the rest — had to be told out loud.
+         *
+         * The chime fires only when the NAME changes, not on every poll: this runs every two
+         * seconds, and a bell every two seconds is worse than no bell. Guarded on having a
+         * previous value too, so opening the wall mid-auction does not announce a pool that has
+         * been running for an hour.
+         */
+        let _lastStagePool = undefined;
+
+        function renderStagePool(poolName) {
+            const name = (poolName || '').trim();
+
+            [['stage-pool', 'stage-pool-name'], ['restart-pool', 'restart-pool-name']].forEach(([wrapId, nameId]) => {
+                const wrap = document.getElementById(wrapId);
+                const label = document.getElementById(nameId);
+                if (! wrap || ! label) return;
+
+                if (name) {
+                    label.textContent = name;
+                    wrap.classList.remove('hidden');
+                } else {
+                    wrap.classList.add('hidden');
+                }
+            });
+
+            if (name && _lastStagePool !== undefined && _lastStagePool !== name) {
+                // Ting-tong: two tones, synthesised — no file to fail to load on a venue uplink.
+                try { window.auctionSound?.playChime?.(); } catch (e) {}
+            }
+
+            _lastStagePool = name;
         }
 
         function showCard() {

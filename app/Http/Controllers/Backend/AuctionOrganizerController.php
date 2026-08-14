@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
+use App\Models\AuctionOperator;
 use App\Models\AuctionActionLog;
 use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
@@ -221,7 +222,8 @@ class AuctionOrganizerController extends Controller
             'stats',
             'timerState'
         ) + [
-            'canControl' => $this->canControl(),
+            'canControl' => $this->canControl($auction),
+            'canSell' => $this->canSell($auction),
             'poolProgress' => $this->pools->poolProgress($auction),
         ]);
     }
@@ -315,9 +317,61 @@ class AuctionOrganizerController extends Controller
      * so the panel does not offer buttons that would come back 403. The guard is the route;
      * this is the courtesy.
      */
-    private function canControl(): bool
+    /**
+     * May this seat change the auction at all — take bids, run the clock, move the lot on?
+     *
+     * The permission is only half the question. An operator named on this auction with `observe`
+     * and nothing else holds `auction.control` through the Auctioneer role — that is what gets
+     * them to the panel — so asking the permission alone showed them NEXT, PASS, UNDO and SELL,
+     * every one of which the routes then refused. A control panel with live buttons that 403 is
+     * worse than a read-only one: in a hall, the operator presses it and waits.
+     */
+    private function canControl(?Auction $auction = null): bool
     {
-        return (bool) auth()->user()?->can('auction.control');
+        return $this->allows('auction.control', AuctionOperator::ABILITY_CONTROL, $auction);
+    }
+
+    /**
+     * May this seat END a lot — sell, pass, skip, undo, end or restart the auction?
+     *
+     * Deliberately separate from control: the person calling the lots usually should not also be
+     * the one ending them, which is the whole reason `sell` is its own ability.
+     */
+    private function canSell(?Auction $auction = null): bool
+    {
+        return $this->allows('auction.control', AuctionOperator::ABILITY_SELL, $auction);
+    }
+
+    /**
+     * The permission AND, for somebody scoped to particular auctions, the ability on THIS one.
+     *
+     * Mirrors EnsureAuctionOperator exactly, because a button that appears and a route that
+     * refuses are the same bug seen from two sides. Anyone not named on an auction is judged by
+     * their permissions alone, as they always were.
+     */
+    private function allows(string $permission, string $ability, ?Auction $auction): bool
+    {
+        $user = auth()->user();
+
+        if (! $user?->can($permission)) {
+            return false;
+        }
+
+        if (! $auction || $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return true;
+        }
+
+        $named = AuctionOperator::where('user_id', $user->id)->exists();
+
+        if (! $named && ! $user->hasRole('Auctioneer')) {
+            return true;
+        }
+
+        $operator = AuctionOperator::where('auction_id', $auction->id)
+            ->where('user_id', $user->id)
+            ->first();
+
+        return $operator?->can($ability) ?? false;
     }
 
     /**

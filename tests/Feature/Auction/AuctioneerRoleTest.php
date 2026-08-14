@@ -355,6 +355,55 @@ class AuctioneerRoleTest extends TestCase
         }
     }
 
+    /**
+     * An observe-only seat gets the side panels and fullscreen, and no buttons that would 403.
+     *
+     * `canControl` asked the PERMISSION only, and an operator with `observe` holds
+     * `auction.control` through the Auctioneer role — that is what gets them to the panel at all.
+     * So the panel drew NEXT, PASS, UNDO and SELL, every one of which the routes then refused.
+     * A live button that 403s is worse than no button: in a hall the operator presses it and waits.
+     */
+    #[Test]
+    public function an_observe_only_seat_is_not_offered_buttons_the_routes_refuse(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+        $user = $this->auctioneer($org, $auction);
+
+        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk()
+            ->assertSee('canControl: false', false)
+            ->assertSee('canSell: false', false)
+            // What is left: the side panels, fullscreen and the export.
+            ->assertSee('Toggle Fullscreen (F)', false)
+            ->assertSee('title="Queue"', false)
+            ->assertSee('title="All Players"', false);
+    }
+
+    /**
+     * Selling is its own ability, so a bid caller does not get the buttons that end a lot.
+     */
+    #[Test]
+    public function a_bid_caller_takes_bids_but_is_not_offered_sell_or_undo(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        $user = $this->user($org, 'Auctioneer', ['auction.view', 'auction.observe', 'auction.control']);
+        \App\Models\AuctionOperator::create([
+            'auction_id' => $auction->id, 'user_id' => $user->id,
+            'abilities' => [\App\Models\AuctionOperator::ABILITY_CONTROL],
+        ]);
+
+        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk()
+            ->assertSee('canControl: true', false)
+            ->assertSee('canSell: false', false);
+
+        // And the routes agree — the button and the route must never disagree.
+        $this->actingAs($user)
+            ->postJson(route('admin.auction.organizer.api.player.sell', $auction))
+            ->assertForbidden();
+    }
+
     #[Test]
     public function a_team_manager_still_cannot_reach_the_panel_at_all(): void
     {
