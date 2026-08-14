@@ -996,6 +996,28 @@ HTML;
         }
         #player-name-badges svg { width: 1em; height: 1em; }
 
+        /*
+         * The aeroplane flies.
+         *
+         * This chip was drawing Heroicons' arrow-ish glyph, which at badge size is a filled
+         * triangle — so a player's travel dates read as a WARNING on the wall. It is now an
+         * aircraft, and it drifts: a still plane beside two dates still looks like a status icon,
+         * and the one thing this chip means is that somebody is flying in.
+         *
+         * Transform only, on a 2.6s loop. Slow enough to be calm behind a live auction.
+         */
+        #player-name-badges .badge-travel svg,
+        #travel-plan svg {
+            animation: flightDrift 2.6s ease-in-out infinite;
+        }
+        @keyframes flightDrift {
+            0%, 100% { transform: translate(-0.06em, 0.05em); }
+            50%      { transform: translate(0.12em, -0.09em); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #player-name-badges .badge-travel svg, #travel-plan svg { animation: none; }
+        }
+
         #player-name {
             position: absolute;
             {!! elementStyle($positions, 'player_name', ['top'=>210,'left'=>545,'fontSize'=>46,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
@@ -1299,6 +1321,110 @@ HTML;
         }
 
     
+        /*
+         * ── The sealed round, over the whole wall ──
+         *
+         * A bar across the top of the card was not enough. When bidding goes private the price
+         * freezes, the teams go quiet and the card stops changing — from the back of a hall that is
+         * indistinguishable from a screen that has crashed, and the one thing a room needs to know
+         * is that something IS happening. So the wall says it at the size of the wall.
+         *
+         * The banner stays underneath for the states where there is a RESULT to watch — the tie,
+         * the draw, the reveal. Those have their own animation and covering them with a logo would
+         * hide the only part anybody is waiting for.
+         *
+         * Wall only. The ticker is a strip read at a glance and a full-bleed takeover there would
+         * blank the one line it exists to show.
+         */
+        #sealed-overlay {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 26px; text-align: center;
+            background:
+                radial-gradient(circle at 50% 42%, rgba(88,28,135,0.72) 0%, rgba(2,6,23,0.94) 62%),
+                rgba(2,6,23,0.9);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            animation: sealedOverlayIn 0.45s ease-out forwards;
+        }
+        #sealed-overlay.hidden { display: none; }
+        @keyframes sealedOverlayIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        /* The logo, breathing inside two rings. Slow on purpose: a sealed round can run for
+           minutes and anything quick becomes irritating long before it ends. */
+        .sealed-crest {
+            position: relative;
+            width: 520px; height: 320px;
+            display: flex; align-items: center; justify-content: center;
+        }
+        /* One or two logos, breathing together as a single object rather than each on its own
+           clock — two logos pulsing out of step read as a glitch. */
+        .sealed-crest-logos {
+            display: flex; align-items: center; justify-content: center; gap: 26px;
+            animation: sealedBreathe 3.4s ease-in-out infinite;
+        }
+        .sealed-crest img {
+            max-height: 170px; max-width: 210px; object-fit: contain;
+            filter: drop-shadow(0 12px 34px rgba(0,0,0,0.6));
+        }
+        /* No logo uploaded anywhere: a padlock rather than an empty circle. */
+        .sealed-crest .sealed-crest-fallback {
+            font-size: 120px; line-height: 1;
+            animation: sealedBreathe 3.4s ease-in-out infinite;
+        }
+        @keyframes sealedBreathe {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.06); }
+        }
+        .sealed-ring {
+            position: absolute; top: 50%; left: 50%;
+            width: 300px; height: 300px; margin: -150px 0 0 -150px;
+            border-radius: 50%;
+            border: 3px solid rgba(192,132,252,0.55);
+            animation: sealedRing 3s ease-out infinite;
+        }
+        .sealed-ring:nth-of-type(2) { animation-delay: 1.5s; }
+        @keyframes sealedRing {
+            0%   { opacity: 0.85; transform: scale(0.72); }
+            100% { opacity: 0;    transform: scale(1.25); }
+        }
+
+        #sealed-overlay .sealed-heading {
+            font-size: 78px; font-weight: 900; line-height: 1;
+            letter-spacing: 0.06em; text-transform: uppercase; color: #fff;
+            text-shadow: 0 0 60px rgba(192,132,252,0.55);
+        }
+        #sealed-overlay .sealed-sub {
+            font-size: 30px; font-weight: 700; color: #e9d5ff;
+        }
+        #sealed-overlay .sealed-round {
+            font-size: 17px; font-weight: 800; letter-spacing: 0.34em;
+            text-transform: uppercase; color: rgba(233,213,255,0.7);
+        }
+
+        /* Three dots working through, so the screen is never completely still. */
+        .sealed-working { display: flex; gap: 14px; }
+        .sealed-working span {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: #c084fc; opacity: 0.3;
+            animation: sealedWorking 1.35s ease-in-out infinite;
+        }
+        .sealed-working span:nth-child(2) { animation-delay: 0.18s; }
+        .sealed-working span:nth-child(3) { animation-delay: 0.36s; }
+        @keyframes sealedWorking {
+            0%, 100% { opacity: 0.28; transform: scale(0.85); }
+            45%      { opacity: 1;    transform: scale(1.15); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #sealed-overlay, .sealed-crest img, .sealed-crest .sealed-crest-fallback,
+            .sealed-ring, .sealed-working span { animation: none; }
+            #sealed-overlay { opacity: 1; }
+        }
+
         /* The sealed banner's motion. See the markup for why a still bar is a problem. */
         .sealed-banner { overflow: hidden; }
 
@@ -1554,6 +1680,41 @@ HTML;
     {{-- The ring thrown off the point of contact. --}}
     <div id="sold-impact" aria-hidden="true"></div>
 
+    {{-- The sealed round, said at the size of the wall. Wall only — see #sealed-overlay in the
+         stylesheet for why this is not on the ticker. --}}
+    <div id="sealed-overlay" class="hidden" aria-hidden="true">
+        {{-- Both logos when both exist: the tournament is what the room came for and the auction
+             is what it is watching. Whichever is uploaded shows; with neither, a padlock rather
+             than an empty circle. --}}
+        <div class="sealed-crest">
+            <span class="sealed-ring"></span>
+            <span class="sealed-ring"></span>
+            @php
+                $sealedLogos = array_values(array_filter([
+                    $auction->tournament->logo_url ?? null,
+                    $auction->auction_logo_url ?: null,
+                ]));
+            @endphp
+            @if(count($sealedLogos))
+                <div class="sealed-crest-logos">
+                    @foreach($sealedLogos as $logo)
+                        <img src="{{ $logo }}" alt="">
+                    @endforeach
+                </div>
+            @else
+                <span class="sealed-crest-fallback">&#128274;</span>
+            @endif
+        </div>
+
+        <div>
+            <div class="sealed-heading" id="sealed-overlay-heading">Sealed Bid Is Happening Now</div>
+            <div class="sealed-sub" id="sealed-overlay-sub" style="margin-top:10px;">Please wait</div>
+            <div class="sealed-round" id="sealed-overlay-round" style="margin-top:14px;"></div>
+        </div>
+
+        <div class="sealed-working" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
          style="position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.82);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
@@ -1741,9 +1902,10 @@ HTML;
         <!-- Travel plan: shown only for a player who has one -->
         @if(isVisible($positions, 'travel_plan'))
         <div id="travel-plan">
-            {{-- A paper plane, inline so it takes the element's own colour and font size. --}}
+            {{-- An aeroplane, inline so it takes the element's own colour and font size, and
+                 animated in the stylesheet — see flightDrift. --}}
             <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                <g transform="rotate(45 10 10)"><path d="M17.5 13.3v-1.6l-6.6-4.2V3.1c0-.7-.6-1.2-1.2-1.2S8.4 2.4 8.4 3.1v4.4L1.8 11.7v1.6l6.6-2v4.4l-1.7 1.2v1.2l2.9-.8 2.9.8v-1.2l-1.7-1.2v-4.4l6.7 2z"/></g>
             </svg>
             <span id="travel-plan-value"></span>
         </div>
@@ -2829,6 +2991,7 @@ HTML;
 
             if (!sealedState) {
                 banner.classList.add('hidden');
+                renderSealedOverlay(null);
                 return;
             }
 
@@ -2865,8 +3028,60 @@ HTML;
             }
 
             renderSealedDraw(sealedState.tie);
+            renderSealedOverlay(sealedState);
 
             banner.classList.remove('hidden');
+        }
+
+        /*
+         * ── The wall-sized version ──
+         *
+         * A bar across the top of the card was not enough. When bidding goes private the price
+         * freezes, the chips go quiet and the card stops changing — from the back of a hall that is
+         * indistinguishable from a screen that has crashed, and the one thing the room needs to
+         * know is that something IS happening and to wait.
+         *
+         * It steps aside for the states where there is a RESULT to watch. A tie, a draw and a
+         * reveal each have their own animation in the banner, and covering those with a logo would
+         * hide the only part anybody in the hall is waiting for.
+         *
+         * Wall only, deliberately: the ticker is one strip read at a glance, and a full-bleed
+         * takeover there would blank the line it exists to show.
+         */
+        const SEALED_OVERLAY_STATES = ['pending', 'entry_open', 'collecting', 'locked'];
+
+        const SEALED_OVERLAY_COPY = {
+            pending:    ['Sealed Bid Is Happening Now', 'Please wait'],
+            entry_open: ['Sealed Bid Is Happening Now', 'Teams are joining the round — please wait'],
+            collecting: ['Sealed Bid Is Happening Now', 'Teams are entering their bids — please wait'],
+            locked:     ['Sealed Bids Are In', 'Result coming up — please wait'],
+        };
+
+        function renderSealedOverlay(sealed) {
+            const overlay = document.getElementById('sealed-overlay');
+            if (! overlay) return;
+
+            const state = sealed?.state;
+
+            if (! state || ! SEALED_OVERLAY_STATES.includes(state)) {
+                overlay.classList.add('hidden');
+                return;
+            }
+
+            const [heading, sub] = SEALED_OVERLAY_COPY[state] || SEALED_OVERLAY_COPY.pending;
+            const headingEl = document.getElementById('sealed-overlay-heading');
+            const subEl = document.getElementById('sealed-overlay-sub');
+            const roundEl = document.getElementById('sealed-overlay-round');
+
+            if (headingEl) headingEl.textContent = heading;
+            if (subEl) subEl.textContent = sub;
+            if (roundEl) {
+                roundEl.textContent = sealed.round_number
+                    ? `Round ${sealed.round_number} of ${sealed.total_rounds || 1}`
+                    : '';
+            }
+
+            overlay.classList.remove('hidden');
         }
 
         /* The name currently showing in the draw, and the timer cycling it. */
@@ -4227,7 +4442,7 @@ HTML;
             if (travel) {
                 parts.push(
                     '<span class="badge badge-travel">'
-                    + '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>'
+                    + '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><g transform="rotate(45 10 10)"><path d="M17.5 13.3v-1.6l-6.6-4.2V3.1c0-.7-.6-1.2-1.2-1.2S8.4 2.4 8.4 3.1v4.4L1.8 11.7v1.6l6.6-2v4.4l-1.7 1.2v1.2l2.9-.8 2.9.8v-1.2l-1.7-1.2v-4.4l6.7 2z"/></g></svg>'
                     + escapeHtml(travel) + '</span>'
                 );
             }
