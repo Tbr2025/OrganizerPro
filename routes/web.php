@@ -309,12 +309,22 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
      * `auction.edit` like the ads screen beside it: both are event setup rather than anything
      * done during a lot, and the operator abilities deliberately do not reach configuration.
      */
-    Route::get('/auctions/{auction}/sealed-screen', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'index'])
+    Route::get('/auctions/{auction}/sealed-bid-settings', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'index'])
         ->name('auctions.sealed-screen.index');
-    Route::post('/auctions/{auction}/sealed-screen', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'update'])
+    Route::post('/auctions/{auction}/sealed-bid-settings', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'update'])
         ->name('auctions.sealed-screen.update');
-    Route::delete('/auctions/{auction}/sealed-screen/logo', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'removeLogo'])
+    Route::delete('/auctions/{auction}/sealed-bid-settings/logo', [\App\Http\Controllers\Backend\AuctionSealedScreenController::class, 'removeLogo'])
         ->name('auctions.sealed-screen.logo.destroy');
+
+    /*
+     * The path this was first built at, kept as a redirect.
+     *
+     * It shipped at /sealed-screen and the address that was actually asked for is
+     * /sealed-bid-settings. A bookmark or a link already sent to somebody should not 404 over a
+     * name I chose and did not mention.
+     */
+    Route::get('/auctions/{auction}/sealed-screen', fn (\App\Models\Auction $auction) => redirect()
+        ->route('admin.auctions.sealed-screen.index', $auction));
 
     Route::get('/auctions/{auction}/ads', [\App\Http\Controllers\Backend\AuctionAdController::class, 'index'])
         ->name('auctions.ads.index');
