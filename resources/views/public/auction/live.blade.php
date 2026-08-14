@@ -582,9 +582,12 @@ HTML;
             gap: 12px;
             min-width: 0;
         }
+        /* A 62px square thumbnail: `cover` is right here — a face at this size wants filling, not
+           letterboxing — but anchored high, so the crop comes off the shirt and not the head. */
         .sold-card img.face {
             width: 62px; height: 62px; border-radius: 12px;
-            object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.06);
+            object-fit: cover; object-position: 50% 12%;
+            flex-shrink: 0; background: rgba(255,255,255,0.06);
         }
         .sold-card .face-blank {
             width: 62px; height: 62px; border-radius: 12px; flex-shrink: 0;
@@ -673,8 +676,21 @@ HTML;
             border: 1px solid rgba(var(--primary-rgb), 0.35);
             box-shadow: 0 34px 90px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08);
         }
+        /*
+         * `contain`, not `cover`.
+         *
+         * A 3:4 box with `cover` crops whatever does not fit, and player photographs are not all
+         * the same shape — portrait shots lost the top of the head and the bottom of the shirt at
+         * once. A reel of half-cropped faces is worse than a reel of letterboxed ones, and the
+         * letterboxing is invisible against the card's own dark panel.
+         *
+         * Anchored to the top, so when a photograph is taller than the box the crop that IS made
+         * takes it off the feet rather than off the face.
+         */
         #reel .rp img, #reel .rp .blank {
-            width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 18px;
+            width: 100%; aspect-ratio: 3 / 4;
+            object-fit: contain; object-position: 50% 0%;
+            border-radius: 18px;
             background: rgba(255,255,255,0.06);
             border: 1px solid rgba(var(--primary-rgb), 0.3);
         }
@@ -792,12 +808,6 @@ HTML;
         @keyframes sponsorMarch {
             from { transform: translateX(0); }
             to   { transform: translateX(-50%); }
-        }
-        /* Few enough to fit standing still: centre them and stop the march, rather than sliding
-           three logos across an empty strip for no reason. */
-        #reel-sponsors.is-static .sponsor-track {
-            animation: none;
-            width: 100%; justify-content: center;
         }
         @media (prefers-reduced-motion: reduce) {
             #reel-sponsors .sponsor-track { animation: none; justify-content: center; width: 100%; }
@@ -2958,15 +2968,25 @@ HTML;
              * Few enough to stand still stay still — sliding three logos across an empty strip is
              * motion for its own sake.
              */
-            const marks = list.map((a) => `<img src="${escapeHtml(a.url)}" alt="">`).join('');
+            /*
+             * Always a carousel, however few logos there are.
+             *
+             * A short list used to stand still, which is defensible and not what was asked for: a
+             * moving strip is what makes a sponsor row read as part of the broadcast rather than a
+             * footer. Two sponsors cannot fill a wall, so the list is REPEATED until it does, and
+             * then the whole run is doubled — the CSS translates the track by exactly half its
+             * width, so the second run arrives as the first leaves and the loop has no seam.
+             */
+            const one = list.map((a) => `<img src="${escapeHtml(a.url)}" alt="">`).join('');
 
-            strip.innerHTML = list.length
-                ? `<div class="sponsor-track">${marks}${marks}</div>`
-                : '';
+            // Enough marks to cross a wall before repeating, without knowing their widths.
+            const repeats = Math.max(1, Math.ceil(10 / list.length || 1));
+            const run = one.repeat(repeats);
 
-            // Roughly six seconds per logo, so twenty sponsors do not sprint and four do not crawl.
-            strip.style.setProperty('--sponsor-secs', Math.max(24, list.length * 6) + 's');
-            strip.classList.toggle('is-static', list.length > 0 && list.length <= 4);
+            strip.innerHTML = list.length ? `<div class="sponsor-track">${run}${run}</div>` : '';
+
+            // Paced off the marks actually on the track, so a two-logo strip does not sprint.
+            strip.style.setProperty('--sponsor-secs', Math.max(28, list.length * repeats * 4) + 's');
             strip.classList.toggle('hidden', ! list.length);
         }
 
@@ -2989,6 +3009,19 @@ HTML;
             fetch(`/auction/${auctionId}/sold-players`)
                 .then((res) => res.json())
                 .then((data) => {
+                    /*
+                     * Take the ads from THIS response, not from whatever the start-up fetch left
+                     * behind.
+                     *
+                     * Both requests hit the same endpoint, but the reel is usually built from this
+                     * one — and if the board was already up when the wall loaded, renderReel ran
+                     * before the start-up fetch resolved, so `_reelAds` was still empty and the
+                     * reel was built with no sponsors in it at all. That is the whole bug behind
+                     * "the ads are not showing": they were uploaded, enabled, and never read.
+                     */
+                    if (Array.isArray(data?.adSlides)) _reelAds = data.adSlides;
+                    renderSponsors(data?.sponsors, data?.tournamentLogo);
+
                     if (board === 'highlights') {
                         renderReel(data?.soldPlayers);
                     } else {
@@ -3047,18 +3080,14 @@ HTML;
             }
 
             /*
-             * Nothing over the reel.
+             * Shown for the reel as well as the board.
              *
-             * The highlights reel is the thing being presented — a "BACK IN 4:32" clock sitting on
-             * top of it is a caption about waiting placed over the content that was put up so the
-             * room would not feel like it was waiting. The sold board is a list and carries a
-             * status line happily; the reel does not.
+             * I hid this during the reel on the reasoning that a "BACK IN 4:32" clock is a caption
+             * about waiting placed over the content put up so the room would not feel like it was
+             * waiting. That was wrong about the geometry: this line lives in the board's HEADER
+             * strip, above the stage, and never covered a single card. Hiding it only took away the
+             * one thing a hall actually wants during a break — when the auction comes back.
              */
-            if (soldBoardShowing === 'highlights') {
-                wrap.classList.add('hidden');
-                return;
-            }
-
             wrap.classList.remove('hidden');
 
             // `sealedState` is set by the poll before the card renders; a live round outranks a
