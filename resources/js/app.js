@@ -10,6 +10,8 @@ import focus from '@alpinejs/focus'
 
 
 import './auction-money.js';
+// Alert tones for the auction screens — synthesised, so there is no file to fetch.
+import './auction-sound.js';
 import './auction-final-call.js';
 
 import flatpickr from "flatpickr";

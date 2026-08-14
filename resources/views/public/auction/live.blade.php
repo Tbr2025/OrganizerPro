@@ -1493,6 +1493,17 @@
          unchanged. --}}
     <div id="reel-sponsors" class="hidden"></div>
 
+    {{-- Sound has to be switched on by a tap.
+         Browsers refuse audio until the page has been interacted with, and a wall on a projector
+         never has been — so the first chime would be silently ignored. Rather than pretend, the
+         control says so and takes itself away once armed. --}}
+    <button id="sound-arm" type="button"
+            style="position:fixed;right:18px;top:18px;z-index:9999;padding:8px 14px;border-radius:999px;
+                   background:rgba(2,6,23,0.8);border:1px solid rgba(var(--primary-rgb),0.5);
+                   color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
+        &#128266; Enable sound
+    </button>
+
     {{-- The hammer, struck once as a sale lands. Inside the card container so it sits over the
          artwork rather than over the whole screen. --}}
     <div id="sold-hammer" aria-hidden="true">&#128296;</div>
@@ -2184,7 +2195,10 @@
                 if (started && total > 0 && done > 0) {
                     bar.classList.remove('hidden');
                     fill.style.width = Math.min(100, (done / total) * 100).toFixed(1) + '%';
-                    text.textContent = `${done} of ${total} done · ${waiting} to go`;
+                    /* Named, because "3 of 17" means nothing to anyone who has not seen the
+                       pools screen — and a pool is how a hall follows an evening. */
+                    const poolName = p.pool_name ? `${p.pool_name} · ` : '';
+                    text.textContent = `${poolName}${done} of ${total} done · ${waiting} to go`;
                 } else {
                     bar.classList.add('hidden');
                 }
@@ -2566,6 +2580,35 @@
 
             paintBoardStatus();
         }
+
+        /*
+         * The chime, when a new player comes up.
+         *
+         * Tied to the same moment the card changes, so the room's attention is asked for once
+         * per lot and not on every price move — an alert that fires on every raise is one the
+         * hall stops hearing within a minute.
+         */
+        function announceNewPlayer() {
+            window.auctionSound?.playChime();
+        }
+
+        (function initSound() {
+            const btn = document.getElementById('sound-arm');
+            if (! btn) return;
+
+            const hide = () => btn.style.display = 'none';
+
+            // Already armed by an earlier interaction on this page.
+            if (window.auctionSound?.soundArmed()) return hide();
+
+            btn.addEventListener('click', () => {
+                if (window.auctionSound?.armSound()) {
+                    // Confirms it worked, which a silent success cannot.
+                    window.auctionSound.playChime();
+                    hide();
+                }
+            });
+        })();
 
         function markCardChanged() {
             const card = document.getElementById('card-container');
@@ -3450,6 +3493,7 @@
                                     clearOutcomeState();
                                     updatePlayerCard(ap);
                                     markCardChanged();
+                                    announceNewPlayer();
                                 }
                                 return;
                             }
@@ -3563,6 +3607,7 @@
                     clearOutcomeState();
                     updatePlayerCard(ap);
                     markCardChanged();
+                                    announceNewPlayer();
                     // A new player brings a new clock, pool position and stats with them.
                     refreshNow('new-player');
                     return;

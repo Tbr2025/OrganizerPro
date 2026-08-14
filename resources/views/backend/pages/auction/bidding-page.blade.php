@@ -497,6 +497,16 @@
                             </div>
                         </template>
 
+                        {{-- Sound has to be switched on by a tap.
+                             A browser refuses audio until the page has been interacted with, and
+                             a dashboard left open on a table has not been — so the alarm would be
+                             silently ignored at exactly the moment it is needed. It says so
+                             rather than pretending, and takes itself away once armed. --}}
+                        <button x-show="sealedNeedsMe && ! soundArmed" @click="armSound()" type="button"
+                                class="w-full mt-2.5 py-2 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
+                            &#128266; Enable alerts &mdash; tap once so this screen can warn you
+                        </button>
+
                         {{-- Withdrawn --}}
                         <template x-if="sealed.active && sealedEntryState === 'withdrawn'">
                             <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3.5 text-center">
@@ -958,6 +968,11 @@ function teamBiddingPanel() {
         timerExpired: false, lastKnownPrice: 0, lastServerUpdatedAt: 0,
 
         init() {
+            // Sounds while this team is being waited on for a sealed amount, and stops by itself
+            // the moment the amount goes in — see _watchSealedAlarm().
+            this._watchSealedAlarm();
+            this.soundArmed = !! window.auctionSound?.soundArmed();
+
             if (this.auctionStatus === "completed") {
                 this.state = "completed";
             } else {
@@ -1185,6 +1200,61 @@ function teamBiddingPanel() {
          * it had no caller at all.
          */
         /* ── Sealed round: derived state ── */
+
+        /**
+         * Is this team being waited on?
+         *
+         * True while a sealed round is collecting, this team is invited, and they have not yet
+         * put an amount in. That is the whole condition the alarm exists for: a round that
+         * closes without a team's bid because nobody was looking at the screen is the failure
+         * this is meant to prevent.
+         */
+        get sealedNeedsMe() {
+            return !! this.sealed?.active
+                && this.sealed?.invited !== false
+                && ['entry_open', 'collecting'].includes(this.sealed?.state)
+                && ! ['submitted', 'withdrawn'].includes(this.sealedEntryState);
+        },
+
+        /**
+         * Sound the alarm while they are being waited on, and stop the moment they are not.
+         *
+         * Every fifteen seconds rather than continuously: a tone that never stops is one the
+         * room turns off, and turning it off is exactly the outcome this is trying to avoid. It
+         * ends by itself when the amount goes in — nobody has to dismiss it, because dismissing
+         * an alarm you have not answered is how the round closes without your bid.
+         */
+        _watchSealedAlarm() {
+            const ALARM_EVERY_MS = 15000;
+
+            this.$watch('sealed', () => {
+                const needed = this.sealedNeedsMe;
+
+                if (needed && ! this._alarmTimer) {
+                    window.auctionSound?.playAlert();
+                    this._alarmTimer = setInterval(
+                        () => window.auctionSound?.playAlert(),
+                        ALARM_EVERY_MS
+                    );
+                }
+
+                if (! needed && this._alarmTimer) {
+                    clearInterval(this._alarmTimer);
+                    this._alarmTimer = null;
+                }
+            });
+        },
+
+        _alarmTimer: null,
+        soundArmed: false,
+
+        /** Called from a real tap — the only moment a browser will allow audio to start. */
+        armSound() {
+            this.soundArmed = !! window.auctionSound?.armSound();
+
+            // Confirms it worked, which a silent success cannot.
+            if (this.soundArmed) window.auctionSound.playAlert();
+        },
 
         get sealedEntryState() {
             if (!this.sealed.active || !this.sealed.my_entry) return 'none';

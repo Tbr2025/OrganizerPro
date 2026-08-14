@@ -278,6 +278,19 @@ class PublicAuctionController extends Controller
         // auction is `running` from the moment it is started, before anyone is on the block.
         $progress['done'] = $progress['sold'] + $progress['unsold'];
 
+        /*
+         * Which pool is running, named.
+         *
+         * The wall said how far through the auction the room was and never which pool that
+         * counted — so "3 of 17" meant nothing to anybody who had not seen the pools screen. A
+         * pool is how a hall follows an evening: marquee players, then the rest.
+         */
+        $activePool = $auction->pools()
+            ->where('status', \App\Models\AuctionPool::STATUS_ACTIVE)
+            ->first(['id', 'name']);
+
+        $progress['pool_name'] = $activePool?->name;
+
         if (! $auctionPlayer) {
             // Return the most recently sold or unsold player so the live page
             // can show the correct state instead of stale data
