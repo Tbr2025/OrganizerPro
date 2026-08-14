@@ -484,6 +484,14 @@
             50% { opacity: 1; transform: scale(1.02); }
         }
 
+        /* A new player arriving. Short, and opacity plus a small rise only — nothing that
+           reflows the card or moves the artwork a template author positioned. */
+        @keyframes cardArrived {
+            0%   { opacity: 0; transform: translateY(14px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        #card-container.card-arrived { animation: cardArrived 0.45s ease-out; }
+
         /* ── Waiting screen: bat and ball ──
            Pure CSS and inline SVG. No image and no library, so the screen has nothing to
            download and cannot sit on a broken asset while a hall watches it. One shared
@@ -1745,6 +1753,27 @@
             document.getElementById('card-container').classList.remove('hidden');
         }
 
+        /**
+         * Mark a new player arriving, now that the reveal no longer does it.
+         *
+         * The spin-and-reveal was what told a hall the lot had changed. With it gone the card
+         * simply swaps, and two players in the same kit at the same base price can look like
+         * nothing happened at all — especially from the back of a room. A short fade-and-rise
+         * on the card is enough to read as "next", without naming anybody in advance, which is
+         * the thing that had to go.
+         *
+         * Re-triggered by removing the class and forcing a reflow: a CSS animation will not
+         * replay while its class is already on the element.
+         */
+        function markCardChanged() {
+            const card = document.getElementById('card-container');
+            if (! card) return;
+
+            card.classList.remove('card-arrived');
+            void card.offsetWidth;
+            card.classList.add('card-arrived');
+        }
+
         // Set from each poll before the card is rendered. A variable rather than a new
         // parameter, so the several existing updatePlayerCard() call sites are untouched.
         let sealedState = null;
@@ -2518,9 +2547,6 @@
                     // finished auction is the last player sold, with their winning team.
                     document.getElementById('completed-screen')?.classList.add('hidden');
 
-                    if (data?.waitingPlayers && data.waitingPlayers.length > 0) {
-                    }
-
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;
                         console.log('[Live] Got active player:', ap.player?.name, 'status:', ap.status);
@@ -2546,6 +2572,7 @@
                                     lastOnAuctionPlayerId = ap.id;
                                     lastPlayerId = ap.id;
                                     updatePlayerCard(ap);
+                                    markCardChanged();
                                 }
                                 return;
                             }
@@ -2647,6 +2674,7 @@
                     lastOnAuctionPlayerId = ap.id;
                     lastPlayerId = ap.id;
                     updatePlayerCard(ap);
+                    markCardChanged();
                     // A new player brings a new clock, pool position and stats with them.
                     refreshNow('new-player');
                     return;

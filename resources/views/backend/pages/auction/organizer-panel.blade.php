@@ -3555,6 +3555,8 @@ function auctionOrganizerPanel() {
         unsoldPool: null,
 
         isSteppingBid: false,
+        // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
+        _pendingSteps: 0,
 
         /**
          * Can the price be nudged at all right now?
@@ -3580,10 +3582,27 @@ function auctionOrganizerPanel() {
          * the undo stack like any other raise.
          */
         async stepBidUp() {
-            if (! this.canStepBid || this.isSteppingBid) return;
+            if (! this.canStepBid) return;
             if (! this.guardControl('correct the price')) return;
 
+            /*
+             * A press while one is in flight QUEUES rather than being dropped.
+             *
+             * This returned early if busy, so holding + or clicking it quickly registered one
+             * raise and threw the rest away — and the figure on the wall then sat below what
+             * the room had called. The display moves on every press; the requests still go out
+             * one at a time, because two at once would each read the same price and land on the
+             * same figure.
+             */
+            if (this.isSteppingBid) {
+                this._pendingSteps = (this._pendingSteps || 0) + 1;
+                this._advanceDisplayedBid();
+
+                return;
+            }
+
             this.isSteppingBid = true;
+            this._advanceDisplayedBid();
 
             try {
                 const res = await fetch('/admin/auctions/add-bid', {
@@ -3643,6 +3662,27 @@ function auctionOrganizerPanel() {
                 this.toast('That did not go through.', 'error');
             } finally {
                 this.isSteppingBid = false;
+
+                // Whatever was pressed while this was in flight, one at a time.
+                if (this._pendingSteps > 0) {
+                    this._pendingSteps -= 1;
+                    this.stepBidUp();
+                }
+            }
+        },
+
+        /**
+         * Move the figure on screen by one rung, now, before the server has answered.
+         *
+         * The increment comes from the server with the rest of the bid state, so this is the
+         * same rung the server will apply rather than a second opinion about the ladder. Its
+         * answer overwrites this a moment later either way.
+         */
+        _advanceDisplayedBid() {
+            const step = Number(this.bidIncrement) || 0;
+
+            if (step > 0) {
+                this.currentBid = (Number(this.currentBid) || 0) + step;
             }
         },
 
@@ -3795,10 +3835,19 @@ function auctionOrganizerPanel() {
              * be bid for. Capped so a stuck finger cannot run the price away.
              */
             if (this._isBidding) {
-                if (this._bidQueue.length < 4) {
-                    this._bidQueue.push({ teamId, stepIndex });
-                    this._applyOptimisticRaise(team, teamId, stepIndex);
-                }
+                /*
+                 * No cap. Every click is taken.
+                 *
+                 * This dropped anything past four queued, which in a fast room means the
+                 * auctioneer's raises are silently lost — the worst possible failure, because
+                 * nothing on screen says a click did not count. Requests still go out strictly
+                 * one at a time (two concurrent posts would each read the same price and
+                 * produce the same figure), and the server validates every one of them against
+                 * the budget, the squad reserve and the sealed ceiling. A raise the room cannot
+                 * afford is refused there, which is the right place for it.
+                 */
+                this._bidQueue.push({ teamId, stepIndex });
+                this._applyOptimisticRaise(team, teamId, stepIndex);
 
                 return;
             }
