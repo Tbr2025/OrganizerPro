@@ -353,15 +353,19 @@ class ClosedBidService
              * nothing to animate, which is exactly the rule asked for — the ring must not turn
              * until the button is pressed.
              */
-            'tie' => in_array($round->state, [
+            /* Same window as the public block: the award ends the round while its ring is still
+               turning on this very screen. */
+            'tie' => (in_array($round->state, [
                 AuctionClosedBidRound::STATE_TIE,
                 AuctionClosedBidRound::STATE_AWAITING_LOT,
-            ], true) ? [
+            ], true) || $this->lotSpinRemaining($round) > 0) ? [
                 'amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
                 'teams' => $this->tiedTeamsFor($round),
                 'lot_winner_team_id' => $round->lot_winner_team_id,
                 'drawn_at' => $round->lot_drawn_at?->toIso8601String(),
                 'spin_ms' => self::LOT_SPIN_MS,
+                // What the ring actually runs on — see lotSpinRemaining().
+                'spin_remaining_ms' => $this->lotSpinRemaining($round),
             ] : null,
 
             'resolution' => $round->resolution,
@@ -391,7 +395,18 @@ class ClosedBidService
     {
         $round = $auctionPlayer ? $this->currentRound($auctionPlayer) : null;
 
-        if (! $round || $round->isTerminal()) {
+        /*
+         * A round that has ENDED still publishes, for as long as its draw is spinning.
+         *
+         * `drawLot()` awards the player in the same request, which moves the round to `awarded` —
+         * a terminal state — so this returned null the instant the button was pressed and the wall
+         * lost the entire draw at the very moment it was supposed to start turning. The ring
+         * vanished and the card came back with the result on it.
+         *
+         * The spin is the one window where a terminal round is still the thing the room is
+         * watching, so it keeps publishing until the ring has landed.
+         */
+        if (! $round || ($round->isTerminal() && $this->lotSpinRemaining($round) <= 0)) {
             return null;
         }
 
@@ -430,14 +445,29 @@ class ClosedBidService
              * them is what lets a hall of people follow a draw instead of watching a static
              * "going to a re-bid".
              */
-            'tie' => in_array($round->state, [
+            /* `|| spinning` for the same reason the guard above has it: the award moves the round
+               out of these two states immediately, and the draw is still on the wall. */
+            'tie' => (in_array($round->state, [
                 AuctionClosedBidRound::STATE_TIE,
                 AuctionClosedBidRound::STATE_AWAITING_LOT,
-            ], true) ? [
+            ], true) || $this->lotSpinRemaining($round) > 0) ? [
                 'amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
                 'teams' => $this->tiedTeamsFor($round),
-                // Set the moment the draw lands, which is the wall's cue to stop cycling.
-                'lot_winner_team_id' => $round->lot_winner_team_id,
+                /*
+                 * The winner, withheld until the spin has run.
+                 *
+                 * `drawLot()` records the draw and awards the player in the same request, so the
+                 * name exists from the first millisecond — and sending it to the wall meant the
+                 * hall could have the result before the ring had turned once, whatever the
+                 * animation did about it. A client-side hold is not a hold: the name is already in
+                 * the browser, and anyone who reloads mid-spin or opens the network tab has it.
+                 *
+                 * So the public payload simply does not carry it yet. The organizer's payload
+                 * does — the desk is allowed to know what it just drew.
+                 */
+                'lot_winner_team_id' => $this->lotSpinRemaining($round) > 0
+                    ? null
+                    : $round->lot_winner_team_id,
                 'drawn_at' => $round->lot_drawn_at?->toIso8601String(),
                 /*
                  * How long the draw is spun for, from the server so every screen uses one
@@ -451,8 +481,28 @@ class ClosedBidService
                  * same instant.
                  */
                 'spin_ms' => self::LOT_SPIN_MS,
+                'spin_remaining_ms' => $this->lotSpinRemaining($round),
             ] : null,
         ];
+    }
+
+    /**
+     * Is a draw still spinning for this player, as far as the ROOM is concerned?
+     *
+     * Asked by the public feed before it reports a sale: the award lands with the draw, and a hall
+     * must not read the buyer off the card while the ring is still deciding.
+     */
+    public function lotSpinInProgress(?AuctionPlayer $auctionPlayer): bool
+    {
+        if (! $auctionPlayer) {
+            return false;
+        }
+
+        /* currentRound() reads the player's own pointer, so it stays right through a re-bid:
+           the pointer moves to the child round and the draw belongs to whichever is current. */
+        $round = $this->currentRound($auctionPlayer);
+
+        return $round !== null && $this->lotSpinRemaining($round) > 0;
     }
 
     /**
@@ -481,6 +531,31 @@ class ClosedBidService
                 'logo' => $team->team_logo ? asset('storage/' . $team->team_logo) : null,
             ])
             ->all();
+    }
+
+    /**
+     * How much of the draw's spin is still to run, in milliseconds.
+     *
+     * Computed HERE rather than left to each screen. Both the wall and the panel used to ask
+     * `Date.now() - Date.parse(drawn_at) < spin_ms`, which is a browser clock measured against a
+     * server timestamp — and this application runs `app.timezone = Asia/Dubai` while its database
+     * and OS are UTC, so those two agree only as long as every writer goes through PHP's `now()`.
+     * A fifteen-second window is not worth resting on that: any drift on the viewing machine
+     * settled the ring instantly or left it turning for ever, and "settled instantly" is exactly
+     * what was reported.
+     *
+     * A remaining figure has no such dependency. Each screen applies it the moment it arrives and
+     * counts down locally, so the only difference between two screens is one network hop.
+     */
+    private function lotSpinRemaining(AuctionClosedBidRound $round): int
+    {
+        if ($round->lot_drawn_at === null) {
+            return 0;
+        }
+
+        $elapsed = (int) round((microtime(true) - $round->lot_drawn_at->getTimestamp()) * 1000);
+
+        return max(0, self::LOT_SPIN_MS - $elapsed);
     }
 
     /*

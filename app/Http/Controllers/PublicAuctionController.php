@@ -240,6 +240,35 @@ class PublicAuctionController extends Controller
             ->where('status', 'on_auction')
             ->first();
 
+        /*
+         * A player whose draw is still spinning is still THE player, even though the server has
+         * already sold them.
+         *
+         * `drawLot()` awards in the same request, so the moment the button is pressed nobody is
+         * `on_auction` any more — this query found nothing, the feed fell through to its
+         * "no player" branch, and the wall dropped the card and the draw together at the exact
+         * instant the ring should have started turning.
+         */
+        if (! $auctionPlayer) {
+            $spinning = $auction->auctionPlayers()
+                ->whereNotNull('closed_bid_round_id')
+                ->whereHas('closedBidRound', fn ($q) => $q->whereNotNull('lot_drawn_at'))
+                ->with([
+                    'player',
+                    'player.playerType',
+                    'player.battingProfile',
+                    'player.bowlingProfile',
+                    'soldToTeam',
+                    'currentBidTeam',
+                ])
+                ->latest('updated_at')
+                ->first();
+
+            if ($spinning && app(\App\Services\Auction\ClosedBidService::class)->lotSpinInProgress($spinning)) {
+                $auctionPlayer = $spinning;
+            }
+        }
+
         // Fetch waiting player names for shuffle animation
         $waitingPlayers = $auction->auctionPlayers()
             ->where('status', 'waiting')
@@ -372,7 +401,28 @@ class PublicAuctionController extends Controller
         // the round's floor and `current_bid_team_id` still holds the OPEN-bid leader —
         // both were public before the round opened — so nothing here reveals a sealed
         // amount or who placed it.
-        $sealed = app(\App\Services\Auction\ClosedBidService::class)->stateForPublic($auction, $auctionPlayer);
+        $closedBids = app(\App\Services\Auction\ClosedBidService::class);
+        $sealed = $closedBids->stateForPublic($auction, $auctionPlayer);
+
+        /*
+         * While a lot is being drawn, the room is told nothing about the result.
+         *
+         * `drawLot()` records the draw and awards the player in the SAME request, so from the
+         * first millisecond this player is `sold` with a buying team and a final price. The wall
+         * read that and painted the stamp, the crest and the result banner while the ring was
+         * still supposed to be deciding — the hall had the answer before the draw it was watching
+         * had finished.
+         *
+         * Held here rather than on the screens, because a hold in the browser is not a hold: the
+         * name has already been sent, a reload mid-spin shows it, and the network tab always has
+         * it. For the length of the spin this player is simply reported as still on the block.
+         */
+        if ($closedBids->lotSpinInProgress($auctionPlayer)) {
+            $responsePlayer['status'] = 'on_auction';
+            $responsePlayer['current_bid_team'] = null;
+            $responsePlayer['sold_to_team'] = null;
+            $responsePlayer['final_price'] = null;
+        }
 
         // Authoritative clock, so the big screen counts down in step with the
         // organizer panel rather than guessing from player_updated_at.

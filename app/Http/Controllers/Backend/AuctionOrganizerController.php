@@ -1091,11 +1091,8 @@ class AuctionOrganizerController extends Controller
             'current_bid_team_id' => null,
         ]);
 
-        // Reset phase for new player
-        // A new player starts at their base price, so the sealed phase resets with them.
-        // The online/offline mode does NOT: if the organizer is taking bids by hand in the
-        // room, that stays true for the next player too. Resetting it here is why offline
-        // mode never survived a single player.
+        // Reset phase for new player. A new player starts at their base price, so the sealed
+        // phase resets with them.
         $phaseReset = [];
 
         if ($auction->hasAutoPhaseTransition()) {
@@ -1103,10 +1100,24 @@ class AuctionOrganizerController extends Controller
             $phaseReset['bid_type_manually_overridden'] = false;
         }
 
-        // Only undo a mode the PRICE rule set, never one the organizer chose.
-        if (! $auction->mode_manually_overridden && $auction->open_bid_mode === 'offline') {
-            $phaseReset['open_bid_mode'] = 'online';
-        }
+        /*
+         * Every lot opens OFFLINE — the organizer calling the room.
+         *
+         * This did the opposite: it flipped an offline auction back to online for each new
+         * player unless the mode had been set by hand, on the reasoning that a price rule which
+         * turned offline on for one lot should not silently hold for the next.
+         *
+         * The room works the other way round. Bidding is called out loud and the organizer
+         * records it; online is the exception, switched on deliberately for a lot that wants it.
+         * Starting each player online meant the first raises of every single lot went to a mode
+         * nobody was using, and the operator had to keep pressing Offline.
+         *
+         * The manual flag is cleared with it, because this now happens on every lot whatever was
+         * chosen for the last one — leaving the flag set would claim a choice that is no longer
+         * being honoured.
+         */
+        $phaseReset['open_bid_mode'] = 'offline';
+        $phaseReset['mode_manually_overridden'] = false;
 
         if ($phaseReset !== []) {
             $auction->update($phaseReset);

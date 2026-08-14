@@ -3187,6 +3187,19 @@ function auctionOrganizerPanel() {
             const PUSH_FRESH_MS = 90000;
             const healthy = this._lastPushAt && (Date.now() - this._lastPushAt) < PUSH_FRESH_MS;
 
+            /*
+             * Never back off during a sealed round.
+             *
+             * Sealed state — who has submitted, the round clock, the draw — is fetched only from
+             * inside this poll (fetchSealedState), and a team submitting its amount broadcasts
+             * NOTHING. So with the socket healthy the desk could sit thirty seconds behind the
+             * room during the one part of an auction where the organizer is waiting on the teams.
+             * The wall documents the same exception for the same reason.
+             */
+            if (this.sealed?.active) {
+                return 2000;
+            }
+
             return healthy ? 30000 : 2000;
         },
 
@@ -3974,6 +3987,7 @@ function auctionOrganizerPanel() {
         panelDrawName: '',
         panelDrawSettled: false,
         _panelDrawKey: null,
+        _panelDrawTimer: null,
 
         /**
          * Turn the ring, and land it on the winner at the same moment the wall does.
@@ -3992,6 +4006,11 @@ function auctionOrganizerPanel() {
                 this._panelDrawKey = null;
                 this.panelDrawName = '';
                 this.panelDrawSettled = false;
+
+                if (this._panelDrawTimer !== null) {
+                    clearTimeout(this._panelDrawTimer);
+                    this._panelDrawTimer = null;
+                }
 
                 return;
             }
@@ -4023,9 +4042,26 @@ function auctionOrganizerPanel() {
                 ? teams.find((t) => Number(t.id) === Number(tie.lot_winner_team_id))
                 : null;
 
-            const spinMs = Number(tie.spin_ms) || 0;
-            const drawnAt = Date.parse(tie.drawn_at);
-            const stillSpinning = winner && drawnAt && spinMs > 0 && (Date.now() - drawnAt) < spinMs;
+            /*
+             * Off the server's remaining figure, not off this machine's clock.
+             *
+             * The desk reported the ring "stopping immediately", which is what a clock comparison
+             * does when the two clocks disagree — PHP here runs in Asia/Dubai while the database
+             * and OS are UTC. A remaining figure cannot disagree with anything.
+             */
+            const remainingMs = Number(tie.spin_remaining_ms) || 0;
+            const stillSpinning = remainingMs > 0;
+
+            /* Settles itself when the window ends, rather than waiting for the next poll to
+               notice — the panel polls every 2s during a sealed round and 30s otherwise, and a
+               ring that lands whenever the next request happens to arrive is not synchronised
+               with the hall watching the same draw. */
+            if (stillSpinning && this._panelDrawTimer === null) {
+                this._panelDrawTimer = setTimeout(() => {
+                    this._panelDrawTimer = null;
+                    this.fetchSealedState();
+                }, remainingMs + 120);
+            }
 
             if (winner && ! stillSpinning) {
                 if (this.panelDrawSettled) return;

@@ -506,12 +506,17 @@ class ClosedBidRoundTest extends TestCase
         $this->assertSame('offline', $auction->fresh()->open_bid_mode, 'the room is still offline');
     }
 
+    /**
+     * Every lot opens offline, whatever the last one was set to.
+     *
+     * This asserted the other half of a rule that has been replaced: mode used to be "a fact about
+     * the room" that survived a player, and the price rule was allowed to undo it. Both are now
+     * one rule — the organizer calls the bidding out loud and records it, so a new player starts
+     * offline and online is switched on deliberately for the lot that wants it.
+     */
     #[Test]
-    public function a_chosen_offline_mode_survives_the_next_player(): void
+    public function every_new_player_opens_offline(): void
     {
-        // Bid TYPE is a fact about a price, so it resets per player. Bid MODE is a fact
-        // about the room — if the organizer is calling bids by hand, that stays true for
-        // the whole session. putPlayerOnBid() used to reset both, so offline never stuck.
         [$org, $tournament, $auction] = $this->sealedAuction([
             'status' => 'running',
             'bid_type' => 'closed',
@@ -529,18 +534,21 @@ class ClosedBidRoundTest extends TestCase
 
         $auction->refresh();
 
-        $this->assertSame('offline', $auction->open_bid_mode, 'the organizer chose this');
-        $this->assertTrue($auction->mode_manually_overridden);
+        $this->assertSame('offline', $auction->open_bid_mode);
+        // The flag is cleared with it: this happens on every lot now, so a flag claiming the
+        // organizer's choice is being honoured would be claiming something untrue.
+        $this->assertFalse((bool) $auction->mode_manually_overridden);
         // The price-driven axis DOES reset — the new player starts at their base price.
         $this->assertSame('open', $auction->bid_type);
     }
 
+    /** An auction left ONLINE also opens the next lot offline — the rule has no exceptions. */
     #[Test]
-    public function an_offline_mode_the_price_rule_set_is_reset_by_the_next_player(): void
+    public function an_online_auction_still_opens_the_next_player_offline(): void
     {
         [$org, $tournament, $auction] = $this->sealedAuction([
             'status' => 'running',
-            'open_bid_mode' => 'offline',
+            'open_bid_mode' => 'online',
             'mode_manually_overridden' => false,
         ]);
 
@@ -552,8 +560,7 @@ class ClosedBidRoundTest extends TestCase
             ])
             ->assertOk();
 
-        // Nobody chose this one, so it is the rule's to undo.
-        $this->assertSame('online', $auction->fresh()->open_bid_mode);
+        $this->assertSame('offline', $auction->fresh()->open_bid_mode);
     }
 
     #[Test]

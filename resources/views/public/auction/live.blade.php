@@ -3647,6 +3647,8 @@ HTML;
 
         /* The name currently showing in the draw, and the timer cycling it. */
         let _drawCycle = null;
+        /* Fires once, when the spin is due to end. See renderSealedDraw(). */
+        let _drawSettleTimer = null;
         let _drawSettledFor = null;
 
         /**
@@ -3777,6 +3779,11 @@ HTML;
                 wrap.classList.add('hidden');
                 document.getElementById('draw-coin')?.classList.remove('settled');
                 clearDrawRing();
+
+                if (_drawSettleTimer !== null) {
+                    clearTimeout(_drawSettleTimer);
+                    _drawSettleTimer = null;
+                }
                 if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
                 _drawSettledFor = null;
                 return;
@@ -3814,10 +3821,32 @@ HTML;
              * fifteen seconds before the person who drew it. `drawn_at` and `spin_ms` come from
              * the server, so both screens run one window from one instant.
              */
-            const spinMs = Number(tie.spin_ms) || 0;
-            const drawnAt = tie.drawn_at ? Date.parse(tie.drawn_at) : null;
-            const stillSpinning = winner && drawnAt && spinMs > 0
-                && (Date.now() - drawnAt) < spinMs;
+            /*
+             * The server says how long is LEFT; this screen does no clock arithmetic.
+             *
+             * It used to diff `Date.now()` against the server's `drawn_at`, which is a browser
+             * clock measured against a server timestamp — and this application runs its PHP in
+             * Asia/Dubai while its database and OS are UTC, so those agree only while every writer
+             * goes through PHP's now(). Any drift settled the ring instantly or left it turning
+             * for ever.
+             *
+             * The winner is also withheld from this payload until the spin is over, so there is
+             * nothing here to leak even if the timing were wrong.
+             */
+            const remainingMs = Number(tie.spin_remaining_ms) || 0;
+            const stillSpinning = remainingMs > 0;
+
+            /*
+             * One timer, armed once: it settles the ring at the exact moment the spin ends and
+             * then refetches, which is what makes the reveal land together on every screen
+             * without waiting for a poll. Re-armed only if the round changes underneath it.
+             */
+            if (stillSpinning && _drawSettleTimer === null) {
+                _drawSettleTimer = setTimeout(() => {
+                    _drawSettleTimer = null;
+                    refreshNow('lot-landed');
+                }, remainingMs + 120);
+            }
 
             if (winner && ! stillSpinning) {
                 // Settle once. Without this guard every poll re-runs the landing animation and the
