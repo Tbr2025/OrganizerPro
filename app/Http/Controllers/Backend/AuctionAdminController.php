@@ -1132,21 +1132,8 @@ class AuctionAdminController extends Controller
 
                 $isCorrection = (bool) ($data['correction'] ?? false);
 
-                /*
-                 * A correction with no team named raises the price for whoever already leads.
-                 * Filled in here rather than asked of the client, where the leader can be a
-                 * poll behind.
-                 */
-                if ($isCorrection && empty($data['teamId'])) {
-                    $data['teamId'] = $player->current_bid_team_id;
-                }
-
-                if ($isCorrection && empty($data['teamId'])) {
-                    throw new \Exception('Nobody has bid yet, so there is no price to correct. Click a team to open the bidding.');
-                }
-
-                // Prevent consecutive bids by the same team — except when correcting the price,
-                // where keeping the same leader is exactly what is being asked for.
+                // Prevent consecutive bids by the same team. A correction is exempt because it
+                // names no team at all — see below.
                 if (! $isCorrection && $data['teamId'] && $player->current_bid_team_id == $data['teamId']) {
                     throw new \Exception('This team is already the highest bidder.');
                 }
@@ -1238,42 +1225,24 @@ class AuctionAdminController extends Controller
                 }
 
                 /*
-                 * A CORRECTION that the current leader cannot afford passes to whoever can.
+                 * A CORRECTION moves the PRICE and names nobody.
                  *
-                 * A team leading at their own ceiling — CUBA CC on 1.8M with 1.8M left — cannot
-                 * be raised, and pressing + answered "max bid allowed: 1.8M (tried 1.9M)" and
-                 * stopped. But a higher call in the room did not come from them; it came from
-                 * somebody else, and the operator is recording it. So the maxed-out team is
-                 * skipped and the raise goes to the team best able to make it.
+                 * It is the organizer saying "the room is at this figure now", not a bid by a
+                 * team — so it attributes to no one, and the leading team is left exactly as it
+                 * was. Who wins is settled by clicking a chip, or at SELL.
                  *
-                 * Richest purse first, because that is the team most likely to be the one still
-                 * bidding. It is a guess, and a wrong guess is why the response names the team
-                 * it chose — the toast says so, and UNDO takes it straight back off. Only for a
-                 * correction: an ordinary click names its own team and must never be quietly
-                 * re-pointed at a different one.
+                 * This briefly passed the raise to the richest team that could afford it, which
+                 * put a bid in a team's name that they had not made. Attribution is not
+                 * something to guess at in an auction: the operator knows who called, and one
+                 * click says so.
+                 *
+                 * No per-team budget check, because there is no team to check. An adjustment can
+                 * therefore stand above what anyone can pay — deliberately, because the price a
+                 * room reached is a fact even when the paperwork has not caught up. SELL still
+                 * validates against the buying team's purse, which is where it matters.
                  */
-                if ($isCorrection && $data['teamId']
-                    && ! $pools->canAffordWithReserve($auction, (int) $data['teamId'], $newPrice)) {
-                    $candidates = ActualTeam::forTournament($auction->tournament_id)
-                        ->get(['id', 'name'])
-                        ->filter(fn ($t) => (int) $t->id !== (int) $data['teamId'])
-                        ->filter(fn ($t) => $pools->canAffordWithReserve($auction, (int) $t->id, $newPrice));
-
-                    if ($candidates->isEmpty()) {
-                        $blocked = ActualTeam::find($data['teamId']);
-
-                        throw new \Exception(sprintf(
-                            'Nobody can bid above %s — %s is at their limit and no other team can reach it. Sell at the current price.',
-                            format_points($current),
-                            $blocked?->name ?? 'the leading team'
-                        ));
-                    }
-
-                    $purses = $pools->teamPurseStates($auction, $candidates->pluck('id')->all(), $newPrice);
-
-                    $data['teamId'] = $candidates
-                        ->sortByDesc(fn ($t) => (float) ($purses[$t->id]['remaining'] ?? 0))
-                        ->first()->id;
+                if ($isCorrection) {
+                    $data['teamId'] = null;
                 }
 
                 // Squad-reserve rule. The organizer's manual bid path previously
@@ -1293,7 +1262,16 @@ class AuctionAdminController extends Controller
 
                 $player->current_price = $newPrice;
                 $player->final_price = $newPrice;
-                $player->current_bid_team_id = $data['teamId'] ?? null;
+                /*
+                 * A correction leaves the leader alone; every other path sets it.
+                 *
+                 * Without this the adjustment would clear the leading team as a side effect of
+                 * naming nobody, which is a different action entirely — and one that already
+                 * has its own control ("Wrong team?").
+                 */
+                if (! $isCorrection) {
+                    $player->current_bid_team_id = $data['teamId'] ?? null;
+                }
                 $player->save();
 
                 // Determine bid source based on current auction mode
@@ -1325,7 +1303,11 @@ class AuctionAdminController extends Controller
                         'previous_price' => $previousPrice,
                         'previous_team_id' => $previousTeamId,
                     ],
-                    sprintf('Bid %s by %s', format_points($newPrice), $teamName ?? 'unknown team')
+                    // Named for what it is, so the undo list reads honestly: an adjustment by
+                    // the organizer is not a bid by a team.
+                    $isCorrection
+                        ? sprintf('Price set to %s by the organizer', format_points($newPrice))
+                        : sprintf('Bid %s by %s', format_points($newPrice), $teamName ?? 'unknown team')
                 );
 
                 // A successful bid restarts the clock (at bid_timer_reset_seconds).

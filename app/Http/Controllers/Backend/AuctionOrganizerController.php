@@ -663,18 +663,33 @@ class AuctionOrganizerController extends Controller
     {
         $this->authorize('auction.edit');
 
-        $showing = $request->boolean('showing', ! $auction->show_sold_board);
+        $data = $request->validate([
+            // Null takes the screens back to the live card.
+            'board' => 'nullable|in:' . implode(',', Auction::publicBoards()),
+        ]);
 
-        $auction->update(['show_sold_board' => $showing]);
+        $board = $data['board'] ?? null;
+
+        // Pressing the button for the board already up takes it down, which is what an operator
+        // means by pressing it twice.
+        if ($board !== null && $board === $auction->public_board) {
+            $board = null;
+        }
+
+        $auction->update(['public_board' => $board]);
 
         \App\Support\AfterResponse::run(
-            fn () => \App\Events\SoldBoardToggled::announce((int) $auction->id, $showing)
+            fn () => \App\Events\SoldBoardToggled::announce((int) $auction->id, $board)
         );
 
         return response()->json([
             'success' => true,
-            'showing' => $showing,
-            'message' => $showing ? 'Sold board is on the screens.' : 'Back to the live card.',
+            'board' => $board,
+            'message' => match ($board) {
+                Auction::BOARD_SOLD => 'Sold board is on the screens.',
+                Auction::BOARD_HIGHLIGHTS => 'Highlights are on the screens.',
+                default => 'Back to the live card.',
+            },
         ]);
     }
 

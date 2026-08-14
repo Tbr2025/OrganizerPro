@@ -518,6 +518,29 @@
             color: rgb(var(--primary-rgb));
         }
 
+        /* ── Highlights reel ── */
+        #reel .slide {
+            position: absolute; inset: 0;
+            display: grid; gap: 22px; align-content: center;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            opacity: 0; transition: opacity 0.7s ease;
+        }
+        #reel .slide.on { opacity: 1; }
+        #reel .rp { text-align: center; min-width: 0; }
+        #reel .rp img, #reel .rp .blank {
+            width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(var(--primary-rgb), 0.3);
+        }
+        #reel .rp .blank { display: flex; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: 900; color: rgba(255,255,255,0.4); }
+        #reel .rp .nm { margin-top: 12px; font-size: 22px; font-weight: 900; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #reel .rp .tm { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.6);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #reel .rp .amt { margin-top: 6px; font-size: 34px; font-weight: 900;
+            color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums; }
+
         /* A new player arriving. Short, and opacity plus a small rise only — nothing that
            reflows the card or moves the artwork a template author positioned. */
         @keyframes cardArrived {
@@ -1272,7 +1295,7 @@
          style="position:fixed;inset:0;z-index:140;background:rgba(2,6,23,0.97);
                 display:flex;flex-direction:column;padding:36px 44px;">
         <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;">
-            <div style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
+            <div id="sold-board-title" style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
             <div id="sold-board-count" style="font-size:22px;font-weight:700;
                  color:rgba(var(--primary-rgb),0.95);"></div>
         </div>
@@ -1280,6 +1303,12 @@
              of a hall is not worth fitting on. --}}
         <div id="sold-board-grid" style="flex:1;overflow-y:auto;display:grid;gap:16px;
              grid-template-columns:repeat(auto-fill,minmax(230px,1fr));align-content:start;"></div>
+
+        {{-- The highlights reel: a handful of buys at a time, fading from one slide to the
+             next. Separate from the grid above because these cards are large and centred —
+             a reel that reads across a hall cannot be the same layout as a list that fits
+             three hundred. --}}
+        <div id="reel" class="hidden" style="flex:1;position:relative;"></div>
     </div>
 
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
@@ -1981,7 +2010,7 @@
          * Fetched only while the board is up: it is a list of every sale in the auction and
          * there is no reason to carry it on the two-second tick when nothing is showing it.
          */
-        let soldBoardShowing = false;
+        let soldBoardShowing = null;
 
         function renderSoldBoard(rows) {
             const grid = document.getElementById('sold-board-grid');
@@ -2017,10 +2046,102 @@
             }).join('');
         }
 
-        function fetchSoldBoard() {
+        /**
+         * The highlights reel: a few of the biggest buys at a time, fading between slides.
+         *
+         * Sorted by price and then SHUFFLED within the slides, so a pause does not replay the
+         * same five faces in the same order every time it is put up — the room sees a different
+         * cut of the same story. Capped at the top of the market because a reel of everybody is
+         * a list, and a list is what the sold board is for.
+         */
+        let _reelTimer = null;
+        let _reelSlides = [];
+        let _reelIndex = 0;
+
+        const REEL_PER_SLIDE = 5;
+        const REEL_POOL = 20;
+        const REEL_MS = 6000;
+
+        function shuffled(list) {
+            const out = list.slice();
+
+            for (let i = out.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [out[i], out[j]] = [out[j], out[i]];
+            }
+
+            return out;
+        }
+
+        function reelCard(row) {
+            const nm = row?.player?.name || 'Player';
+            const tm = row?.sold_to_team?.name || '';
+            const face = row?.player?.image
+                ? `<img src="${escapeHtml(row.player.image)}" alt="">`
+                : `<div class="blank">${escapeHtml(nm.substring(0, 2).toUpperCase())}</div>`;
+
+            return '<div class="rp">' + face
+                + `<div class="nm">${escapeHtml(nm)}</div>`
+                + (tm ? `<div class="tm">${escapeHtml(tm)}</div>` : '')
+                + `<div class="amt">${formatMillions(Number(row?.final_price) || 0)}</div>`
+                + '</div>';
+        }
+
+        function stopReel() {
+            if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; }
+            _reelSlides = [];
+            _reelIndex = 0;
+        }
+
+        function renderReel(rows) {
+            const el = document.getElementById('reel');
+            if (! el) return;
+
+            stopReel();
+
+            const top = (Array.isArray(rows) ? rows : [])
+                .filter((r) => Number(r?.final_price) > 0)
+                .sort((a, b) => Number(b.final_price) - Number(a.final_price))
+                .slice(0, REEL_POOL);
+
+            if (! top.length) {
+                el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;'
+                    + 'height:100%;color:rgba(255,255,255,0.5);font-size:24px;">Nothing sold yet.</div>';
+                return;
+            }
+
+            const order = shuffled(top);
+
+            for (let i = 0; i < order.length; i += REEL_PER_SLIDE) {
+                _reelSlides.push(order.slice(i, i + REEL_PER_SLIDE));
+            }
+
+            el.innerHTML = _reelSlides
+                .map((slide) => '<div class="slide">' + slide.map(reelCard).join('') + '</div>')
+                .join('');
+
+            const show = () => {
+                const nodes = el.querySelectorAll('.slide');
+                nodes.forEach((n, i) => n.classList.toggle('on', i === _reelIndex));
+                _reelIndex = (_reelIndex + 1) % nodes.length;
+            };
+
+            show();
+
+            // Only worth turning over if there is more than one slide.
+            if (_reelSlides.length > 1) _reelTimer = setInterval(show, REEL_MS);
+        }
+
+        function fetchSoldBoard(board) {
             fetch(`/auction/${auctionId}/sold-players`)
                 .then((res) => res.json())
-                .then((data) => renderSoldBoard(data?.soldPlayers))
+                .then((data) => {
+                    if (board === 'highlights') {
+                        renderReel(data?.soldPlayers);
+                    } else {
+                        renderSoldBoard(data?.soldPlayers);
+                    }
+                })
                 .catch(() => {});
         }
 
@@ -2031,15 +2152,31 @@
          * pushed frame calls it the moment the button is pressed. Only a CHANGE refetches, so
          * the list is not pulled thirty times a minute while it sits on screen.
          */
-        function applySoldBoard(showing) {
+        function applySoldBoard(board) {
             const el = document.getElementById('sold-board');
             if (! el) return;
 
-            const next = !! showing;
+            // Tolerates the old boolean payload as well as the board name, so a screen still
+            // running yesterday's script is not left with a board it cannot turn off.
+            const next = board === true ? 'sold' : (board || null);
 
             el.classList.toggle('hidden', ! next);
 
-            if (next && ! soldBoardShowing) fetchSoldBoard();
+            const grid = document.getElementById('sold-board-grid');
+            const reel = document.getElementById('reel');
+            const title = document.getElementById('sold-board-title');
+            const count = document.getElementById('sold-board-count');
+
+            if (grid) grid.classList.toggle('hidden', next !== 'sold');
+            if (reel) reel.classList.toggle('hidden', next !== 'highlights');
+            if (title) title.textContent = next === 'highlights' ? 'TOP BUYS' : 'SOLD SO FAR';
+            if (count) count.style.visibility = next === 'highlights' ? 'hidden' : 'visible';
+
+            if (! next) stopReel();
+
+            // Only a CHANGE refetches — the poll calls this every tick and the list is every
+            // sale in the auction.
+            if (next && next !== soldBoardShowing) fetchSoldBoard(next);
 
             soldBoardShowing = next;
         }
@@ -2830,7 +2967,7 @@
 
                     // The board, if the organizer has it up. Read from the feed so a wall
                     // opened or reloaded mid-board comes back to the board.
-                    applySoldBoard(data?.show_sold_board);
+                    applySoldBoard(data?.public_board);
 
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;
@@ -2937,9 +3074,9 @@
              * for the next tick — on a wall the whole room is looking at, two seconds of nothing
              * after the button is pressed reads as a fault.
              */
-            .listen('.board.sold', (event) => {
-                console.info('[Live] sold board:', event?.showing);
-                applySoldBoard(event?.showing);
+            .listen('.board.changed', (event) => {
+                console.info('[Live] public board:', event?.board);
+                applySoldBoard(event?.board);
             })
             .listen('.player-on-sold', (event) => {
                 console.log('[Live] Player sold event:', event);

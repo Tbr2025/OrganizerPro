@@ -9,6 +9,18 @@ class Auction extends Model
 {
     use BelongsToOrganization;
 
+    /** The sold board: every player sold, as a grid of cards. */
+    public const BOARD_SOLD = 'sold';
+
+    /** The highlights reel: the biggest buys, on rotating slides, for a pause. */
+    public const BOARD_HIGHLIGHTS = 'highlights';
+
+    /** @return list<string> */
+    public static function publicBoards(): array
+    {
+        return [self::BOARD_SOLD, self::BOARD_HIGHLIGHTS];
+    }
+
     protected $fillable = [
         'name',
         'organization_id',
@@ -43,8 +55,8 @@ class Auction extends Model
         'final_call_enabled',
         'final_call_interval_seconds',
         'open_bid_mode',
-        // Whether the public screens are showing the sold board — see the migration.
-        'show_sold_board',
+        // Which board the public screens are showing instead of the live card, if any.
+        'public_board',
         'online_bid_limit_from',
         'online_bid_limit_to',
         'mode_manually_overridden',
@@ -77,7 +89,6 @@ class Auction extends Model
         'bid_rules' => 'array',
         'bid_timer_seconds' => 'integer',
         'bid_timer_reset_seconds' => 'integer',
-        'show_sold_board' => 'boolean',
         'online_bid_limit_from' => 'decimal:2',
         'online_bid_limit_to' => 'decimal:2',
         'mode_manually_overridden' => 'boolean',

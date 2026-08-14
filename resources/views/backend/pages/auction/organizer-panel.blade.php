@@ -1819,13 +1819,25 @@
                      The room wants to see where the money has gone and the only answer used to
                      be this screen. Lit while it is up, because a board left on the wall through
                      the next lot is the failure worth making obvious. --}}
-                <button @click="toggleSoldBoard()" :disabled="soldBoardBusy"
-                        :class="soldBoardShowing
+                <button @click="toggleSoldBoard('sold')" :disabled="soldBoardBusy"
+                        :class="soldBoardShowing === 'sold'
                             ? 'bg-amber-500 text-black hover:bg-amber-400'
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
                         class="px-3 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors disabled:opacity-40 whitespace-nowrap"
-                        :title="soldBoardShowing ? 'Take the sold board off the screens' : 'Show the sold players on the wall and ticker'">
-                    <span x-text="soldBoardShowing ? 'Hide Sold' : 'Show Sold'"></span>
+                        :title="soldBoardShowing === 'sold' ? 'Take the sold board off the screens' : 'Show every sold player on the wall and ticker'">
+                    <span x-text="soldBoardShowing === 'sold' ? 'Hide Sold' : 'Show Sold'"></span>
+                </button>
+
+                {{-- The reel, for a pause: the biggest buys on rotating slides. Shuffled each
+                     time it goes up, so a break does not replay the same five faces in the same
+                     order. --}}
+                <button @click="toggleSoldBoard('highlights')" :disabled="soldBoardBusy"
+                        :class="soldBoardShowing === 'highlights'
+                            ? 'bg-amber-500 text-black hover:bg-amber-400'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
+                        class="px-3 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors disabled:opacity-40 whitespace-nowrap"
+                        :title="soldBoardShowing === 'highlights' ? 'Take the reel off the screens' : 'Play the top buys on the wall and ticker'">
+                    <span x-text="soldBoardShowing === 'highlights' ? 'Hide Reel' : 'Play Reel'"></span>
                 </button>
 
                 <button @click="toggleFullscreen()" class="w-8 h-8 rounded flex items-center justify-center bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" title="Toggle Fullscreen (F)">
@@ -3569,7 +3581,7 @@ function auctionOrganizerPanel() {
 
         isSteppingBid: false,
         // The sold board on the public screens — server state, mirrored here for the button.
-        soldBoardShowing: @js((bool) $auction->show_sold_board),
+        soldBoardShowing: @js($auction->public_board),
         soldBoardBusy: false,
         // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
         _pendingSteps: 0,
@@ -3582,9 +3594,12 @@ function auctionOrganizerPanel() {
          * and the first bid has to name a team.
          */
         get canStepBid() {
-            return !! this.currentPlayer
-                && this.displayState === 'bidding'
-                && !! this.currentPlayer.current_bid_team_id;
+            /*
+             * No leader required. A step moves the PRICE and names nobody — it is the organizer
+             * saying the room is at this figure — so it works before anyone has bid, which is
+             * exactly when an auctioneer is calling a price up to find the first taker.
+             */
+            return !! this.currentPlayer && this.displayState === 'bidding';
         },
 
         /**
@@ -3637,8 +3652,6 @@ function auctionOrganizerPanel() {
                 const data = await res.json();
 
                 if (data.success) {
-                    const previousLeader = this.currentPlayer?.current_bid_team_id;
-
                     this.currentBid = data.current_price;
                     this._lastKnownBid = data.current_price;
 
@@ -3653,20 +3666,18 @@ function auctionOrganizerPanel() {
                          * to say who, because the operator did not choose them. UNDO takes it
                          * straight back off if it picked wrong.
                          */
-                        if (data.current_bid_team_id !== undefined) {
-                            this.currentPlayer.current_bid_team_id = data.current_bid_team_id;
-                            const team = this.teams.find(t => t.id == data.current_bid_team_id);
-                            if (team) this.winningTeamName = team.name;
-
-                            if (data.current_bid_team_id != previousLeader && team) {
-                                this.toast(
-                                    `${team.name} now leads at ${this.formatCurrency(data.current_price)} — the previous leader was at their limit.`,
-                                    'info',
-                                    'Leader changed'
-                                );
-                            }
-                        }
+                        /*
+                         * The leader is untouched by an adjustment, so nothing here writes it.
+                         * The figure moved; who wins is still whoever the chips say, or whoever
+                         * is chosen at SELL.
+                         */
                     }
+
+                    this.toast(
+                        `Price set to ${this.formatCurrency(data.current_price)} — organizer adjustment, no team.`,
+                        'info',
+                        'Price'
+                    );
 
                     this._lastAppliedBidId = Math.max(this._lastAppliedBidId || 0, Number(data.bid_id) || 0);
                     this.resetBiddingTimer();
@@ -3765,10 +3776,12 @@ function auctionOrganizerPanel() {
          * pushes the change as well as storing it, so the screens turn over when the button is
          * pressed rather than up to two seconds later.
          */
-        async toggleSoldBoard() {
+        async toggleSoldBoard(board) {
             if (this.soldBoardBusy) return;
 
-            const next = ! this.soldBoardShowing;
+            // Pressing the button for the board already up takes it down.
+            const next = this.soldBoardShowing === board ? null : board;
+            const previous = this.soldBoardShowing;
             this.soldBoardBusy = true;
             // Optimistic, like a raise: the button is the one control whose state the operator
             // reads back immediately.
@@ -3782,19 +3795,19 @@ function auctionOrganizerPanel() {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ showing: next }),
+                    body: JSON.stringify({ board: next }),
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    this.soldBoardShowing = !! data.showing;
+                    this.soldBoardShowing = data.board ?? null;
                     this.toast(data.message, 'success', 'Screens');
                 } else {
-                    this.soldBoardShowing = ! next;
+                    this.soldBoardShowing = previous;
                     this.toast(data.message || 'The screens did not change.', 'error');
                 }
             } catch (e) {
-                this.soldBoardShowing = ! next;
+                this.soldBoardShowing = previous;
                 console.error('Sold board error:', e);
                 this.toast('That did not go through.', 'error');
             } finally {

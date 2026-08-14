@@ -11,11 +11,11 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * The organizer put the board of sold players up, or took it down.
+ * The organizer changed what the public screens are showing — a board, or back to the live card.
  *
  * Pushed as well as stored, because the point of the button is that the hall's screens change
  * when it is pressed — a two-second poll is visible as hesitation on a wall the whole room is
- * looking at. The stored flag (`auctions.show_sold_board`) is what a screen opened or reloaded
+ * looking at. The stored column (`auctions.public_board`) is what a screen opened or reloaded
  * afterwards reads; this is what changes the ones already watching.
  *
  * ShouldBroadcastNow: production runs `queue:work --sleep=3`, so a queued broadcast could
@@ -27,15 +27,16 @@ class SoldBoardToggled implements ShouldBroadcastNow
 
     public function __construct(
         public int $auctionId,
-        public bool $showing,
+        /** `sold`, `highlights`, or null for the live card. */
+        public ?string $board,
     ) {
     }
 
     /** Failures are logged and swallowed — the flag is already saved and the polls carry it. */
-    public static function announce(int $auctionId, bool $showing): void
+    public static function announce(int $auctionId, ?string $board): void
     {
         try {
-            broadcast(new self($auctionId, $showing));
+            broadcast(new self($auctionId, $board));
         } catch (\Throwable $e) {
             Log::warning('SoldBoardToggled broadcast failed: ' . $e->getMessage(), [
                 'auction_id' => $auctionId,
@@ -51,12 +52,12 @@ class SoldBoardToggled implements ShouldBroadcastNow
 
     public function broadcastAs(): string
     {
-        return 'board.sold';
+        return 'board.changed';
     }
 
     /** @return array<string, mixed> */
     public function broadcastWith(): array
     {
-        return ['showing' => $this->showing];
+        return ['board' => $this->board];
     }
 }

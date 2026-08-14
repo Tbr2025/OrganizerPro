@@ -652,7 +652,7 @@
     /* ── The board of players sold ──
        Fetched only while it is up: it is every sale in the auction, and there is no reason to
        pull it on the two-second tick when nothing is showing it. */
-    let soldBoardShowing = false;
+    let soldBoardShowing = null;
 
     function renderSoldBoard(rows) {
         const grid = document.getElementById('sold-board-grid');
@@ -683,23 +683,40 @@
         }).join('');
     }
 
-    function fetchSoldBoard() {
+    function fetchSoldBoard(board) {
         fetch(`/auction/${auctionId}/sold-players`)
             .then((res) => res.json())
-            .then((data) => renderSoldBoard(data?.soldPlayers))
+            .then((data) => {
+                const rows = data?.soldPlayers || [];
+
+                /* The reel is the same cards, cut down to the biggest buys and shuffled — a
+                   stream has less room than a wall, so the top of the market is all that fits
+                   and all that is worth showing during a pause. */
+                renderSoldBoard(board === 'highlights'
+                    ? rows.filter(r => Number(r?.final_price) > 0)
+                        .sort((a, b) => Number(b.final_price) - Number(a.final_price))
+                        .slice(0, 10)
+                    : rows);
+            })
             .catch(() => {});
     }
 
     /* Idempotent: called by every poll with whatever the server says, and by the pushed frame
        the moment the button is pressed. Only a CHANGE refetches. */
-    function applySoldBoard(showing) {
+    function applySoldBoard(board) {
         const el = document.getElementById('sold-board');
         if (! el) return;
 
-        const next = !! showing;
+        // Tolerates the old boolean as well as the board name, so a screen still running
+        // yesterday's script is not left with a board it cannot turn off.
+        const next = board === true ? 'sold' : (board || null);
+
         el.classList.toggle('hidden', ! next);
 
-        if (next && ! soldBoardShowing) fetchSoldBoard();
+        const head = document.getElementById('sold-board-head');
+        if (head) head.firstElementChild.textContent = next === 'highlights' ? 'TOP BUYS' : 'SOLD SO FAR';
+
+        if (next && next !== soldBoardShowing) fetchSoldBoard(next);
 
         soldBoardShowing = next;
     }
@@ -834,7 +851,7 @@
 
                 // The board, if the organizer has it up. From the feed, so a ticker opened or
                 // reloaded mid-board comes back to the board.
-                applySoldBoard(d.show_sold_board);
+                applySoldBoard(d.public_board);
 
                 lastCurrentPlayer = d.current_player || null;
                 lastSealed = d.closed_bid || null;
@@ -1082,7 +1099,7 @@
                 // pushed for any of it before, so the ticker only caught up on its own poll.
                 .listen('.sealed.changed', (e) => refreshNow('sealed:' + (e?.state ?? '?')))
                 // The board going up or coming down, applied at once rather than on the next tick.
-                .listen('.board.sold', (e) => applySoldBoard(e?.showing));
+                .listen('.board.changed', (e) => applySoldBoard(e?.board));
 
             /* Pause, resume, end and restart publish on their own channel. Without this the
                strip would count down through a pause until the heartbeat came round — on air. */

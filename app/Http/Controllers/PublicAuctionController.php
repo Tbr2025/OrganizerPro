@@ -319,7 +319,7 @@ class PublicAuctionController extends Controller
                                  * plugged in or reloaded while the board is showing comes up on the board too —
                                  * a broadcast only reaches screens already listening.
                                  */
-                'show_sold_board' => (bool) $auction->show_sold_board,
+                'public_board' => $auction->public_board,
                 // Server-computed, so every screen announces the restart for the same window.
                 'restarting' => $auction->isRestarting(),
                 'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -362,7 +362,7 @@ class PublicAuctionController extends Controller
             'success' => true,
             'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
-            'show_sold_board' => (bool) $auction->show_sold_board,
+            'public_board' => $auction->public_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -415,7 +415,7 @@ class PublicAuctionController extends Controller
                 ] : null,
             ] : null,
             'auction_status' => $auction->status,
-            'show_sold_board' => (bool) $auction->show_sold_board,
+            'public_board' => $auction->public_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -518,7 +518,7 @@ class PublicAuctionController extends Controller
         return response()->json([
             'success' => true,
             'auction_status' => $auction->status,
-            'show_sold_board' => (bool) $auction->show_sold_board,
+            'public_board' => $auction->public_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
