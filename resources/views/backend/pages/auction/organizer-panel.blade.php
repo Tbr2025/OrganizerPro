@@ -2810,6 +2810,62 @@ function auctionOrganizerPanel() {
                 this._lastPushAt = Date.now();
                 this.applyRaise(e);
             });
+
+            /*
+             * ── Everything else the server already broadcasts ──
+             *
+             * Only `.bid.raised` was subscribed, so a sale, a pass, the next player, a pool
+             * change, a sealed round opening and the screens turning over all reached this panel
+             * by POLLING — which is why the poll could never be more than a couple of seconds
+             * apart, and why the network tab fills with poll-state all evening.
+             *
+             * These frames are a NUDGE, not a payload: each one triggers an immediate reconcile
+             * rather than trying to apply itself. The poll already knows how to merge a whole
+             * state safely, including the ordering guard that stops a stale snapshot overwriting
+             * a local bid — reimplementing six partial appliers here would be six new ways to
+             * disagree with it. The win is latency and request count, not a second code path.
+             */
+            ['.player.onbid', '.player-on-sold', '.sealed.changed', '.board.changed']
+                .forEach((name) => {
+                    channel.listen(name, () => {
+                        this._lastPushAt = Date.now();
+                        this.pollNow();
+                    });
+                });
+
+            /*
+             * Pause, resume and end go out on `auction.public.{id}`, a different channel from
+             * everything above — so listening for `.auction.status` on this one would have looked
+             * right in the diff and never fired once. Checked against each event's broadcastOn()
+             * rather than assumed.
+             */
+            try {
+                window.Echo?.channel?.('auction.public.' + this.auctionId)
+                    ?.listen('.auction.status', () => {
+                        this._lastPushAt = Date.now();
+                        this.pollNow();
+                    });
+            } catch (e) {
+                // A missing socket is not an error here — the poll carries everything.
+            }
+        },
+
+        /**
+         * Reconcile immediately, and re-arm the chain from now.
+         *
+         * Cancels the pending timer first, so a burst of frames cannot stack up a queue of polls
+         * behind them — one reconcile answers all of them, and the next scheduled poll is measured
+         * from this one rather than from whenever the last tick happened to be.
+         */
+        pollNow() {
+            if (this._pollInFlight) return;
+
+            if (this._pollTimer) {
+                clearTimeout(this._pollTimer);
+                this._pollTimer = null;
+            }
+
+            this.startStatePolling();
         },
 
         /**
@@ -3014,12 +3070,26 @@ function auctionOrganizerPanel() {
          * panel into line with them.
          */
         pollDelay() {
-            const PUSH_FRESH_MS = 20000;
+            /*
+             * On a healthy socket the poll is a SAFETY NET, not the delivery mechanism.
+             *
+             * Every event that changes this panel now arrives as a push and triggers an immediate
+             * reconcile, so the timer exists only to catch what a socket cannot promise: a frame
+             * dropped in transit, a laptop that slept through one, a figure that drifted. Thirty
+             * seconds is often enough for that and a fifteenth of the traffic the old six-second
+             * tick generated — an evening's panel went from ~1,800 requests an hour to ~120.
+             *
+             * The window is generous on purpose. `_lastPushAt` is only stamped when a frame
+             * actually lands, so a quiet minute between lots would otherwise be read as a dead
+             * socket and drop the panel back to two-second polling for no reason.
+             *
+             * With no push at all, nothing changes: two seconds, as before. That is the whole
+             * safety property — a panel on a broken socket must behave exactly as it always did.
+             */
+            const PUSH_FRESH_MS = 90000;
             const healthy = this._lastPushAt && (Date.now() - this._lastPushAt) < PUSH_FRESH_MS;
 
-            // Still a poll on a healthy socket: it is what reconciles sales, passes, pool
-            // changes and purse figures, none of which the raise frame carries.
-            return healthy ? 6000 : 2000;
+            return healthy ? 30000 : 2000;
         },
 
         stopStatePolling() {
