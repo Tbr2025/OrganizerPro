@@ -288,6 +288,57 @@
         .sb-card .tm .crest { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .sb-card .amt { font-size: 18px; font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
+        /*
+         * ── Top buys, as a carousel ──
+         *
+         * The highlights board was the same grid as the full sold list, cut to ten. A stream is
+         * watched, not scanned: ten small cards at once is a table, and a table is what the sold
+         * board already is. Five, one at a time, big enough to read — and the sponsors' artwork
+         * riding the same rotation, which is the only way an ad reaches this screen at all.
+         */
+        #sb-reel {
+            flex: 1; position: relative; overflow: hidden;
+        }
+        #sb-reel.hidden { display: none; }
+        .sb-slide {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 18px; text-align: center;
+            opacity: 0; transform: scale(0.97);
+            transition: opacity .55s ease, transform .55s ease;
+            pointer-events: none;
+        }
+        .sb-slide.on { opacity: 1; transform: scale(1); }
+
+        .sb-slide .face, .sb-slide .blank-face {
+            width: 210px; height: 260px; object-fit: cover; border-radius: 16px;
+            background: rgba(255,255,255,0.07); border: 1px solid var(--edge);
+        }
+        .sb-slide .blank-face {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 54px; font-weight: 900; opacity: 0.45;
+        }
+        .sb-slide .nm { font-size: 40px; font-weight: 900; line-height: 1; }
+        .sb-slide .tm {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            font-size: 20px; font-weight: 700; opacity: 0.75;
+        }
+        .sb-slide .tm .crest { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+        .sb-slide .amt {
+            font-size: 46px; font-weight: 900; color: var(--secondary);
+            font-variant-numeric: tabular-nums;
+        }
+        /* An ad takes the frame it was designed in rather than being cropped into a card. */
+        .sb-slide.ad img { max-width: 82%; max-height: 76%; object-fit: contain; border-radius: 14px; }
+        .sb-slide.ad .cap {
+            font-size: 18px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+            opacity: .75;
+        }
+        .sb-slide.ad .tag {
+            font-size: 11px; font-weight: 800; letter-spacing: .3em; text-transform: uppercase;
+            opacity: .45;
+        }
+
         #sb-sponsors {
             display: none; align-items: center; justify-content: center; gap: 26px;
             flex-wrap: wrap; padding-top: 14px; margin-top: 12px;
@@ -419,6 +470,8 @@
             <span id="sold-board-count"></span>
         </div>
         <div id="sold-board-grid"></div>
+        {{-- Used for the highlights board; the grid above stays for the full sold list. --}}
+        <div id="sb-reel" class="hidden"></div>
     </div>
 
     {{-- The player on the block --}}
@@ -855,19 +908,110 @@
                 renderSponsors(data?.sponsors, data?.tournamentLogo);
 
                 const rows = data?.soldPlayers || [];
+                const grid = document.getElementById('sold-board-grid');
+                const reel = document.getElementById('sb-reel');
 
-                /* The reel is the same cards, cut down to the biggest buys and shuffled — a
-                   stream has less room than a wall, so the top of the market is all that fits
-                   and all that is worth showing during a pause. */
-                /* Top buys descend by price; the full board keeps the feed's own order, which
-                   is most-recent first — the two answer different questions. */
-                renderSoldBoard(board === 'highlights'
-                    ? rows.filter(r => Number(r?.final_price) > 0)
-                        .sort((a, b) => Number(b.final_price) - Number(a.final_price))
-                        .slice(0, 10)
-                    : rows);
+                if (board === 'highlights') {
+                    /* Five, one at a time. A stream is watched rather than scanned: ten small
+                       cards at once is a table, and the full sold board already is one. */
+                    grid?.classList.add('hidden');
+                    reel?.classList.remove('hidden');
+
+                    renderTickerReel(
+                        rows.filter((r) => Number(r?.final_price) > 0)
+                            .sort((a, b) => Number(b.final_price) - Number(a.final_price))
+                            .slice(0, 5),
+                        Array.isArray(data?.adSlides) ? data.adSlides : []
+                    );
+
+                    return;
+                }
+
+                /* The full board keeps the feed's own order, which is most-recent first — it
+                   answers a different question from the top buys. */
+                stopTickerReel();
+                reel?.classList.add('hidden');
+                grid?.classList.remove('hidden');
+                renderSoldBoard(rows);
             })
             .catch(() => {});
+    }
+
+    /*
+     * ── The top-buys carousel, with the sponsors' artwork in it ──
+     *
+     * The ads never reached this screen at all: the ticker read `sponsors` for its logo strip and
+     * ignored `adSlides` entirely, so artwork uploaded for the auction played on the wall and
+     * nowhere else. Every slide is shown here, shuffled, so a short pause does not always show
+     * the same one first and no sponsor is systematically last.
+     */
+    let tickerReelTimer = null;
+    let tickerReelIndex = 0;
+
+    function stopTickerReel() {
+        if (tickerReelTimer) { clearInterval(tickerReelTimer); tickerReelTimer = null; }
+        tickerReelIndex = 0;
+    }
+
+    function shuffledCopy(list) {
+        const out = list.slice();
+        for (let i = out.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [out[i], out[j]] = [out[j], out[i]];
+        }
+        return out;
+    }
+
+    function renderTickerReel(players, ads) {
+        const reel = document.getElementById('sb-reel');
+        if (! reel) return;
+
+        stopTickerReel();
+
+        const slides = players.map((row) => {
+            const nm = row?.player?.name || 'Player';
+            const face = row?.player?.image
+                ? `<img class="face" src="${esc(row.player.image)}" alt="">`
+                : `<div class="blank-face">${esc(nm.substring(0, 2).toUpperCase())}</div>`;
+
+            const team = row?.sold_to_team?.name
+                ? '<div class="tm">'
+                    + (row.sold_to_team.logo_path ? `<img class="crest" src="${esc(row.sold_to_team.logo_path)}" alt="">` : '')
+                    + `<span>${esc(row.sold_to_team.name)}</span></div>`
+                : '';
+
+            return '<div class="sb-slide">' + face
+                + `<div class="nm">${esc(nm)}</div>`
+                + team
+                + `<div class="amt">${amount(row?.final_price)}</div>`
+                + '</div>';
+        });
+
+        /* ALL of them, shuffled — not a subset, and not always in upload order. */
+        shuffledCopy(ads).forEach((ad) => {
+            slides.push('<div class="sb-slide ad">'
+                + `<img src="${esc(ad.url)}" alt="">`
+                + (ad.caption ? `<div class="cap">${esc(ad.caption)}</div>` : '')
+                + '<div class="tag">Sponsor</div>'
+                + '</div>');
+        });
+
+        if (! slides.length) {
+            reel.innerHTML = '<div class="sb-slide on" style="opacity:.55;">Nothing sold yet.</div>';
+            return;
+        }
+
+        reel.innerHTML = slides.join('');
+
+        const nodes = reel.querySelectorAll('.sb-slide');
+        const show = () => {
+            nodes.forEach((n, i) => n.classList.toggle('on', i === tickerReelIndex));
+            tickerReelIndex = (tickerReelIndex + 1) % nodes.length;
+        };
+
+        show();
+
+        if (nodes.length > 1) tickerReelTimer = setInterval(show, 4200);
     }
 
     /* Idempotent: called by every poll with whatever the server says, and by the pushed frame

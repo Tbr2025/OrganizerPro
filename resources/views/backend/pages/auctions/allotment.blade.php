@@ -166,15 +166,20 @@
                             </div>
                         </div>
 
-                        {{-- Allot form --}}
+                        {{-- Allot form.
+                             `teamId` lives on the FORM so the select and the price box share it —
+                             the box has to know which purse it is being measured against, and the
+                             two controls are siblings. --}}
                         <form action="{{ route('admin.auctions.allotment.allot', $auction) }}" method="POST"
+                              x-data="{ teamId: '' }"
                               class="flex flex-wrap items-center gap-2">
                             @csrf
                             <input type="hidden" name="auction_player_id" value="{{ $ap->id }}">
 
                             <select name="team_id" required
-                                    class="form-control !py-1.5 !text-sm min-w-[190px]">
-                                <option value="">Allot to…</option>
+                                    class="form-control !py-1.5 !text-sm min-w-[190px]"
+                                    @change="teamId = $event.target.value">
+                                <option value="">Allot to&hellip;</option>
                                 @foreach($teams as $row)
                                     @php
                                         $affordable = $row['remaining'] >= (float) $ap->base_price;
@@ -193,16 +198,28 @@
                                  price had to be counted out in zeroes and then checked against a
                                  figure written the other way. The raw value still posts, through
                                  the hidden input, so the endpoint is unchanged. --}}
+                            {{-- The purse is checked HERE as well as on the server.
+                                 The box took any figure at all: 47M against a team with 37.9M left
+                                 looked accepted, and the refusal only arrived after Allot, as a
+                                 flash message at the top of a long list — by which point the
+                                 organizer has moved on to the next row. The server still decides
+                                 (canAllot), and this makes the answer visible while it can still
+                                 be changed. --}}
                             <div class="flex items-center gap-1"
                                  x-data="{
                                      raw: @js((float) $ap->base_price),
+                                     purses: @js($teams->mapWithKeys(fn ($row) => [$row['team']->id => (float) $row['remaining']])),
                                      toM(v) { return window.auctionToM ? window.auctionToM(v) : v },
                                      fromM(v) { return window.auctionFromM ? window.auctionFromM(v) : v },
+                                     get purse() { return this.teamId ? (this.purses[this.teamId] ?? null) : null },
+                                     get overPurse() { return this.purse !== null && Number(this.raw) > this.purse },
                                  }">
                                 <div class="relative">
                                     <input type="number" step="any" min="0"
+                                           :max="purse !== null ? toM(purse) : null"
                                            :value="toM(raw)" @input="raw = fromM($event.target.value)"
                                            class="form-control !py-1.5 !text-sm w-24 pr-6"
+                                           :class="overPurse ? '!border-red-500 !ring-1 !ring-red-500' : ''"
                                            title="Allotment price in millions — 1 means 1,000,000">
                                     <span class="absolute inset-y-0 right-2 flex items-center text-[10px] font-bold text-gray-400">M</span>
                                 </div>
@@ -210,9 +227,19 @@
                             </div>
 
                             <button type="submit"
-                                    class="px-3 py-1.5 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap">
+                                    :disabled="overPurse || ! teamId"
+                                    :title="overPurse
+                                        ? ('Only ' + toM(purse) + 'M left in that purse')
+                                        : (! teamId ? 'Choose a team first' : 'Allot this player')"
+                                    class="px-3 py-1.5 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
                                 Allot
                             </button>
+
+                            {{-- Named, not just refused: the organizer needs the figure that WOULD
+                                 work, not only to be told this one does not. --}}
+                            <span x-show="overPurse" x-cloak
+                                  class="text-[11px] font-semibold text-red-600 dark:text-red-400 whitespace-nowrap"
+                                  x-text="'Only ' + toM(purse) + 'M left'"></span>
                         </form>
                     </div>
                 @endforeach
