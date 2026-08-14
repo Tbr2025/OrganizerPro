@@ -3928,9 +3928,16 @@ function auctionOrganizerPanel() {
                 if (data.success === false) {
                     this.toast(data.message || 'The price could not be lowered.', 'error');
                 } else {
-                    // A retraction moves the ordering BACKWARDS, exactly as undo does — so the
-                    // staleness guard has to forget what it knows or it will hold the old figure.
-                    this._lastAppliedBidId = 0;
+                    /*
+                     * A step down no longer retracts a bid, so the ordering token is left alone —
+                     * it used to be reset to 0 because undo moved bid ids backwards, and doing
+                     * that now would re-open the stale-poll race the guard exists to close.
+                     * The price is applied straight from the response, as the raise does.
+                     */
+                    if (typeof data.current_price === 'number') {
+                        this.currentBid = data.current_price;
+                        if (this.currentPlayer) this.currentPlayer.current_price = data.current_price;
+                    }
                     this._clearPendingBid();
                 }
 

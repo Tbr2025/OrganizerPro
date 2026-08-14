@@ -1587,15 +1587,47 @@ class AuctionAdminController extends Controller
             ], 422);
         }
 
-        $result = $undo->undoLast($auction);
+        /*
+         * One rung down, and nothing else moves.
+         *
+         * This used to pop the auction's undo stack, which is a different operation wearing the
+         * same button. Undo reverses the last ACTION — usually the leading team's bid — so "−"
+         * did not lower a price, it deleted a bid: the leading-team panel emptied itself, the
+         * card reflowed around the gap, and an organizer trying to correct 1.3M to 1.2M was told
+         * nothing about why the team had gone. It also refused outright whenever the last action
+         * was not a bid, which is why it looked like the button simply did not work.
+         *
+         * It is now the mirror of "+": the ladder decides the step, the price moves, the leading
+         * team stays exactly where it is. Undo remains available on its own button, where a
+         * destructive operation belongs.
+         */
+        $increments = app(\App\Services\Auction\BidIncrementService::class);
 
-        if (! ($result['success'] ?? false)) {
+        $current = (float) $player->current_price;
+        $step = $increments->decrementFor($auction, $current);
+
+        // Never below what the lot opened at. The base price is the floor for the whole auction,
+        // and walking a correction under it would put a figure on the wall no team could have bid.
+        $floor = max((float) $player->base_price, (float) ($auction->base_price ?? 0));
+        $target = round($current - $step, 2);
+
+        if ($step <= 0 || $current <= $floor) {
             return response()->json([
                 'success' => false,
-                'message' => $result['message'] ?? 'Cannot decrease further.',
-                'current_price' => (float) $player->current_price,
+                'message' => $current <= $floor
+                    ? 'Already at the base price — there is nothing below it.'
+                    : 'No increment applies at this figure, so there is no rung to step down to.',
+                'current_price' => $current,
             ], 400);
         }
+
+        if ($target < $floor) {
+            $target = $floor;
+        }
+
+        $player->update(['current_price' => $target]);
+
+        $result = ['message' => 'Price lowered to ' . format_points($target) . '.'];
 
         $player = $player->fresh();
         $player->load([

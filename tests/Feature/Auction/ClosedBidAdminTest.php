@@ -451,8 +451,10 @@ class ClosedBidAdminTest extends TestCase
         $this->closedBids()->accept($round, $teamA);
         $this->closedBids()->submit($round, $teamA, 9_000_000, null);
 
-        // "−" pops the auction's undo stack, and during a sealed round the newest entry
-        // on it is very likely a team's sealed bid.
+        // "−" is refused outright while a sealed round is open. It no longer pops the undo
+        // stack — it steps the price down a rung — but a price the room cannot see is not a
+        // thing to nudge, and the guard that was written for the undo behaviour is still the
+        // right answer for this one.
         $this->actingAs($this->makeAuctionOperator($org))
             ->postJson(route('admin.auctions.players.decreaseBid'), [
                 'auctionId' => $auction->id,
