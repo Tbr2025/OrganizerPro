@@ -379,8 +379,16 @@ Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer
 
         // **FIX**: Added route to SHOW the panel page
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
-        // Put the sold board up on the wall and the ticker, or take it down.
+        /*
+         * Put the sold board up on the wall and the ticker, or take it down.
+         *
+         * This carried no guard at all — not a permission, not an ability — so anybody who could
+         * reach the panel could change what a hall full of people was looking at. `screens` is its
+         * own ability for exactly this reason: running the projector is a job, and it is not the
+         * same job as calling the lots.
+         */
         Route::post('/api/sold-board', [AuctionOrganizerController::class, 'toggleSoldBoard'])
+            ->middleware(['permission:auction.control|auction.edit', 'auction.operator:screens'])
             ->name('api.sold-board');
         /*
          * The offline panel is a control surface by definition — its entire purpose is
@@ -452,13 +460,13 @@ Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer
             Route::get('/action-log', [AuctionOrganizerController::class, 'actionLog'])->name('action-log');
 
             // Pool-locked auctioning: run one pool at a time.
-            Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
-            Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
+            Route::post('/pools/{pool}/activate', [AuctionOrganizerController::class, 'activatePool'])->name('pool.activate')->middleware(['permission:auction.control|auction.edit', 'auction.operator:pools']);
+            Route::post('/pools/{pool}/complete', [AuctionOrganizerController::class, 'completePool'])->name('pool.complete')->middleware(['permission:auction.control|auction.edit', 'auction.operator:pools']);
             // Run a finished pool again, keeping its sales — see AuctionPoolService::reopenPool().
-            Route::post('/pools/{pool}/reopen', [AuctionOrganizerController::class, 'reopenPool'])->name('pool.reopen')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
+            Route::post('/pools/{pool}/reopen', [AuctionOrganizerController::class, 'reopenPool'])->name('pool.reopen')->middleware(['permission:auction.control|auction.edit', 'auction.operator:pools']);
             // Re-run one pool without wiping the pools around it.
-            Route::post('/pools/{pool}/restart', [AuctionOrganizerController::class, 'restartPool'])->name('pool.restart')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
-            Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
+            Route::post('/pools/{pool}/restart', [AuctionOrganizerController::class, 'restartPool'])->name('pool.restart')->middleware(['permission:auction.control|auction.edit', 'auction.operator:pools']);
+            Route::post('/pools/{pool}/toggle-enabled', [AuctionOrganizerController::class, 'togglePoolEnabled'])->name('pool.toggle-enabled')->middleware(['permission:auction.control|auction.edit', 'auction.operator:pools']);
 
             // Bid timer.
             Route::post('/toggle-timer', [AuctionOrganizerController::class, 'toggleTimer'])->name('toggle-timer')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);

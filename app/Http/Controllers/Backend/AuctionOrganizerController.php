@@ -224,6 +224,8 @@ class AuctionOrganizerController extends Controller
         ) + [
             'canControl' => $this->canControl($auction),
             'canSell' => $this->canSell($auction),
+            'canScreens' => $this->canScreens($auction),
+            'canPools' => $this->canPools($auction),
             'poolProgress' => $this->pools->poolProgress($auction),
         ]);
     }
@@ -340,6 +342,18 @@ class AuctionOrganizerController extends Controller
     private function canSell(?Auction $auction = null): bool
     {
         return $this->allows('auction.control', AuctionOperator::ABILITY_SELL, $auction);
+    }
+
+    /** May this seat change what the wall and the ticker are showing? */
+    private function canScreens(?Auction $auction = null): bool
+    {
+        return $this->allows('auction.control', AuctionOperator::ABILITY_SCREENS, $auction);
+    }
+
+    /** May this seat start, close and reopen pools? */
+    private function canPools(?Auction $auction = null): bool
+    {
+        return $this->allows('auction.control', AuctionOperator::ABILITY_POOLS, $auction);
     }
 
     /**
@@ -716,7 +730,17 @@ class AuctionOrganizerController extends Controller
      */
     public function toggleSoldBoard(Request $request, Auction $auction): JsonResponse
     {
-        $this->authorize('auction.edit');
+        /*
+         * Guarded on the route, like every other action on this panel.
+         *
+         * This asked for `auction.edit` here instead — the permission that opens the configuration
+         * wizard — which is a different and much bigger thing than putting a board on a wall. It
+         * was the only action in this controller authorizing itself, and the effect was that the
+         * `screens` ability could never work: an operator given the projector still failed on a
+         * permission they have no business holding. The route now carries
+         * `auction.control|auction.edit` plus `auction.operator:screens`, which is the pattern
+         * every sibling here uses.
+         */
 
         $data = $request->validate([
             // Null takes the screens back to the live card.

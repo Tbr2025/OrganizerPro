@@ -404,6 +404,59 @@ class AuctioneerRoleTest extends TestCase
             ->assertForbidden();
     }
 
+    /**
+     * The projector and the pools are their own jobs, and the routes behind them say so.
+     *
+     * `screens`, `pools` and `sell` were offered on the operators page and every route was tagged
+     * `control` — so three of the five ticks did nothing at all. Worse, the board toggle carried NO
+     * guard: not a permission, not an ability, so anybody who could reach the panel could change
+     * what a hall full of people was looking at.
+     */
+    #[Test]
+    public function the_screens_and_the_pools_are_separate_abilities(): void
+    {
+        ['org' => $org, 'auction' => $auction, 'tournament' => $tournament] = $this->scenario();
+
+        $pool = \App\Models\AuctionPool::create([
+            'auction_id' => $auction->id, 'name' => 'Pool A',
+            'status' => 'pending', 'organization_id' => $org->id,
+        ]);
+
+        // A bid caller: control, and nothing else.
+        $caller = $this->user($org, 'Auctioneer', ['auction.view', 'auction.observe', 'auction.control']);
+        \App\Models\AuctionOperator::create([
+            'auction_id' => $auction->id, 'user_id' => $caller->id,
+            'abilities' => [\App\Models\AuctionOperator::ABILITY_CONTROL],
+        ]);
+
+        $this->actingAs($caller)->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk()
+            ->assertSee('canScreens: false', false)
+            ->assertSee('canPools: false', false);
+
+        $this->actingAs($caller)
+            ->postJson(route('admin.auction.organizer.api.sold-board', $auction), ['board' => 'sold'])
+            ->assertForbidden();
+
+        $this->actingAs($caller)
+            ->postJson(route('admin.auction.organizer.api.pool.activate', [$auction, $pool]))
+            ->assertForbidden();
+
+        // And with the ticks, the same seat gets through.
+        $operator = \App\Models\AuctionOperator::where('user_id', $caller->id)->first();
+        $operator->update(['abilities' => ['control', 'screens', 'pools']]);
+
+        $this->actingAs($caller)->get(route('admin.auction.organizer.panel', $auction))
+            ->assertSee('canScreens: true', false)
+            ->assertSee('canPools: true', false);
+
+        // Reaching the route is the check; what the controller then decides about auction state
+        // belongs to its own tests.
+        $this->actingAs($caller)
+            ->postJson(route('admin.auction.organizer.api.sold-board', $auction), ['board' => 'sold'])
+            ->assertStatus(200);
+    }
+
     #[Test]
     public function a_team_manager_still_cannot_reach_the_panel_at_all(): void
     {

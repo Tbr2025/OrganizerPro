@@ -859,7 +859,7 @@
                 </p>
 
                 <div class="flex items-center justify-center gap-3">
-                    <button @click="restartActivePool()"
+                    <button @click="restartActivePool()" x-show="canPools" x-cloak
                             class="px-5 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold">
                         Restart <span x-text="activePool?.name"></span>
                     </button>
@@ -868,7 +868,7 @@
                         Close <span x-text="activePool?.name"></span>
                     </button>
                     <template x-if="nextPool">
-                        <button @click="activatePool(nextPool.id)"
+                        <button @click="activatePool(nextPool.id)" x-show="canPools" x-cloak
                                 class="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold">
                             Start <span x-text="nextPool.name"></span>
                         </button>
@@ -1439,7 +1439,7 @@
                     <div class="flex items-center gap-2 flex-shrink-0">
                         <span class="text-xs text-amber-400">No pool running —</span>
                         <template x-for="p in pools.filter(p => p.is_enabled && p.waiting > 0)" :key="p.id">
-                            <button @click="activatePool(p.id)"
+                            <button @click="activatePool(p.id)" x-show="canPools" x-cloak
                                     class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
                                 Start <span x-text="p.name"></span>
                                 <span class="opacity-70" x-text="'(' + p.waiting + ')'"></span>
@@ -1502,7 +1502,7 @@
                         <template x-if="activePool.finished">
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-emerald-400 font-semibold">Pool complete</span>
-                                <button @click="restartActivePool()"
+                                <button @click="restartActivePool()" x-show="canPools" x-cloak
                                         class="px-2.5 py-1 bg-gray-700 hover:bg-gray-600 text-white text-xs font-semibold rounded transition whitespace-nowrap"
                                         title="Put this pool's players back on the block and run it again">
                                     Restart pool
@@ -1512,7 +1512,7 @@
                                     Close <span x-text="activePool.name"></span>
                                 </button>
                                 <template x-if="nextPool">
-                                    <button @click="activatePool(nextPool.id)"
+                                    <button @click="activatePool(nextPool.id)" x-show="canPools" x-cloak
                                             class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded transition whitespace-nowrap">
                                         Start <span x-text="nextPool.name"></span>
                                     </button>
@@ -1872,6 +1872,7 @@
                      popup holds the decision together and gives the strip back to the controls
                      that are pressed every lot. --}}
                 <button type="button" @click="showScreensModal = true"
+                        x-show="canScreens" x-cloak
                         :class="soldBoardShowing
                             ? 'bg-amber-500 text-black hover:bg-amber-400'
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
@@ -2384,6 +2385,10 @@ function auctionOrganizerPanel() {
            An operator given `control` runs the clock and takes the bids; SELL, PASS,
            RE-BID, UNDO, End and Restart need `sell` ticked as well. */
         canSell: {{ ($canSell ?? ($canControl ?? true)) ? 'true' : 'false' }},
+        /* The projector and the pools are their own jobs — see canScreens()/canPools(). Both
+           default to canControl, so anyone who is not a scoped operator is unaffected. */
+        canScreens: {{ ($canScreens ?? ($canControl ?? true)) ? 'true' : 'false' }},
+        canPools: {{ ($canPools ?? ($canControl ?? true)) ? 'true' : 'false' }},
 
         // State
         auctionId: null,
