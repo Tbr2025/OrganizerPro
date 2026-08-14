@@ -341,6 +341,29 @@ class ClosedBidService
             'timer' => $auction->closedBidRoundTimerState($round),
             'tie_amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
             'tied_team_ids' => $round->tied_team_ids ?? [],
+
+            /*
+             * The draw, in the same shape the public wall gets.
+             *
+             * The organizer's panel had the tied team IDS and nothing else — no crests, no winner,
+             * no `drawn_at` — so it could not run the spin the wall runs, and the person pressing
+             * DRAW LOT watched a button while the hall watched an animation.
+             *
+             * `drawn_at` is what says a draw has actually been started: before it exists there is
+             * nothing to animate, which is exactly the rule asked for — the ring must not turn
+             * until the button is pressed.
+             */
+            'tie' => in_array($round->state, [
+                AuctionClosedBidRound::STATE_TIE,
+                AuctionClosedBidRound::STATE_AWAITING_LOT,
+            ], true) ? [
+                'amount' => $round->tie_amount !== null ? (float) $round->tie_amount : null,
+                'teams' => $this->tiedTeamsFor($round),
+                'lot_winner_team_id' => $round->lot_winner_team_id,
+                'drawn_at' => $round->lot_drawn_at?->toIso8601String(),
+                'spin_ms' => self::LOT_SPIN_MS,
+            ] : null,
+
             'resolution' => $round->resolution,
             'winner_team_id' => $round->winner_team_id,
             'winning_amount' => $round->winning_amount !== null ? (float) $round->winning_amount : null,

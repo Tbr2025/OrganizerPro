@@ -77,6 +77,58 @@
         inset: 0;
         z-index: 9999;
     }
+
+    /*
+     * ── The draw, on the desk ──
+     *
+     * The same ring the wall turns, at panel size: the person pressing DRAW LOT should be
+     * watching what the hall is watching, not a button. Transform-only, on the compositor, so a
+     * fifteen-second spin costs a panel that is also polling and taking bids nothing.
+     */
+    #panel-draw-ring {
+        position: relative;
+        height: 132px;
+        perspective: 900px;
+        perspective-origin: 50% 45%;
+    }
+    .panel-draw-inner {
+        position: absolute; inset: 0;
+        transform-style: preserve-3d;
+        animation: panelDrawSpin 2.4s linear infinite;
+    }
+    .panel-draw-inner.settling {
+        animation: none;
+        transition: transform 1.6s cubic-bezier(0.16, 0.9, 0.2, 1);
+    }
+    @keyframes panelDrawSpin {
+        from { transform: rotateY(0deg); }
+        to   { transform: rotateY(-360deg); }
+    }
+    .panel-draw-card {
+        position: absolute; top: 50%; left: 50%;
+        width: 128px; height: 92px; margin: -46px 0 0 -64px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(30,41,59,0.95), rgba(2,6,23,0.98));
+        border: 2px solid rgba(251,191,36,0.4);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 6px; padding: 8px;
+        backface-visibility: hidden;
+        transition: border-color .4s ease, opacity .4s ease, box-shadow .4s ease;
+    }
+    .panel-draw-card img { width: 34px; height: 34px; object-fit: contain; }
+    .panel-draw-card span {
+        font-size: 11px; font-weight: 800; color: #fff; text-align: center;
+        max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .panel-draw-card.is-winner {
+        border-color: #fde68a;
+        box-shadow: 0 0 34px rgba(253,230,138,0.55);
+    }
+    .panel-draw-card.is-loser { opacity: 0.25; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .panel-draw-inner { animation: none; }
+    }
 </style>
 @endpush
 
@@ -738,6 +790,29 @@
                              a per-team Pick and an unlabelled reason box — so which one you
                              were choosing, and what each meant, had to be inferred. They are
                              two deliberate answers to the same question and now say so. --}}
+                        {{-- The draw, turning here as well as on the wall.
+                             Shown only once `drawn_at` exists — that is the server recording that
+                             DRAW LOT was actually pressed. Before then there is nothing to animate
+                             and a ring turning under a button nobody has touched would say a draw
+                             was under way when it is not.
+
+                             Same `drawn_at` and `spin_ms` the wall reads, so the two land together
+                             rather than the desk seeing the winner first. --}}
+                        <template x-if="sealed.tie?.drawn_at && (sealed.tie?.teams || []).length">
+                            <div class="mt-4 px-4 py-5 rounded-xl bg-gray-900/70 border border-amber-500/30 text-center">
+                                <div class="text-amber-300 text-[10px] uppercase tracking-[0.25em] font-bold mb-3"
+                                     x-text="panelDrawSettled ? 'Lot drawn' : 'Drawing a lot'"></div>
+
+                                <div id="panel-draw-ring">
+                                    <div class="panel-draw-inner" id="panel-draw-inner"></div>
+                                </div>
+
+                                <div class="mt-3 text-white text-lg font-black" x-text="panelDrawName"></div>
+                                <div class="text-gray-400 text-[11px]"
+                                     x-text="sealed.tie?.amount ? ((sealed.tie?.teams || []).length + ' teams matched at ' + formatCurrency(sealed.tie.amount)) : ''"></div>
+                            </div>
+                        </template>
+
                         <div x-show="sealed.state === 'awaiting_lot'" class="mt-4 grid gap-3 md:grid-cols-2">
 
                             {{-- 1. On screen, for the hall to watch. --}}
@@ -3507,6 +3582,10 @@ function auctionOrganizerPanel() {
                 const data = await res.json();
                 this.sealed = data.closed_bid || { active: false };
 
+                /* After the state lands, not before: the ring reads `sealed.tie` and would
+                   otherwise paint one poll behind the round it is animating. */
+                this.$nextTick(() => this.renderPanelDraw());
+
                 // One spin length, from the server. The wall holds its own animation for exactly
                 // this window, so the hall never sees the result before the person who drew it.
                 if (this.sealed?.tie?.spin_ms) {
@@ -3531,7 +3610,10 @@ function auctionOrganizerPanel() {
                     body: JSON.stringify({ auction_player_id: this.currentPlayer?.id, ...body }),
                 });
                 const data = await res.json();
-                if (data.closed_bid) this.sealed = data.closed_bid;
+                if (data.closed_bid) {
+                    this.sealed = data.closed_bid;
+                    this.$nextTick(() => this.renderPanelDraw());
+                }
                 // A refusal is reported, but a no-op is not an error: two panels both
                 // pressing Lock is ordinary operation, not a mistake to shout about.
                 if (data.message) {
@@ -3888,6 +3970,89 @@ function auctionOrganizerPanel() {
          * the squad reserve is still checked, the sealed ceiling still holds, and it lands on
          * the undo stack like any other raise.
          */
+        /* The draw shown at the desk: the name currently facing front, and whether it has landed. */
+        panelDrawName: '',
+        panelDrawSettled: false,
+        _panelDrawKey: null,
+
+        /**
+         * Turn the ring, and land it on the winner at the same moment the wall does.
+         *
+         * Driven entirely by the server's `drawn_at` and `spin_ms`. The winner is recorded the
+         * instant DRAW LOT is pressed, so a screen that settles as soon as it sees one would show
+         * the result to the desk fifteen seconds before the hall — which is the bug this shape of
+         * code exists to avoid, and it is the same shape the wall uses.
+         */
+        renderPanelDraw() {
+            const tie = this.sealed?.tie;
+            const teams = tie?.teams || [];
+            const inner = document.getElementById('panel-draw-inner');
+
+            if (! inner || ! tie?.drawn_at || ! teams.length) {
+                this._panelDrawKey = null;
+                this.panelDrawName = '';
+                this.panelDrawSettled = false;
+
+                return;
+            }
+
+            // Rebuilt only when the set of teams changes, or every poll would restart the spin.
+            const key = teams.map((t) => t.id).join(',');
+
+            if (this._panelDrawKey !== key) {
+                this._panelDrawKey = key;
+
+                const step = 360 / teams.length;
+                const radius = Math.max(120, Math.round(70 / Math.tan(Math.PI / Math.max(teams.length, 2))));
+
+                inner.innerHTML = teams.map((team, i) => {
+                    const angle = i * step;
+                    const crest = team.logo ? `<img src="${team.logo}" alt="">` : '';
+
+                    return `<div class="panel-draw-card" data-team="${team.id}" data-angle="${angle}"
+                                 style="transform: rotateY(${angle}deg) translateZ(${radius}px);">`
+                        + crest + `<span>${team.name}</span></div>`;
+                }).join('');
+
+                inner.classList.remove('settling');
+                inner.style.transform = '';
+                this.panelDrawSettled = false;
+            }
+
+            const winner = tie.lot_winner_team_id
+                ? teams.find((t) => Number(t.id) === Number(tie.lot_winner_team_id))
+                : null;
+
+            const spinMs = Number(tie.spin_ms) || 0;
+            const drawnAt = Date.parse(tie.drawn_at);
+            const stillSpinning = winner && drawnAt && spinMs > 0 && (Date.now() - drawnAt) < spinMs;
+
+            if (winner && ! stillSpinning) {
+                if (this.panelDrawSettled) return;
+                this.panelDrawSettled = true;
+
+                const card = inner.querySelector(`.panel-draw-card[data-team="${winner.id}"]`);
+                const angle = Number(card?.dataset.angle) || 0;
+
+                // Two extra turns before landing, so it reads as slowing down rather than stopping.
+                inner.classList.add('settling');
+                inner.style.transform = `rotateY(${-angle - 720}deg)`;
+
+                inner.querySelectorAll('.panel-draw-card').forEach((node) => {
+                    const isWinner = node.dataset.team === String(winner.id);
+                    node.classList.toggle('is-winner', isWinner);
+                    node.classList.toggle('is-loser', ! isWinner);
+                });
+
+                this.panelDrawName = winner.name;
+
+                return;
+            }
+
+            this.panelDrawSettled = false;
+            this.panelDrawName = '';
+        },
+
         async stepBidUp() {
             if (! this.canStepBid) return;
             if (! this.guardControl('correct the price')) return;
