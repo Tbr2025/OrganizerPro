@@ -518,6 +518,19 @@
             color: rgb(var(--primary-rgb));
         }
 
+        /* While a board is up, the live overlays stay off it.
+           The board sits at z-index 140 and every live overlay is far above — the raise banner
+           at 9995, the closing-call dim at 9000, the result banner and the unsold warning with
+           them. So a reel meant to fill the wall during a break was being written over by
+           "JUSTICE TK CC 1M POINTS" and dimmed blue by a countdown for a lot nobody is
+           watching. They belong to the live card; a board replaces the live card. */
+        body.board-up #bid-flash,
+        body.board-up #result-banner,
+        body.board-up #final-call-dim,
+        body.board-up #unsold-warning {
+            display: none !important;
+        }
+
         /* ── Highlights reel ── */
         #reel .slide {
             position: absolute; inset: 0;
@@ -2161,6 +2174,9 @@
             const next = board === true ? 'sold' : (board || null);
 
             el.classList.toggle('hidden', ! next);
+            // Marks the whole page, so the live overlays can stand down in CSS rather than each
+            // renderer having to know a board might be up.
+            document.body.classList.toggle('board-up', !! next);
 
             const grid = document.getElementById('sold-board-grid');
             const reel = document.getElementById('reel');
