@@ -380,6 +380,8 @@ class AuctionAdminController extends Controller
             'closed_bid_requires_acceptance' => 'nullable|boolean',
             'closed_bid_auto_rebid' => 'nullable|boolean',
             'closed_bid_tie_breaker' => 'nullable|in:lot,manual',
+            // Where a re-bid opens after a tie — see Auction::closedBidRebidKeepsTie().
+            'closed_bid_rebid_floor' => 'nullable|in:above,same',
             'team_budgets' => 'nullable|array',
             'team_budgets.*' => 'nullable|numeric|min:0',
             // What amounts are called on every screen.
@@ -518,6 +520,7 @@ class AuctionAdminController extends Controller
                 'closed_bid_requires_acceptance' => $request->boolean('closed_bid_requires_acceptance', true),
                 'closed_bid_auto_rebid' => $request->boolean('closed_bid_auto_rebid'),
                 'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
+                'closed_bid_rebid_floor' => $validated['closed_bid_rebid_floor'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
                 /*
@@ -1783,6 +1786,8 @@ class AuctionAdminController extends Controller
             'closed_bid_requires_acceptance' => 'nullable|boolean',
             'closed_bid_auto_rebid' => 'nullable|boolean',
             'closed_bid_tie_breaker' => 'nullable|in:lot,manual',
+            // Where a re-bid opens after a tie — see Auction::closedBidRebidKeepsTie().
+            'closed_bid_rebid_floor' => 'nullable|in:above,same',
             // What amounts are called on every screen.
             'amount_unit' => 'nullable|in:points,coins,usd,custom',
             'amount_unit_label' => 'nullable|string|max:30|required_if:amount_unit,custom',
@@ -1910,6 +1915,7 @@ class AuctionAdminController extends Controller
                 'closed_bid_requires_acceptance' => $request->boolean('closed_bid_requires_acceptance', true),
                 'closed_bid_auto_rebid' => $request->boolean('closed_bid_auto_rebid'),
                 'closed_bid_tie_breaker' => $validated['closed_bid_tie_breaker'] ?? null,
+                'closed_bid_rebid_floor' => $validated['closed_bid_rebid_floor'] ?? null,
                 'amount_unit' => $validated['amount_unit'] ?? $auction->amount_unit ?? Auction::UNIT_POINTS,
                 'amount_unit_label' => $validated['amount_unit_label'] ?? null,
                 /*

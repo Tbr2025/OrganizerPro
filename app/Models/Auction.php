@@ -85,6 +85,7 @@ class Auction extends Model
         'closed_bid_requires_acceptance',
         'closed_bid_auto_rebid',
         'closed_bid_tie_breaker',
+        'closed_bid_rebid_floor',
         'restarted_at',
         'bid_type_manually_overridden',
     ];
@@ -902,6 +903,37 @@ class Auction extends Model
         return $this->closed_bid_timer_seconds !== null
             ? (int) $this->closed_bid_timer_seconds
             : (int) ($this->bid_timer_seconds ?: 30);
+    }
+
+    /** A re-bid opens one increment above the tie. */
+    public const REBID_FLOOR_ABOVE = 'above';
+
+    /** A re-bid opens AT the tied figure — a team may hold its nerve and repeat it. */
+    public const REBID_FLOOR_SAME = 'same';
+
+    /** @return array<string, string> value => the sentence an organizer reads when choosing. */
+    public static function rebidFloorOptions(): array
+    {
+        return [
+            self::REBID_FLOOR_ABOVE => 'Teams must beat the tied amount (one increment above)',
+            self::REBID_FLOOR_SAME => 'Teams may repeat the tied amount (it carries into the next round)',
+        ];
+    }
+
+    /**
+     * Does a tie carry its figure into the next round, or must the next round beat it?
+     *
+     * "Above" guarantees a re-bid cannot end in the same tie twice, which is why it was the only
+     * behaviour for a long time. It is a rule, not a law: plenty of rooms run the second round as
+     * "who will go higher", where a team is allowed to hold its nerve and put the same figure back
+     * in. That needs the tied amount to survive as the floor rather than being stepped over.
+     *
+     * When it is allowed to repeat, the tie can of course repeat — which is exactly what the
+     * re-bid round LIMIT and the draw behind it are for.
+     */
+    public function closedBidRebidKeepsTie(): bool
+    {
+        return $this->closed_bid_rebid_floor === self::REBID_FLOOR_SAME;
     }
 
     /** Must a team explicitly accept the purse conditions before it may bid? */

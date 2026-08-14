@@ -90,21 +90,21 @@
          '{{ $auction->status }}',
          {{ json_encode($availablePlayers->map(fn($ap) => [
              'id' => $ap->id,
-             'name' => $ap->player->name,
+             'name' => $ap->player?->name,
              'base_price' => $ap->base_price,
-             'image_path' => $ap->player->image_path,
-             'player_type' => $ap->player->playerType?->name ?? 'Player',
+             'image_path' => $ap->player?->image_path,
+             'player_type' => $ap->player?->playerType?->name ?? 'Player',
              /* `style`, not `name`. There is no `name` column on batting_profiles or
                 bowling_profiles — the column is `style` — so this read null for every player
                 since the day it was written, and the panel has never shown a batting or bowling
                 style. Every other caller in the codebase reads `style`; these two maps did not. */
-             'batting_style' => $ap->player->battingProfile?->style ?? $ap->player->battingProfile?->name,
-             'bowling_style' => $ap->player->bowlingProfile?->style ?? $ap->player->bowlingProfile?->name,
-             'is_wicket_keeper' => (bool) $ap->player->is_wicket_keeper,
-             'travel_plan_label' => $ap->player->travel_plan_label,
-             'total_matches' => $ap->player->total_matches,
-             'total_runs' => $ap->player->total_runs,
-             'total_wickets' => $ap->player->total_wickets,
+             'batting_style' => $ap->player?->battingProfile?->style ?? $ap->player?->battingProfile?->name,
+             'bowling_style' => $ap->player?->bowlingProfile?->style ?? $ap->player?->bowlingProfile?->name,
+             'is_wicket_keeper' => (bool) $ap->player?->is_wicket_keeper,
+             'travel_plan_label' => $ap->player?->travel_plan_label,
+             'total_matches' => $ap->player?->total_matches,
+             'total_runs' => $ap->player?->total_runs,
+             'total_wickets' => $ap->player?->total_wickets,
          ])) }},
          {{ json_encode($teams->map(fn($t) => [
              'id' => $t->id,
@@ -135,29 +135,35 @@
          {{ json_encode($currentPlayer ? [
              'id' => $currentPlayer->id,
              'player' => [
-                 'id' => $currentPlayer->player->id,
-                 'name' => $currentPlayer->player->name,
-                 'image_path' => $currentPlayer->player->image_path,
-                 'player_type' => $currentPlayer->player->playerType?->name ?? 'Player',
-                 'batting_style' => $currentPlayer->player->battingProfile?->style ?? $currentPlayer->player->battingProfile?->name,
-                 'bowling_style' => $currentPlayer->player->bowlingProfile?->style ?? $currentPlayer->player->bowlingProfile?->name,
-                 'is_wicket_keeper' => (bool) $currentPlayer->player->is_wicket_keeper,
+                 'id' => $currentPlayer->player?->id,
+                 'name' => $currentPlayer->player?->name,
+                 'image_path' => $currentPlayer->player?->image_path,
+                 'player_type' => $currentPlayer->player?->playerType?->name ?? 'Player',
+                 'batting_style' => $currentPlayer->player?->battingProfile?->style ?? $currentPlayer->player?->battingProfile?->name,
+                 'bowling_style' => $currentPlayer->player?->bowlingProfile?->style ?? $currentPlayer->player?->bowlingProfile?->name,
+                 'is_wicket_keeper' => (bool) $currentPlayer->player?->is_wicket_keeper,
                  /* Sent on the FIRST render, not only by the poll. The poll serializes the whole
                     model and gets this from the accessor, so the chips appeared two seconds after
                     the player did — long enough for an operator to conclude they were missing. */
-                 'travel_plan_label' => $currentPlayer->player->travel_plan_label,
-                 'total_matches' => $currentPlayer->player->total_matches,
-                 'total_runs' => $currentPlayer->player->total_runs,
-                 'total_wickets' => $currentPlayer->player->total_wickets,
+                 'travel_plan_label' => $currentPlayer->player?->travel_plan_label,
+                 'total_matches' => $currentPlayer->player?->total_matches,
+                 'total_runs' => $currentPlayer->player?->total_runs,
+                 'total_wickets' => $currentPlayer->player?->total_wickets,
              ],
              'base_price' => $currentPlayer->base_price,
              'current_price' => $currentPlayer->current_price,
+             /* Null-safe, like the poll's own copy of this shape (withTrimmedBids).
+                A bid whose team or user has since been removed — or is simply not visible to the
+                person looking — took the WHOLE PANEL down with a 500 during a live auction, because
+                this is the first render and there is no partial page to fall back to. The poll path
+                has guarded this for months; the initial render never did. One missing name is worth
+                a dash on a screen, not an auction that cannot be opened. */
              'bids' => $currentPlayer->bids->map(fn($b) => [
                  'id' => $b->id,
                  'amount' => $b->amount,
-                 'team' => ['id' => $b->team->id, 'name' => $b->team->name],
-                 'user' => ['name' => $b->user->name],
-                 'created_at' => $b->created_at->toISOString(),
+                 'team' => $b->team ? ['id' => $b->team->id, 'name' => $b->team->name] : null,
+                 'user' => $b->user ? ['name' => $b->user->name] : null,
+                 'created_at' => $b->created_at?->toISOString(),
              ]),
          ] : null) }}
      )"

@@ -1323,9 +1323,21 @@ class ClosedBidService
 
             $auction = $round->auction;
             $tied = array_map('intval', $round->tied_team_ids ?? []);
-            // Strictly above the tied amount, enforced by the same floor check as any
-            // other bid rather than by asking politely in the copy.
-            $floor = $this->increments->nextLegalAbove($auction, (float) $round->tie_amount);
+            /*
+             * Where the re-bid opens, per the auction's setting.
+             *
+             * Default: strictly above the tied amount, enforced by the same floor check as any
+             * other bid rather than by asking politely in the copy — that guarantees the round
+             * cannot end in the identical tie twice.
+             *
+             * Optional: the tied figure carries forward and a team may repeat it. That is how a
+             * sealed re-bid is run in plenty of rooms — the second round asks who will go higher,
+             * not who is forced to — and it means a tie CAN recur, which is what the re-bid round
+             * limit and the draw behind it exist for.
+             */
+            $floor = $auction->closedBidRebidKeepsTie()
+                ? (float) $round->tie_amount
+                : $this->increments->nextLegalAbove($auction, (float) $round->tie_amount);
 
             $child = AuctionClosedBidRound::firstOrCreate(
                 [

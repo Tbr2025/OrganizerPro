@@ -65,6 +65,19 @@ class AdminMenuService
                         return null;
                     }
 
+                    /*
+                     * admin_only: Superadmin or Admin, nobody else.
+                     *
+                     * Some rows are about SETTING UP the system rather than running an event —
+                     * creating auctions, editing the LED templates, opening the broadcast screens,
+                     * testing the network. A permission cannot express that on its own here,
+                     * because the roles that run an evening hold the same `auction.view` those
+                     * rows are gated on.
+                     */
+                    if (! empty($child['admin_only']) && ! $user->hasAnyRole(['Superadmin', 'Admin'])) {
+                        return null;
+                    }
+
                     $permissions = $child['permissions'] ?? [];
                     if (empty($permissions) || $user->hasAnyPermission((array) $permissions)) {
                         return $this->createAdminMenuItem($child);
@@ -648,6 +661,7 @@ class AdminMenuService
                 ],
                 [
                     'label' => __('New Auction'),
+                    'admin_only' => true,
                     'route' => route('admin.auctions.create'),
                     'active' => Route::is('admin.auctions.create'),
                     'priority' => 20,
@@ -669,6 +683,7 @@ class AdminMenuService
                 ],
                 [
                     'label' => __('LED Templates'),
+                    'admin_only' => true,
                     'route' => route('admin.auction-templates.index'),
                     'active' => Route::is('admin.auction-templates.*'),
                     'priority' => 40,
@@ -676,6 +691,7 @@ class AdminMenuService
                 ],
                 [
                     'label' => __('Broadcast Screens'),
+                    'admin_only' => true,
                     'route' => route('admin.auctions.broadcast'),
                     'active' => Route::is('admin.auctions.broadcast'),
                     'priority' => 50,
@@ -683,6 +699,7 @@ class AdminMenuService
                 ],
                 [
                     'label' => __('Network Test'),
+                    'admin_only' => true,
                     'route' => route('admin.network-test.index'),
                     'active' => Route::is('admin.network-test.*'),
                     'priority' => 60,

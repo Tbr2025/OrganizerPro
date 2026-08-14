@@ -381,6 +381,15 @@
                                     </label>
 
                                     <div>
+                                        <label for="closed_bid_rebid_floor" class="form-label text-xs">A Re-bid Round Opens At</label>
+                                        <select name="closed_bid_rebid_floor" id="closed_bid_rebid_floor"
+                                                x-model="closed_bid_rebid_floor" class="form-control">
+                                            <option value="above">Above the tied amount</option>
+                                            <option value="same">The tied amount (teams may repeat it)</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
                                         <label for="closed_bid_tie_breaker" class="form-label text-xs">After The Last Re-bid</label>
                                         <select name="closed_bid_tie_breaker" id="closed_bid_tie_breaker"
                                                 x-model="closed_bid_tie_breaker" class="form-control">
@@ -835,6 +844,8 @@ function auctionCreateForm() {
         closed_bid_max_rebid_rounds: {{ old('closed_bid_max_rebid_rounds', 'null') }},
         closed_bid_timer_seconds: {{ old('closed_bid_timer_seconds', 'null') }},
         closed_bid_requires_acceptance: {{ old('closed_bid_requires_acceptance', 1) ? 'true' : 'false' }},
+        // "above" is what every auction did before the setting existed.
+        closed_bid_rebid_floor: '{{ old('closed_bid_rebid_floor', 'above') }}',
         closed_bid_tie_breaker: '{{ old('closed_bid_tie_breaker', 'lot') }}',
         rules: [
             { from: 100000, to: 200000, increment: 10000 },

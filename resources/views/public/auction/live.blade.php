@@ -12,31 +12,24 @@ $gavelStage = <<<'HTML'
     <div class="gavel-flash"></div>
 
     <svg class="auction-gavel" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <linearGradient id="stage-gavel-wood" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#d09a5e"/>
-                <stop offset="38%" stop-color="#a9682f"/>
-                <stop offset="70%" stop-color="#7d4718"/>
-                <stop offset="100%" stop-color="#5c3211"/>
-            </linearGradient>
-            <linearGradient id="stage-gavel-handle" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#c08c52"/>
-                <stop offset="55%" stop-color="#8d571f"/>
-                <stop offset="100%" stop-color="#5a3010"/>
-            </linearGradient>
-        </defs>
+        {{-- Solid fills, no gradients and no `url(#id)` at all.
+             This stage is rendered TWICE on the page — the waiting screen and the restart notice —
+             so both copies carried the same gradient ids, and the first copy lives inside a screen
+             that is display:none most of the time. A paint server in a hidden subtree does not
+             reliably resolve, so on the restart screen the head lost its fill entirely and the
+             gavel came apart into loose bars with a grey stripe through it. Flat colour cannot
+             fail that way, and at wall size the gradient was never the thing doing the work. --}}
         <g transform="rotate(-38 16 92)">
-            <rect x="12" y="85" width="80" height="14" rx="7" fill="url(#stage-gavel-handle)"/>
-            <rect x="12" y="88" width="80" height="3" rx="1.5" fill="rgba(255,255,255,0.16)"/>
-            <rect x="12" y="85" width="12" height="14" rx="6" fill="#4a2709"/>
+            <rect x="12" y="85" width="80" height="14" rx="7" fill="#8d571f"/>
+            <rect x="12" y="86.5" width="80" height="3" rx="1.5" fill="#b07c3c"/>
+            <rect x="12" y="85" width="14" height="14" rx="7" fill="#4a2709"/>
         </g>
         <g transform="rotate(52 78 44)">
-            <rect x="55" y="28" width="46" height="32" rx="8" fill="url(#stage-gavel-wood)"/>
-            <rect x="55" y="28" width="46" height="7" rx="4" fill="rgba(255,255,255,0.22)"/>
-            <rect x="63" y="28" width="4" height="32" fill="rgba(0,0,0,0.18)"/>
-            <rect x="89" y="28" width="4" height="32" fill="rgba(0,0,0,0.18)"/>
-            <rect x="53" y="26" width="6" height="36" rx="3" fill="#3f2208"/>
-            <rect x="97" y="26" width="6" height="36" rx="3" fill="#3f2208"/>
+            <rect x="55" y="28" width="46" height="32" rx="8" fill="#a9682f"/>
+            <rect x="55" y="29" width="46" height="8" rx="4" fill="#c98d4d"/>
+            <rect x="55" y="52" width="46" height="8" rx="4" fill="#7d4718"/>
+            <rect x="53" y="26" width="7" height="36" rx="3.5" fill="#4a2709"/>
+            <rect x="96" y="26" width="7" height="36" rx="3.5" fill="#4a2709"/>
         </g>
     </svg>
 </div>
@@ -307,7 +300,8 @@ HTML;
          * snap upright the moment it was hit, then snap back. Animations beat inline styles, so
          * the tilt has to be written into the keyframes rather than left underneath them.
          */
-        #sold-badge.hammer-hit { animation: badge-punched 0.42s cubic-bezier(0.22, 1.4, 0.5, 1) 0.47s backwards; }
+        #sold-badge.hammer-hit,
+        #unsold-badge.hammer-hit { animation: badge-punched 0.42s cubic-bezier(0.22, 1.4, 0.5, 1) 0.47s backwards; }
         @keyframes badge-punched {
             0%   { transform: rotate(var(--badge-rot, 0deg)) scale(1.06); }
             22%  { transform: rotate(var(--badge-rot, 0deg)) scale(0.9); }
@@ -1362,10 +1356,34 @@ HTML;
             {!! elementStyle($positions, 'bid_label', ['bottom'=>243,'left'=>186,'fontSize'=>32,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
         }
 
-        /* Bid update highlight - subtle and stable */
+        /*
+         * ── The raise, flashed on the figure itself ──
+         *
+         * This was a colour swap held for a second and a half, which on a wall across a hall is
+         * not a flash — if the template's bid colour is near the secondary it is not even a
+         * change. The raise is the single most important event on this screen and it was the
+         * quietest thing on it.
+         *
+         * Flashed where the figure already is, rather than in the floating pill that used to sit
+         * over the artwork: the card carries CURRENT BID where the template puts it, and two
+         * answers to one question is what got that banner switched off.
+         *
+         * Colour, glow and weight only — deliberately NO transform and no size change. This
+         * element is positioned by whoever laid the template out, and a figure that grows on every
+         * raise either shoves its neighbours or climbs out of its box. Text-shadow and colour are
+         * painted, not laid out, so nothing on the card moves.
+         */
         .bid-updated {
-            color: var(--secondary) !important;
-            transition: color 0.3s ease;
+            animation: bid-figure-flash 1.05s ease-out 2;
+        }
+        @keyframes bid-figure-flash {
+            0%   { color: inherit; text-shadow: none; }
+            18%  { color: #22c55e; text-shadow: 0 0 46px rgba(34,197,94,0.95), 0 0 90px rgba(34,197,94,0.55); }
+            55%  { color: #4ade80; text-shadow: 0 0 26px rgba(34,197,94,0.6); }
+            100% { color: inherit; text-shadow: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .bid-updated { animation: none; color: #22c55e; }
         }
 
         /* ── Highest bidder ──
@@ -1667,8 +1685,14 @@ HTML;
                    text-shadow:0 0 40px rgba(167,139,250,0.5);animation:pulse 1.6s ease-in-out infinite;">
             RESTARTING AUCTION
         </h1>
-        <p style="font-size:24px;color:#94a3b8;margin-top:12px;">
-            Next player in <span id="restart-seconds" style="color:#fff;font-weight:900;"></span>s
+        {{-- No countdown.
+             It read "Next player in 8s" and sat there: the figure comes from the server's own
+             restart window and is only refreshed when a poll lands, so between polls it does not
+             move — a clock that does not tick reads as a frozen screen, which is the exact
+             opposite of what this notice is for. The restart is a few seconds and the next player
+             arriving is its own announcement. --}}
+        <p style="font-size:24px;color:#94a3b8;margin-top:12px;letter-spacing:0.08em;">
+            Next player coming up
         </p>
     </div>
 
@@ -2397,12 +2421,19 @@ HTML;
         function clearGavel() {
             document.getElementById('sold-hammer')?.classList.remove('strike');
             document.getElementById('sold-badge')?.classList.remove('hammer-hit');
+            document.getElementById('unsold-badge')?.classList.remove('hammer-hit');
             document.getElementById('sold-impact')?.classList.remove('pop');
         }
 
-        function strikeGavel() {
+        /*
+         * @param {string} badgeId  Which stamp to strike. Unsold gets the same hammer as sold —
+         *                          the gavel is what ENDS a lot, and a lot that nobody bought is
+         *                          just as ended — but no poppers: there is nothing to celebrate,
+         *                          and streamers over an unsold player reads as mockery.
+         */
+        function strikeGavel(badgeId = 'sold-badge') {
             const hammer = document.getElementById('sold-hammer');
-            const badge = document.getElementById('sold-badge');
+            const badge = document.getElementById(badgeId);
             if (! hammer) return;
 
             /*
@@ -2539,11 +2570,17 @@ HTML;
                 rollBidTo(bidEl, Number(window._lastDisplayedPrice) || 0, price);
 
                 if (price !== window._lastDisplayedPrice) {
+                    // Removed, reflowed, re-added — a CSS animation does not replay while its
+                    // class is already there, so back-to-back raises flashed only the first.
+                    bidEl.classList.remove('bid-updated');
+                    void bidEl.offsetWidth;
                     bidEl.classList.add('bid-updated');
+                    /* Cleared after the animation has finished, not during it: two pulses of
+                       1.05s run 2.1s, and the old 1.5s cut the second one off half way. */
                     if (window._bidColorTimeout) clearTimeout(window._bidColorTimeout);
                     window._bidColorTimeout = setTimeout(() => {
                         bidEl.classList.remove('bid-updated');
-                    }, 1500);
+                    }, 2200);
                     window._lastDisplayedPrice = price;
                 }
             }
@@ -3450,8 +3487,9 @@ HTML;
                 return false;
             }
 
-            const secondsEl = document.getElementById('restart-seconds');
-            if (secondsEl) secondsEl.textContent = data.restart_seconds ?? '';
+            /* No seconds to paint any more — see the markup for why the countdown went. The
+               server still measures the window; it is what decides when this notice comes down,
+               and every screen watching still comes back on the same beat. */
 
             screen.classList.remove('hidden');
             return true;
@@ -3569,11 +3607,17 @@ HTML;
 
                 // Brief green highlight when price changes, then back to white
                 if (price !== window._lastDisplayedPrice) {
+                    // Removed, reflowed, re-added — a CSS animation does not replay while its
+                    // class is already there, so back-to-back raises flashed only the first.
+                    bidEl.classList.remove('bid-updated');
+                    void bidEl.offsetWidth;
                     bidEl.classList.add('bid-updated');
+                    /* Cleared after the animation has finished, not during it: two pulses of
+                       1.05s run 2.1s, and the old 1.5s cut the second one off half way. */
                     if (window._bidColorTimeout) clearTimeout(window._bidColorTimeout);
                     window._bidColorTimeout = setTimeout(() => {
                         bidEl.classList.remove('bid-updated');
-                    }, 1500);
+                    }, 2200);
                     window._lastDisplayedPrice = price;
                 }
             }
@@ -3703,6 +3747,11 @@ HTML;
                 if (unsoldBadge) { unsoldBadge.classList.remove('hidden'); unsoldBadge.style.display = 'flex'; }
                 if (teamLogo) teamLogo.classList.add('hidden');
                 if (highestBidder) highestBidder.classList.add('hidden');
+
+                /* The hammer falls on an unsold lot too — it is what ends a lot, and this one is
+                   just as ended. No poppers: nothing was bought, and streamers over a player
+                   nobody wanted reads as mockery rather than drama. */
+                strikeGavel('unsold-badge');
             } else if (p.status === 'skipped') {
                 resetDramaticStates();
                 cardContainer.classList.add('skipped-state');

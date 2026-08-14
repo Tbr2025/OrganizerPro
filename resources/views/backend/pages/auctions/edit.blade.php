@@ -528,6 +528,21 @@
                                     </label>
 
                                     <div>
+                                        <label for="closed_bid_rebid_floor" class="form-label text-xs">A Re-bid Round Opens At</label>
+                                        <select name="closed_bid_rebid_floor" id="closed_bid_rebid_floor"
+                                                x-model="auctionData.closed_bid_rebid_floor" class="form-control">
+                                            <option value="above">Above the tied amount</option>
+                                            <option value="same">The tied amount (teams may repeat it)</option>
+                                        </select>
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            "Above" means a re-bid cannot end in the same tie twice. "The tied amount"
+                                            carries the first round's figure forward, so a team can hold its nerve and
+                                            put it back in &mdash; a tie can then recur, which is what the round limit
+                                            and the tie-breaker below are for.
+                                        </p>
+                                    </div>
+
+                                    <div>
                                         <label for="closed_bid_tie_breaker" class="form-label text-xs">After The Last Re-bid</label>
                                         <select name="closed_bid_tie_breaker" id="closed_bid_tie_breaker"
                                                 x-model="auctionData.closed_bid_tie_breaker" class="form-control">
@@ -1620,6 +1635,8 @@ document.addEventListener('alpine:init', () => {
             // Older auctions predate these columns, so seed the same defaults the
             // server's accessors apply rather than leaving the inputs blank-but-bound.
             if (!this.auctionData.closed_bid_tie_breaker) this.auctionData.closed_bid_tie_breaker = 'lot';
+            // Default matches the behaviour every existing auction already has.
+            if (!this.auctionData.closed_bid_rebid_floor) this.auctionData.closed_bid_rebid_floor = 'above';
             this.auctionData.closed_bid_requires_acceptance =
                 auctionData.closed_bid_requires_acceptance === undefined || auctionData.closed_bid_requires_acceptance === null
                     ? true
