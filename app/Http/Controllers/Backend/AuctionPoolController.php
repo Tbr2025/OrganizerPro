@@ -358,7 +358,13 @@ class AuctionPoolController extends Controller
                 if ($movedPool && $existing->auction_pool_id) {
                     $sourcePoolIds[(int) $existing->auction_pool_id] = true;
                 }
-                $price = ($existing && ! $movedPool && $existing->base_price !== null)
+                /*
+                 * `> 0`, not `!== null`. A row already sitting at 0.00 is not a price somebody
+                 * chose, it is the bug above having already run — and keeping it meant a zeroed
+                 * pool stayed zeroed however many times it was re-assigned. Re-assigning is what
+                 * an organizer reaches for when the prices look wrong, so it has to heal them.
+                 */
+                $price = ($existing && ! $movedPool && (float) $existing->base_price > 0)
                     ? $existing->base_price
                     : $base;
 
@@ -378,6 +384,16 @@ class AuctionPoolController extends Controller
                 if ($isRetained) {
                     $attrs['team_id'] = $player->actual_team_id;
                     $attrs['lot_number'] = null; // retained players don't draw a lot
+
+                    /*
+                     * No opening price, because a retained player never goes on the block. This
+                     * wrote the pool's base price at them, which was invisible while that price
+                     * was a stray 1.00 and would have read as a 1,000,000 lot the moment the
+                     * auction floor started applying. The merge path already writes these zeros.
+                     */
+                    $attrs['base_price'] = 0;
+                    $attrs['current_price'] = 0;
+                    $attrs['starting_price'] = 0;
                     if ($isAuctionType) {
                         // A blank field used to be written straight through as 0 — and
                         // because this is an updateOrCreate, re-assigning an already-priced

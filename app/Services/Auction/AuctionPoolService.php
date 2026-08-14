@@ -958,17 +958,40 @@ class AuctionPoolService
         return $configured;
     }
 
+    /**
+     * What a lot opens at: the auction's base price, unless something ABOVE it says otherwise.
+     *
+     * Two ways this went wrong on live, both of which put lots on the block for nothing while the
+     * auction's own setting said 1,000,000:
+     *
+     *   - A submitted price of `0` won, because is_numeric(0) is true. An empty number input posts
+     *     as 0, so an organizer who never typed a base price got a whole pool priced at zero — 64
+     *     players in one auction, every one of them opening at nothing.
+     *   - `auction_pools.base_price` defaults to 1.00, and any positive pool price beat the
+     *     auction's. So a pool nobody had touched opened its lots at ONE point.
+     *
+     * So: a non-positive figure means "not set" and falls through, and the auction's base price is
+     * a FLOOR rather than a last resort. A pool or a player may be dearer than the auction's
+     * opening — a marquee pool at 5M is the point of pools — but nothing may be cheaper than the
+     * figure the auction itself was configured with.
+     *
+     * Retained players are the exception and do not come through here: they are pre-kept at their
+     * retention value and never go on the block. See resolveRetainedPrice(), where an explicit 0
+     * IS authoritative, because a retained player at no cost is a real thing an organizer means.
+     */
     public function resolveBasePrice(Auction $auction, ?AuctionPool $pool, mixed $playerPrice = null): float
     {
-        if (is_numeric($playerPrice)) {
-            return (float) $playerPrice;
+        $floor = (float) ($auction->base_price ?? 0);
+
+        if (is_numeric($playerPrice) && (float) $playerPrice > 0) {
+            return max((float) $playerPrice, $floor);
         }
 
         if ($pool && is_numeric($pool->base_price) && (float) $pool->base_price > 0) {
-            return (float) $pool->base_price;
+            return max((float) $pool->base_price, $floor);
         }
 
-        return (float) ($auction->base_price ?? 0);
+        return $floor;
     }
 
     /**
