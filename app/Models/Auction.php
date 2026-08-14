@@ -939,8 +939,36 @@ class Auction extends Model
      */
     public function hasOnlineOfflineMode(): bool
     {
+        /*
+         * EITHER bound switches the rule on, not both.
+         *
+         * This demanded both, so an organizer who set only "Online Bid Starts From" — or only
+         * the upper bound — had a setting that did nothing whatever, silently. Measured on live:
+         * auction 11 had the upper bound alone and auction 12 the lower, so the price rule was
+         * inert on both while the form showed a configured figure on each.
+         *
+         * A missing bound now means open-ended in that direction, which is what one figure on a
+         * two-figure band can only sensibly mean.
+         */
         return $this->online_bid_limit_from !== null
-            && $this->online_bid_limit_to !== null;
+            || $this->online_bid_limit_to !== null;
+    }
+
+    /**
+     * Is this price outside the band where teams bid from their own screens?
+     *
+     * Below `from`, or above `to`; a bound that is not set does not close its side. Written once
+     * because three places asked it and each did so slightly differently — and with only one
+     * bound set, `(float) null` made every price "above the ceiling", which would have put an
+     * auction offline from its first pound the moment the check above started passing.
+     */
+    private function priceIsOffline(float $price): bool
+    {
+        if ($this->online_bid_limit_to !== null && $price > (float) $this->online_bid_limit_to) {
+            return true;
+        }
+
+        return $this->online_bid_limit_from !== null && $price < (float) $this->online_bid_limit_from;
     }
 
     /**
@@ -1053,7 +1081,7 @@ class Auction extends Model
         if ($this->closed_bid_starts_at !== null && $price >= (float) $this->closed_bid_starts_at) {
             $bidType = 'closed';
         }
-        if ($this->hasOnlineOfflineMode() && $price > (float) $this->online_bid_limit_to) {
+        if ($this->hasOnlineOfflineMode() && $this->priceIsOffline($price)) {
             $mode = 'offline';
         }
 
@@ -1069,11 +1097,7 @@ class Auction extends Model
             return 'online';
         }
 
-        if ($price > (float) $this->online_bid_limit_to) {
-            return 'offline';
-        }
-
-        return 'online';
+        return $this->priceIsOffline($price) ? 'offline' : 'online';
     }
 
     public function getBackgroundImageUrlAttribute(): ?string
