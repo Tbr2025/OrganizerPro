@@ -544,9 +544,17 @@ HTML;
            their positions the instant the call began. This sits above the stage and below
            those banners (z-index 9000 against their 9995+), so what still matters stays
            bright and readable on top of it. */
+        /*
+         * The closing call TINTS the wall; it never puts it out.
+         *
+         * At 0.62 the card went dark enough that a hall reading a player's stats lost them, and
+         * when the clock ran out the wall stayed like that with nothing happening. A closing call
+         * is a warning, not a curtain: it is now a light wash, and it lifts the moment the clock
+         * stops rather than sitting over a frozen screen.
+         */
         #final-call-dim {
             position: fixed; inset: 0; z-index: 9000;
-            background: rgba(2,6,23,0.62);
+            background: rgba(2,6,23,0.32);
             pointer-events: none; opacity: 0;
             transition: opacity 0.45s ease;
         }
@@ -747,6 +755,32 @@ HTML;
             font-size: 13px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
             background: rgba(var(--primary-rgb), 0.9); color: #08111f;
         }
+
+        /* ── The draw's own surface ── */
+        #draw-overlay {
+            position: fixed; inset: 0; z-index: 210;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; text-align: center; padding: 40px;
+            background:
+                radial-gradient(circle at 50% 38%, rgba(88,28,135,0.75) 0%, rgba(2,6,23,0.96) 62%),
+                rgba(2,6,23,0.94);
+            backdrop-filter: blur(12px);
+            animation: sealedOverlayIn 0.4s ease-out;
+        }
+        #draw-overlay.hidden { display: none; }
+        #draw-overlay-kicker {
+            font-size: 18px; font-weight: 900; letter-spacing: 0.42em; text-transform: uppercase;
+            color: #fde68a;
+        }
+        #draw-overlay-title {
+            font-size: 64px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase;
+            color: #fff; line-height: 1; margin-bottom: 8px;
+            text-shadow: 0 0 60px rgba(192,132,252,0.5);
+        }
+        /* The label, name and amount underneath the ring, at wall size now that there is room. */
+        #draw-overlay #sealed-draw-label { font-size: 16px; letter-spacing: 0.4em; }
+        #draw-overlay #sealed-draw-name { font-size: 64px !important; margin-top: 6px; }
+        #draw-overlay #sealed-draw-amount { font-size: 22px !important; margin-top: 6px; }
 
         /*
          * ── The draw: a ring of the tied teams, turning ──
@@ -1977,9 +2011,58 @@ HTML;
             <div class="sealed-heading" id="sealed-overlay-heading">Sealed Bid Is Happening Now</div>
             <div class="sealed-sub" id="sealed-overlay-sub" style="margin-top:10px;">Please wait</div>
             <div class="sealed-round" id="sealed-overlay-round" style="margin-top:14px;"></div>
+
+            {{-- How long the teams have left.
+                 The wall's own clock is driven by the OPEN bid timer, which is frozen while a
+                 sealed round runs — so the one countdown that mattered during a sealed round was
+                 the one screen in the room that could not show it. The sealed round has its own
+                 timer on the server; this is it. --}}
+            <div id="sealed-overlay-timer" class="hidden" style="margin-top:22px;">
+                <div style="font-size:15px;font-weight:800;letter-spacing:0.34em;text-transform:uppercase;color:rgba(233,213,255,0.6);">
+                    Time left
+                </div>
+                <div id="sealed-overlay-clock"
+                     style="font-size:78px;font-weight:900;line-height:1;color:#fff;font-variant-numeric:tabular-nums;"></div>
+            </div>
         </div>
 
         <div class="sealed-working" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+
+
+    {{-- The draw, on the whole wall.
+         It lived inside the sealed banner — a slim strip absolutely positioned across the top of
+         the CARD — and a 3D ring of team crests does not fit in a strip. It grew the banner to
+         half the screen, the card's own text carried on rendering underneath it, and "RIGHT HAND
+         BAT" ended up printed through "Delhi Capitals".
+
+         A draw is the whole room's attention for fifteen seconds. It gets its own surface, with
+         nothing behind it to collide with, and the banner goes back to being the one line of text
+         it was designed as. --}}
+    <div id="draw-overlay" class="hidden" aria-hidden="true">
+        <div id="draw-overlay-kicker">Tie</div>
+        <div id="draw-overlay-title">Drawing A Lot</div>
+
+        <div id="sealed-draw" class="hidden" style="position:relative;width:100%;">
+                {{-- A coin, turning while the draw runs.
+                     The names were already cycling, but a cycling list reads as a menu being
+                     scrolled rather than as chance being taken. A coin says what is happening
+                     without a word of explanation, and it stops when the draw does. --}}
+                {{-- The teams themselves, turning. The coin stays in the markup but is never shown
+                     now — see renderSealedDraw: a coin is an honest picture of a two-way draw and
+                     a misleading one for five, and the room is watching teams, not currency. --}}
+                <div id="draw-ring" class="hidden">
+                    <div id="draw-ring-logo" class="hidden"><img id="draw-ring-logo-img" alt=""></div>
+                    <div class="draw-ring-inner" id="draw-ring-inner"></div>
+                </div>
+                <div id="draw-coin" class="hidden"><span>&#9679;</span></div>
+                <div style="font-size:12px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#fde68a;">
+                    <span id="sealed-draw-label">Drawing a lot</span>
+                </div>
+                <div id="sealed-draw-name" class="sealed-draw-name"
+                     style="font-size:40px;font-weight:900;color:#fff;line-height:1.05;"></div>
+                <div id="sealed-draw-amount" style="font-size:15px;font-weight:700;color:#e9d5ff;"></div>
+            </div>
     </div>
 
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
@@ -2275,26 +2358,6 @@ HTML;
 
             {{-- The draw. Cycles the tied teams and lands on the winner, so the room watches the
                  result arrive rather than reading that a draw happened somewhere. --}}
-            <div id="sealed-draw" class="hidden" style="position:relative;margin-top:8px;">
-                {{-- A coin, turning while the draw runs.
-                     The names were already cycling, but a cycling list reads as a menu being
-                     scrolled rather than as chance being taken. A coin says what is happening
-                     without a word of explanation, and it stops when the draw does. --}}
-                {{-- The teams themselves, turning. The coin stays in the markup but is never shown
-                     now — see renderSealedDraw: a coin is an honest picture of a two-way draw and
-                     a misleading one for five, and the room is watching teams, not currency. --}}
-                <div id="draw-ring" class="hidden">
-                    <div id="draw-ring-logo" class="hidden"><img id="draw-ring-logo-img" alt=""></div>
-                    <div class="draw-ring-inner" id="draw-ring-inner"></div>
-                </div>
-                <div id="draw-coin" class="hidden"><span>&#9679;</span></div>
-                <div style="font-size:12px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#fde68a;">
-                    <span id="sealed-draw-label">Drawing a lot</span>
-                </div>
-                <div id="sealed-draw-name" class="sealed-draw-name"
-                     style="font-size:40px;font-weight:900;color:#fff;line-height:1.05;"></div>
-                <div id="sealed-draw-amount" style="font-size:15px;font-weight:700;color:#e9d5ff;"></div>
-            </div>
         </div>
 
         {{-- Custom Elements (text labels and shapes) --}}
@@ -3519,7 +3582,9 @@ HTML;
 
             const state = sealed?.state;
 
-            if (! state || ! SEALED_OVERLAY_STATES.includes(state)) {
+            /* A draw has its own surface (#draw-overlay) and outranks this one: the states are
+               mutually exclusive on the server, and this guard keeps them so on the screen. */
+            if (! state || ! SEALED_OVERLAY_STATES.includes(state) || (sealed?.tie?.teams || []).length) {
                 overlay.classList.add('hidden');
                 return;
             }
@@ -3537,7 +3602,47 @@ HTML;
                     : '';
             }
 
+            /*
+             * Ticked locally between polls.
+             *
+             * The server's figure arrives every couple of seconds; a clock that only moved when a
+             * poll landed would jump 30, 28, 26 in front of a hall. `_sealedClockUntil` is the wall
+             * clock instant the round ends, computed once per poll from the server's remaining
+             * seconds, and the interval counts down against it.
+             */
+            const timerWrap = document.getElementById('sealed-overlay-timer');
+            const clockEl = document.getElementById('sealed-overlay-clock');
+            const remaining = sealed.timer?.remaining;
+
+            if (timerWrap && clockEl) {
+                if (remaining === null || remaining === undefined) {
+                    timerWrap.classList.add('hidden');
+                    _sealedClockUntil = null;
+                } else {
+                    _sealedClockUntil = Date.now() + Math.max(0, Number(remaining)) * 1000;
+                    timerWrap.classList.remove('hidden');
+                    paintSealedClock();
+                }
+            }
+
             overlay.classList.remove('hidden');
+        }
+
+        let _sealedClockUntil = null;
+        let _sealedClockTimer = null;
+
+        function paintSealedClock() {
+            const clockEl = document.getElementById('sealed-overlay-clock');
+            if (! clockEl || _sealedClockUntil === null) return;
+
+            const left = Math.max(0, Math.round((_sealedClockUntil - Date.now()) / 1000));
+            clockEl.textContent = left > 0 ? `${left}s` : 'TIME UP';
+            clockEl.style.color = left > 0 && left <= 10 ? '#fca5a5' : '#fff';
+        }
+
+        // One interval for the page, started once: a timer per render would stack up.
+        if (! _sealedClockTimer) {
+            _sealedClockTimer = setInterval(paintSealedClock, 1000);
         }
 
         /* The name currently showing in the draw, and the timer cycling it. */
@@ -3656,7 +3761,11 @@ HTML;
 
         function renderSealedDraw(tie) {
             const wrap = document.getElementById('sealed-draw');
+            const surface = document.getElementById('draw-overlay');
             if (! wrap) return;
+
+            // The draw owns the wall while it runs; nothing else needs to be visible behind it.
+            surface?.classList.toggle('hidden', ! (tie?.teams || []).length);
 
             const nameEl = document.getElementById('sealed-draw-name');
             const amountEl = document.getElementById('sealed-draw-amount');
@@ -4144,8 +4253,17 @@ HTML;
              * Cleared by the same call that clears everything else, so a player who is sold
              * or passed during the call cannot leave the wall grey.
              */
+            /*
+             * Off the moment the clock stops.
+             *
+             * The wall was left tinted after the timer expired — the call had ended, nothing was
+             * counting, and the screen sat dimmed over a live card until the next lot. A closing
+             * call that is no longer closing anything must not still be dimming the room.
+             */
             const dim = document.getElementById('final-call-dim');
-            if (dim) dim.classList.toggle('is-on', !!inClosingCall && clockHasPlayer);
+            const clockRunning = Number(timerRemaining) > 0;
+
+            if (dim) dim.classList.toggle('is-on', !!inClosingCall && clockHasPlayer && clockRunning);
         }
 
         function clearUnsoldWarning() {
