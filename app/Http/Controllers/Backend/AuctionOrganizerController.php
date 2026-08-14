@@ -22,6 +22,7 @@ use App\Services\Auction\AuctionSaleService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
 use App\Services\Export\AuctionSnapshotExport;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
