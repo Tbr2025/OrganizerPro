@@ -940,35 +940,34 @@ class Auction extends Model
     public function hasOnlineOfflineMode(): bool
     {
         /*
-         * EITHER bound switches the rule on, not both.
+         * The UPPER bound alone decides this — "Organizer Enters Bids From".
          *
-         * This demanded both, so an organizer who set only "Online Bid Starts From" — or only
-         * the upper bound — had a setting that did nothing whatever, silently. Measured on live:
-         * auction 11 had the upper bound alone and auction 12 the lower, so the price rule was
-         * inert on both while the form showed a configured figure on each.
+         * It demanded both bounds, so auction 11, which has only the upper one set, had a
+         * configured figure on the form and a handover that never happened. Requiring both was
+         * the bug.
          *
-         * A missing bound now means open-ended in that direction, which is what one figure on a
-         * two-figure band can only sensibly mean.
+         * But the lower bound must NOT switch it on, which is what I changed it to first. That
+         * field is labelled "Online Bid Starts From" and its own help text says "Informational
+         * only — it changes nothing on its own": it records where an organizer intends bidding
+         * to open and has never governed anything. Making it govern would have flipped auction
+         * 12 into a mode rule it had never been under, mid-event, on a deploy — and a price
+         * below it would have gone OFFLINE, which is the opposite of what the label promises.
+         *
+         * Where bidding opens is `base_price`, and the opening bid takes it in both modes.
          */
-        return $this->online_bid_limit_from !== null
-            || $this->online_bid_limit_to !== null;
+        return $this->online_bid_limit_to !== null;
     }
 
     /**
-     * Is this price outside the band where teams bid from their own screens?
+     * Is this price above the point where the organizer takes over the bidding?
      *
-     * Below `from`, or above `to`; a bound that is not set does not close its side. Written once
-     * because three places asked it and each did so slightly differently — and with only one
-     * bound set, `(float) null` made every price "above the ceiling", which would have put an
-     * auction offline from its first pound the moment the check above started passing.
+     * One method because two callers asked it and each did so slightly differently.
      */
     private function priceIsOffline(float $price): bool
     {
-        if ($this->online_bid_limit_to !== null && $price > (float) $this->online_bid_limit_to) {
-            return true;
-        }
-
-        return $this->online_bid_limit_from !== null && $price < (float) $this->online_bid_limit_from;
+        // Null-checked rather than cast: `(float) null` is 0, so an unset ceiling would read as
+        // "every price is over it" and put the auction offline from its first bid.
+        return $this->online_bid_limit_to !== null && $price > (float) $this->online_bid_limit_to;
     }
 
     /**
