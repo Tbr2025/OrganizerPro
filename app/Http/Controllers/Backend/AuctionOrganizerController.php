@@ -679,13 +679,19 @@ class AuctionOrganizerController extends Controller
             'ads_sponsors' => 'nullable|boolean',
         ]);
 
+        /*
+         * Stored exactly as asked. The caller decides; this does not second-guess it.
+         *
+         * There used to be a toggle here — "the same board again means take it down" — and the
+         * dialog that replaced the buttons ALSO has that rule, so the two applied it in turn.
+         * Pressing Apply a second time without changing the board sent the same value, the
+         * server saw it matching what was already stored, and quietly turned the board OFF. From
+         * the operator's chair the dialog stopped working on the second save.
+         *
+         * Toggling belongs where the press happens, because only the caller knows whether the
+         * operator picked a value or pressed a button twice.
+         */
         $board = $data['board'] ?? null;
-
-        // Pressing the button for the board already up takes it down, which is what an operator
-        // means by pressing it twice.
-        if ($board !== null && $board === $auction->public_board) {
-            $board = null;
-        }
 
         $minutes = (int) ($data['break_minutes'] ?? 0);
 

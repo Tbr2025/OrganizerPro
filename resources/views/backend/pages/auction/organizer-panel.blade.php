@@ -3921,7 +3921,11 @@ function auctionOrganizerPanel() {
             /*
              * From the dialog the value IS the choice — picking "Sold board" when it is already
              * up must not toggle it off, because the operator may only be changing where it
-             * plays. From a bare button, pressing the same board again still takes it down.
+             * plays or which artwork runs. From a bare button, pressing the same board again
+             * still takes it down.
+             *
+             * Decided HERE and nowhere else. The server used to apply the same rule, so the two
+             * toggled in turn and a second Apply silently switched the board off.
              */
             const next = exact ? board : (this.soldBoardShowing === board ? null : board);
             const previous = this.soldBoardShowing;
