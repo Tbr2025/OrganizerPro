@@ -229,8 +229,59 @@
             60% { transform: scale(1.2); opacity: 1; }
             100% { transform: scale(1); opacity: 1; }
         }
+        /*
+         * ── The sale, staged ──
+         *
+         * Every layer used to arrive on the same frame, so a sale read as one flash and the eye
+         * had nothing to follow. These delays walk it: the price is acknowledged, the buyer
+         * appears, the word lands, the stamp strikes. Under a second in total — a hall will not
+         * wait for a sequence, and the next lot is already coming.
+         *
+         * Delays only. No JavaScript timeline, no per-frame work: the browser composites opacity
+         * and transform on its own thread, which is what keeps this smooth on venue hardware
+         * that is also driving a projector.
+         */
+        #current-bid.sold-pulse {
+            animation: sold-price-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes sold-price-pulse {
+            0%   { transform: scale(1); }
+            45%  { transform: scale(1.14); text-shadow: 0 0 34px rgba(34,197,94,0.85); }
+            100% { transform: scale(1); }
+        }
+
         #sold-badge.sold-entrance {
-            animation: badge-flash-in 0.45s ease-out forwards;
+            animation: badge-flash-in 0.45s ease-out 0.45s backwards;
+        }
+
+        /* The buyer, a beat after the price. */
+        #team-logo.sold-entrance {
+            animation: badge-flash-in 0.45s ease-out 0.18s backwards;
+        }
+
+        /* The word, between the two. */
+        #sold-text.sold-active {
+            animation-delay: 0.3s;
+            animation-fill-mode: backwards;
+        }
+
+        /* The hammer: one strike as the stamp lands, then gone. Drawn in CSS rather than loaded
+           as an image, so it costs nothing on a venue uplink. */
+        #sold-hammer {
+            position: absolute; top: 18%; left: 50%; z-index: 30;
+            font-size: 84px; line-height: 1; pointer-events: none;
+            transform-origin: 80% 80%;
+            opacity: 0;
+        }
+        #sold-hammer.strike {
+            animation: hammer-strike 0.75s cubic-bezier(0.36, 0, 0.66, -0.56) 0.35s forwards;
+        }
+        @keyframes hammer-strike {
+            0%   { opacity: 0; transform: translateX(-50%) rotate(-58deg) scale(0.8); }
+            35%  { opacity: 1; transform: translateX(-50%) rotate(-58deg) scale(1); }
+            55%  { opacity: 1; transform: translateX(-50%) rotate(6deg) scale(1.05); }
+            70%  { opacity: 1; transform: translateX(-50%) rotate(-4deg) scale(1); }
+            100% { opacity: 0; transform: translateX(-50%) rotate(0deg) scale(0.94); }
         }
         /*
          * Flashes in; it does not spin.
@@ -1401,6 +1452,10 @@
         <div id="reel-sponsors" class="hidden"></div>
     </div>
 
+    {{-- The hammer, struck once as a sale lands. Inside the card container so it sits over the
+         artwork rather than over the whole screen. --}}
+    <div id="sold-hammer" aria-hidden="true">&#128296;</div>
+
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
          style="position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.82);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
@@ -1875,6 +1930,8 @@
 
             const soldText = document.getElementById('sold-text');
             if (soldText) soldText.classList.remove('sold-active', 'unsold-active', 'skipped-active');
+            document.getElementById('current-bid')?.classList.remove('sold-pulse');
+            document.getElementById('sold-hammer')?.classList.remove('strike');
 
             const soldBadge = document.getElementById('sold-badge');
             if (soldBadge) {
@@ -2775,6 +2832,22 @@
                 cardContainer.classList.add('sold-state');
                 if (soldText) soldText.classList.add('sold-active');
                 if (soldBadge) soldBadge.classList.add('sold-entrance');
+
+                /*
+                 * The price, then the hammer. Both re-triggered by removing the class and
+                 * forcing a reflow — a CSS animation will not replay while its class is already
+                 * on the element, and two sales in a row would otherwise animate only the first.
+                 */
+                const bidEl2 = document.getElementById('current-bid');
+                const hammer = document.getElementById('sold-hammer');
+
+                [bidEl2, hammer].forEach((node, i) => {
+                    if (! node) return;
+                    const cls = i === 0 ? 'sold-pulse' : 'strike';
+                    node.classList.remove(cls);
+                    void node.offsetWidth;
+                    node.classList.add(cls);
+                });
 
                 // Fire confetti once per sold player
                 if (_confettiFiredForPlayer !== p.id) {
