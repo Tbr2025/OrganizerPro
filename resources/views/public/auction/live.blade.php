@@ -668,10 +668,11 @@
         }
 
         #reel-sponsors {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 145;
             display: flex; align-items: center; justify-content: center;
-            gap: 34px; flex-wrap: wrap;
-            padding-top: 18px; margin-top: 14px;
-            border-top: 1px solid rgba(255,255,255,0.12);
+            gap: 34px; flex-wrap: nowrap; overflow: hidden;
+            padding: 10px 24px;
+            background: linear-gradient(to top, rgba(2,6,23,0.82), rgba(2,6,23,0));
         }
         #reel-sponsors.hidden { display: none; }
         #reel-sponsors img {
@@ -1482,11 +1483,15 @@
              three hundred. --}}
         <div id="reel" class="hidden" style="flex:1;position:relative;"></div>
 
-        {{-- The sponsors, along the bottom of every slide rather than on one of them. A logo
-             that appears for six seconds in twelve has been shown half as often as the deal
-             said; a strip is on screen for the whole break. --}}
-        <div id="reel-sponsors" class="hidden"></div>
     </div>
+
+    {{-- The sponsors, along the bottom of the WALL rather than inside the board.
+         They were drawn only on the reel, so they appeared during a break and vanished the
+         moment a player came up — which is the opposite of how a sponsorship is sold. A strip
+         fixed to the screen is on for the whole auction, over the live card and the board
+         alike. Hidden by itself when there is no artwork, so a wall with no sponsors is
+         unchanged. --}}
+    <div id="reel-sponsors" class="hidden"></div>
 
     {{-- The hammer, struck once as a sale lands. Inside the card container so it sits over the
          artwork rather than over the whole screen. --}}
@@ -2373,6 +2378,21 @@
             // Only worth turning over if there is more than one slide.
             if (_reelSlides.length > 1) _reelTimer = setInterval(show, REEL_MS);
         }
+
+        /*
+         * The sponsors, fetched once at start-up.
+         *
+         * They used to arrive only when a board went up, so a wall that never showed a board
+         * never showed a sponsor — and the strip appeared mid-evening rather than being there
+         * from the opening lot. One request on load, and the board's own fetch refreshes it.
+         */
+        fetch(`/auction/${auctionId}/sold-players`)
+            .then((res) => res.json())
+            .then((data) => {
+                _reelAds = Array.isArray(data?.adSlides) ? data.adSlides : [];
+                renderSponsors(data?.sponsors, data?.tournamentLogo);
+            })
+            .catch(() => {});
 
         function fetchSoldBoard(board) {
             fetch(`/auction/${auctionId}/sold-players`)
