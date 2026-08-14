@@ -57,6 +57,7 @@ class Auction extends Model
         'open_bid_mode',
         // Which board the public screens are showing instead of the live card, if any.
         'public_board',
+        'break_ends_at',
         'online_bid_limit_from',
         'online_bid_limit_to',
         'mode_manually_overridden',
@@ -84,6 +85,8 @@ class Auction extends Model
         'bid_type_manually_overridden',
     ];
     protected $casts = [
+        'break_ends_at' => 'datetime',
+
         'start_at' => 'datetime',
         'end_at' => 'datetime',
         'bid_rules' => 'array',
@@ -656,6 +659,25 @@ class Auction extends Model
      * `!== null`, not `?:` — an explicit 0 means retentions are free here, and must
      * survive. That distinction is the whole reason the column is nullable.
      */
+    /**
+     * Seconds left in the current break, or null when none is running.
+     *
+     * Computed here so every screen counts down to the same instant. If each one started its own
+     * clock from whenever it happened to poll, a projector and a phone would show times seconds
+     * apart — the same reason the restart notice is server-computed.
+     *
+     * Never negative: a break that has run over shows 0, and the wall says so, rather than
+     * counting up into a number that reads like a fault.
+     */
+    public function breakRemaining(): ?int
+    {
+        if (! $this->break_ends_at) {
+            return null;
+        }
+
+        return max(0, now()->diffInSeconds($this->break_ends_at, false));
+    }
+
     public function defaultRetainedValue(): float
     {
         $resolved = $this->rule('icon_player_value', $this->default_retained_value);

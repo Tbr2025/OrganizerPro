@@ -1858,6 +1858,18 @@
                     <span x-text="soldBoardShowing === 'sold' ? 'Hide Sold' : 'Show Sold'"></span>
                 </button>
 
+                {{-- How long the break is. Sent with the board, so the wall counts DOWN to a
+                     time the organizer actually named — "back in 6:00" is the question a hall
+                     is asking, where an elapsed clock answers it from the wrong end. Blank or 0
+                     puts a board up with no clock, which is right for a sealed round or a board
+                     shown mid-lot. --}}
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <input type="number" min="0" max="180" step="1" x-model.number="breakMinutes"
+                           class="w-12 h-8 px-1.5 rounded bg-gray-800 border border-gray-700 text-gray-200 text-xs text-center"
+                           title="Break length in minutes — sent with the board">
+                    <span class="text-[10px] text-gray-500">min</span>
+                </div>
+
                 {{-- The reel, for a pause: the biggest buys on rotating slides. Shuffled each
                      time it goes up, so a break does not replay the same five faces in the same
                      order. --}}
@@ -3616,6 +3628,8 @@ function auctionOrganizerPanel() {
         // The sold board on the public screens — server state, mirrored here for the button.
         soldBoardShowing: @js($auction->public_board),
         soldBoardBusy: false,
+        // Break length sent with a board; 0 puts one up with no clock.
+        breakMinutes: 10,
         // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
         _pendingSteps: 0,
 
@@ -3828,7 +3842,8 @@ function auctionOrganizerPanel() {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                     },
-                    body: JSON.stringify({ board: next }),
+                    // The clock only goes up WITH a board, never when taking one down.
+                    body: JSON.stringify({ board: next, break_minutes: next ? this.breakMinutes : 0 }),
                 });
                 const data = await res.json();
 

@@ -326,6 +326,7 @@ class PublicAuctionController extends Controller
                                  * a broadcast only reaches screens already listening.
                                  */
                 'public_board' => $auction->public_board,
+                'break_remaining' => $auction->breakRemaining(),
                 // Server-computed, so every screen announces the restart for the same window.
                 'restarting' => $auction->isRestarting(),
                 'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -369,6 +370,7 @@ class PublicAuctionController extends Controller
             'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
             'public_board' => $auction->public_board,
+                'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -422,6 +424,7 @@ class PublicAuctionController extends Controller
             ] : null,
             'auction_status' => $auction->status,
             'public_board' => $auction->public_board,
+                'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -525,6 +528,7 @@ class PublicAuctionController extends Controller
             'success' => true,
             'auction_status' => $auction->status,
             'public_board' => $auction->public_board,
+                'break_remaining' => $auction->breakRemaining(),
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),

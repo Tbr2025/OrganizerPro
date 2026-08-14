@@ -653,6 +653,30 @@
        Fetched only while it is up: it is every sale in the auction, and there is no reason to
        pull it on the two-second tick when nothing is showing it. */
     let soldBoardShowing = null;
+    /* Seconds left in the break, from the server, ticked down locally between polls. Re-seeded
+       every poll so drift cannot accumulate and every screen lands on the same figure. */
+    let _breakRemaining = null;
+
+    function breakClock() {
+        const head = document.getElementById('sold-board-count');
+        if (! head) return;
+
+        if (! soldBoardShowing || _breakRemaining === null) {
+            head.textContent = '';
+            return;
+        }
+
+        if (_breakRemaining <= 0) {
+            head.textContent = 'BACK ANY MOMENT';
+            return;
+        }
+
+        const m = Math.floor(_breakRemaining / 60);
+        head.textContent = `BACK IN ${m}:${String(Math.floor(_breakRemaining % 60)).padStart(2, '0')}`;
+        _breakRemaining -= 1;
+    }
+
+    setInterval(breakClock, 1000);
 
     function renderSoldBoard(rows) {
         const grid = document.getElementById('sold-board-grid');
@@ -851,6 +875,7 @@
 
                 // The board, if the organizer has it up. From the feed, so a ticker opened or
                 // reloaded mid-board comes back to the board.
+                _breakRemaining = (d.break_remaining ?? null);
                 applySoldBoard(d.public_board);
 
                 lastCurrentPlayer = d.current_player || null;

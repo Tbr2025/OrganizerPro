@@ -2198,15 +2198,22 @@
          */
         let _boardSince = null;
         let _boardStatusTimer = null;
+        /* Seconds left in the break, from the server, ticked down locally between polls so the
+           clock moves every second rather than every two. The poll re-seeds it, so drift cannot
+           accumulate and every screen lands on the same figure. */
+        let _breakRemaining = null;
+
+        function clockText(secs) {
+            const s = Math.max(0, Math.floor(secs));
+            const m = Math.floor(s / 60);
+
+            return `${m}:${String(s % 60).padStart(2, '0')}`;
+        }
 
         function boardElapsed() {
             if (! _boardSince) return '';
 
-            const secs = Math.max(0, Math.floor((Date.now() - _boardSince) / 1000));
-            const m = Math.floor(secs / 60);
-            const ss = String(secs % 60).padStart(2, '0');
-
-            return `${m}:${ss}`;
+            return clockText((Date.now() - _boardSince) / 1000);
         }
 
         function paintBoardStatus() {
@@ -2227,6 +2234,27 @@
             if (sealedState && sealedState.active) {
                 text.textContent = 'SEALED BID IN PROGRESS';
                 timer.textContent = '';
+                return;
+            }
+
+            /*
+             * A countdown when the organizer set one, and only then.
+             *
+             * "Back in 6:00" is the question a hall is actually asking; the elapsed clock this
+             * replaced answered "they have been gone four minutes", which is the same fact from
+             * the wrong end. With no break length set, that elapsed clock is still better than
+             * nothing — it at least shows the screen is live.
+             */
+            if (_breakRemaining !== null) {
+                if (_breakRemaining > 0) {
+                    text.textContent = 'BACK IN';
+                    timer.textContent = clockText(_breakRemaining);
+                    _breakRemaining -= 1;
+                } else {
+                    text.textContent = 'BACK ANY MOMENT';
+                    timer.textContent = '';
+                }
+
                 return;
             }
 
@@ -3067,6 +3095,9 @@
 
                     // The board, if the organizer has it up. Read from the feed so a wall
                     // opened or reloaded mid-board comes back to the board.
+                    // Re-seeded every poll, so the local tick cannot drift and a screen that
+                    // joins mid-break picks the countdown up where the room is.
+                    _breakRemaining = (data?.break_remaining ?? null);
                     applySoldBoard(data?.public_board);
 
                     if (data?.auctionPlayer) {

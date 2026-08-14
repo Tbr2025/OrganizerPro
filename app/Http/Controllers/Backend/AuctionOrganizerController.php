@@ -667,6 +667,9 @@ class AuctionOrganizerController extends Controller
         $data = $request->validate([
             // Null takes the screens back to the live card.
             'board' => 'nullable|in:' . implode(',', Auction::publicBoards()),
+            // How long the break is meant to last. Null or 0 puts a board up with no clock,
+            // which is right for a sealed round or a board shown mid-lot.
+            'break_minutes' => 'nullable|integer|min:0|max:180',
         ]);
 
         $board = $data['board'] ?? null;
@@ -677,7 +680,19 @@ class AuctionOrganizerController extends Controller
             $board = null;
         }
 
-        $auction->update(['public_board' => $board]);
+        $minutes = (int) ($data['break_minutes'] ?? 0);
+
+        $auction->update([
+            'public_board' => $board,
+            /*
+             * The deadline goes up with the board and comes down with it.
+             *
+             * Stamped as an instant rather than a duration so every screen counts down to the
+             * same moment; cleared when the board comes down, because a countdown left running
+             * behind the live card would resurface on the next board with a time nobody set.
+             */
+            'break_ends_at' => ($board !== null && $minutes > 0) ? now()->addMinutes($minutes) : null,
+        ]);
 
         \App\Support\AfterResponse::run(
             fn () => \App\Events\SoldBoardToggled::announce((int) $auction->id, $board)
@@ -686,6 +701,7 @@ class AuctionOrganizerController extends Controller
         return response()->json([
             'success' => true,
             'board' => $board,
+            'break_remaining' => $auction->fresh()->breakRemaining(),
             'message' => match ($board) {
                 Auction::BOARD_SOLD => 'Sold board is on the screens.',
                 Auction::BOARD_HIGHLIGHTS => 'Highlights are on the screens.',
