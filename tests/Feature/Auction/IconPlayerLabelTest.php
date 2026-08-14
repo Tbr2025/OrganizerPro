@@ -134,9 +134,23 @@ class IconPlayerLabelTest extends TestCase
             ->assertOk()
             ->getContent();
 
-        // The option a person reads, and the value the request carries — deliberately different.
+        /*
+         * The label a person reads, on the filter that can actually answer it.
+         *
+         * This used to assert `value="retained"` — the old Player Mode control, which read
+         * `players.player_mode`. That column is set to `retained` when a player is SOLD as
+         * well as when one is kept, so the option labelled Icon Player returned every purchase
+         * in the room alongside the genuinely kept players. The filter now reads the auction
+         * row (`is_retained` is a keep, `status = sold` is a buy), and its value says so.
+         */
         $this->assertMatchesRegularExpression(
-            '/<option value="retained"[^>]*>\s*Icon Player\s*<\/option>/',
+            '/<option value="icon"[^>]*>\s*Icon Player \(kept\)\s*<\/option>/',
+            $html
+        );
+
+        // And the buy has a name of its own, which the old control could not express at all.
+        $this->assertMatchesRegularExpression(
+            '/<option value="auction"[^>]*>\s*Auction \(bought\)\s*<\/option>/',
             $html
         );
     }

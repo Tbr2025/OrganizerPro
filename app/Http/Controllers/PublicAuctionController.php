@@ -314,6 +314,12 @@ class PublicAuctionController extends Controller
                 'lastActionPlayer' => $lastActionData,
                 'last_sold_player' => $lastActionData && $lastActionData['status'] === 'sold' ? $lastActionData : null,
                 'auction_status' => $auction->status,
+                /*
+                                 * Whether the sold board is up. On the feed rather than pushed alone, so a wall
+                                 * plugged in or reloaded while the board is showing comes up on the board too —
+                                 * a broadcast only reaches screens already listening.
+                                 */
+                'show_sold_board' => (bool) $auction->show_sold_board,
                 // Server-computed, so every screen announces the restart for the same window.
                 'restarting' => $auction->isRestarting(),
                 'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -356,6 +362,7 @@ class PublicAuctionController extends Controller
             'success' => true,
             'auctionPlayer' => $responsePlayer,
             'auction_status' => $auction->status,
+            'show_sold_board' => (bool) $auction->show_sold_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -408,6 +415,7 @@ class PublicAuctionController extends Controller
                 ] : null,
             ] : null,
             'auction_status' => $auction->status,
+            'show_sold_board' => (bool) $auction->show_sold_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -510,6 +518,7 @@ class PublicAuctionController extends Controller
         return response()->json([
             'success' => true,
             'auction_status' => $auction->status,
+            'show_sold_board' => (bool) $auction->show_sold_board,
             // Server-computed, so every screen announces the restart for the same window.
             'restarting' => $auction->isRestarting(),
             'restart_seconds' => $auction->restartNoticeRemaining(),
@@ -615,6 +624,8 @@ class PublicAuctionController extends Controller
                         'id' => $ap->player->id,
                         'name' => $ap->player->name,
                         'player_type' => $ap->player->playerType?->name ?? null,
+                        // The board is a wall of faces; without this it is a spreadsheet.
+                        'image' => $ap->player->image_path ? asset('storage/' . $ap->player->image_path) : null,
                     ] : null,
                     'sold_to_team' => $ap->soldToTeam ? [
                         'id' => $ap->soldToTeam->id,

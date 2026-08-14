@@ -237,6 +237,40 @@
         .sale .to { opacity: 0.5; font-size: 15px; }
         .sale .price { font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
+        /* ── Sold board ── */
+        #sold-board {
+            position: fixed; inset: 0; z-index: 90;
+            background: rgba(6, 10, 20, 0.97);
+            display: flex; flex-direction: column; padding: 34px 46px;
+        }
+        #sold-board.hidden { display: none; }
+        #sold-board-head {
+            display: flex; align-items: baseline; justify-content: space-between;
+            font-size: 34px; font-weight: 900; letter-spacing: 1px; margin-bottom: 20px;
+        }
+        #sold-board-count { font-size: 20px; font-weight: 700; color: var(--primary); }
+        #sold-board-grid {
+            flex: 1; overflow-y: auto; display: grid; gap: 14px; align-content: start;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+        .sb-card {
+            display: flex; align-items: center; gap: 12px; min-width: 0;
+            background: var(--panel); border: 1px solid var(--edge);
+            border-left: 3px solid var(--primary); padding: 12px 14px;
+        }
+        .sb-card img, .sb-card .blank {
+            width: 58px; height: 58px; object-fit: cover; flex-shrink: 0;
+            background: rgba(255,255,255,0.07);
+        }
+        .sb-card .blank {
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 900; opacity: 0.5;
+        }
+        .sb-card .who { min-width: 0; }
+        .sb-card .nm { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-card .tm { font-size: 12px; font-weight: 600; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-card .amt { font-size: 18px; font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
+
         #idle {
             position: fixed; bottom: 132px; left: 64px;
             padding: 22px 40px;
@@ -264,6 +298,16 @@
 
     {{-- Teams: purse remaining and squad count --}}
     <div id="teams-panel" class="hidden"></div>
+
+    {{-- The board of players sold, put up from the organizer's panel between lots. Covers the
+         whole frame, because on a stream the lower third is not enough room to read a list. --}}
+    <div id="sold-board" class="hidden">
+        <div id="sold-board-head">
+            <span>SOLD SO FAR</span>
+            <span id="sold-board-count"></span>
+        </div>
+        <div id="sold-board-grid"></div>
+    </div>
 
     {{-- The player on the block --}}
     <div id="lt-wrap" class="hidden">
@@ -605,6 +649,61 @@
        cadence the eye reads as a glitch. */
     setInterval(() => { teamWindow++; }, 8000);
 
+    /* ── The board of players sold ──
+       Fetched only while it is up: it is every sale in the auction, and there is no reason to
+       pull it on the two-second tick when nothing is showing it. */
+    let soldBoardShowing = false;
+
+    function renderSoldBoard(rows) {
+        const grid = document.getElementById('sold-board-grid');
+        const count = document.getElementById('sold-board-count');
+        if (! grid) return;
+
+        const list = Array.isArray(rows) ? rows : [];
+
+        if (count) count.textContent = list.length === 1 ? '1 player' : `${list.length} players`;
+
+        if (! list.length) {
+            grid.innerHTML = '<div style="opacity:0.5;font-size:18px;">Nothing sold yet.</div>';
+            return;
+        }
+
+        grid.innerHTML = list.map((row) => {
+            const nm = row?.player?.name || 'Player';
+            const tm = row?.sold_to_team?.name || '';
+            const face = row?.player?.image
+                ? `<img src="${esc(row.player.image)}" alt="">`
+                : `<div class="blank">${esc(nm.substring(0, 2).toUpperCase())}</div>`;
+
+            return '<div class="sb-card">' + face + '<div class="who">'
+                + `<div class="nm">${esc(nm)}</div>`
+                + (tm ? `<div class="tm">${esc(tm)}</div>` : '')
+                + `<div class="amt">${amount(row?.final_price)}</div>`
+                + '</div></div>';
+        }).join('');
+    }
+
+    function fetchSoldBoard() {
+        fetch(`/auction/${auctionId}/sold-players`)
+            .then((res) => res.json())
+            .then((data) => renderSoldBoard(data?.soldPlayers))
+            .catch(() => {});
+    }
+
+    /* Idempotent: called by every poll with whatever the server says, and by the pushed frame
+       the moment the button is pressed. Only a CHANGE refetches. */
+    function applySoldBoard(showing) {
+        const el = document.getElementById('sold-board');
+        if (! el) return;
+
+        const next = !! showing;
+        el.classList.toggle('hidden', ! next);
+
+        if (next && ! soldBoardShowing) fetchSoldBoard();
+
+        soldBoardShowing = next;
+    }
+
     function renderStats(stats) {
         const strip = document.getElementById('lt-stats');
         const slab = document.getElementById('lt-slab');
@@ -733,10 +832,15 @@
 
                 if (d.amount_unit) AMOUNT_UNIT = d.amount_unit;
 
+                // The board, if the organizer has it up. From the feed, so a ticker opened or
+                // reloaded mid-board comes back to the board.
+                applySoldBoard(d.show_sold_board);
+
                 lastCurrentPlayer = d.current_player || null;
                 lastSealed = d.closed_bid || null;
-                // Sealed transitions are not broadcast, so the strip keeps asking while a
-                // round is live. scheduleTickerPoll() reads this after every fetch.
+                // Sealed transitions are pushed now (.sealed.changed), but the strip still
+                // tracks this: the poll is the backstop for a screen that missed the frame.
+                // scheduleTickerPoll() reads it after every fetch.
                 sealedActive = !!(lastSealed && lastSealed.active);
                 renderCurrent(d.current_player, d.closed_bid || null);
                 renderTeams(d.teams || [], d.squad || null);
@@ -976,7 +1080,9 @@
                 .listen('.player-on-sold', () => refreshNow('sold'))
                 // A sealed round opening, locking, revealing or drawing its lot. Nothing was
                 // pushed for any of it before, so the ticker only caught up on its own poll.
-                .listen('.sealed.changed', (e) => refreshNow('sealed:' + (e?.state ?? '?')));
+                .listen('.sealed.changed', (e) => refreshNow('sealed:' + (e?.state ?? '?')))
+                // The board going up or coming down, applied at once rather than on the next tick.
+                .listen('.board.sold', (e) => applySoldBoard(e?.showing));
 
             /* Pause, resume, end and restart publish on their own channel. Without this the
                strip would count down through a pause until the heartbeat came round — on air. */

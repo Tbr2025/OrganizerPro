@@ -185,16 +185,18 @@ class AuctionWallScriptIntegrityTest extends TestCase
         $js = $this->inlineScript((string) $html);
 
         /*
-         * A timing bug with no visible seam in the code: on a new player the poll calls
-         * shuffleController.start() and RETURNS, so updatePlayerCard() — which is where the
-         * sold badge, the winning team's logo, the sold glow and the result banner are
-         * cleared — does not run until reveal() finishes about four seconds later. For those
-         * four seconds the previous player's result sat on top of the shuffle and then on
-         * top of the next player.
+         * The previous player's result must not survive onto the next one.
+         *
+         * The sold badge, the winning team's logo, the sold glow and the result banner all
+         * live OUTSIDE the card, so drawing a new card does not clear them — something has to
+         * do it explicitly. That used to be the shuffle, which cleared on its way past; the
+         * shuffle has since been removed (the hall must not be shown who is coming up), so
+         * the new-player path clears directly instead.
          *
          * Asserted structurally because there is no browser layer here: clearOutcomeState()
-         * must exist, and start() must call it. Anyone removing that call gets a failure
-         * rather than a hall watching two players at once.
+         * must exist, and the new-player branch must call it before drawing. Anyone removing
+         * that call gets a failure rather than a hall watching the last player's SOLD across
+         * the next player's face — which is exactly what happened when the shuffle went.
          */
         $this->assertStringContainsString(
             'function clearOutcomeState()',
@@ -202,18 +204,23 @@ class AuctionWallScriptIntegrityTest extends TestCase
             'the wall needs a clear that works outside updatePlayerCard'
         );
 
-        $start = strpos($js, 'start(playerData, namePool)');
-        $this->assertNotFalse($start, 'shuffleController.start must still exist');
-
         /*
-         * Early in start(), before any of the animation work. The window is generous
-         * because the call carries a comment explaining why it is there — the point is
-         * that the clear happens in start() at all, not that it lands on a given line.
+         * Both new-player paths clear before they draw: the poll, and the pushed
+         * `player.onbid` frame. Checked as a pair because they are separate branches and
+         * fixing one while leaving the other is the easy mistake — the push path is the one
+         * that fires first in a healthy room, so a miss there shows on every lot.
          */
-        $this->assertStringContainsString(
-            'clearOutcomeState()',
-            substr($js, $start, 1500),
-            'start() must clear the previous result before covering the stage'
+        foreach (['updatePlayerCard(ap);', 'markCardChanged();'] as $marker) {
+            $this->assertStringContainsString($marker, $js);
+        }
+
+        $clears = substr_count($js, 'clearOutcomeState();');
+
+        $this->assertGreaterThanOrEqual(
+            3,
+            $clears,
+            'the two new-player branches and showWaiting() must each clear the previous '
+                . 'result; found ' . $clears . ' call(s)'
         );
     }
 

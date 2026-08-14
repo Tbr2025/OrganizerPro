@@ -1815,6 +1815,19 @@
                 </div>
 
                 {{-- 7. Fullscreen Toggle --}}
+                {{-- Put the sold board on the wall and the ticker, between lots.
+                     The room wants to see where the money has gone and the only answer used to
+                     be this screen. Lit while it is up, because a board left on the wall through
+                     the next lot is the failure worth making obvious. --}}
+                <button @click="toggleSoldBoard()" :disabled="soldBoardBusy"
+                        :class="soldBoardShowing
+                            ? 'bg-amber-500 text-black hover:bg-amber-400'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'"
+                        class="px-3 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors disabled:opacity-40 whitespace-nowrap"
+                        :title="soldBoardShowing ? 'Take the sold board off the screens' : 'Show the sold players on the wall and ticker'">
+                    <span x-text="soldBoardShowing ? 'Hide Sold' : 'Show Sold'"></span>
+                </button>
+
                 <button @click="toggleFullscreen()" class="w-8 h-8 rounded flex items-center justify-center bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" title="Toggle Fullscreen (F)">
                     <svg x-show="!isFullscreen" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                     <svg x-show="isFullscreen" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9L4 4m0 0v4m0-4h4m7 5l5-5m0 0v4m0-4h-4M9 15l-5 5m0 0v-4m0 4h4m7-5l5 5m0 0v-4m0 4h-4"/></svg>
@@ -3555,6 +3568,9 @@ function auctionOrganizerPanel() {
         unsoldPool: null,
 
         isSteppingBid: false,
+        // The sold board on the public screens — server state, mirrored here for the button.
+        soldBoardShowing: @js((bool) $auction->show_sold_board),
+        soldBoardBusy: false,
         // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
         _pendingSteps: 0,
 
@@ -3741,6 +3757,51 @@ function auctionOrganizerPanel() {
          * right chip, which under the opening-bid rule takes the standing price rather than
          * raising it.
          */
+        /**
+         * Put the board of sold players on the wall and the ticker, or take it down.
+         *
+         * The flag lives on the auction rather than on this panel, so every screen agrees and a
+         * wall opened or reloaded while the board is up comes back to the board. The server
+         * pushes the change as well as storing it, so the screens turn over when the button is
+         * pressed rather than up to two seconds later.
+         */
+        async toggleSoldBoard() {
+            if (this.soldBoardBusy) return;
+
+            const next = ! this.soldBoardShowing;
+            this.soldBoardBusy = true;
+            // Optimistic, like a raise: the button is the one control whose state the operator
+            // reads back immediately.
+            this.soldBoardShowing = next;
+
+            try {
+                const res = await fetch(`/admin/organizer/auction/${this.auctionId}/api/sold-board`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ showing: next }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    this.soldBoardShowing = !! data.showing;
+                    this.toast(data.message, 'success', 'Screens');
+                } else {
+                    this.soldBoardShowing = ! next;
+                    this.toast(data.message || 'The screens did not change.', 'error');
+                }
+            } catch (e) {
+                this.soldBoardShowing = ! next;
+                console.error('Sold board error:', e);
+                this.toast('That did not go through.', 'error');
+            } finally {
+                this.soldBoardBusy = false;
+            }
+        },
+
         async clearBidTeam() {
             if (! this.canStepBid || this.isSteppingBid) return;
             if (! this.guardControl('correct the price')) return;

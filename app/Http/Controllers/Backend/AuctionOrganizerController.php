@@ -647,6 +647,37 @@ class AuctionOrganizerController extends Controller
      * than taking a second pass at whoever went unsold. Players outside the pool, their
      * bids and their undo history are untouched.
      */
+    /**
+     * Put the board of sold players up on the public screens, or take it down.
+     *
+     * Between lots there is a natural gap — the room wants to see where the money has gone, and
+     * until now the only answer was the operator's own screen. The board is the same sold feed
+     * the wall already publishes, laid out as cards.
+     *
+     * Stored AND pushed. Stored, so a wall plugged in or reloaded while the board is up comes
+     * back to the board rather than to a live card the room is not looking at; pushed, so the
+     * screens change when the button is pressed rather than up to two seconds later, which on a
+     * wall reads as hesitation.
+     */
+    public function toggleSoldBoard(Request $request, Auction $auction): JsonResponse
+    {
+        $this->authorize('auction.edit');
+
+        $showing = $request->boolean('showing', ! $auction->show_sold_board);
+
+        $auction->update(['show_sold_board' => $showing]);
+
+        \App\Support\AfterResponse::run(
+            fn () => \App\Events\SoldBoardToggled::announce((int) $auction->id, $showing)
+        );
+
+        return response()->json([
+            'success' => true,
+            'showing' => $showing,
+            'message' => $showing ? 'Sold board is on the screens.' : 'Back to the live card.',
+        ]);
+    }
+
     public function restartPool(Request $request, Auction $auction, AuctionPool $pool)
     {
         if ((int) $pool->auction_id !== (int) $auction->id) {

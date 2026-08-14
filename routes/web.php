@@ -331,6 +331,9 @@ Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer
 
         // **FIX**: Added route to SHOW the panel page
         Route::get('/panel', [AuctionOrganizerController::class, 'showPanel'])->name('panel');
+        // Put the sold board up on the wall and the ticker, or take it down.
+        Route::post('/api/sold-board', [AuctionOrganizerController::class, 'toggleSoldBoard'])
+            ->name('api.sold-board');
         /*
          * The offline panel is a control surface by definition — its entire purpose is
          * entering bids by hand — so unlike the main panel it is not observable. An

@@ -484,6 +484,40 @@
             50% { opacity: 1; transform: scale(1.02); }
         }
 
+        /* ── Sold board ── */
+        .sold-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(var(--primary-rgb), 0.25);
+            border-radius: 16px;
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .sold-card img.face {
+            width: 62px; height: 62px; border-radius: 12px;
+            object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.06);
+        }
+        .sold-card .face-blank {
+            width: 62px; height: 62px; border-radius: 12px; flex-shrink: 0;
+            background: rgba(255,255,255,0.06); display: flex; align-items: center;
+            justify-content: center; font-size: 20px; font-weight: 800; color: rgba(255,255,255,0.45);
+        }
+        .sold-card .who { min-width: 0; }
+        .sold-card .nm {
+            font-size: 18px; font-weight: 800; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sold-card .tm {
+            font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.65);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;
+        }
+        .sold-card .amt {
+            font-size: 20px; font-weight: 900; margin-top: 4px;
+            color: rgb(var(--primary-rgb));
+        }
+
         /* A new player arriving. Short, and opacity plus a small rise only — nothing that
            reflows the card or moves the artwork a template author positioned. */
         @keyframes cardArrived {
@@ -1230,6 +1264,24 @@
     </div>
 
 
+    {{-- The board of players sold.
+         Put up from the organizer's panel between lots, when the room wants to see where the
+         money has gone. z-index sits above the card and below the restart notice, which must
+         still be able to interrupt anything. --}}
+    <div id="sold-board" class="hidden"
+         style="position:fixed;inset:0;z-index:140;background:rgba(2,6,23,0.97);
+                display:flex;flex-direction:column;padding:36px 44px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;">
+            <div style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
+            <div id="sold-board-count" style="font-size:22px;font-weight:700;
+                 color:rgba(var(--primary-rgb),0.95);"></div>
+        </div>
+        {{-- Scrolls rather than shrinking the cards: a face nobody can make out from the back
+             of a hall is not worth fitting on. --}}
+        <div id="sold-board-grid" style="flex:1;overflow-y:auto;display:grid;gap:16px;
+             grid-template-columns:repeat(auto-fill,minmax(230px,1fr));align-content:start;"></div>
+    </div>
+
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
          style="position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.82);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
@@ -1584,6 +1636,106 @@
         }
 
 
+        /**
+         * Call out who is bidding, and pulse when the figure moves.
+         *
+         * The leading team was only shown small, beside the price on the card. Across a
+         * hall that is unreadable, and the room needs to see who is in front the moment it
+         * changes. This says it across the top, in the same slot the result banner uses.
+         *
+         * Pulses on CHANGE only. A banner that flashes on every poll stops being read
+         * within a minute, and the whole point is that a raise catches the eye.
+         */
+        let _lastFlashKey = null;
+
+        function renderBidFlash(p) {
+            const el = document.getElementById('bid-flash');
+            if (!el) return;
+
+            const team = p?.current_bid_team;
+            const live = p && p.status === 'on_auction' && team && !sealedState;
+
+            // Not on the block, nobody leading, or a sealed round where the leader is
+            // frozen and the amounts are secret — nothing honest to announce.
+            if (!live) {
+                el.classList.add('hidden');
+                el.classList.remove('bid-flash-pulse');
+                _lastFlashKey = null;
+                return;
+            }
+
+            const amount = p.current_price ?? p.base_price ?? 0;
+            const key = `${team.id ?? team.name}:${amount}`;
+
+            document.getElementById('bid-flash-team').textContent = team.name || '';
+            document.getElementById('bid-flash-amount').textContent = formatMillions(amount);
+            el.classList.remove('hidden');
+
+            if (key !== _lastFlashKey) {
+                _lastFlashKey = key;
+                // Removing, forcing a reflow, then re-adding restarts the animation; without
+                // the reflow the browser coalesces the two changes and nothing plays.
+                el.classList.remove('bid-flash-pulse');
+                void el.offsetWidth;
+                el.classList.add('bid-flash-pulse');
+            }
+        }
+
+        function clearOutcomeState() {
+            const card = document.getElementById('card-container');
+            if (card) card.classList.remove('sold-state', 'unsold-state', 'skipped-state');
+
+            const soldText = document.getElementById('sold-text');
+            if (soldText) soldText.classList.remove('sold-active', 'unsold-active', 'skipped-active');
+
+            const soldBadge = document.getElementById('sold-badge');
+            if (soldBadge) {
+                soldBadge.classList.remove('sold-entrance');
+                soldBadge.classList.add('hidden');
+            }
+
+            const unsoldBadge = document.getElementById('unsold-badge');
+            if (unsoldBadge) {
+                unsoldBadge.classList.add('hidden');
+                unsoldBadge.style.display = 'none';
+            }
+
+            const teamLogo = document.getElementById('team-logo');
+            if (teamLogo) {
+                teamLogo.classList.remove('sold-entrance');
+                teamLogo.classList.add('hidden');
+            }
+
+            document.getElementById('highest-bidder')?.classList.add('hidden');
+            document.getElementById('result-banner')?.classList.add('hidden');
+
+            // The two banners share a slot at the top; a finished lot must not be announced
+            // underneath a live bid.
+            const flash = document.getElementById('bid-flash');
+            if (flash) {
+                flash.classList.add('hidden');
+                flash.classList.remove('bid-flash-pulse');
+            }
+            _lastFlashKey = null;
+        }
+        let isShuffling = false;
+        // The most recent payload that had a player on the block — the recovery path's input.
+        let lastGoodPlayer = null;
+        let hasCompletedFirstLoad = false;
+        let _confettiFiredForPlayer = null;
+
+        function fireConfetti() {
+            if (typeof confetti !== 'function') return;
+            confetti({ particleCount: 80, spread: 70, origin: { x: 0.1, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
+            setTimeout(() => {
+                confetti({ particleCount: 80, spread: 70, origin: { x: 0.9, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
+            }, 200);
+            setTimeout(() => {
+                confetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.3 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#f59e0b', '#ffffff'] });
+            }, 400);
+        }
+
+        // ── Shuffle Animation Controller ──
         /* Initialize Echo.
 
            config(), not env(). env() returns null the moment anyone runs
@@ -1765,6 +1917,75 @@
          * Re-triggered by removing the class and forcing a reflow: a CSS animation will not
          * replay while its class is already on the element.
          */
+        /**
+         * The board of players sold, drawn from the feed the wall already publishes.
+         *
+         * Fetched only while the board is up: it is a list of every sale in the auction and
+         * there is no reason to carry it on the two-second tick when nothing is showing it.
+         */
+        let soldBoardShowing = false;
+
+        function renderSoldBoard(rows) {
+            const grid = document.getElementById('sold-board-grid');
+            const count = document.getElementById('sold-board-count');
+            if (! grid) return;
+
+            const list = Array.isArray(rows) ? rows : [];
+
+            if (count) {
+                count.textContent = list.length === 1 ? '1 player' : `${list.length} players`;
+            }
+
+            if (! list.length) {
+                grid.innerHTML = '<div style="color:rgba(255,255,255,0.5);font-size:20px;">'
+                    + 'Nothing sold yet.</div>';
+                return;
+            }
+
+            grid.innerHTML = list.map((row) => {
+                const name = row?.player?.name || 'Player';
+                const team = row?.sold_to_team?.name || '';
+                const face = row?.player?.image
+                    ? `<img class="face" src="${escapeHtml(row.player.image)}" alt="">`
+                    : `<div class="face-blank">${escapeHtml(name.substring(0, 2).toUpperCase())}</div>`;
+
+                return '<div class="sold-card">'
+                    + face
+                    + '<div class="who">'
+                    + `<div class="nm">${escapeHtml(name)}</div>`
+                    + (team ? `<div class="tm">${escapeHtml(team)}</div>` : '')
+                    + `<div class="amt">${formatMillions(Number(row?.final_price) || 0)}</div>`
+                    + '</div></div>';
+            }).join('');
+        }
+
+        function fetchSoldBoard() {
+            fetch(`/auction/${auctionId}/sold-players`)
+                .then((res) => res.json())
+                .then((data) => renderSoldBoard(data?.soldPlayers))
+                .catch(() => {});
+        }
+
+        /**
+         * Show or hide the board.
+         *
+         * Idempotent: the poll calls this on every tick with whatever the server says, and the
+         * pushed frame calls it the moment the button is pressed. Only a CHANGE refetches, so
+         * the list is not pulled thirty times a minute while it sits on screen.
+         */
+        function applySoldBoard(showing) {
+            const el = document.getElementById('sold-board');
+            if (! el) return;
+
+            const next = !! showing;
+
+            el.classList.toggle('hidden', ! next);
+
+            if (next && ! soldBoardShowing) fetchSoldBoard();
+
+            soldBoardShowing = next;
+        }
+
         function markCardChanged() {
             const card = document.getElementById('card-container');
             if (! card) return;
@@ -2547,6 +2768,10 @@
                     // finished auction is the last player sold, with their winning team.
                     document.getElementById('completed-screen')?.classList.add('hidden');
 
+                    // The board, if the organizer has it up. Read from the feed so a wall
+                    // opened or reloaded mid-board comes back to the board.
+                    applySoldBoard(data?.show_sold_board);
+
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;
                         console.log('[Live] Got active player:', ap.player?.name, 'status:', ap.status);
@@ -2571,6 +2796,17 @@
                                      */
                                     lastOnAuctionPlayerId = ap.id;
                                     lastPlayerId = ap.id;
+                                    /*
+                                     * Wipe the PREVIOUS player's result first.
+                                     *
+                                     * The sold badge, the winning team's logo, the sold glow and
+                                     * the result banner live outside the card, so drawing a new
+                                     * card does not clear them. The shuffle used to do this on
+                                     * its way past; with the shuffle gone it has to be done here,
+                                     * or the hall sees the last player's SOLD across the next
+                                     * player's face.
+                                     */
+                                    clearOutcomeState();
                                     updatePlayerCard(ap);
                                     markCardChanged();
                                 }
@@ -2636,6 +2872,15 @@
                 console.info('[Live] sealed round:', event?.state);
                 refreshNow('sealed:' + (event?.state ?? '?'));
             })
+            /*
+             * The sold board going up or coming down. Applied straight away rather than waiting
+             * for the next tick — on a wall the whole room is looking at, two seconds of nothing
+             * after the button is pressed reads as a fault.
+             */
+            .listen('.board.sold', (event) => {
+                console.info('[Live] sold board:', event?.showing);
+                applySoldBoard(event?.showing);
+            })
             .listen('.player-on-sold', (event) => {
                 console.log('[Live] Player sold event:', event);
                 const auctionPlayer = event.auctionPlayer;
@@ -2670,9 +2915,11 @@
                 if (!ap) return;
 
                 if (ap.id !== lastOnAuctionPlayerId) {
-                    // Straight to the card — see the poll path above.
+                    // Straight to the card — see the poll path above, including why the
+                    // previous player's result has to be cleared here.
                     lastOnAuctionPlayerId = ap.id;
                     lastPlayerId = ap.id;
+                    clearOutcomeState();
                     updatePlayerCard(ap);
                     markCardChanged();
                     // A new player brings a new clock, pool position and stats with them.
