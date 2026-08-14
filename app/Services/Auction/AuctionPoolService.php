@@ -916,18 +916,46 @@ class AuctionPoolService
             return (float) $submitted;
         }
 
-        // Never overwrite a price somebody already set with a default.
-        if ($existing && is_numeric($existing->retained_price) && (float) $existing->retained_price > 0) {
+        /*
+         * A competition that prices its icon players at NOTHING means it.
+         *
+         * `players.retained_value` is stamped when a player is retained, from whatever the
+         * default was that day — so it is not a per-player decision, it is a copy of an old
+         * rule. Setting the tournament's Icon Player Value to 0 afterwards changed nothing,
+         * because every check below preferred that stale copy: twenty icon players carried on
+         * costing their teams 4M each, 80M taken out of an auction whose configured icon value
+         * was zero.
+         *
+         * So a configured 0 is authoritative. It is the only value that can be read as "no
+         * charge for keeping a player", it cannot be arrived at by accident — the field is blank
+         * or a figure, and blank falls through to the default rather than landing here — and an
+         * organizer who wants individual prices sets them individually, which is the `$submitted`
+         * branch above and still wins.
+         */
+        $configured = $auction->defaultRetainedValue();
+
+        if ($configured <= 0.0) {
+            return 0.0;
+        }
+
+        /*
+         * Otherwise a stored price stands, including a deliberate 0.
+         *
+         * `> 0` was the test, which made zero unstorable: an organizer who set one player to
+         * free had it replaced by the default on the next sync, because 0 was indistinguishable
+         * from "nothing recorded". Null is what "nothing recorded" means.
+         */
+        if ($existing && $existing->retained_price !== null && is_numeric($existing->retained_price)) {
             return (float) $existing->retained_price;
         }
 
-        // The player's own retention value — required at the point they were retained,
-        // so it is the closest thing on record to the organizer's actual intent.
-        if ($player && is_numeric($player->retained_value) && (float) $player->retained_value > 0) {
+        // The player's own retention value — recorded when they were retained, and the closest
+        // thing on file to the organizer's intent for them specifically.
+        if ($player && $player->retained_value !== null && is_numeric($player->retained_value)) {
             return (float) $player->retained_value;
         }
 
-        return $auction->defaultRetainedValue();
+        return $configured;
     }
 
     public function resolveBasePrice(Auction $auction, ?AuctionPool $pool, mixed $playerPrice = null): float
