@@ -1067,10 +1067,27 @@ class AuctionOrganizerController extends Controller
             ], 400);
         }
 
-        // Set this player live
+        /*
+         * Set this player live, never below the auction's own opening figure.
+         *
+         * The base price is stored per player, and rows written before the floor existed still
+         * carry whatever they were given — 1.00, from the days when an untouched pool's default
+         * beat the auction's setting. Those rows survive in places a one-off repair does not
+         * reach: an unsold player going back on the block, a pool reopened, an auction restarted.
+         *
+         * So the floor is applied HERE, at the moment a lot opens, as well as when the row is
+         * written. That is the last point before a hall sees a figure, and it means no legacy row
+         * can put a player up at one point however it got there. The row is corrected too, so the
+         * queue and the poster agree with the board.
+         */
+        $floor = (float) ($auction->base_price ?? 0);
+        $openingPrice = max((float) $auctionPlayer->base_price, $floor);
+
         $auctionPlayer->update([
             'status' => 'on_auction',
-            'current_price' => $auctionPlayer->base_price,
+            'base_price' => $openingPrice,
+            'starting_price' => $openingPrice,
+            'current_price' => $openingPrice,
             'current_bid_team_id' => null,
         ]);
 
@@ -1711,8 +1728,12 @@ class AuctionOrganizerController extends Controller
             'base_price' => $ap->base_price,
             'image_path' => $ap->player?->image_path,
             'player_type' => $ap->player?->playerType?->name ?? $ap->player?->playerType?->type ?? 'Player',
-            'batting_style' => $ap->player?->battingProfile?->name ?? $ap->player?->battingProfile?->style,
-            'bowling_style' => $ap->player?->bowlingProfile?->name ?? $ap->player?->bowlingProfile?->style,
+            // `style` first: it is the actual column. `name` does not exist on either profile
+            // table, and reading it first was harmless only because of the fallback.
+            'batting_style' => $ap->player?->battingProfile?->style ?? $ap->player?->battingProfile?->name,
+            'bowling_style' => $ap->player?->bowlingProfile?->style ?? $ap->player?->bowlingProfile?->name,
+            'is_wicket_keeper' => (bool) $ap->player?->is_wicket_keeper,
+            'travel_plan_label' => $ap->player?->travel_plan_label,
             'total_matches' => $ap->player?->total_matches,
             'total_runs' => $ap->player?->total_runs,
             'total_wickets' => $ap->player?->total_wickets,

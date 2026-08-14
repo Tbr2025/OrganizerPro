@@ -51,9 +51,19 @@ class AuctionPollPayloadSizeTest extends TestCase
 
         // The ten fields the panel maps, and nothing else — an eleventh means a model leaked
         // back in.
+        /*
+         * Two fields joined this list: `is_wicket_keeper` and `travel_plan_label`. Both were on the
+         * wall and on the poster and on neither panel, so an operator could see a batting style but
+         * not whether the player keeps wicket or can reach the tournament — and those are the two
+         * facts that change what a lot is worth.
+         *
+         * Both are scalars, which is the point of asserting the shape here: the queue must stay a
+         * flat projection and never drift back to whole models on a two-second poll.
+         */
         $this->assertSame([
             'id', 'name', 'base_price', 'image_path', 'player_type',
-            'batting_style', 'bowling_style', 'total_matches', 'total_runs', 'total_wickets',
+            'batting_style', 'bowling_style', 'is_wicket_keeper', 'travel_plan_label',
+            'total_matches', 'total_runs', 'total_wickets',
         ], array_keys($first));
     }
 

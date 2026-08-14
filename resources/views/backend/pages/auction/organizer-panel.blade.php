@@ -94,8 +94,14 @@
              'base_price' => $ap->base_price,
              'image_path' => $ap->player->image_path,
              'player_type' => $ap->player->playerType?->name ?? 'Player',
-             'batting_style' => $ap->player->battingProfile?->name ?? null,
-             'bowling_style' => $ap->player->bowlingProfile?->name ?? null,
+             /* `style`, not `name`. There is no `name` column on batting_profiles or
+                bowling_profiles — the column is `style` — so this read null for every player
+                since the day it was written, and the panel has never shown a batting or bowling
+                style. Every other caller in the codebase reads `style`; these two maps did not. */
+             'batting_style' => $ap->player->battingProfile?->style ?? $ap->player->battingProfile?->name,
+             'bowling_style' => $ap->player->bowlingProfile?->style ?? $ap->player->bowlingProfile?->name,
+             'is_wicket_keeper' => (bool) $ap->player->is_wicket_keeper,
+             'travel_plan_label' => $ap->player->travel_plan_label,
              'total_matches' => $ap->player->total_matches,
              'total_runs' => $ap->player->total_runs,
              'total_wickets' => $ap->player->total_wickets,
@@ -133,8 +139,13 @@
                  'name' => $currentPlayer->player->name,
                  'image_path' => $currentPlayer->player->image_path,
                  'player_type' => $currentPlayer->player->playerType?->name ?? 'Player',
-                 'batting_style' => $currentPlayer->player->battingProfile?->name ?? null,
-                 'bowling_style' => $currentPlayer->player->bowlingProfile?->name ?? null,
+                 'batting_style' => $currentPlayer->player->battingProfile?->style ?? $currentPlayer->player->battingProfile?->name,
+                 'bowling_style' => $currentPlayer->player->bowlingProfile?->style ?? $currentPlayer->player->bowlingProfile?->name,
+                 'is_wicket_keeper' => (bool) $currentPlayer->player->is_wicket_keeper,
+                 /* Sent on the FIRST render, not only by the poll. The poll serializes the whole
+                    model and gets this from the accessor, so the chips appeared two seconds after
+                    the player did — long enough for an operator to conclude they were missing. */
+                 'travel_plan_label' => $currentPlayer->player->travel_plan_label,
                  'total_matches' => $currentPlayer->player->total_matches,
                  'total_runs' => $currentPlayer->player->total_runs,
                  'total_wickets' => $currentPlayer->player->total_wickets,
@@ -991,6 +1002,19 @@
                                 </span>
                             </template>
 
+                            {{-- Wicket keeper. It is on the wall and on the poster and was never
+                                 on the panel, so the one person deciding what to open the bidding
+                                 at could not see it. --}}
+                            <template x-if="currentPlayer?.player?.is_wicket_keeper">
+                                <span class="flex items-center gap-1.5 text-amber-300">
+                                    <span class="text-gray-600">&bull;</span>
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path d="M10 2a4 4 0 00-4 4v1.2A3 3 0 004 10v4a4 4 0 004 4h4a4 4 0 004-4v-4a3 3 0 00-2-2.8V6a4 4 0 00-4-4zm-2 4a2 2 0 114 0v1H8V6z"/>
+                                    </svg>
+                                    <span>WK</span>
+                                </span>
+                            </template>
+
                             {{-- Travel plan, when the player has one. Read from the model's
                                  travel_plan_label accessor rather than assembled here, so the
                                  panel, the LED wall and the downloaded card cannot answer the
@@ -999,7 +1023,7 @@
                                 <span class="flex items-center gap-1.5 text-sky-300">
                                     <span class="text-gray-600">&bull;</span>
                                     <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+                                        <g transform="rotate(45 10 10)"><path d="M17.5 13.3v-1.6l-6.6-4.2V3.1c0-.7-.6-1.2-1.2-1.2S8.4 2.4 8.4 3.1v4.4L1.8 11.7v1.6l6.6-2v4.4l-1.7 1.2v1.2l2.9-.8 2.9.8v-1.2l-1.7-1.2v-4.4l6.7 2z"/></g>
                                     </svg>
                                     <span x-text="currentPlayer.player.travel_plan_label"></span>
                                 </span>
@@ -5918,15 +5942,24 @@ function auctionOrganizerPanel() {
             return typeof pt === 'object' ? pt?.name : pt || 'Player';
         },
 
+        /*
+         * `style`, then `name`.
+         *
+         * Two bugs stacked here and between them the panel has never shown a batting or bowling
+         * style. The server map read `battingProfile->name`, and the column is `style`; and when
+         * the poll sends the whole model instead, this read `.name` off the nested object for the
+         * same reason. Either alone would have been covered by the other.
+         */
         getBattingStyle(player) {
             if (!player?.player) return null;
             const bs = player.player.batting_style || player.player.battingProfile;
-            return typeof bs === 'object' ? bs?.name : bs;
+            return typeof bs === 'object' ? (bs?.style || bs?.name) : bs;
         },
 
         getBowlingStyle(player) {
             if (!player?.player) return null;
             const bs = player.player.bowling_style || player.player.bowlingProfile;
+            if (typeof bs === 'object') return bs?.style || bs?.name;
             return typeof bs === 'object' ? bs?.name : bs;
         },
 

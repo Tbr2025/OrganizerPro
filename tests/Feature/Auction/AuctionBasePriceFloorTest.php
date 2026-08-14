@@ -88,6 +88,53 @@ class AuctionBasePriceFloorTest extends TestCase
         $this->assertSame(2_500_000.0, $service->resolveBasePrice($auction, null, 2_500_000));
     }
 
+    /**
+     * A legacy row cannot put a player up at one point, however it got there.
+     *
+     * The repair and the resolver both fix rows as they are WRITTEN. Rows written before the floor
+     * existed survive in places that never rewrites: an unsold player going back on the block, a
+     * pool reopened, an auction restarted. So the floor is applied again at the last moment before
+     * a hall sees a figure.
+     */
+    #[Test]
+    public function a_lot_that_opens_is_lifted_to_the_auctions_floor(): void
+    {
+        $auction = $this->auction();
+        $auction->update(['status' => 'running']);
+
+        $org = Organization::find($auction->organization_id);
+        $player = \App\Models\Player::create([
+            'organization_id' => $org->id, 'name' => 'Legacy Row', 'email' => 'legacy@x.test',
+            'status' => 'approved',
+        ]);
+
+        // A row from before the floor existed: one point, exactly what live had.
+        $row = \App\Models\AuctionPlayer::create([
+            'auction_id' => $auction->id, 'player_id' => $player->id,
+            'organization_id' => $org->id, 'status' => 'waiting',
+            'base_price' => 1, 'current_price' => 1, 'starting_price' => 1,
+        ]);
+
+        $admin = \App\Models\User::factory()->create(['organization_id' => $org->id]);
+        $role = \App\Models\Role::firstOrCreate(['name' => 'Superadmin', 'guard_name' => 'web']);
+        foreach (['auction.view', 'auction.edit', 'auction.control', 'auction.observe'] as $name) {
+            \App\Models\Permission::firstOrCreate(['name' => $name, 'guard_name' => 'web'], ['group_name' => 'auction']);
+        }
+        $role->syncPermissions(['auction.view', 'auction.edit', 'auction.control', 'auction.observe']);
+        $admin->assignRole($role);
+
+        $this->actingAs($admin)
+            ->postJson(route('admin.auction.organizer.api.player.onbid', $auction), [
+                'auction_player_id' => $row->id,
+            ])
+            ->assertStatus(200);
+
+        $row->refresh();
+
+        $this->assertSame('1000000.00', (string) $row->current_price, 'the room must not see one point');
+        $this->assertSame('1000000.00', (string) $row->base_price, 'and the row is corrected, not just the display');
+    }
+
     #[Test]
     public function an_auction_with_no_base_price_still_resolves_to_zero_rather_than_failing(): void
     {

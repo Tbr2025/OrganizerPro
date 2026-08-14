@@ -229,6 +229,24 @@
                                 <span class="px-1.5 py-px bg-gray-800/80 border border-gray-700/60 rounded text-[10px] text-gray-300 font-medium" x-text="player.role"></span>
                                 <span x-show="player.batting_style && player.batting_style !== 'N/A'" class="px-1.5 py-px bg-gray-800/80 border border-gray-700/60 rounded text-[10px] text-gray-500" x-text="player.batting_style"></span>
                                 <span x-show="player.bowling_style && player.bowling_style !== 'N/A'" class="px-1.5 py-px bg-gray-800/80 border border-gray-700/60 rounded text-[10px] text-gray-500" x-text="player.bowling_style"></span>
+
+                                {{-- Wicket keeper and travel dates.
+                                     Both are on the wall and on the poster, and neither was here —
+                                     so the manager deciding whether to bid could see a batting
+                                     style but not whether the player keeps wicket or can even get
+                                     to the tournament. Those are squad decisions, which is exactly
+                                     what this screen is for. --}}
+                                <span x-show="player.is_wicket_keeper"
+                                      class="px-1.5 py-px bg-amber-500/15 border border-amber-500/40 rounded text-[10px] text-amber-300 font-bold">
+                                    WK
+                                </span>
+                                <span x-show="player.travel_plan_label"
+                                      class="inline-flex items-center gap-1 px-1.5 py-px bg-sky-500/15 border border-sky-500/40 rounded text-[10px] text-sky-300 font-semibold">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                        <g transform="rotate(45 10 10)"><path d="M17.5 13.3v-1.6l-6.6-4.2V3.1c0-.7-.6-1.2-1.2-1.2S8.4 2.4 8.4 3.1v4.4L1.8 11.7v1.6l6.6-2v4.4l-1.7 1.2v1.2l2.9-.8 2.9.8v-1.2l-1.7-1.2v-4.4l6.7 2z"/></g>
+                                    </svg>
+                                    <span x-text="player.travel_plan_label"></span>
+                                </span>
                             </div>
                             {{-- Player Stats --}}
                             <div x-show="player.total_matches != null || player.total_runs != null || player.total_wickets != null" class="flex items-center gap-2 mt-1.5">
@@ -916,7 +934,7 @@ function teamBiddingPanel() {
         /** A one-line note when the connection is degraded, or null when it is fine. */
         networkWarning: null,
         _lastAppliedBidId: 0,
-        player: { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", total_matches: null, total_runs: null, total_wickets: null },
+        player: { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", is_wicket_keeper: false, travel_plan_label: "", total_matches: null, total_runs: null, total_wickets: null },
         soldPlayers: @json($soldPlayers ?? []),
         state: "waiting",
         auctionStatus: "{{ $auction->status }}",
@@ -1663,6 +1681,10 @@ function teamBiddingPanel() {
                 role: (typeof pt === "object" ? (pt.name || pt.type) : pt) || "Player",
                 batting_style: (typeof bp === "object" ? (bp.style || bp.name) : bp) || "N/A",
                 bowling_style: (typeof bw === "object" ? (bw.style || bw.name) : bw) || "N/A",
+                is_wicket_keeper: !! (p.is_wicket_keeper ?? false),
+                /* From the model's accessor, like the wall and the poster — three screens must not
+                   assemble the same dates three ways. */
+                travel_plan_label: p.travel_plan_label || '',
                 total_matches: p.total_matches ?? null,
                 total_runs: p.total_runs ?? null,
                 total_wickets: p.total_wickets ?? null,
@@ -1672,7 +1694,7 @@ function teamBiddingPanel() {
         },
 
         resetPlayer() {
-            this.player = { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", total_matches: null, total_runs: null, total_wickets: null };
+            this.player = { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", is_wicket_keeper: false, travel_plan_label: "", total_matches: null, total_runs: null, total_wickets: null };
             this.myBidAmount = 0;
             this.sealedInputM = "";
             this.bidSuccess = "";
