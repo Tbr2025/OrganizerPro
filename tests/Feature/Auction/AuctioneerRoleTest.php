@@ -77,9 +77,29 @@ class AuctioneerRoleTest extends TestCase
         return compact('org', 'tournament', 'auction', 'team');
     }
 
-    private function auctioneer(Organization $org): User
+    /**
+     * An auctioneer NAMED ON THE AUCTION.
+     *
+     * The role alone used to be enough for every auction in the organization, because a
+     * permission cannot say which one. It now has to be granted per auction — see
+     * EnsureAuctionOperator — so the fixture grants it, and
+     * an_auctioneer_not_named_on_the_auction_is_refused() covers the other side.
+     *
+     * @param  \App\Models\Auction|null  $auction  omit to make an auctioneer named on nothing
+     */
+    private function auctioneer(Organization $org, $auction = null): User
     {
-        return $this->user($org, 'Auctioneer', ['auction.view', 'auction.observe', 'auction.closed-bids']);
+        $user = $this->user($org, 'Auctioneer', ['auction.view', 'auction.observe', 'auction.closed-bids']);
+
+        if ($auction) {
+            \App\Models\AuctionOperator::create([
+                'auction_id' => $auction->id,
+                'user_id' => $user->id,
+                'abilities' => [\App\Models\AuctionOperator::ABILITY_OBSERVE],
+            ]);
+        }
+
+        return $user;
     }
 
     private function organizer(Organization $org): User
@@ -92,7 +112,7 @@ class AuctioneerRoleTest extends TestCase
     {
         ['org' => $org, 'auction' => $auction] = $this->scenario();
 
-        $this->actingAs($this->auctioneer($org))
+        $this->actingAs($this->auctioneer($org, $auction))
             ->get(route('admin.auction.organizer.panel', $auction))
             ->assertOk();
     }
@@ -104,10 +124,50 @@ class AuctioneerRoleTest extends TestCase
 
         // The panel's whole live payload comes from one GET, so this is the test that the
         // auctioneer really can follow the auction rather than just load a shell.
-        $this->actingAs($this->auctioneer($org))
+        $this->actingAs($this->auctioneer($org, $auction))
             ->getJson(route('admin.auction.organizer.api.poll-state', $auction))
             ->assertOk()
             ->assertJsonStructure(['teams', 'stats']);
+    }
+
+    #[Test]
+    public function an_auctioneer_not_named_on_the_auction_is_refused(): void
+    {
+        /*
+         * The point of scoping. The role carries the permission, so the route's own guard is
+         * satisfied — and that used to be the whole test, which meant somebody trusted to call
+         * one evening's lots could open every auction in the organization.
+         */
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        $this->actingAs($this->auctioneer($org))
+            ->get(route('admin.auction.organizer.panel', $auction))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function an_auctioneer_named_on_one_auction_cannot_open_another(): void
+    {
+        ['org' => $org, 'tournament' => $tournament, 'auction' => $auction] = $this->scenario();
+
+        $other = Auction::create([
+            'name' => 'A different evening', 'status' => 'running',
+            'max_budget_per_team' => 100_000_000, 'base_price' => 1_000_000,
+            'organization_id' => $org->id, 'tournament_id' => $tournament->id,
+            'bid_type' => 'open', 'bid_timer_seconds' => 30,
+            'bid_rules' => [['from' => 0, 'to' => 200_000_000, 'increment' => 100_000]],
+        ]);
+
+        // Named on the first, and only the first.
+        $user = $this->auctioneer($org, $auction);
+
+        $this->actingAs($user)
+            ->get(route('admin.auction.organizer.panel', $auction))
+            ->assertOk();
+
+        $this->actingAs($user)
+            ->get(route('admin.auction.organizer.panel', $other))
+            ->assertForbidden();
     }
 
     #[Test]
@@ -159,7 +219,7 @@ class AuctioneerRoleTest extends TestCase
     {
         ['org' => $org, 'auction' => $auction] = $this->scenario();
 
-        $html = $this->actingAs($this->auctioneer($org))
+        $html = $this->actingAs($this->auctioneer($org, $auction))
             ->get(route('admin.auction.organizer.panel', $auction))
             ->assertOk()
             ->getContent();

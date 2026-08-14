@@ -58,6 +58,12 @@
                         </a>
                         {{-- Sponsor artwork for the wall and the ticker. Beside the pools because both are
                  things set up before the room fills, not during it. --}}
+            {{-- Who may run this one. Beside the ads because both are set up before the room
+                 fills rather than during it. --}}
+            <a href="{{ route('admin.auctions.operators.index', $auction) }}"
+               class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                Who runs it
+            </a>
             <a href="{{ route('admin.auctions.ads.index', $auction) }}"
                class="px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
                 Ads &amp; Sponsors

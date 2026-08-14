@@ -707,6 +707,12 @@ class Auction extends Model
         return $acknowledged ? null : round($pct, 1);
     }
 
+    /** Who may run this auction, and what they may do in it — see AuctionOperator. */
+    public function operators()
+    {
+        return $this->hasMany(AuctionOperator::class);
+    }
+
     /** Sponsor artwork for the public screens — see AuctionAd. */
     public function ads()
     {
