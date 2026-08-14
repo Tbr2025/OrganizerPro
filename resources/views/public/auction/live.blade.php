@@ -196,105 +196,91 @@
             100% { transform: scale(1.02); }
         }
 
-        /* ── IPL SOLD dramatic effects ── */
-        .card-container.sold-state {
-            animation: sold-brightness 1.5s ease-out forwards;
-        }
-        @keyframes sold-brightness {
-            0% { filter: brightness(1); }
-            20% { filter: brightness(1.6); }
-            100% { filter: brightness(1); }
-        }
-        .card-container.sold-state::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at center, rgba(var(--secondary-rgb), 0.2) 0%, transparent 70%);
-            animation: sold-burst 1.5s ease-out forwards;
-            pointer-events: none;
-            z-index: 8;
-        }
-        @keyframes sold-burst {
-            0% { opacity: 0; transform: scale(0.5); }
-            40% { opacity: 1; transform: scale(1.1); }
-            100% { opacity: 0; transform: scale(1.3); }
-        }
+        /*
+         * ── The sale: one hammer, one popper, nothing else ──
+         *
+         * This was five animations firing on the same frame — the card flashed brighter, a green
+         * glow burst out of the middle, the label popped in from a third of its size, the price
+         * bounced, the badge and the buyer's logo each faded in on their own delay. Any one of
+         * them is defensible; all of them together read as a screensaver, and the thing the room
+         * actually needs to register — the stamp landing on the card — was the hardest part to
+         * see in the noise.
+         *
+         * What is left is the gesture that means "sold" in every hall in the world: the gavel
+         * comes down on the tag, the tag takes the hit, the poppers go off. The colour and the
+         * dimming are static now. Only the strike moves.
+         */
         #sold-text.sold-active {
-            animation: sold-text-entrance 0.6s ease-out forwards;
             text-shadow: 0 0 20px rgba(34,197,94,0.8), 0 0 40px rgba(34,197,94,0.4) !important;
             color: #22c55e !important;
         }
-        @keyframes sold-text-entrance {
-            0% { transform: scale(0.3); opacity: 0; }
-            60% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
         /*
-         * ── The sale, staged ──
+         * ── The gavel ──
          *
-         * Every layer used to arrive on the same frame, so a sale read as one flash and the eye
-         * had nothing to follow. These delays walk it: the price is acknowledged, the buyer
-         * appears, the word lands, the stamp strikes. Under a second in total — a hall will not
-         * wait for a sequence, and the next lot is already coming.
+         * A real wooden gavel, drawn as inline SVG: a hall reads a mallet coming down as "sold"
+         * before it reads any word on the screen. Inline rather than an uploaded image so it
+         * costs nothing on a venue uplink and cannot be the one asset that fails to load.
          *
-         * Delays only. No JavaScript timeline, no per-frame work: the browser composites opacity
-         * and transform on its own thread, which is what keeps this smooth on venue hardware
-         * that is also driving a projector.
+         * It is placed against the SOLD badge at strike time rather than at a fixed spot on the
+         * page, because the badge is positioned by whoever laid out the template — a hard-coded
+         * `top: 18%` had the hammer swinging at empty artwork on any template that put the stamp
+         * anywhere else.
+         *
+         * Transform and opacity only, so the browser composites it off the main thread. Venue
+         * hardware is usually also driving a projector.
          */
-        #current-bid.sold-pulse {
-            animation: sold-price-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-        @keyframes sold-price-pulse {
-            0%   { transform: scale(1); }
-            45%  { transform: scale(1.14); text-shadow: 0 0 34px rgba(34,197,94,0.85); }
-            100% { transform: scale(1); }
-        }
-
-        #sold-badge.sold-entrance {
-            animation: badge-flash-in 0.45s ease-out 0.45s backwards;
-        }
-
-        /* The buyer, a beat after the price. */
-        #team-logo.sold-entrance {
-            animation: badge-flash-in 0.45s ease-out 0.18s backwards;
-        }
-
-        /* The word, between the two. */
-        #sold-text.sold-active {
-            animation-delay: 0.3s;
-            animation-fill-mode: backwards;
-        }
-
-        /* The hammer: one strike as the stamp lands, then gone. Drawn in CSS rather than loaded
-           as an image, so it costs nothing on a venue uplink. */
         #sold-hammer {
-            position: absolute; top: 18%; left: 50%; z-index: 30;
-            font-size: 84px; line-height: 1; pointer-events: none;
-            transform-origin: 80% 80%;
-            opacity: 0;
+            position: fixed; z-index: 60;
+            width: 220px; height: 220px;
+            pointer-events: none; opacity: 0;
+            /* The butt of the handle: a gavel pivots where the hand holds it, not at its centre. */
+            transform-origin: 13% 78%;
+            will-change: transform, opacity;
         }
-        #sold-hammer.strike {
-            animation: hammer-strike 0.75s cubic-bezier(0.36, 0, 0.66, -0.56) 0.35s forwards;
-        }
+        #sold-hammer svg { width: 100%; height: 100%; display: block;
+            filter: drop-shadow(0 14px 22px rgba(0,0,0,0.55)); }
+
+        /* Up, held for a beat, down hard, one small bounce off the tag, gone. The impact is at
+           45% — everything else on the sale is timed to that moment. */
+        #sold-hammer.strike { animation: hammer-strike 1.05s cubic-bezier(0.4, 0, 0.9, 1) forwards; }
         @keyframes hammer-strike {
-            0%   { opacity: 0; transform: translateX(-50%) rotate(-58deg) scale(0.8); }
-            35%  { opacity: 1; transform: translateX(-50%) rotate(-58deg) scale(1); }
-            55%  { opacity: 1; transform: translateX(-50%) rotate(6deg) scale(1.05); }
-            70%  { opacity: 1; transform: translateX(-50%) rotate(-4deg) scale(1); }
-            100% { opacity: 0; transform: translateX(-50%) rotate(0deg) scale(0.94); }
+            0%   { opacity: 0; transform: rotate(-62deg) scale(0.92); }
+            18%  { opacity: 1; transform: rotate(-62deg) scale(1); }
+            30%  { opacity: 1; transform: rotate(-66deg) scale(1); }   /* the wind-up */
+            45%  { opacity: 1; transform: rotate(4deg)   scale(1.02); } /* contact */
+            56%  { opacity: 1; transform: rotate(-13deg) scale(1); }   /* rebound off the tag */
+            66%  { opacity: 1; transform: rotate(1deg)   scale(1); }   /* settles on it */
+            100% { opacity: 0; transform: rotate(-10deg) scale(0.97); }
         }
+
         /*
-         * Flashes in; it does not spin.
+         * The tag takes the hit: driven under, then back. Starts on the frame the gavel lands.
          *
-         * A badge that arrives spinning through 180 degrees reads as a graphic doing a trick,
-         * and it fights the template's own rotation — an author who tilts the badge in the
-         * editor had that tilt overwritten by the animation's final `rotate(0deg)`. A short
-         * fade with the faintest overshoot lands it without either problem.
+         * The rotation is carried through `--badge-rot`, set from the badge's own computed
+         * transform before the strike. A bare `scale()` here would replace that transform for the
+         * length of the animation — an author who tilted the stamp in the editor would watch it
+         * snap upright the moment it was hit, then snap back. Animations beat inline styles, so
+         * the tilt has to be written into the keyframes rather than left underneath them.
          */
-        @keyframes badge-flash-in {
-            0%   { transform: scale(0.86); opacity: 0; }
-            55%  { transform: scale(1.04); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
+        #sold-badge.hammer-hit { animation: badge-punched 0.42s cubic-bezier(0.22, 1.4, 0.5, 1) 0.47s backwards; }
+        @keyframes badge-punched {
+            0%   { transform: rotate(var(--badge-rot, 0deg)) scale(1.06); }
+            22%  { transform: rotate(var(--badge-rot, 0deg)) scale(0.9); }
+            60%  { transform: rotate(var(--badge-rot, 0deg)) scale(1.04); }
+            100% { transform: rotate(var(--badge-rot, 0deg)) scale(1); }
+        }
+
+        /* One ring off the point of contact. Sized and placed in JS from the badge's own box. */
+        #sold-impact {
+            position: fixed; z-index: 59; pointer-events: none;
+            border-radius: 999px; opacity: 0;
+            border: 6px solid rgba(255,255,255,0.85);
+            box-shadow: 0 0 40px rgba(255,255,255,0.5);
+        }
+        #sold-impact.pop { animation: impact-ring 0.5s ease-out 0.47s forwards; }
+        @keyframes impact-ring {
+            0%   { opacity: 0.95; transform: scale(0.25); }
+            100% { opacity: 0; transform: scale(1.9); }
         }
 
         /* HTML fallback sold stamp (when no sticker uploaded) */
@@ -363,17 +349,12 @@
                 inset 0 0 26px rgba(239,68,68,0.20),
                 0 10px 30px rgba(0,0,0,0.55);
         }
-        #team-logo.sold-entrance {
-            animation: team-logo-entrance 0.45s ease-out 0.15s forwards;
-            opacity: 0;
-        }
-        /* Flash in, like the badge above — a winning team's logo tumbling into place was the
-           same trick twice on the same screen. */
-        @keyframes team-logo-entrance {
-            0%   { transform: scale(0.9); opacity: 0; }
-            55%  { transform: scale(1.03); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        /*
+         * The buyer's logo simply appears. It had its own fade-in on a delay, which was one more
+         * thing moving during the strike — and the `opacity: 0` that fade started from is a trap:
+         * remove the animation and forget the rule, and the logo never shows up at all.
+         */
+        #team-logo.sold-entrance { opacity: 1; }
 
         /* ── IPL UNSOLD dramatic effects ── */
         .card-container.unsold-state {
@@ -1504,9 +1485,46 @@
         &#128266; Enable sound
     </button>
 
-    {{-- The hammer, struck once as a sale lands. Inside the card container so it sits over the
-         artwork rather than over the whole screen. --}}
-    <div id="sold-hammer" aria-hidden="true">&#128296;</div>
+    {{-- The gavel, struck once as a sale lands, on the SOLD tag itself. Positioned against that
+         tag at strike time — see #sold-hammer in the stylesheet for why it is not fixed to a spot
+         on the page. --}}
+    <div id="sold-hammer" aria-hidden="true">
+        <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="gavel-wood" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stop-color="#d09a5e"/>
+                    <stop offset="38%"  stop-color="#a9682f"/>
+                    <stop offset="70%"  stop-color="#7d4718"/>
+                    <stop offset="100%" stop-color="#5c3211"/>
+                </linearGradient>
+                <linearGradient id="gavel-handle" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stop-color="#c08c52"/>
+                    <stop offset="55%"  stop-color="#8d571f"/>
+                    <stop offset="100%" stop-color="#5a3010"/>
+                </linearGradient>
+            </defs>
+
+            {{-- Handle, running down-left from the head to the hand. --}}
+            <g transform="rotate(-38 16 92)">
+                <rect x="12" y="85" width="80" height="14" rx="7" fill="url(#gavel-handle)"/>
+                <rect x="12" y="88" width="80" height="3"  rx="1.5" fill="rgba(255,255,255,0.16)"/>
+                <rect x="12" y="85" width="12" height="14" rx="6" fill="#4a2709"/>
+            </g>
+
+            {{-- Head, square to the handle. The lower face is what lands on the tag. --}}
+            <g transform="rotate(52 78 44)">
+                <rect x="55" y="28" width="46" height="32" rx="8" fill="url(#gavel-wood)"/>
+                <rect x="55" y="28" width="46" height="7"  rx="4" fill="rgba(255,255,255,0.22)"/>
+                <rect x="63" y="28" width="4"  height="32" fill="rgba(0,0,0,0.18)"/>
+                <rect x="89" y="28" width="4"  height="32" fill="rgba(0,0,0,0.18)"/>
+                <rect x="53" y="26" width="6"  height="36" rx="3" fill="#3f2208"/>
+                <rect x="97" y="26" width="6"  height="36" rx="3" fill="#3f2208"/>
+            </g>
+        </svg>
+    </div>
+
+    {{-- The ring thrown off the point of contact. --}}
+    <div id="sold-impact" aria-hidden="true"></div>
 
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
@@ -1987,8 +2005,7 @@
 
             const soldText = document.getElementById('sold-text');
             if (soldText) soldText.classList.remove('sold-active', 'unsold-active', 'skipped-active');
-            document.getElementById('current-bid')?.classList.remove('sold-pulse');
-            document.getElementById('sold-hammer')?.classList.remove('strike');
+            clearGavel();
 
             const soldBadge = document.getElementById('sold-badge');
             if (soldBadge) {
@@ -2026,15 +2043,129 @@
         let hasCompletedFirstLoad = false;
         let _confettiFiredForPlayer = null;
 
+        /*
+         * ── The poppers ──
+         *
+         * Two party poppers, fired up and inwards from the bottom corners, throwing streamers.
+         * It was three even bursts of small round confetti before, which fell like weather; a
+         * popper has a direction and a moment, which is what a sale wants.
+         *
+         * The ribbons are wide flat squares thrown at low gravity with a lot of drift, so they
+         * flutter and hang rather than dropping — the closest this library gets to streamer paper
+         * without shipping a second animation engine to do it.
+         */
+        const POPPER_COLORS = ['#22c55e', '#4ade80', '#fbbf24', '#f59e0b', '#ffffff'];
+
         function fireConfetti() {
             if (typeof confetti !== 'function') return;
-            confetti({ particleCount: 80, spread: 70, origin: { x: 0.1, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
+
+            const popper = (x, angle) => {
+                // The streamers: few, large, slow to fall.
+                confetti({
+                    particleCount: 26, angle, spread: 46, startVelocity: 62,
+                    decay: 0.91, gravity: 0.65, drift: x < 0.5 ? 0.7 : -0.7,
+                    scalar: 2.6, ticks: 260, shapes: ['square'],
+                    origin: { x, y: 1.05 }, colors: POPPER_COLORS,
+                    disableForReducedMotion: true,
+                });
+                // The paper dust that goes with them.
+                confetti({
+                    particleCount: 45, angle, spread: 62, startVelocity: 55,
+                    decay: 0.9, gravity: 1, scalar: 0.9, ticks: 180,
+                    origin: { x, y: 1.05 }, colors: POPPER_COLORS,
+                    disableForReducedMotion: true,
+                });
+            };
+
+            popper(0.08, 62);
+            popper(0.92, 118);
+        }
+
+        /*
+         * ── The gavel ──
+         *
+         * Aimed at the SOLD badge rather than at a fixed point on the page. The badge is placed by
+         * whoever laid the template out, so the only way to actually hit it is to measure it when
+         * the sale lands.
+         *
+         * The geometry: in the SVG's own box the head sits at (65%, 37%) and the element pivots at
+         * (13%, 78%). Offsetting the box by the head's position puts the striking face on the
+         * badge at the moment of contact, whatever size the badge is or which corner it is in.
+         */
+        const GAVEL_IMPACT_MS = 470;   // the 45% keyframe of hammer-strike, and the delay on both
+                                       // #sold-badge.hammer-hit and #sold-impact.pop
+        const GAVEL_HEAD_X = 0.65;
+        const GAVEL_HEAD_Y = 0.37;
+
+        function clearGavel() {
+            document.getElementById('sold-hammer')?.classList.remove('strike');
+            document.getElementById('sold-badge')?.classList.remove('hammer-hit');
+            document.getElementById('sold-impact')?.classList.remove('pop');
+        }
+
+        function strikeGavel() {
+            const hammer = document.getElementById('sold-hammer');
+            const badge = document.getElementById('sold-badge');
+            if (! hammer) return;
+
+            /*
+             * No badge — a template may switch the stamp off entirely — means there is nothing to
+             * strike, so the gavel stays away rather than swinging at the middle of the artwork.
+             */
+            if (! badge || badge.classList.contains('hidden')) { clearGavel(); return; }
+
+            const box = badge.getBoundingClientRect();
+            if (! box.width || ! box.height) { clearGavel(); return; }
+
+            const size = hammer.offsetWidth || 220;
+            // Lands on the upper-left of the tag, the way a hand holding it from the left would.
+            const targetX = box.left + box.width * 0.42;
+            const targetY = box.top + box.height * 0.38;
+
+            hammer.style.left = (targetX - size * GAVEL_HEAD_X) + 'px';
+            hammer.style.top  = (targetY - size * GAVEL_HEAD_Y) + 'px';
+
+            /*
+             * Carry the badge's own tilt into the recoil. Read from the computed matrix rather
+             * than the inline style, because a template can set the rotation from either — and
+             * read with the class off, so a previous strike's frame cannot be mistaken for it.
+             */
+            badge.classList.remove('hammer-hit');
+            let rot = 0;
+            const matrix = getComputedStyle(badge).transform || '';
+            if (matrix.startsWith('matrix')) {
+                const n = matrix.slice(matrix.indexOf('(') + 1, -1).split(',').map(Number);
+                if (n.length >= 4 && ! n.slice(0, 4).some(isNaN)) {
+                    rot = Math.atan2(n[1], n[0]) * 180 / Math.PI;
+                }
+            }
+            badge.style.setProperty('--badge-rot', rot.toFixed(2) + 'deg');
+
+            const ring = document.getElementById('sold-impact');
+            if (ring) {
+                const d = Math.max(box.width, box.height) * 1.1;
+                ring.style.width = d + 'px';
+                ring.style.height = d + 'px';
+                ring.style.left = (targetX - d / 2) + 'px';
+                ring.style.top = (targetY - d / 2) + 'px';
+            }
+
+            /*
+             * Removed, reflowed, re-added. A CSS animation will not replay while its class is
+             * already on the element, so two sales in a row would otherwise animate only the
+             * first — the second player would get the stamp with no strike at all.
+             */
+            [[hammer, 'strike'], [badge, 'hammer-hit'], [ring, 'pop']].forEach(([node, cls]) => {
+                if (! node) return;
+                node.classList.remove(cls);
+                void node.offsetWidth;
+                node.classList.add(cls);
+            });
+
+            // The knock, on the frame the head lands.
             setTimeout(() => {
-                confetti({ particleCount: 80, spread: 70, origin: { x: 0.9, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
-            }, 200);
-            setTimeout(() => {
-                confetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.3 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#f59e0b', '#ffffff'] });
-            }, 400);
+                try { window.auctionSound?.playChime?.(); } catch (e) {}
+            }, GAVEL_IMPACT_MS);
         }
 
         // ── Shuffle Animation Controller ──
@@ -2945,6 +3076,7 @@
                 if (soldBadge) soldBadge.classList.remove('sold-entrance');
                 if (unsoldBadge) { unsoldBadge.classList.add('hidden'); unsoldBadge.style.display = 'none'; }
                 if (teamLogo) teamLogo.classList.remove('sold-entrance');
+                clearGavel();
             }
 
             /* Name the outcome. `skipped` and `unsold` are the same thing to a room: the
@@ -2994,25 +3126,15 @@
                 if (soldBadge) soldBadge.classList.add('sold-entrance');
 
                 /*
-                 * The price, then the hammer. Both re-triggered by removing the class and
-                 * forcing a reflow — a CSS animation will not replay while its class is already
-                 * on the element, and two sales in a row would otherwise animate only the first.
+                 * The gavel comes down on the tag, and the poppers go off when it lands. One
+                 * gesture; nothing else on the card moves.
                  */
-                const bidEl2 = document.getElementById('current-bid');
-                const hammer = document.getElementById('sold-hammer');
+                strikeGavel();
 
-                [bidEl2, hammer].forEach((node, i) => {
-                    if (! node) return;
-                    const cls = i === 0 ? 'sold-pulse' : 'strike';
-                    node.classList.remove(cls);
-                    void node.offsetWidth;
-                    node.classList.add(cls);
-                });
-
-                // Fire confetti once per sold player
+                // Once per sold player: a re-render must not set the poppers off again.
                 if (_confettiFiredForPlayer !== p.id) {
                     _confettiFiredForPlayer = p.id;
-                    fireConfetti();
+                    setTimeout(fireConfetti, GAVEL_IMPACT_MS);
                 }
 
                 // Show team logo with entrance animation

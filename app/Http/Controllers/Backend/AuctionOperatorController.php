@@ -74,6 +74,10 @@ class AuctionOperatorController extends Controller
          * Reaching the panel needs `auction.observe`, which lives on a role — so an organizer
          * who added somebody and then found they still could not open the auction would have no
          * way of knowing why. Adding the person IS the intent to let them in.
+         *
+         * assignRole ADDS, it does not replace: a Scorer who is also given tonight's lots stays a
+         * Scorer and keeps everything that came with it. `syncRoles` would have replaced the lot,
+         * which is how someone loses their real job by being handed a second one.
          */
         if (! $user->hasAnyRole([self::ROLE, 'Superadmin', 'Admin', 'Organizer'])) {
             $user->assignRole(self::ROLE);

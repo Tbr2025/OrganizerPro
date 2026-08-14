@@ -247,6 +247,46 @@ class AuctioneerRoleTest extends TestCase
             ->assertStatus(200);
     }
 
+    /**
+     * Being handed tonight's lots must not cost somebody the job they already had.
+     *
+     * Adding a person to an auction grants them the Auctioneer role on top of their existing
+     * roles. If the per-auction narrowing then applied to everything they hold, a Scorer whose
+     * role already carried auction access would silently lose it on every OTHER auction the
+     * moment they were named on one — a lockout with nothing on screen to explain it.
+     */
+    #[Test]
+    public function an_existing_role_keeps_its_own_auction_access_after_being_made_an_auctioneer(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        // A second auction they are NOT named on: their own role is what has to carry them in.
+        $other = Auction::create([
+            'name' => 'B', 'status' => 'running', 'max_budget_per_team' => 100_000_000,
+            'base_price' => 1_000_000, 'organization_id' => $org->id,
+            'tournament_id' => $auction->tournament_id,
+            'bid_type' => 'open', 'bid_timer_seconds' => 30,
+            'bid_rules' => [['from' => 0, 'to' => 200_000_000, 'increment' => 100_000]],
+        ]);
+
+        $user = $this->user($org, 'Auction Desk', ['auction.observe', 'auction.control']);
+        $this->assertTrue($user->fresh()->hasRole('Auction Desk'));
+
+        // Named on one auction, exactly as the controller does it.
+        Role::firstOrCreate(['name' => 'Auctioneer', 'guard_name' => 'web']);
+        $user->assignRole('Auctioneer');
+        \App\Models\AuctionOperator::create([
+            'auction_id' => $auction->id, 'user_id' => $user->id, 'abilities' => ['control'],
+        ]);
+
+        $user = $user->fresh();
+        $this->assertTrue($user->hasRole('Auction Desk'), 'the role they came with is still there');
+        $this->assertTrue($user->hasRole('Auctioneer'), 'and the new one was added, not swapped in');
+
+        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $auction))->assertOk();
+        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $other))->assertOk();
+    }
+
     #[Test]
     public function a_team_manager_still_cannot_reach_the_panel_at_all(): void
     {

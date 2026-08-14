@@ -57,6 +57,27 @@ class EnsureAuctionOperator
             return $next($request);
         }
 
+        /*
+         * Being made an auctioneer ADDS to what somebody already had; it never takes anything away.
+         *
+         * Adding a person to an auction grants them the Auctioneer role on top of their existing
+         * roles — but if this then narrowed them, a Scorer or a custom role that already carried
+         * auction access would silently LOSE it everywhere the moment they were named on one
+         * auction. Handing somebody an extra job must not quietly cost them the one they had.
+         *
+         * So: if any role other than Auctioneer already grants auction access, that access stands
+         * and this stands aside. The narrowing applies to what the Auctioneer role alone opens.
+         */
+        $otherAuctionRole = $user->roles
+            ->reject(fn ($role) => $role->name === 'Auctioneer')
+            ->contains(fn ($role) => $role->permissions->contains(
+                fn ($permission) => str_starts_with($permission->name, 'auction.')
+            ));
+
+        if ($otherAuctionRole) {
+            return $next($request);
+        }
+
         $auction = $request->route('auction');
         $auctionId = is_object($auction) ? ($auction->id ?? null) : $auction;
 
