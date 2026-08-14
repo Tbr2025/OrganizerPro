@@ -162,8 +162,8 @@
              * and a diagonal graphic hanging below the artwork on the wall, and the same spill
              * baked into every downloaded card.
              *
-             * The overlays that are meant to cover the whole screen — the shuffle reveal, the
-             * closing-call dim, the clock, the restart notice — are position:fixed and not
+             * The overlays that are meant to cover the whole screen — the closing-call dim,
+             * the clock, the restart notice — are position:fixed and not
              * children of this element, so none of them is affected by this.
              */
             overflow: hidden;
@@ -1031,113 +1031,6 @@
             line-height: 1.1;
         }
 
-        /* ── Shuffle / Reveal Animation ── */
-        #shuffle-screen {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: linear-gradient(135deg, #0a0a0a 0%, #0f172a 50%, #0a0a0a 100%);
-            z-index: 200;
-        }
-
-        .shuffle-ring-outer {
-            width: 280px;
-            height: 280px;
-            border-radius: 50%;
-            border: 5px solid transparent;
-            border-top-color: var(--primary);
-            border-right-color: var(--secondary);
-            position: absolute;
-            animation: shuffleSpin 0.6s linear infinite;
-            box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.3), 0 0 60px rgba(var(--primary-rgb), 0.1);
-        }
-
-        .shuffle-ring-inner {
-            width: 250px;
-            height: 250px;
-            border-radius: 50%;
-            border: 3px solid transparent;
-            border-bottom-color: var(--primary);
-            border-left-color: var(--secondary);
-            position: absolute;
-            animation: shuffleSpin 0.4s linear infinite reverse;
-        }
-
-        .shuffle-center {
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            background: #1e293b;
-            border: 3px solid #374151;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            position: relative;
-            z-index: 1;
-        }
-
-        .shuffle-center.revealed {
-            border-color: var(--secondary);
-            animation: shuffleRevealPop 0.5s ease-out forwards;
-            box-shadow: 0 0 40px rgba(var(--secondary-rgb), 0.4);
-        }
-
-        @keyframes shuffleSpin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes shuffleGlowPulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.3), 0 0 60px rgba(var(--primary-rgb), 0.1); }
-            50% { box-shadow: 0 0 40px rgba(var(--primary-rgb), 0.6), 0 0 80px rgba(var(--primary-rgb), 0.2); }
-        }
-
-        @keyframes shuffleRevealPop {
-            0% { transform: scale(0.5); opacity: 0; }
-            60% { transform: scale(1.08); opacity: 1; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        .shuffle-name {
-            font-size: 28px;
-            font-weight: 700;
-            color: #cbd5e1;
-            text-align: center;
-            padding: 0 16px;
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .shuffle-status-text {
-            margin-top: 40px;
-            font-size: 28px;
-            color: var(--primary);
-            font-weight: 600;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            animation: shuffleGlowPulse 0.8s ease-in-out infinite;
-        }
-
-        .shuffle-reveal-name {
-            margin-top: 30px;
-            font-size: 40px;
-            font-weight: 900;
-            color: #fff;
-            animation: shuffleRevealPop 0.5s ease-out forwards;
-        }
-
-        .shuffle-reveal-role {
-            margin-top: 8px;
-            font-size: 24px;
-            color: #94a3b8;
-            animation: shuffleRevealPop 0.5s ease-out 0.1s forwards;
-            opacity: 0;
-        }
     
         /* The sealed banner's motion. See the markup for why a still bar is a problem. */
         .sealed-banner { overflow: hidden; }
@@ -1328,19 +1221,6 @@
         <p class="text-xl text-gray-500 mt-4">Thank you for watching!</p>
     </div>
 
-    <!-- Shuffle / Random Selection Animation Screen -->
-    <div id="shuffle-screen" class="hidden">
-        <div style="position:relative;width:280px;height:280px;display:flex;align-items:center;justify-content:center;">
-            <div class="shuffle-ring-outer" id="shuffle-ring-outer"></div>
-            <div class="shuffle-ring-inner" id="shuffle-ring-inner"></div>
-            <div class="shuffle-center" id="shuffle-center">
-                <span class="shuffle-name" id="shuffle-name">—</span>
-            </div>
-        </div>
-        <div class="shuffle-status-text" id="shuffle-status">Selecting Player...</div>
-        <div class="shuffle-reveal-name hidden" id="shuffle-reveal-name"></div>
-        <div class="shuffle-reveal-role hidden" id="shuffle-reveal-role"></div>
-    </div>
 
     {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
@@ -1695,303 +1575,6 @@
             return String(text).replace(/(\w)-(\w)/g, '$1 $2');
         }
 
-        /**
-         * Call out who is bidding, and pulse when the figure moves.
-         *
-         * The leading team was only shown small, beside the price on the card. Across a
-         * hall that is unreadable, and the room needs to see who is in front the moment it
-         * changes. This says it across the top, in the same slot the result banner uses.
-         *
-         * Pulses on CHANGE only. A banner that flashes on every poll stops being read
-         * within a minute, and the whole point is that a raise catches the eye.
-         */
-        let _lastFlashKey = null;
-
-        function renderBidFlash(p) {
-            const el = document.getElementById('bid-flash');
-            if (!el) return;
-
-            const team = p?.current_bid_team;
-            const live = p && p.status === 'on_auction' && team && !sealedState;
-
-            // Not on the block, nobody leading, or a sealed round where the leader is
-            // frozen and the amounts are secret — nothing honest to announce.
-            if (!live) {
-                el.classList.add('hidden');
-                el.classList.remove('bid-flash-pulse');
-                _lastFlashKey = null;
-                return;
-            }
-
-            const amount = p.current_price ?? p.base_price ?? 0;
-            const key = `${team.id ?? team.name}:${amount}`;
-
-            document.getElementById('bid-flash-team').textContent = team.name || '';
-            document.getElementById('bid-flash-amount').textContent = formatMillions(amount);
-            el.classList.remove('hidden');
-
-            if (key !== _lastFlashKey) {
-                _lastFlashKey = key;
-                // Removing, forcing a reflow, then re-adding restarts the animation; without
-                // the reflow the browser coalesces the two changes and nothing plays.
-                el.classList.remove('bid-flash-pulse');
-                void el.offsetWidth;
-                el.classList.add('bid-flash-pulse');
-            }
-        }
-
-        function clearOutcomeState() {
-            const card = document.getElementById('card-container');
-            if (card) card.classList.remove('sold-state', 'unsold-state', 'skipped-state');
-
-            const soldText = document.getElementById('sold-text');
-            if (soldText) soldText.classList.remove('sold-active', 'unsold-active', 'skipped-active');
-
-            const soldBadge = document.getElementById('sold-badge');
-            if (soldBadge) {
-                soldBadge.classList.remove('sold-entrance');
-                soldBadge.classList.add('hidden');
-            }
-
-            const unsoldBadge = document.getElementById('unsold-badge');
-            if (unsoldBadge) {
-                unsoldBadge.classList.add('hidden');
-                unsoldBadge.style.display = 'none';
-            }
-
-            const teamLogo = document.getElementById('team-logo');
-            if (teamLogo) {
-                teamLogo.classList.remove('sold-entrance');
-                teamLogo.classList.add('hidden');
-            }
-
-            document.getElementById('highest-bidder')?.classList.add('hidden');
-            document.getElementById('result-banner')?.classList.add('hidden');
-
-            // The two banners share a slot at the top; a finished lot must not be announced
-            // underneath a live bid.
-            const flash = document.getElementById('bid-flash');
-            if (flash) {
-                flash.classList.add('hidden');
-                flash.classList.remove('bid-flash-pulse');
-            }
-            _lastFlashKey = null;
-        }
-        let isShuffling = false;
-        // The most recent payload that had a player on the block — the recovery path's input.
-        let lastGoodPlayer = null;
-        let hasCompletedFirstLoad = false;
-        let _confettiFiredForPlayer = null;
-
-        function fireConfetti() {
-            if (typeof confetti !== 'function') return;
-            confetti({ particleCount: 80, spread: 70, origin: { x: 0.1, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
-            setTimeout(() => {
-                confetti({ particleCount: 80, spread: 70, origin: { x: 0.9, y: 0.6 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#ffffff'] });
-            }, 200);
-            setTimeout(() => {
-                confetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.3 }, colors: ['#22c55e', '#4ade80', '#fbbf24', '#f59e0b', '#ffffff'] });
-            }, 400);
-        }
-
-        // ── Shuffle Animation Controller ──
-        /*
-         * How long the reveal takes on the wall, from pressing NEXT to the card being up.
-         *
-         * It was 30 ticks x 80ms of name-flicker plus a 1.8s hold on the revealed name — 4.2
-         * seconds before the player appeared, which reads as the wall lagging behind the panel
-         * rather than as a reveal. The event itself arrives in milliseconds; this was all
-         * animation.
-         *
-         * Two numbers so either half can be tuned: raise SPIN for more flicker, raise HOLD to
-         * let the name land before the card replaces it.
-         */
-        const SHUFFLE_SPIN_MS = 480;
-        const SHUFFLE_HOLD_MS = 400;
-        const SHUFFLE_TICK_MS = 80;
-
-        const shuffleController = {
-            namePool: ['Player 1', 'Player 2', 'Player 3', 'Player 4', 'Player 5'],
-            interval: null,
-
-            watchdog: null,
-
-            /**
-             * Give up and just show the card.
-             *
-             * `isShuffling` gates the whole poll loop, and it used to be cleared only by the
-             * very last line of reveal()'s setTimeout — behind a dozen unguarded
-             * getElementById dereferences. One throw anywhere in there left it stuck true
-             * for the rest of the session: every later poll returned early, so the card never
-             * appeared and the wall sat on the waiting screen while the clock (updated
-             * deliberately BEFORE that guard) kept counting down over it.
-             *
-             * Every exit from the animation now goes through here, so the flag cannot stay
-             * set. Losing the animation is a cosmetic disappointment; losing the player card
-             * for the rest of the auction is not.
-             */
-            finish(playerData) {
-                if (this.interval) { clearInterval(this.interval); this.interval = null; }
-                if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
-
-                const screen = document.getElementById('shuffle-screen');
-                if (screen) {
-                    screen.classList.add('hidden');
-                    screen.style.display = 'none';
-                }
-
-                isShuffling = false;
-
-                if (playerData) updatePlayerCard(playerData);
-            },
-
-            start(playerData, namePool) {
-                /*
-                 * Wipe the PREVIOUS player's result before the shuffle covers the stage.
-                 *
-                 * updatePlayerCard() clears this, but on a new player the poll calls
-                 * start() and returns — so updatePlayerCard does not run until reveal()
-                 * finishes, four seconds later. For all four seconds the sold badge, the
-                 * winning team's logo, the sold glow and the result banner from the player
-                 * just sold sat on top of the shuffle and then on top of the next player.
-                 */
-                clearOutcomeState();
-
-                if (namePool && namePool.length > 1) {
-                    this.namePool = namePool;
-                }
-
-                // A second start while one is already running would orphan the first
-                // interval and leave two writing to the same node.
-                if (this.interval) { clearInterval(this.interval); this.interval = null; }
-                if (this.watchdog) { clearTimeout(this.watchdog); this.watchdog = null; }
-
-                isShuffling = true;
-
-                /* Backstop, independent of anything inside the animation: the spin plus the
-                   hold is the expected duration, so several times that means something went
-                   wrong and the card should go up regardless. Derived rather than hardcoded, so
-                   shortening the reveal cannot leave a watchdog that waits 10s for a 0.9s
-                   animation. */
-                this.watchdog = setTimeout(() => {
-                    console.warn('[Live] shuffle watchdog fired — showing the card directly');
-                    this.finish(playerData);
-                }, Math.max(4000, (SHUFFLE_SPIN_MS + SHUFFLE_HOLD_MS) * 4));
-
-                try {
-                    const screen = document.getElementById('shuffle-screen');
-                    const nameEl = document.getElementById('shuffle-name');
-                    const statusEl = document.getElementById('shuffle-status');
-                    const revealName = document.getElementById('shuffle-reveal-name');
-                    const revealRole = document.getElementById('shuffle-reveal-role');
-                    const center = document.getElementById('shuffle-center');
-                    const ringOuter = document.getElementById('shuffle-ring-outer');
-                    const ringInner = document.getElementById('shuffle-ring-inner');
-
-                    // reveal() rebuilds #shuffle-center's children, so any of these can be
-                    // missing if a previous run was interrupted part-way.
-                    if (!screen || !nameEl || !statusEl || !revealName || !revealRole || !center) {
-                        this.finish(playerData);
-                        return;
-                    }
-
-                    center.classList.remove('revealed');
-                    nameEl.classList.remove('hidden');
-                    revealName.classList.add('hidden');
-                    revealRole.classList.add('hidden');
-                    statusEl.classList.remove('hidden');
-                    if (ringOuter) ringOuter.style.display = '';
-                    if (ringInner) ringInner.style.display = '';
-                    statusEl.textContent = 'Selecting Player...';
-
-                    document.getElementById('waiting-screen')?.classList.add('hidden');
-                    document.getElementById('card-container')?.classList.add('hidden');
-                    screen.classList.remove('hidden');
-                    screen.style.display = 'flex';
-
-                    let tick = 0;
-                    const totalTicks = Math.max(1, Math.round(SHUFFLE_SPIN_MS / SHUFFLE_TICK_MS));
-                    this.interval = setInterval(() => {
-                        tick++;
-                        // Re-queried each tick: the node is replaced by reveal(), so a
-                        // reference captured up front can be detached.
-                        const el = document.getElementById('shuffle-name');
-                        if (el) {
-                            const idx = Math.floor(Math.random() * this.namePool.length);
-                            el.textContent = this.namePool[idx];
-                        }
-
-                        if (tick >= totalTicks) {
-                            clearInterval(this.interval);
-                            this.interval = null;
-                            this.reveal(playerData);
-                        }
-                    }, SHUFFLE_TICK_MS);
-                } catch (e) {
-                    console.error('[Live] shuffle failed to start:', e);
-                    this.finish(playerData);
-                }
-            },
-
-            reveal(playerData) {
-                try {
-                    const nameEl = document.getElementById('shuffle-name');
-                    const statusEl = document.getElementById('shuffle-status');
-                    const revealName = document.getElementById('shuffle-reveal-name');
-                    const revealRole = document.getElementById('shuffle-reveal-role');
-                    const center = document.getElementById('shuffle-center');
-                    const ringOuter = document.getElementById('shuffle-ring-outer');
-                    const ringInner = document.getElementById('shuffle-ring-inner');
-
-                    if (!center || !revealName || !revealRole) {
-                        this.finish(playerData);
-                        return;
-                    }
-
-                    const pName = playerData.player?.name || 'Unknown';
-                    const playerType = playerData.player?.player_type || playerData.player?.playerType;
-                    const pRole = typeof playerType === 'object' ? (playerType?.type || playerType?.name || '') : (playerType || '');
-
-                    if (ringOuter) ringOuter.style.display = 'none';
-                    if (ringInner) ringInner.style.display = 'none';
-                    if (statusEl) statusEl.classList.add('hidden');
-
-                    if (playerData.player?.image_path) {
-                        if (nameEl) nameEl.classList.add('hidden');
-                        const img = document.createElement('img');
-                        img.src = '/storage/' + playerData.player.image_path;
-                        img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;';
-                        center.innerHTML = '';
-                        center.appendChild(img);
-                    } else if (nameEl) {
-                        nameEl.textContent = pName;
-                    }
-
-                    center.classList.add('revealed');
-
-                    revealName.textContent = pName;
-                    revealName.classList.remove('hidden');
-                    revealRole.textContent = pRole;
-                    revealRole.classList.remove('hidden');
-
-                    setTimeout(() => {
-                        try {
-                            // Put the name node back — the image branch above removed it, and
-                            // the next run looks it up by id.
-                            center.innerHTML = '<span class="shuffle-name" id="shuffle-name">—</span>';
-                            center.classList.remove('revealed');
-                        } catch (e) {
-                            console.error('[Live] shuffle teardown failed:', e);
-                        }
-                        // Always, even if the teardown above threw.
-                        this.finish(playerData);
-                    }, SHUFFLE_HOLD_MS);
-                } catch (e) {
-                    console.error('[Live] shuffle reveal failed:', e);
-                    this.finish(playerData);
-                }
-            }
-        };
 
         /* Initialize Echo.
 
@@ -2589,7 +2172,6 @@
             document.getElementById('completed-screen').style.display = 'flex';
         }
 
-        // Fetch list of waiting player names for the shuffle pool
         /* ── Closing call + countdown ────────────────────────────────────────────
            The server ships `timer_seconds_remaining` and the call thresholds on every
            poll. Polls are 2s apart but the calls land on exact seconds, so the clock
@@ -2831,18 +2413,6 @@
             clearUnsoldWarning();
         }
 
-        let shuffleNamePool = [];
-        function fetchShuffleNamePool() {
-            fetch(`/auction/${auctionId}/active-player`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data?.waitingPlayers && data.waitingPlayers.length > 0) {
-                        shuffleNamePool = data.waitingPlayers;
-                    }
-                }).catch(() => {});
-        }
-        fetchShuffleNamePool();
-
         function fetchActivePlayer() {
             console.log('[Live] fetchActivePlayer() called');
             fetch(`/auction/${auctionId}/active-player`)
@@ -2912,9 +2482,6 @@
                     }
 
                     // ── Clock first, and unconditionally ──
-                    // The countdown and closing calls must keep running even while the
-                    // shuffle animation is playing, so they are updated before the
-                    // isShuffling guard below rather than after it.
                     /* Paused is no longer a reason to skip this. The clock used to be hidden
                        outright on a pause, so the hall saw the countdown vanish with nothing
                        to explain it — and the "Paused" state the server now reports could
@@ -2952,12 +2519,7 @@
                     document.getElementById('completed-screen')?.classList.add('hidden');
 
                     if (data?.waitingPlayers && data.waitingPlayers.length > 0) {
-                        shuffleNamePool = data.waitingPlayers;
                     }
-
-                    // The player card is mid-animation; leave it alone until the reveal
-                    // finishes. (The clock above has already been updated.)
-                    if (isShuffling) return;
 
                     if (data?.auctionPlayer) {
                         const ap = data.auctionPlayer;
@@ -2972,11 +2534,18 @@
                                     lastPlayerId = ap.id;
                                     updatePlayerCard(ap);
                                 } else {
-                                    console.log('[Live] New player detected, triggering shuffle');
-                                    const pool = shuffleNamePool.length > 1 ? shuffleNamePool : [ap.player?.name || 'Player'];
+                                    /*
+                                     * Straight to the card. No reveal on the public screens.
+                                     *
+                                     * The spin-and-reveal cycled the names still in the queue,
+                                     * so the hall was shown who was coming up before the draw
+                                     * had committed to them — and the operator's own panel runs
+                                     * the same animation, which is where it belongs. Removed on
+                                     * request for the same reason as the "Coming up" teaser.
+                                     */
                                     lastOnAuctionPlayerId = ap.id;
                                     lastPlayerId = ap.id;
-                                    shuffleController.start(ap, pool);
+                                    updatePlayerCard(ap);
                                 }
                                 return;
                             }
@@ -3010,7 +2579,7 @@
                     console.error('[Live] Fetch error:', err);
 
                     try {
-                        if (lastGoodPlayer && !isShuffling) {
+                        if (lastGoodPlayer) {
                             console.warn('[Live] recovering the card after a handler error');
                             updatePlayerCard(lastGoodPlayer);
                         }
@@ -3057,12 +2626,10 @@
                 if (!ap) return;
 
                 if (ap.id !== lastOnAuctionPlayerId) {
-                    console.log('[Live] Instant shuffle triggered via event');
-                    isShuffling = true;
+                    // Straight to the card — see the poll path above.
                     lastOnAuctionPlayerId = ap.id;
                     lastPlayerId = ap.id;
-                    const pool = shuffleNamePool.length > 1 ? shuffleNamePool : [ap.player?.name || 'Player'];
-                    shuffleController.start(ap, pool);
+                    updatePlayerCard(ap);
                     // A new player brings a new clock, pool position and stats with them.
                     refreshNow('new-player');
                     return;
@@ -3079,8 +2646,6 @@
                  * the figure that was just written, while the public feed is micro-cached
                  * for a second and could hand back the price this event supersedes.
                  */
-                if (isShuffling) return;
-
                 renderLiveBid(ap);
             })
             /*
@@ -3106,9 +2671,6 @@
                 _lastAppliedBidId = bidId;
 
                 hasCompletedFirstLoad = true;
-
-                // Never over a shuffle — the reveal owns the screen until it finishes.
-                if (isShuffling) return;
 
                 renderLiveBid({
                     id: event.auction_player_id,
