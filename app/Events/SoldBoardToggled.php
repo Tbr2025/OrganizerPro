@@ -29,14 +29,24 @@ class SoldBoardToggled implements ShouldBroadcastNow
         public int $auctionId,
         /** `sold`, `highlights`, or null for the live card. */
         public ?string $board,
+
+        /**
+         * Which screens it is for: `wall`, `ticker` or `both`.
+         *
+         * The event carried only the board name, so every screen applied it — a reel targeted at
+         * the wall appeared on the ticker too, and then vanished on the ticker's next feed read,
+         * which DOES respect the target. One flash on, one flash off, on a screen the organizer
+         * had deliberately left alone.
+         */
+        public ?string $target = 'both',
     ) {
     }
 
     /** Failures are logged and swallowed — the flag is already saved and the polls carry it. */
-    public static function announce(int $auctionId, ?string $board): void
+    public static function announce(int $auctionId, ?string $board, ?string $target = 'both'): void
     {
         try {
-            broadcast(new self($auctionId, $board));
+            broadcast(new self($auctionId, $board, $target));
         } catch (\Throwable $e) {
             Log::warning('SoldBoardToggled broadcast failed: ' . $e->getMessage(), [
                 'auction_id' => $auctionId,

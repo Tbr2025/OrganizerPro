@@ -790,8 +790,14 @@ class AuctionOrganizerController extends Controller
                 ? (bool) $data['ads_sponsors'] : $auction->ads_sponsors_enabled,
         ]);
 
+        $fresh = $auction->fresh();
+
         \App\Support\AfterResponse::run(
-            fn () => \App\Events\SoldBoardToggled::announce((int) $auction->id, $board)
+            fn () => \App\Events\SoldBoardToggled::announce(
+                (int) $auction->id,
+                $board,
+                $fresh->public_board_target ?? 'both'
+            )
         );
 
         return response()->json([
@@ -1767,10 +1773,39 @@ class AuctionOrganizerController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Tell every screen that something about the auction moved.
+     *
+     * The pool actions changed the auction and broadcast NOTHING — not starting a pool, not
+     * closing one, not reopening or restarting it. That was survivable while the public screens
+     * polled every two seconds; it is not now. The wall stopped polling on a healthy socket
+     * (it refetches on events instead), so a pool starting could fail to reach the hall at all
+     * until some unrelated bid or sale happened to push.
+     *
+     * A nudge, not a payload: the screens re-read the feed, which applies the same disclosure
+     * rules it always has. `AuctionStatusUpdate` is reused because both the wall and the ticker
+     * already listen for it — a new event would need both of them taught about it, and this is
+     * exactly what that one means: "something changed, come and look".
+     */
+    private function nudgeScreens(Auction $auction): void
+    {
+        try {
+            broadcast(new AuctionStatusUpdate($auction->id, $auction->fresh()->status));
+        } catch (\Throwable $e) {
+            // A screen that misses the nudge recovers on its next poll or reconnect. A failed
+            // broadcast must never fail the action the organizer just took.
+            \Log::warning('Screen nudge failed: ' . $e->getMessage(), ['auction_id' => $auction->id]);
+        }
+    }
+
     /** Start a pool. The auction then serves only this pool until it is closed. */
     public function activatePool(Auction $auction, AuctionPool $pool)
     {
         $result = $this->pools->activatePool($auction, $pool);
+
+        if ($result['success'] ?? false) {
+            $this->nudgeScreens($auction);
+        }
 
         return response()->json(
             $result + ['progress' => $this->pools->poolProgress($auction)],
@@ -1789,6 +1824,10 @@ class AuctionOrganizerController extends Controller
     {
         $result = $this->pools->reopenPool($auction, $pool);
 
+        if ($result['success'] ?? false) {
+            $this->nudgeScreens($auction);
+        }
+
         return response()->json(
             $result + ['progress' => $this->pools->poolProgress($auction)],
             $result['success'] ? 200 : 422
@@ -1802,6 +1841,10 @@ class AuctionOrganizerController extends Controller
     public function completePool(Auction $auction, AuctionPool $pool)
     {
         $result = $this->pools->completePool($auction, $pool);
+
+        if ($result['success'] ?? false) {
+            $this->nudgeScreens($auction);
+        }
 
         return response()->json(
             $result + ['progress' => $this->pools->poolProgress($auction)],

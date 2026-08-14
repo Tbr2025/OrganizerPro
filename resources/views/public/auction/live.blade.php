@@ -4704,7 +4704,14 @@ HTML;
              * after the button is pressed reads as a fault.
              */
             .listen('.board.changed', (event) => {
-                console.info('[Live] public board:', event?.board);
+                console.info('[Live] public board:', event?.board, 'for', event?.target);
+
+                /* Only when this screen is one of the targets. The event used to carry the board
+                   alone, so a reel meant for the ticker appeared here too and then vanished on the
+                   next feed read — the feed has always respected the target. */
+                const target = event?.target ?? 'both';
+                if (target !== 'both' && target !== 'wall') return;
+
                 applySoldBoard(event?.board);
             })
             .listen('.player-on-sold', (event) => {

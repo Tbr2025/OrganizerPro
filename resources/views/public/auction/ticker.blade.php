@@ -1394,7 +1394,14 @@
                 // pushed for any of it before, so the ticker only caught up on its own poll.
                 .listen('.sealed.changed', (e) => refreshNow('sealed:' + (e?.state ?? '?')))
                 // The board going up or coming down, applied at once rather than on the next tick.
-                .listen('.board.changed', (e) => applySoldBoard(e?.board));
+                /* Targeted: a board sent to the wall alone must not flash up here and then be
+                   taken away by the next feed read, which does respect the target. */
+                .listen('.board.changed', (e) => {
+                    const target = e?.target ?? 'both';
+                    if (target !== 'both' && target !== 'ticker') return;
+
+                    applySoldBoard(e?.board);
+                });
 
             /* Pause, resume, end and restart publish on their own channel. Without this the
                strip would count down through a pause until the heartbeat came round — on air. */

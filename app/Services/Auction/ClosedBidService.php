@@ -34,7 +34,18 @@ class ClosedBidService
      * have to agree — the winner is already decided when the spin starts, so this is purely how
      * long the room is given to watch it happen.
      */
-    public const LOT_SPIN_MS = 15000;
+    /**
+     * How long the draw is shown before the winner is named — a flash, not a wait.
+     *
+     * Fifteen seconds was chosen so a hall could watch chance being taken. In the room it read as
+     * the auction stopping: the organizer has pressed the button, everybody knows a lot is being
+     * drawn, and a quarter of a minute of spinning is a quarter of a minute of nothing happening.
+     *
+     * One second still keeps the two rules that matter — the room never sees the winner before
+     * the draw it is watching lands, and every screen lands together — while costing the evening
+     * nothing.
+     */
+    public const LOT_SPIN_MS = 1000;
 
     public function __construct(
         private readonly BidIncrementService $increments,

@@ -821,11 +821,9 @@
                                     Live draw &middot; on screen
                                 </div>
                                 <p class="text-gray-400 text-[11px] leading-relaxed mb-3">
-                                    Cycles the tied teams for about
-                                    <span x-text="Math.round(LOT_SPIN_MS / 1000)"></span> seconds, then lands on the
-                                    winner. Drawn on the server before the spin starts, from a random seed that is
-                                    recorded with the result — so it cannot be predicted, and it can be checked
-                                    afterwards.
+                                    Flashes the tied teams and lands on the winner within a second. Drawn
+                                    on the server before it shows, from a random seed recorded with the
+                                    result — so it cannot be predicted, and it can be checked afterwards.
                                 </p>
                                 <button @click="sealedDrawLot()"
                                         class="w-full px-4 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-sm font-black">
@@ -2728,7 +2726,7 @@ function auctionOrganizerPanel() {
          * exists, so the panel and the public screens are animating one number rather than two
          * that happen to agree today — see ClosedBidService::LOT_SPIN_MS.
          */
-        LOT_SPIN_MS: 15000,
+        LOT_SPIN_MS: 1000,
 
         isTumbling: false,
         selectedPlayerId: null,
