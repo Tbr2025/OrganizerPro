@@ -84,6 +84,21 @@
             </table>
         </div>
 
+        {{-- The sold poster, in the body.
+             An attachment alone is a file somebody has to go and open. The picture in the message
+             is the thing a player screenshots and puts in a group chat, which is the whole point
+             of drawing one. It is attached as well, because inline images are what some clients
+             strip and attachments are what the rest hide behind a paperclip.
+
+             `$posterCid` is null whenever no poster could be rendered — no template drawn, or the
+             render failed — and the email then reads exactly as it did before. --}}
+        @if(! empty($posterCid))
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="{{ $message->embed($posterPath) }}" alt="{{ $player->name }} — sold to {{ $team->name }}"
+                 style="max-width: 100%; height: auto; border-radius: 8px;">
+        </div>
+        @endif
+
         <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
             <p style="margin: 0; color: #155724; font-size: 14px;">
                 Welcome to <strong>{{ $team->name }}</strong>! Get ready to give your best performance. Stay tuned for further updates and match schedules.

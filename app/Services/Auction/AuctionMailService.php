@@ -228,11 +228,22 @@ class AuctionMailService
         }
 
         $mailable = match ($row->type) {
+            /*
+             * The preview carries the poster too — that is the point of test mode.
+             *
+             * "Record emails but never send them" is only useful if the organizer can see what a
+             * real run WOULD have sent, and for a sold email the poster is most of it. Rendering
+             * it here costs a few seconds on one preview and answers the question the test-mode
+             * checkbox exists to ask.
+             */
             AuctionPendingEmail::TYPE_SOLD => new PlayerSoldMail(
                 $player,
                 $row->team,
                 $auction,
-                $row->payload['amount'] ?? null
+                $row->payload['amount'] ?? null,
+                $row->auctionPlayer
+                    ? app(AuctionPosterMailer::class)->render($auction, $row->auctionPlayer)
+                    : null
             ),
             AuctionPendingEmail::TYPE_UNSOLD => new PlayerUnsoldMail($player, $auction),
             AuctionPendingEmail::TYPE_WELCOME_CARD => throw new \RuntimeException(
@@ -264,7 +275,23 @@ class AuctionMailService
         ));
 
         if ($player->user->email) {
-            Mail::to($player->user->email)->send(new PlayerSoldMail($player, $team, $auction, $price));
+            /*
+             * The sold poster travels with the mail.
+             *
+             * Rendered here rather than inside the Mailable: a Mailable is constructed on retries
+             * and for previews as well as for the send, and a poster is GD work measured in
+             * seconds — drawing it in the constructor would redraw it every one of those times.
+             *
+             * A failed render returns null and the email goes anyway. Being told you were sold is
+             * the message; the poster is what makes it worth keeping.
+             */
+            $poster = $row->auctionPlayer
+                ? app(AuctionPosterMailer::class)->render($auction, $row->auctionPlayer)
+                : null;
+
+            Mail::to($player->user->email)->send(
+                new PlayerSoldMail($player, $team, $auction, $price, $poster)
+            );
         }
 
         // The buying team's managers hear about it too.
