@@ -1292,7 +1292,19 @@ class AuctionAdminController extends Controller
                  * A quick-step jump is still a deliberate jump on top of it: an organizer who
                  * picks +5M for the opening call means the base plus five, not five.
                  */
-                $opening = $player->current_bid_team_id === null;
+                /*
+                 * The opening rule is about a TEAM's first bid, not about the organizer stepping
+                 * the price.
+                 *
+                 * With `$isCorrection` excluded this deadlocked the moment corrections started
+                 * clearing the leading team: no leader means "opening", opening means the next
+                 * bid IS the current price, so every press of "+" recomputed the same figure and
+                 * the panel sat at 1.1M however many times it was clicked.
+                 *
+                 * A correction is the organizer saying the room has moved on, so it always takes
+                 * a rung.
+                 */
+                $opening = ! $isCorrection && $player->current_bid_team_id === null;
 
                 if ($opening && $stepIndex === null) {
                     $newPrice = $current;

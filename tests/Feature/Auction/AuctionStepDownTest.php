@@ -73,6 +73,47 @@ class AuctionStepDownTest extends TestCase
         $this->assertSame($bidsBefore, AuctionBid::where('auction_player_id', $ap->id)->count(), 'no bid is deleted');
     }
 
+    /**
+     * "+" keeps climbing after it has cleared the leading team.
+     *
+     * The opening-bid rule says the first bid IS the base price, and it keys off "no leading
+     * team". Once a correction started clearing that team, every subsequent "+" recomputed the
+     * same figure and the panel sat at 1.1M however many times it was pressed. The rule is about
+     * a TEAM's first bid, not about the organizer stepping a price.
+     */
+    #[Test]
+    public function repeated_corrections_keep_climbing_with_no_team_attached(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org, [
+            'max_budget_per_team' => 100_000_000,
+            'base_price' => 1_000_000,
+            'bid_rules' => [['from' => 0, 'to' => 200_000_000, 'increment' => 100_000]],
+        ]);
+        $operator = $this->makeAuctionOperator($org);
+
+        $ap = $this->makeAuctionPlayer($auction, [
+            'status' => 'on_auction',
+            'base_price' => 1_000_000,
+            'current_price' => 1_100_000,
+            'current_bid_team_id' => null,
+        ]);
+
+        foreach ([1_200_000, 1_300_000, 1_400_000] as $expected) {
+            $this->actingAs($operator)
+                ->postJson(route('admin.auctions.players.addBid'), [
+                    'auctionId' => $auction->id,
+                    'playerID' => $ap->id,
+                    'correction' => true,
+                ])
+                ->assertOk();
+
+            $this->assertSame((float) $expected, (float) $ap->fresh()->current_price);
+        }
+
+        $this->assertNull($ap->fresh()->current_bid_team_id, 'and still names nobody');
+    }
+
     #[Test]
     public function it_refuses_to_go_below_the_price_the_lot_opened_at(): void
     {
