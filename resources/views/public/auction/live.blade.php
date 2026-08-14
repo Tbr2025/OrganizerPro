@@ -554,8 +554,17 @@
             font-size: 40px; font-weight: 900; color: rgba(255,255,255,0.4); }
         #reel .rp .nm { margin-top: 12px; font-size: 22px; font-weight: 900; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        #reel .rp .tm { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.6);
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #reel .rp .tm {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.6);
+            white-space: nowrap; overflow: hidden; }
+        #reel .rp .tm span { overflow: hidden; text-overflow: ellipsis; }
+        /* The buying team's crest. A hall reads a badge faster than a name, and on a reel of
+           top buys the team is half the story. */
+        #reel .rp .tm .crest {
+            width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+            flex-shrink: 0; background: rgba(255,255,255,0.08);
+            border: none; aspect-ratio: auto; }
         #reel .rp .amt { margin-top: 6px; font-size: 34px; font-weight: 900;
             color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums; }
 

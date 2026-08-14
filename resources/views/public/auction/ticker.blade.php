@@ -268,7 +268,9 @@
         }
         .sb-card .who { min-width: 0; }
         .sb-card .nm { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .sb-card .tm { font-size: 12px; font-weight: 600; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sb-card .tm { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; opacity: 0.6; white-space: nowrap; overflow: hidden; }
+        .sb-card .tm span { overflow: hidden; text-overflow: ellipsis; }
+        .sb-card .tm .crest { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
         .sb-card .amt { font-size: 18px; font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
 
         #idle {
@@ -695,13 +697,21 @@
         grid.innerHTML = list.map((row) => {
             const nm = row?.player?.name || 'Player';
             const tm = row?.sold_to_team?.name || '';
+            const crest = row?.sold_to_team?.logo_path;
             const face = row?.player?.image
                 ? `<img src="${esc(row.player.image)}" alt="">`
                 : `<div class="blank">${esc(nm.substring(0, 2).toUpperCase())}</div>`;
 
+            // The buying team's badge beside its name — a crest reads faster than a name.
+            const team = tm
+                ? '<div class="tm">'
+                    + (crest ? `<img class="crest" src="${esc(crest)}" alt="">` : '')
+                    + `<span>${esc(tm)}</span></div>`
+                : '';
+
             return '<div class="sb-card">' + face + '<div class="who">'
                 + `<div class="nm">${esc(nm)}</div>`
-                + (tm ? `<div class="tm">${esc(tm)}</div>` : '')
+                + team
                 + `<div class="amt">${amount(row?.final_price)}</div>`
                 + '</div></div>';
         }).join('');
@@ -716,6 +726,8 @@
                 /* The reel is the same cards, cut down to the biggest buys and shuffled — a
                    stream has less room than a wall, so the top of the market is all that fits
                    and all that is worth showing during a pause. */
+                /* Top buys descend by price; the full board keeps the feed's own order, which
+                   is most-recent first — the two answer different questions. */
                 renderSoldBoard(board === 'highlights'
                     ? rows.filter(r => Number(r?.final_price) > 0)
                         .sort((a, b) => Number(b.final_price) - Number(a.final_price))

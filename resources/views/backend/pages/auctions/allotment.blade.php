@@ -187,9 +187,27 @@
                                 @endforeach
                             </select>
 
-                            <input type="number" name="price" step="any" min="0"
-                                   value="{{ (float) $ap->base_price }}"
-                                   class="form-control !py-1.5 !text-sm w-32" title="Allotment price (defaults to base price)">
+                            {{-- Entered in MILLIONS, like every other money field.
+                                 This asked for 1000000 while the row beside it reads "base 1M"
+                                 and every screen in the auction talks in M — so an allotment
+                                 price had to be counted out in zeroes and then checked against a
+                                 figure written the other way. The raw value still posts, through
+                                 the hidden input, so the endpoint is unchanged. --}}
+                            <div class="flex items-center gap-1"
+                                 x-data="{
+                                     raw: @js((float) $ap->base_price),
+                                     toM(v) { return window.auctionToM ? window.auctionToM(v) : v },
+                                     fromM(v) { return window.auctionFromM ? window.auctionFromM(v) : v },
+                                 }">
+                                <div class="relative">
+                                    <input type="number" step="any" min="0"
+                                           :value="toM(raw)" @input="raw = fromM($event.target.value)"
+                                           class="form-control !py-1.5 !text-sm w-24 pr-6"
+                                           title="Allotment price in millions — 1 means 1,000,000">
+                                    <span class="absolute inset-y-0 right-2 flex items-center text-[10px] font-bold text-gray-400">M</span>
+                                </div>
+                                <input type="hidden" name="price" :value="raw">
+                            </div>
 
                             <button type="submit"
                                     class="px-3 py-1.5 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap">
