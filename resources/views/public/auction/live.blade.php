@@ -2581,7 +2581,20 @@
                 ? teams.find(t => Number(t.id) === Number(tie.lot_winner_team_id))
                 : null;
 
-            if (winner) {
+            /*
+             * Hold the spin for the same window the organizer's panel is spinning.
+             *
+             * The winner is recorded the instant DRAW LOT is pressed, so this payload carries it
+             * immediately — and the wall used to settle at once, showing the hall the result
+             * fifteen seconds before the person who drew it. `drawn_at` and `spin_ms` come from
+             * the server, so both screens run one window from one instant.
+             */
+            const spinMs = Number(tie.spin_ms) || 0;
+            const drawnAt = tie.drawn_at ? Date.parse(tie.drawn_at) : null;
+            const stillSpinning = winner && drawnAt && spinMs > 0
+                && (Date.now() - drawnAt) < spinMs;
+
+            if (winner && ! stillSpinning) {
                 // Settle once. Without this guard every poll re-runs the landing animation and the
                 // winner's name pops every two seconds for the rest of the round.
                 if (_drawSettledFor === winner.id) return;

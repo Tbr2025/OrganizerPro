@@ -2553,6 +2553,11 @@ function auctionOrganizerPanel() {
 
         // How long a lot draw cycles the tied team names before landing. The draw is
         // decided on the server before any of this starts; the spin only shows it.
+        /*
+         * How long DRAW LOT is spun for. Overwritten from the sealed payload the moment a tie
+         * exists, so the panel and the public screens are animating one number rather than two
+         * that happen to agree today — see ClosedBidService::LOT_SPIN_MS.
+         */
         LOT_SPIN_MS: 15000,
 
         isTumbling: false,
@@ -3336,6 +3341,12 @@ function auctionOrganizerPanel() {
                 if (!res.ok) return;
                 const data = await res.json();
                 this.sealed = data.closed_bid || { active: false };
+
+                // One spin length, from the server. The wall holds its own animation for exactly
+                // this window, so the hall never sees the result before the person who drew it.
+                if (this.sealed?.tie?.spin_ms) {
+                    this.LOT_SPIN_MS = Number(this.sealed.tie.spin_ms);
+                }
             } catch (e) { /* a dropped poll is not worth surfacing */ }
         },
 

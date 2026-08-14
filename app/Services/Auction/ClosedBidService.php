@@ -27,6 +27,15 @@ use Illuminate\Support\Facades\DB;
  */
 class ClosedBidService
 {
+    /**
+     * How long a tie-break draw is spun before it settles, in milliseconds.
+     *
+     * Server-side because the organizer's panel and the public screens both animate it and they
+     * have to agree — the winner is already decided when the spin starts, so this is purely how
+     * long the room is given to watch it happen.
+     */
+    public const LOT_SPIN_MS = 15000;
+
     public function __construct(
         private readonly BidIncrementService $increments,
         private readonly AuctionPoolService $pools,
@@ -407,6 +416,18 @@ class ClosedBidService
                 // Set the moment the draw lands, which is the wall's cue to stop cycling.
                 'lot_winner_team_id' => $round->lot_winner_team_id,
                 'drawn_at' => $round->lot_drawn_at?->toIso8601String(),
+                /*
+                 * How long the draw is spun for, from the server so every screen uses one
+                 * number.
+                 *
+                 * The winner is decided the instant the organizer presses DRAW LOT, and the
+                 * panel then spins for fifteen seconds so the room watches it land. The wall
+                 * read the same payload and settled AT ONCE — it had the winner and no reason to
+                 * wait — so the hall saw the result a quarter of a minute before the person who
+                 * drew it. Sent with `drawn_at`, the two screens run the same window from the
+                 * same instant.
+                 */
+                'spin_ms' => self::LOT_SPIN_MS,
             ] : null,
         ];
     }
