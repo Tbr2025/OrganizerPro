@@ -52,6 +52,21 @@
     </div>
 
     <div style="background: #f8f9fa; padding: 30px; border: 1px solid #e9ecef; border-top: none;">
+        {{-- The stamp, said once at the top.
+             The poster below carries it as artwork; this is the plain-HTML version for the
+             clients that strip images and for the preview pane, where the first line should be
+             the news rather than "Dear …". --}}
+        <div style="text-align: center; margin: 0 0 22px 0;">
+            <span style="display: inline-block; padding: 10px 34px; border-radius: 999px;
+                         background: #15803d; color: #ffffff; font-size: 22px; font-weight: 800;
+                         letter-spacing: 3px; text-transform: uppercase;">
+                Sold
+            </span>
+            <div style="margin-top: 10px; font-size: 15px; color: #15803d; font-weight: 700;">
+                {{ $player->name }} &rarr; {{ $team->name }} &middot; {{ $auction->formatAmount($finalPrice) }}
+            </div>
+        </div>
+
         <p style="margin: 0 0 20px 0; font-size: 16px;">
             Dear <strong>{{ $player->name }}</strong>,
         </p>
@@ -73,7 +88,11 @@
                 </tr>
                 <tr>
                     <td style="padding: 8px 0; color: #6c757d;">Sale Amount:</td>
-                    <td style="padding: 8px 0; font-weight: 600; color: {{ $primaryColor }};">{{ number_format($finalPrice) }}</td>
+                    {{-- The auction's own formatter: the K/M/B ladder and the unit this auction
+                         calls its money. `number_format` printed 2,800,000 in an email whose
+                         sender spent the evening saying "2.8M Points" on every screen in the
+                         hall — the same figure, unrecognisable. --}}
+                    <td style="padding: 8px 0; font-weight: 600; color: {{ $primaryColor }};">{{ $auction->formatAmount($finalPrice) }}</td>
                 </tr>
                 @if($tournament)
                 <tr>

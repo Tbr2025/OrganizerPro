@@ -886,6 +886,32 @@ HTML;
             #reel-sponsors .sponsor-track { animation: none; justify-content: center; width: 100%; }
         }
 
+        /*
+         * The event marks, turning over as each player arrives.
+         *
+         * transform + opacity only, so it composites off the main thread — this fires on every
+         * new lot for the whole evening and must cost the wall nothing while it is also driving a
+         * projector. It rotates about Y rather than scaling, because a mark that grows shoves the
+         * card's own artwork and a mark that turns does not move at all.
+         */
+        .card-mark {
+            transform-origin: 50% 50%;
+            backface-visibility: visible;
+        }
+        #card-marks.flip .card-mark {
+            animation: markFlip 1.15s cubic-bezier(0.3, 0.9, 0.25, 1) both;
+        }
+        @keyframes markFlip {
+            0%   { transform: perspective(600px) rotateY(0deg);   opacity: 1; }
+            35%  { transform: perspective(600px) rotateY(90deg);  opacity: 0.35; }
+            36%  { transform: perspective(600px) rotateY(-90deg); opacity: 0.35; }
+            70%  { transform: perspective(600px) rotateY(12deg);  opacity: 1; }
+            100% { transform: perspective(600px) rotateY(0deg);   opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #card-marks.flip .card-mark { animation: none; }
+        }
+
         /* A new player arriving. Short, and opacity plus a small rise only — nothing that
            reflows the card or moves the artwork a template author positioned. */
         @keyframes cardArrived {
@@ -2020,9 +2046,24 @@ HTML;
     @endif
 
     <div id="card-container" class="card-container hidden">
-        @if($auction->auction_logo_url)
-        <img src="{{ $auction->auction_logo_url }}" alt="Auction Logo"
-             style="position:absolute;top:20px;left:20px;height:80px;object-fit:contain;z-index:10;">
+        {{-- The event's marks, top-left, turned over on every new player.
+             A logo that never moves stops being seen after ten minutes; a short flip as each
+             player arrives puts the tournament's name back in front of the room without taking
+             any space from the card. Both marks when both are uploaded — the auction's own logo
+             is set under Auctions → Edit → Branding, the tournament's on the tournament. --}}
+        @php
+            $cardMarks = array_values(array_filter([
+                $auction->auction_logo_url ?: null,
+                $auction->tournament->logo_url ?? null,
+            ]));
+        @endphp
+        @if(count($cardMarks))
+        <div id="card-marks" style="position:absolute;top:20px;left:20px;z-index:10;display:flex;align-items:center;gap:18px;">
+            @foreach($cardMarks as $i => $mark)
+                <img src="{{ $mark }}" alt="" class="card-mark" style="height:80px;object-fit:contain;
+                     animation-delay: {{ $i * 0.18 }}s;">
+            @endforeach
+        </div>
         @endif
 
         <!-- Player image radial glow -->
@@ -3337,6 +3378,19 @@ HTML;
             card.classList.remove('card-arrived');
             void card.offsetWidth;
             card.classList.add('card-arrived');
+
+            /*
+             * Turn the event's marks over with the player.
+             *
+             * Same removal-and-reflow as the card itself: a CSS animation will not replay while
+             * its class is still on the element, so back-to-back lots would flip only the first.
+             */
+            const marks = document.getElementById('card-marks');
+            if (marks) {
+                marks.classList.remove('flip');
+                void marks.offsetWidth;
+                marks.classList.add('flip');
+            }
         }
 
         // Set from each poll before the card is rendered. A variable rather than a new

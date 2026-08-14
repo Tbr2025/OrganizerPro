@@ -85,6 +85,26 @@ class AuctionSoldPosterEmailTest extends TestCase
         $this->assertStringNotContainsString('cid:', $html);
     }
 
+    /**
+     * The figure reads the way the hall heard it.
+     *
+     * `number_format` printed 2,800,000 in an email whose sender had spent the evening saying
+     * "2.8M Points" on every screen in the room — the same number, unrecognisable.
+     */
+    #[Test]
+    public function the_amount_is_shown_on_the_auctions_own_scale(): void
+    {
+        ['auction' => $auction, 'team' => $team, 'player' => $player] = $this->fixture();
+
+        $html = (new PlayerSoldMail($player, $team, $auction, 2_800_000, null))->render();
+
+        $this->assertStringContainsString('2.8M Points', $html);
+        $this->assertStringNotContainsString('2,800,000', $html);
+
+        // And the stamp is stated in text, for the clients that strip the poster.
+        $this->assertStringContainsString('Sold', $html);
+    }
+
     #[Test]
     public function a_path_that_no_longer_exists_is_not_attached(): void
     {
