@@ -4,8 +4,21 @@
 
 When asked to deploy, run:
 ```bash
-ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R ubuntu:ubuntu public/build && npm run build && sudo chmod -R a+rX public/build && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && php artisan optimize:clear && sudo systemctl restart laravel-queue"
+ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "cd /var/www/laravel-app && git pull origin main && sudo chown -R ubuntu:ubuntu public/build && npm run build && sudo chmod -R a+rX public/build && sudo -u www-data php artisan migrate --force && sudo -u www-data php artisan optimize:clear && sudo chown -R www-data:www-data storage bootstrap/cache && sudo chmod -R 775 storage bootstrap/cache && sudo systemctl restart laravel-queue"
 ```
+
+### Run artisan as www-data, and fix ownership AFTER it, not before
+`php artisan` writes into `storage/framework` — cache, views, events. Run as `ubuntu` over ssh
+it creates those files **owned by ubuntu**, and php-fpm (www-data) then cannot overwrite them:
+the site starts throwing `file_put_contents(...cache/data/...): Permission denied` on any page
+that touches the cache, and `php artisan migrate` fails the same way before it reaches the
+database. Chowning first does not help — the artisan run is what creates the bad files.
+
+So: `sudo -u www-data php artisan ...`, and chown/chmod as the LAST step.
+
+**Migrations do not run themselves.** `migrate --force` belongs in the chain above; a deploy
+that skips it leaves the code expecting a column the database does not have, and every save on
+the affected form 500s with `Unknown column`.
 
 `public/build` must be owned by **ubuntu** (vite wipes and rewrites the directory as
 the ssh user, and fails with `EACCES: rmdir` if www-data owns it) and left
