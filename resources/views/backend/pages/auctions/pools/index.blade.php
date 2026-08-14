@@ -341,6 +341,30 @@
                                      button should not claim the one it is not producing. --}}
                                 <span x-text="`Download ${selectedInPool({{ $pool->id }}).length} {{ $posterTemplates->isNotEmpty() ? 'poster' : 'card' }}(s)`"></span>
                             </button>
+                            {{-- Move the ticked players into another pool.
+                                 Getting them there meant removing them to Unassigned and
+                                 assigning them again, two screens apart, with the draw
+                                 renumbered twice — and a pool of three hundred to find them in
+                                 the second time. Only waiting players can move: a sold player
+                                 has a result attached to the pool they were sold from. --}}
+                            @if($auction->pools->count() > 1)
+                                <div x-data="{ target: '' }" x-show="removableInPool({{ $pool->id }}).length"
+                                     class="flex items-center gap-1.5">
+                                    <select x-model="target"
+                                            class="text-xs rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white py-1 pl-2 pr-7">
+                                        <option value="">Move to&hellip;</option>
+                                        @foreach($auction->pools->where('id', '!=', $pool->id) as $other)
+                                            <option value="{{ $other->id }}">{{ $other->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button type="button" :disabled="!target || busy"
+                                            @click="movePlayers(removableInPool({{ $pool->id }}), target, $el.previousElementSibling.selectedOptions[0].text)"
+                                            class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                                        <span x-text="`Move ${removableInPool({{ $pool->id }}).length}`"></span>
+                                    </button>
+                                </div>
+                            @endif
+
                             {{-- Counts only the removable ones. Now that a sold player can be
                                  ticked for a poster, a selection of eight sold players would
                                  otherwise offer to remove eight and remove none. --}}
@@ -657,6 +681,8 @@ function poolManager(auctionId) {
         confirmBox: {
             open: false, title: '', message: '', names: [], waiting: 0,
             ids: [], playerIds: [], form: null, confirmLabel: 'Yes, delete', danger: true,
+            // For actions that are neither a form nor an id-list delete — see runConfirm().
+            onConfirm: null,
         },
 
         // Every non-running pool on the page, so "select all" cannot pick one the server
@@ -790,6 +816,75 @@ function poolManager(auctionId) {
             return el?.getAttribute('data-player-name') || `Player #${id}`;
         },
 
+        /**
+         * Move the ticked players into another pool.
+         *
+         * Straight to the assign endpoint, which already knows how to move: it re-prices each
+         * player to the destination pool's base — keeping the old price is how somebody moved
+         * from a 10K pool into a marquee pool stayed priced at 10K — and renumbers the draw at
+         * both ends.
+         *
+         * Confirmed, because it changes the order players come up in, and reloaded afterwards
+         * because lot numbers change for two pools at once and re-deriving that in the browser
+         * is a second implementation of the server's draw.
+         */
+        async movePlayers(ids, targetPoolId, targetName) {
+            const list = (ids || []).filter(id => !this.playerRemoved.includes(id));
+
+            if (! list.length || ! targetPoolId) return;
+
+            this.confirmBox = {
+                open: true,
+                title: 'Move players',
+                message: `Move ${list.length} player(s) to ${targetName}? They take that pool's `
+                    + 'base price, and both draws are renumbered.',
+                names: list.length > 1 ? list.map(id => this.playerName(id)) : [],
+                waiting: 0,
+                ids: [], playerIds: [], form: null,
+                confirmLabel: 'Yes, move',
+                danger: false,
+                onConfirm: () => this._movePlayers(list, targetPoolId),
+            };
+        },
+
+        /**
+         * Straight to the assign endpoint, which already knows how to move.
+         *
+         * It re-prices each player to the destination pool's base — keeping the old price is
+         * how somebody moved from a 10K pool into a marquee pool stayed priced at 10K — and it
+         * renumbers the draw at BOTH ends, so neither pool is left with holes in its lot order.
+         *
+         * Reloaded afterwards because lot numbers change for two pools at once, and re-deriving
+         * that in the browser would be a second implementation of the server's draw.
+         */
+        async _movePlayers(list, targetPoolId) {
+            this.busy = true;
+
+            try {
+                const res = await fetch(`/admin/auctions/${auctionId}/pools/assign`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({ pool_id: targetPoolId, player_ids: list }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    this.toast(data.message || 'Those players could not be moved.', 'error');
+                }
+            } catch (e) {
+                console.error('Move error:', e);
+                this.toast('That did not go through.', 'error');
+            } finally {
+                this.busy = false;
+            }
+        },
+
         confirmRemovePlayers(ids) {
             /*
              * Removable only, whoever asked. The per-row × is rendered for waiting players alone,
@@ -863,7 +958,10 @@ function poolManager(auctionId) {
         _resetConfirm() {
             this.confirmBox = {
                 open: false, title: '', message: '', names: [], waiting: 0,
+                // onConfirm cleared with the rest: a callback left behind would fire on the
+                // NEXT confirmation, whatever that turned out to be.
                 ids: [], playerIds: [], form: null, confirmLabel: 'Yes, delete', danger: true,
+                onConfirm: null,
             };
         },
 
@@ -927,6 +1025,21 @@ function poolManager(auctionId) {
 
         async runConfirm() {
             if (this.busy) return;
+
+            /*
+             * A plain callback, for an action that is neither a form nor an id-list delete.
+             *
+             * Every branch below is keyed to what the box was populated with. Moving players
+             * between pools is a third shape, and giving it its own field is less work than
+             * bending it into one of the two — and far less than a promise-based confirm that
+             * every existing caller would then have to be rewritten for.
+             */
+            if (this.confirmBox.onConfirm) {
+                const run = this.confirmBox.onConfirm;
+                this._resetConfirm();
+                await run();
+                return;
+            }
 
             // A held-back form: let it through now. No fetch, so the page reloads as it
             // always did — these actions rewrite the whole board.

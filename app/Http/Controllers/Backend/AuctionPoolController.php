@@ -299,7 +299,7 @@ class AuctionPoolController extends Controller
     }
 
     /** Assign selected players to a pool (one pool per player — moving reassigns). */
-    public function assign(Request $request, Auction $auction): RedirectResponse
+    public function assign(Request $request, Auction $auction): RedirectResponse|JsonResponse
     {
         $this->authorize('auction.edit');
 
@@ -331,6 +331,16 @@ class AuctionPoolController extends Controller
             // player → pool → auction, resolved in one place.
             $base = $this->poolService->resolveBasePrice($auction, $pool);
 
+            /*
+             * The pools these players are LEAVING, so their lot order can be closed up.
+             *
+             * Only the destination was renumbered, so moving players out of a pool left holes in
+             * its draw — lot 3 and lot 7 with nothing between them, and a "1 of 15" that counts
+             * players who are no longer in it. Assigning from Unassigned is the common case and
+             * has no source, which is why this went unnoticed.
+             */
+            $sourcePoolIds = [];
+
             foreach ($eligible as $player) {
                 $existing = AuctionPlayer::where('auction_id', $auction->id)
                     ->where('player_id', $player->id)->first();
@@ -344,6 +354,10 @@ class AuctionPoolController extends Controller
                 // old price meant moving someone from a 10K pool into a 500K marquee
                 // pool left them priced at 10K.
                 $movedPool = $existing && (int) $existing->auction_pool_id !== (int) $pool->id;
+
+                if ($movedPool && $existing->auction_pool_id) {
+                    $sourcePoolIds[(int) $existing->auction_pool_id] = true;
+                }
                 $price = ($existing && ! $movedPool && $existing->base_price !== null)
                     ? $existing->base_price
                     : $base;
@@ -391,9 +405,24 @@ class AuctionPoolController extends Controller
 
             // Only non-retained players get lot numbers.
             $this->poolService->generateLotNumbers($pool);
+
+            // And the pools they came out of, so neither draw has holes in it.
+            foreach (array_keys($sourcePoolIds) as $sourceId) {
+                if ($source = AuctionPool::where('auction_id', $auction->id)->find($sourceId)) {
+                    $this->poolService->generateLotNumbers($source);
+                }
+            }
         });
 
-        return back()->with('success', __('Players assigned to pool.'));
+        $moved = __('Players assigned to pool.');
+
+        // The pools screen moves players over fetch and re-renders itself; a redirect would
+        // hand it a page of HTML to ignore.
+        if ($request->expectsJson()) {
+            return response()->json(['success' => true, 'message' => $moved]);
+        }
+
+        return back()->with('success', $moved);
     }
 
     /** Remove a single player from its pool (returns them to the unassigned bucket). */

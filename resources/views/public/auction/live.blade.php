@@ -1648,6 +1648,64 @@
          */
         let _lastFlashKey = null;
 
+        /**
+         * Roll the price up to a new figure, the way a departure board turns over.
+         *
+         * A raise used to appear as a straight substitution — 1M became 2.5M between two frames
+         * — which from the back of a hall is easy to miss entirely, and gives no sense of how
+         * far the bidding just moved. Stepping through the figures in between makes the size of
+         * the jump legible: the board counts 1.1, 1.2 … 2.5 and stops on what the organizer
+         * actually entered.
+         *
+         * It always lands exactly on the target. The steps are cosmetic and the final assignment
+         * is the real number, so a rounding artefact cannot survive on the wall — and a raise
+         * arriving mid-roll cancels the one in flight and starts again from wherever the board
+         * had got to, rather than queueing behind it.
+         *
+         * Skipped for a reduction, for a first paint, and for anyone who has asked their system
+         * for reduced motion: a price falling back through an undo should simply be the new
+         * figure, not a countdown.
+         */
+        let _bidRollFrame = null;
+
+        function rollBidTo(el, from, to) {
+            if (_bidRollFrame) {
+                cancelAnimationFrame(_bidRollFrame);
+                _bidRollFrame = null;
+            }
+
+            const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+            if (reduced || !(from > 0) || !(to > from)) {
+                el.textContent = formatMillions(to);
+                return;
+            }
+
+            /* Long enough to read as movement, short enough that the next raise is never
+               waiting on it — an auctioneer can take raises faster than this. */
+            const DURATION = 520;
+            const started = performance.now();
+
+            const step = (now) => {
+                const t = Math.min(1, (now - started) / DURATION);
+                // Ease-out: quick off the mark, settling onto the figure rather than stopping
+                // dead on it.
+                const eased = 1 - Math.pow(1 - t, 3);
+
+                el.textContent = formatMillions(from + (to - from) * eased);
+
+                if (t < 1) {
+                    _bidRollFrame = requestAnimationFrame(step);
+                } else {
+                    // The real number, never a rounding of it.
+                    el.textContent = formatMillions(to);
+                    _bidRollFrame = null;
+                }
+            };
+
+            _bidRollFrame = requestAnimationFrame(step);
+        }
+
         function renderBidFlash(p) {
             const el = document.getElementById('bid-flash');
             if (!el) return;
@@ -1805,7 +1863,7 @@
             renderTravelPlan(ap.player);
 
             if (bidEl) {
-                bidEl.textContent = formatMillions(price);
+                rollBidTo(bidEl, Number(window._lastDisplayedPrice) || 0, price);
 
                 if (price !== window._lastDisplayedPrice) {
                     bidEl.classList.add('bid-updated');
@@ -2262,7 +2320,9 @@
             renderTravelPlan(p.player);
 
             if (bidEl) {
-                bidEl.textContent = formatMillions(price);
+                // Rolls up to the new figure, exactly as the pushed path does — a raise must
+                // look the same to the room whichever route delivered it.
+                rollBidTo(bidEl, Number(window._lastDisplayedPrice) || 0, price);
 
                 // Brief green highlight when price changes, then back to white
                 if (price !== window._lastDisplayedPrice) {
