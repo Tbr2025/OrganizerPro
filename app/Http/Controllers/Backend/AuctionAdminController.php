@@ -1237,6 +1237,45 @@ class AuctionAdminController extends Controller
                     $newPrice = $ceiling;
                 }
 
+                /*
+                 * A CORRECTION that the current leader cannot afford passes to whoever can.
+                 *
+                 * A team leading at their own ceiling — CUBA CC on 1.8M with 1.8M left — cannot
+                 * be raised, and pressing + answered "max bid allowed: 1.8M (tried 1.9M)" and
+                 * stopped. But a higher call in the room did not come from them; it came from
+                 * somebody else, and the operator is recording it. So the maxed-out team is
+                 * skipped and the raise goes to the team best able to make it.
+                 *
+                 * Richest purse first, because that is the team most likely to be the one still
+                 * bidding. It is a guess, and a wrong guess is why the response names the team
+                 * it chose — the toast says so, and UNDO takes it straight back off. Only for a
+                 * correction: an ordinary click names its own team and must never be quietly
+                 * re-pointed at a different one.
+                 */
+                if ($isCorrection && $data['teamId']
+                    && ! $pools->canAffordWithReserve($auction, (int) $data['teamId'], $newPrice)) {
+                    $candidates = ActualTeam::forTournament($auction->tournament_id)
+                        ->get(['id', 'name'])
+                        ->filter(fn ($t) => (int) $t->id !== (int) $data['teamId'])
+                        ->filter(fn ($t) => $pools->canAffordWithReserve($auction, (int) $t->id, $newPrice));
+
+                    if ($candidates->isEmpty()) {
+                        $blocked = ActualTeam::find($data['teamId']);
+
+                        throw new \Exception(sprintf(
+                            'Nobody can bid above %s — %s is at their limit and no other team can reach it. Sell at the current price.',
+                            format_points($current),
+                            $blocked?->name ?? 'the leading team'
+                        ));
+                    }
+
+                    $purses = $pools->teamPurseStates($auction, $candidates->pluck('id')->all(), $newPrice);
+
+                    $data['teamId'] = $candidates
+                        ->sortByDesc(fn ($t) => (float) ($purses[$t->id]['remaining'] ?? 0))
+                        ->first()->id;
+                }
+
                 // Squad-reserve rule. The organizer's manual bid path previously
                 // had no budget check of any kind, so a team could be bid past
                 // its cap and only be blocked at SELL.

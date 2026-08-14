@@ -3588,9 +3588,37 @@ function auctionOrganizerPanel() {
                 const data = await res.json();
 
                 if (data.success) {
+                    const previousLeader = this.currentPlayer?.current_bid_team_id;
+
                     this.currentBid = data.current_price;
                     this._lastKnownBid = data.current_price;
-                    if (this.currentPlayer) this.currentPlayer.current_price = data.current_price;
+
+                    if (this.currentPlayer) {
+                        this.currentPlayer.current_price = data.current_price;
+
+                        /*
+                         * The raise may have changed hands.
+                         *
+                         * A team leading at its own ceiling cannot be raised, so the server
+                         * passes the correction to whoever can still make it — and the board has
+                         * to say who, because the operator did not choose them. UNDO takes it
+                         * straight back off if it picked wrong.
+                         */
+                        if (data.current_bid_team_id !== undefined) {
+                            this.currentPlayer.current_bid_team_id = data.current_bid_team_id;
+                            const team = this.teams.find(t => t.id == data.current_bid_team_id);
+                            if (team) this.winningTeamName = team.name;
+
+                            if (data.current_bid_team_id != previousLeader && team) {
+                                this.toast(
+                                    `${team.name} now leads at ${this.formatCurrency(data.current_price)} — the previous leader was at their limit.`,
+                                    'info',
+                                    'Leader changed'
+                                );
+                            }
+                        }
+                    }
+
                     this._lastAppliedBidId = Math.max(this._lastAppliedBidId || 0, Number(data.bid_id) || 0);
                     this.resetBiddingTimer();
                 } else {
