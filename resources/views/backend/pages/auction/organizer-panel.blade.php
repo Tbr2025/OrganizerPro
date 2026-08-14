@@ -4981,6 +4981,38 @@ function auctionOrganizerPanel() {
         teamBidBlockReason(team) {
             if (! team) return null;
 
+            /*
+             * A sealed round is running: the logos are inert.
+             *
+             * Bidding has gone private — the amounts are entered on the teams' own screens and
+             * the price on this panel is frozen at the round's floor. A chip that still takes a
+             * click during that is an open raise on a lot that is no longer taking open raises,
+             * and the operator only finds out after the round trip.
+             *
+             * Checked BEFORE the squad and ceiling clauses so the reason a hall would give is the
+             * reason the screen gives: it is not that this team cannot bid, it is that nobody can.
+             */
+            if (this.sealed?.active) {
+                return 'A sealed round is running — open bidding is closed for this player. Amounts are entered on the teams\' own screens.';
+            }
+
+            /*
+             * At or past the sealed threshold, before a round has formally opened.
+             *
+             * The ceiling clause below catches this once the server has stopped offering a next
+             * bid, but there is a window either side of pressing "Closed" where the figure is at
+             * the threshold and the chips still look live.
+             */
+            /* `openBidCeiling` is the server's own sealed threshold for this player — the same
+               figure the ceiling clause below uses. There is no separate client copy of it, and
+               inventing one would be a second answer to a question the server already answers. */
+            const threshold = Number(this.openBidCeiling) || 0;
+            const price = Number(this.currentBid) || 0;
+
+            if (threshold > 0 && price >= threshold) {
+                return `Open bidding stops at ${this.formatCurrency(threshold)}. Move to a sealed bid, sell to the leading team, or keep open bidding.`;
+            }
+
             if (team.squad_full) return `${team.name}'s squad is full.`;
 
             /*

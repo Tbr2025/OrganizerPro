@@ -139,6 +139,21 @@
             background: rgba(251, 146, 60, 0.22); color: #fdba74;
             border: 1px solid rgba(251, 146, 60, 0.45);
         }
+        /* The aeroplane flies here too. This chip was drawing a path that fills to a triangle at
+           badge size, so a player's travel dates read as a WARNING on the ticker — the wall and
+           the panel were fixed and this screen was missed, which is exactly how one player ends
+           up looking different on two screens in the same room. */
+        #lt-name-badges .lt-travel svg {
+            animation: ltFlightDrift 2.6s ease-in-out infinite;
+        }
+        @keyframes ltFlightDrift {
+            0%, 100% { transform: translate(-0.06em, 0.05em); }
+            50%      { transform: translate(0.12em, -0.09em); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #lt-name-badges .lt-travel svg { animation: none; }
+        }
+
         #lt-name-badges .lt-travel {
             background: rgba(56, 189, 248, 0.18); color: #7dd3fc;
             border: 1px solid rgba(56, 189, 248, 0.4);
@@ -852,7 +867,7 @@
         if (p.travel_plan_label) {
             badges.push(
                 '<span class="lt-badge lt-travel">'
-                + '<svg viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/></svg>'
+                + '<svg viewBox="0 0 20 20" fill="currentColor"><g transform="rotate(45 10 10)"><path d="M17.5 13.3v-1.6l-6.6-4.2V3.1c0-.7-.6-1.2-1.2-1.2S8.4 2.4 8.4 3.1v4.4L1.8 11.7v1.6l6.6-2v4.4l-1.7 1.2v1.2l2.9-.8 2.9.8v-1.2l-1.7-1.2v-4.4l6.7 2z"/></g></svg>'
                 + esc(p.travel_plan_label) + '</span>'
             );
         }
