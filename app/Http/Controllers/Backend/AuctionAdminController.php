@@ -413,10 +413,14 @@ class AuctionAdminController extends Controller
             // `gt` only applies when the lower bound was actually filled in — otherwise
             // setting just the offline threshold failed with a confusing message about a
             // field the operator left deliberately blank.
-            'online_bid_limit_to' => array_filter([
-                'nullable', 'numeric', 'min:0',
-                $request->filled('online_bid_limit_from') ? 'gt:online_bid_limit_from' : null,
-            ]),
+            /*
+             * No `gt` any more: the field it compared against has been removed from the form.
+             *
+             * It was informational — nothing read it — but the comparison was real, so on an
+             * auction whose handover is 1M, typing 1M into that box failed validation and the
+             * whole form came back unsaved because of a setting that governed nothing.
+             */
+            'online_bid_limit_to' => 'nullable|numeric|min:0',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
 
             // Online or offline: who enters the bids for the whole auction. Nullable, not
@@ -1802,10 +1806,14 @@ class AuctionAdminController extends Controller
             // `gt` only applies when the lower bound was actually filled in — otherwise
             // setting just the offline threshold failed with a confusing message about a
             // field the operator left deliberately blank.
-            'online_bid_limit_to' => array_filter([
-                'nullable', 'numeric', 'min:0',
-                $request->filled('online_bid_limit_from') ? 'gt:online_bid_limit_from' : null,
-            ]),
+            /*
+             * No `gt` any more: the field it compared against has been removed from the form.
+             *
+             * It was informational — nothing read it — but the comparison was real, so on an
+             * auction whose handover is 1M, typing 1M into that box failed validation and the
+             * whole form came back unsaved because of a setting that governed nothing.
+             */
+            'online_bid_limit_to' => 'nullable|numeric|min:0',
             'closed_bid_starts_at' => 'nullable|numeric|min:0',
             // See the matching rule in store().
             'open_bid_mode' => 'nullable|in:online,offline',

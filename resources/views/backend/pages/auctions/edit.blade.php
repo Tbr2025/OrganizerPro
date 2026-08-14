@@ -377,18 +377,18 @@
                                     The sealed round runs in <strong>both</strong> modes. Online, the teams type their own amount; offline, the organizer enters each team's amount for them on the control panel. Either way the highest submitted amount takes the player.
                                 </p>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label for="online_bid_limit_from" class="form-label text-xs">Online Bid Starts From</label>
-                                        <div class="relative">
-                                            <input type="number" step="any" min="0" id="online_bid_limit_from"
-                                                   :value="toM(auctionData.online_bid_limit_from)"
-                                                   @input="auctionData.online_bid_limit_from = fromM($event.target.value)"
-                                                   class="form-control pr-9" placeholder="e.g. 0.1">
-                                            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">M</span>
-                                        </div>
-                                        <input type="hidden" name="online_bid_limit_from" :value="auctionData.online_bid_limit_from">
-                                        <p class="text-xs text-gray-400 mt-1">Informational only — it changes nothing on its own.</p>
-                                    </div>
+                                    {{-- "Online Bid Starts From" removed.
+                                         Its own help text said "Informational only — it changes
+                                         nothing on its own", and that was true: nothing read it.
+                                         What it DID do was block the save, because the field
+                                         beside it carries `gt:online_bid_limit_from` — so on an
+                                         auction whose handover is 1M, typing 1M here failed
+                                         validation and the whole form came back unsaved with an
+                                         error about a field that governs nothing.
+
+                                         Where bidding opens is Base Price, and the opening bid
+                                         takes that figure in both online and offline. The column
+                                         stays on the table; only the control is gone. --}}
                                     <div>
                                         <label for="closed_bid_starts_at" class="form-label text-xs">Closed Bid Starts At</label>
                                         <div class="relative">

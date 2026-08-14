@@ -437,7 +437,17 @@
 
         /* Current bidder. Same position and shape as the result banner, so the two read as
            one slot at the top of the screen rather than two competing strips. */
-        #bid-flash {
+        /*
+         * The raise banner, off.
+         *
+         * The card already carries CURRENT BID where the template puts it, and this repeated the
+         * same figure and team in a floating pill over the artwork — two answers to one
+         * question, one of them covering the design. display:none rather than deletion, so
+         * renderBidFlash still runs and switching it back on is one line.
+         */
+        #bid-flash { display: none !important; }
+
+        #bid-flash-off {
             position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
             z-index: 9995; display: flex; align-items: center; gap: 18px;
             padding: 12px 38px; border-radius: 9999px;
@@ -618,6 +628,32 @@
             border: none; aspect-ratio: auto; }
         #reel .rp .amt { margin-top: 6px; font-size: 34px; font-weight: 900;
             color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums; }
+
+        /* ── The draw coin ── */
+        #draw-coin {
+            width: 74px; height: 74px; margin: 0 auto 10px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #fde68a 0%, #d97706 55%, #92400e 100%);
+            box-shadow: 0 0 26px rgba(251,191,36,0.55), inset 0 2px 6px rgba(255,255,255,0.45);
+            display: flex; align-items: center; justify-content: center;
+            color: rgba(120,53,15,0.65); font-size: 30px;
+            /* Rotating the FACE, not the box: transform on its own compositor layer, so a coin
+               turning for fifteen seconds costs the wall nothing while a lot is being drawn. */
+            transform-style: preserve-3d;
+            animation: coin-flip 0.7s linear infinite;
+        }
+        #draw-coin.hidden { display: none; }
+        /* Settles face-on rather than stopping mid-turn, which reads as a dropped frame. */
+        #draw-coin.settled { animation: coin-settle 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        @keyframes coin-flip {
+            0%   { transform: rotateY(0deg) rotateX(8deg); }
+            100% { transform: rotateY(360deg) rotateX(8deg); }
+        }
+        @keyframes coin-settle {
+            0%   { transform: rotateY(320deg) scale(1); }
+            70%  { transform: rotateY(360deg) scale(1.12); }
+            100% { transform: rotateY(360deg) scale(1); }
+        }
 
         /* ── Ads on the reel ── */
         #reel .slide.ad { display: flex; align-items: center; justify-content: center; }
@@ -1722,6 +1758,11 @@
             {{-- The draw. Cycles the tied teams and lands on the winner, so the room watches the
                  result arrive rather than reading that a draw happened somewhere. --}}
             <div id="sealed-draw" class="hidden" style="position:relative;margin-top:8px;">
+                {{-- A coin, turning while the draw runs.
+                     The names were already cycling, but a cycling list reads as a menu being
+                     scrolled rather than as chance being taken. A coin says what is happening
+                     without a word of explanation, and it stops when the draw does. --}}
+                <div id="draw-coin" class="hidden"><span>&#9679;</span></div>
                 <div style="font-size:12px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#fde68a;">
                     <span id="sealed-draw-label">Drawing a lot</span>
                 </div>
@@ -2564,12 +2605,23 @@
 
             if (! tie || teams.length === 0) {
                 wrap.classList.add('hidden');
+                document.getElementById('draw-coin')?.classList.remove('settled');
                 if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
                 _drawSettledFor = null;
                 return;
             }
 
             wrap.classList.remove('hidden');
+
+            /*
+             * A coin for two teams; the cycling names for more.
+             *
+             * A coin has two faces, so it is an honest picture of a two-way draw and a
+             * misleading one for five — the room would be watching a toss decide something a
+             * toss cannot. With more than two tied, the names circling IS the draw.
+             */
+            const coin = document.getElementById('draw-coin');
+            if (coin) coin.classList.toggle('hidden', teams.length !== 2);
 
             if (amountEl) {
                 amountEl.textContent = tie.amount
@@ -2601,6 +2653,8 @@
                 _drawSettledFor = winner.id;
 
                 if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
+
+                if (coin) coin.classList.add('settled');
 
                 if (labelEl) labelEl.textContent = 'Lot drawn';
                 if (nameEl) {
