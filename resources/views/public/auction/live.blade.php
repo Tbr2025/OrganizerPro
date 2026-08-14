@@ -3295,6 +3295,26 @@ HTML;
             })
             .catch(() => {});
 
+        /* What the artwork switches were last set to, so a change to them can be noticed. */
+        let _lastArtwork = null;
+
+        /*
+         * Re-read the sponsors on their own.
+         *
+         * Turning the strip off has to take it down even when no board is up — the strip is drawn
+         * for the whole auction, not only during a break, so it cannot wait for the next board
+         * fetch to notice.
+         */
+        function refreshSponsors() {
+            fetch(`/auction/${auctionId}/sold-players`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (Array.isArray(data?.adSlides)) _reelAds = data.adSlides;
+                    renderSponsors(data?.sponsors, data?.tournamentLogo);
+                })
+                .catch(() => {});
+        }
+
         function fetchSoldBoard(board) {
             fetch(`/auction/${auctionId}/sold-players`)
                 .then((res) => res.json())
@@ -4753,6 +4773,22 @@ HTML;
                    next feed read — the feed has always respected the target. */
                 const target = event?.target ?? 'both';
                 if (target !== 'both' && target !== 'wall') return;
+
+                /*
+                 * The artwork switches change what the FEED sends, not what this screen decides —
+                 * so a change to them needs a refetch, and pressing Apply with only a checkbox
+                 * touched leaves the board name identical. Without this the sponsors stayed on the
+                 * wall until something unrelated happened to refetch.
+                 */
+                const artwork = `${event?.adSlides ? 1 : 0}${event?.adSponsors ? 1 : 0}`;
+
+                if (_lastArtwork !== null && artwork !== _lastArtwork) {
+                    _lastArtwork = artwork;
+                    refreshSponsors();
+                    if (soldBoardShowing) fetchSoldBoard(soldBoardShowing);
+                } else {
+                    _lastArtwork = artwork;
+                }
 
                 applySoldBoard(event?.board);
             })

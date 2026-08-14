@@ -39,14 +39,30 @@ class SoldBoardToggled implements ShouldBroadcastNow
          * had deliberately left alone.
          */
         public ?string $target = 'both',
+
+        /*
+         * The artwork switches, sent with the board.
+         *
+         * The screens refetch only when the BOARD changes, so unticking "Ad slides" or "Sponsor
+         * strip" and pressing Apply changed nothing on the wall until some unrelated event
+         * happened to cause a refetch. The feed has always honoured the flags; the screens simply
+         * never went back to ask.
+         */
+        public bool $adSlides = true,
+        public bool $adSponsors = true,
     ) {
     }
 
     /** Failures are logged and swallowed — the flag is already saved and the polls carry it. */
-    public static function announce(int $auctionId, ?string $board, ?string $target = 'both'): void
-    {
+    public static function announce(
+        int $auctionId,
+        ?string $board,
+        ?string $target = 'both',
+        bool $adSlides = true,
+        bool $adSponsors = true
+    ): void {
         try {
-            broadcast(new self($auctionId, $board, $target));
+            broadcast(new self($auctionId, $board, $target, $adSlides, $adSponsors));
         } catch (\Throwable $e) {
             Log::warning('SoldBoardToggled broadcast failed: ' . $e->getMessage(), [
                 'auction_id' => $auctionId,

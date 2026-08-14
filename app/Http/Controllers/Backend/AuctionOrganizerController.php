@@ -796,7 +796,9 @@ class AuctionOrganizerController extends Controller
             fn () => \App\Events\SoldBoardToggled::announce(
                 (int) $auction->id,
                 $board,
-                $fresh->public_board_target ?? 'both'
+                $fresh->public_board_target ?? 'both',
+                (bool) $fresh->ads_slides_enabled,
+                (bool) $fresh->ads_sponsors_enabled
             )
         );
 

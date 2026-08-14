@@ -2340,15 +2340,25 @@
                  unticking every row — and an organizer who wants no ads through the closing
                  lots was left deleting artwork they had just agreed with a sponsor. --}}
             <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">Artwork</label>
+            {{-- Named for what the room sees, not for the two flags underneath.
+                 "Ad slides" and "Sponsor strip" describe the mechanism; an organizer is choosing
+                 between three pictures — cards on their own, cards with the artwork between them,
+                 and the logo carousel along the foot. The switches are the same two booleans. --}}
             <div class="space-y-2 mb-5">
                 <label class="flex items-center gap-2.5 cursor-pointer">
                     <input type="checkbox" x-model="adsSlides" class="rounded border-gray-600 bg-gray-800 text-amber-500">
-                    <span class="text-xs text-gray-300">Ad slides <span class="text-gray-500">— between the player cards on the reel</span></span>
+                    <span class="text-xs text-gray-300">Player cards with ads
+                        <span class="text-gray-500">— sponsor artwork between the cards</span></span>
                 </label>
                 <label class="flex items-center gap-2.5 cursor-pointer">
                     <input type="checkbox" x-model="adsSponsors" class="rounded border-gray-600 bg-gray-800 text-amber-500">
-                    <span class="text-xs text-gray-300">Sponsor strip <span class="text-gray-500">— along the bottom of the wall</span></span>
+                    <span class="text-xs text-gray-300">Sponsor logo carousel
+                        <span class="text-gray-500">— moving strip along the foot of the screen</span></span>
                 </label>
+                <p class="text-[11px] text-gray-500 pl-6">
+                    Both off shows the player cards on their own. Either switch takes effect on the
+                    wall and the ticker the moment you press Apply.
+                </p>
             </div>
 
             <label class="block text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">

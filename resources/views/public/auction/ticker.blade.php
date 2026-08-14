@@ -1165,6 +1165,9 @@
     const SEALED_MESSAGE = @js($auction->sealedMessage());
     const SEALED_LOGO = @js($auction->sealed_logo ? $auction->sealed_logo_url : null);
 
+    /* What the artwork switches were last set to, so a change can be noticed. */
+    let lastArtwork = null;
+
     let ltDrawCycle = null;
     let ltDrawSettledFor = null;
 
@@ -1559,6 +1562,17 @@
                 .listen('.board.changed', (e) => {
                     const target = e?.target ?? 'both';
                     if (target !== 'both' && target !== 'ticker') return;
+
+                    /* The artwork switches change what the FEED sends, so a change to them needs a
+                       refetch — pressing Apply with only a checkbox touched leaves the board name
+                       identical and nothing would have gone back to ask. */
+                    const artwork = `${e?.adSlides ? 1 : 0}${e?.adSponsors ? 1 : 0}`;
+
+                    if (lastArtwork !== null && artwork !== lastArtwork && soldBoardShowing) {
+                        fetchSoldBoard(soldBoardShowing);
+                    }
+
+                    lastArtwork = artwork;
 
                     applySoldBoard(e?.board);
                 });
