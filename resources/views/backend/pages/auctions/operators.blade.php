@@ -30,7 +30,8 @@
     <div class="mb-5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-xs text-blue-800 dark:text-blue-300">
         Organizers and admins already run every auction in their organization and do not need to be
         listed here. Anyone else can open <em>only</em> the auctions they appear on, and only do the
-        things ticked against their name.
+        things ticked against their name — every other auction is hidden from their list entirely.
+        Their existing roles are untouched: this adds a job, it never takes one away.
     </div>
 
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 mb-6">
@@ -91,29 +92,50 @@
         </div>
 
         @forelse($operators as $operator)
-            <div class="flex items-center gap-4 px-5 py-3 border-b border-gray-100 dark:border-gray-700 last:border-0 flex-wrap">
-                <div class="min-w-0 flex-1">
-                    <div class="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                        {{ $operator->user?->name ?? 'Deleted user' }}
+            {{-- Editable in place. Adding somebody was the only way to change what they could do:
+                 the form above happens to update an existing row, but nothing on the page said so,
+                 so a wrong tick was a remove-and-re-add. --}}
+            <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                <form action="{{ route('admin.auctions.operators.store', $auction) }}" method="POST"
+                      class="flex items-start gap-4 flex-wrap">
+                    @csrf
+                    <input type="hidden" name="user_id" value="{{ $operator->user_id }}">
+
+                    <div class="min-w-0 flex-1">
+                        <div class="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            {{ $operator->user?->name ?? 'Deleted user' }}
+                        </div>
+                        <div class="text-xs text-gray-500 truncate">{{ $operator->user?->email }}</div>
                     </div>
-                    <div class="text-xs text-gray-500 truncate">{{ $operator->user?->email }}</div>
-                </div>
 
-                <div class="flex flex-wrap gap-1.5">
-                    @foreach($operator->abilities ?? [] as $ability)
-                        <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300">
-                            {{ $ability }}
-                        </span>
-                    @endforeach
-                </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+                        @foreach($abilities as $key => $label)
+                            <label class="flex items-center gap-1.5 cursor-pointer" title="{{ $label }}">
+                                <input type="checkbox" name="abilities[]" value="{{ $key }}"
+                                       @checked(in_array($key, $operator->abilities ?? [], true))
+                                       class="rounded border-gray-300 text-indigo-600">
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ ucfirst($key) }}</span>
+                            </label>
+                        @endforeach
+                    </div>
 
-                <form action="{{ route('admin.auctions.operators.destroy', [$auction, $operator]) }}" method="POST"
-                      onsubmit="return confirm('Remove {{ $operator->user?->name }} from this auction?')">
-                    @csrf @method('DELETE')
-                    <button class="px-3 py-1.5 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-50 dark:hover:bg-red-900/20">
-                        Remove
+                    <button class="px-3 py-1.5 rounded-lg bg-brand-500 text-white text-xs font-semibold hover:bg-brand-600">
+                        Save
                     </button>
                 </form>
+
+                <div class="mt-2 flex items-center justify-between gap-3 flex-wrap">
+                    <p class="text-[11px] text-gray-400">
+                        Can open <strong>this</strong> auction only — every other auction is hidden from them.
+                    </p>
+                    <form action="{{ route('admin.auctions.operators.destroy', [$auction, $operator]) }}" method="POST"
+                          onsubmit="return confirm('Remove {{ $operator->user?->name }} from this auction?')">
+                        @csrf @method('DELETE')
+                        <button class="text-xs font-semibold text-red-600 dark:text-red-400 hover:underline">
+                            Remove from this auction
+                        </button>
+                    </form>
+                </div>
             </div>
         @empty
             <div class="px-5 py-10 text-center text-sm text-gray-500">

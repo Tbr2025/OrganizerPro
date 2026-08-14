@@ -35,46 +35,30 @@ class EnsureAuctionOperator
             return $next($request);
         }
 
-        /*
-         * Only Auctioneers are narrowed. Everybody else is left exactly as they were.
-         *
-         * This first refused anyone who was not an admin or organizer, which reads sensibly and
-         * is wrong: any custom role carrying auction permissions — and there are such roles in
-         * use — would have been locked out of every auction the moment this deployed, without
-         * appearing in any list. It took the whole test suite down, which is the cheap version
-         * of the same discovery.
-         *
-         * The rule that holds is additive: this middleware exists to scope a NEW role, so it
-         * scopes that role and nothing else. Anyone who could run an auction yesterday still
-         * can; an Auctioneer can run only the auctions they are named on.
-         */
-        if (! $user->hasRole('Auctioneer')) {
-            return $next($request);
-        }
-
-        // An Auctioneer who is also an admin or organizer keeps the wider access.
+        // Admins, organizers and superadmins own the auctions and hand these rows out. Narrowing
+        // them by a row nobody thought to create is how the people who set an event up get locked
+        // out of it an hour before it starts.
         if ($user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
             return $next($request);
         }
 
         /*
-         * Being made an auctioneer ADDS to what somebody already had; it never takes anything away.
+         * Who gets narrowed: anyone NAMED on an auction, plus anyone holding the Auctioneer role.
          *
-         * Adding a person to an auction grants them the Auctioneer role on top of their existing
-         * roles — but if this then narrowed them, a Scorer or a custom role that already carried
-         * auction access would silently LOSE it everywhere the moment they were named on one
-         * auction. Handing somebody an extra job must not quietly cost them the one they had.
+         * Being named on an auction is an explicit statement of which auctions a person runs, so
+         * it is the thing to follow — whatever else their account happens to hold. The role is
+         * included so that an auctioneer whose last row was removed does not silently fall back
+         * to open access on every auction in the organization.
          *
-         * So: if any role other than Auctioneer already grants auction access, that access stands
-         * and this stands aside. The narrowing applies to what the Auctioneer role alone opens.
+         * Everybody else is left exactly as they were. That matters more than it looks: this
+         * first refused anyone who was not an admin or organizer, which reads sensibly and is
+         * wrong — any custom role carrying auction permissions, and there are such roles in use,
+         * would have been locked out of every auction the moment it deployed. It took the whole
+         * test suite down, which was the cheap version of that discovery.
          */
-        $otherAuctionRole = $user->roles
-            ->reject(fn ($role) => $role->name === 'Auctioneer')
-            ->contains(fn ($role) => $role->permissions->contains(
-                fn ($permission) => str_starts_with($permission->name, 'auction.')
-            ));
+        $named = AuctionOperator::where('user_id', $user->id)->exists();
 
-        if ($otherAuctionRole) {
+        if (! $named && ! $user->hasRole('Auctioneer')) {
             return $next($request);
         }
 

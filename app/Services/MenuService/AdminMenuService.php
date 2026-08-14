@@ -2,6 +2,8 @@
 
 namespace App\Services\MenuService;
 
+use App\Models\Auction;
+use App\Models\AuctionOperator;
 use App\Models\TournamentRegistration;
 use App\Services\Content\ContentService;
 use Illuminate\Support\Facades\Route;
@@ -279,6 +281,110 @@ class AdminMenuService
 
             $this->groups = ld_apply_filters('admin_menu_groups_before_sorting', $this->groups);
             $this->sortMenuItemsByPriority();
+            return $this->applyFiltersToMenuItems();
+        }
+
+        /*
+         * ── The auction desk ──
+         *
+         * Somebody at the desk to call one evening's lots has one job, and a sidebar offering
+         * players, tournaments, teams, fixtures, posters and settings is a list of doors that
+         * either 403 or let them change things nobody asked them to touch. Dashboard, their
+         * auctions, logout.
+         *
+         * The auctions are named individually and go straight to the panel — the person calling
+         * the lots should not have to find their own auction in a list, and the list they would
+         * land on holds exactly the same one auction anyway (Auction::scopeVisibleTo).
+         *
+         * Keyed off the operator rows first, then the role: a person named on an auction has been
+         * given a specific job, whatever their account happens to hold. Organizers and admins are
+         * excluded — they run everything and need the full menu.
+         */
+        $operatorAuctionIds = $user
+            ? AuctionOperator::where('user_id', $user->id)->pluck('auction_id')
+            : collect();
+
+        $isAuctioneer = $user
+            && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])
+            && ($operatorAuctionIds->isNotEmpty() || $user->hasRole('Auctioneer'));
+
+        if ($isAuctioneer) {
+            $this->addMenuItem([
+                'label' => __('Dashboard'),
+                'icon' => 'lucide:layout-dashboard',
+                'route' => route('admin.dashboard'),
+                'active' => Route::is('admin.dashboard'),
+                'id' => 'dashboard',
+                'priority' => 1,
+            ]);
+
+            $myAuctions = Auction::whereIn('id', $operatorAuctionIds)
+                ->orderByRaw("CASE WHEN status = 'running' THEN 0 WHEN status = 'paused' THEN 1 ELSE 2 END")
+                ->orderByDesc('id')
+                ->get(['id', 'name']);
+
+            $children = $myAuctions->map(fn (Auction $a) => [
+                'label' => Str::limit($a->name, 26),
+                'route' => route('admin.auction.organizer.panel', $a),
+                'active' => Route::is('admin.auction.organizer.*') && request()->route('auction')
+                    && (int) (is_object(request()->route('auction'))
+                        ? request()->route('auction')->id
+                        : request()->route('auction')) === $a->id,
+                'id' => 'auctioneer-auction-' . $a->id,
+                'priority' => 1,
+            ])->all();
+
+            /*
+             * Nothing assigned yet is a state worth showing rather than an empty parent that does
+             * not open: an auctioneer who has been given the role but not yet named on an auction
+             * would otherwise see a dead menu and no way to tell whether it was them or the setup.
+             */
+            if (empty($children)) {
+                $children[] = [
+                    'label' => __('No auction assigned yet'),
+                    'route' => route('admin.auctions.index'),
+                    'active' => Route::is('admin.auctions.index'),
+                    'id' => 'auctioneer-none',
+                    'priority' => 1,
+                ];
+            }
+
+            // No 'route' on a parent that has children — it renders as the submenu toggle, the
+            // way every other grouped item in this sidebar does.
+            $this->addMenuItem([
+                'label' => __('Auctions'),
+                'icon' => 'lucide:gavel',
+                'active' => Route::is('admin.auctions.*') || Route::is('admin.auction.organizer.*'),
+                'id' => 'auctioneer-auctions',
+                'priority' => 2,
+                'children' => $children,
+            ]);
+
+            $this->addMenuItem([
+                'label' => __('Logout'),
+                'icon' => 'lucide:log-out',
+                // The row renders its own POST form; this href is only a placeholder, pointed at a
+                // page they can actually reach so a stray click does not bounce them.
+                'route' => route('admin.dashboard'),
+                'active' => false,
+                'id' => 'logout',
+                'priority' => 100,
+                'html' => '
+                    <li>
+                        <form method="POST" action="' . route('logout') . '">
+                            ' . csrf_field() . '
+                            <button type="submit" class="menu-item group w-full text-left menu-item-inactive text-gray-700 dark:text-white hover:text-gray-700">
+                                <iconify-icon icon="lucide:log-out" class="menu-item-icon " width="16" height="16"></iconify-icon>
+                                <span class="menu-item-text">' . __('Logout') . '</span>
+                            </button>
+                        </form>
+                    </li>
+                ',
+            ], __('More'));
+
+            $this->groups = ld_apply_filters('admin_menu_groups_before_sorting', $this->groups);
+            $this->sortMenuItemsByPriority();
+
             return $this->applyFiltersToMenuItems();
         }
 
@@ -917,6 +1023,12 @@ class AdminMenuService
         // Team managers have a small menu — always expand all submenus
         $user = auth()->user();
         if ($user && $user->hasAnyRole(['Team Manager', 'Team Owner']) && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return true;
+        }
+
+        // So does an auctioneer, whose whole menu is one auction: leaving it collapsed puts a
+        // click between the person calling the lots and the panel they are here to open.
+        if ($user && ! $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer']) && $user->hasRole('Auctioneer')) {
             return true;
         }
 

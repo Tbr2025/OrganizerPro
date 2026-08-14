@@ -167,6 +167,9 @@ class AuctionAdminController extends Controller
         if (! Auth::user()->hasRole('Superadmin')) {
             $query->where('organization_id', Auth::user()->organization_id);
         }
+        // An auctioneer sees the auctions they were named on, and no others — see scopeVisibleTo.
+        $query->visibleTo(Auth::user());
+
         $auctions = $query->latest()->paginate(15);
         return view('backend.pages.auctions.index', compact('auctions'));
     }
@@ -1124,9 +1127,13 @@ class AuctionAdminController extends Controller
             'sort' => $request->query('sort', 'price_desc'),
         ];
 
+        // Scoped for an auctioneer, and the player list below is built from these ids — so the
+        // filter dropdown and the results narrow together rather than offering an auction whose
+        // players would come back empty.
         $auctions = Auction::query()
             ->when(! Auth::user()->hasRole('Superadmin') && Auth::user()->organization_id,
                 fn ($q) => $q->where('organization_id', Auth::user()->organization_id))
+            ->visibleTo(Auth::user())
             ->orderByDesc('id')
             ->get(['id', 'name', 'tournament_id']);
 
@@ -1970,6 +1977,7 @@ class AuctionAdminController extends Controller
         $this->authorize('auction.view');
 
         $auctions = Auction::with('tournament')
+            ->visibleTo(Auth::user())
             // Live auctions first — that is what somebody opening this page wants.
             ->orderByRaw("CASE WHEN status = 'running' THEN 0 WHEN status = 'paused' THEN 1 ELSE 2 END")
             ->orderByDesc('created_at')

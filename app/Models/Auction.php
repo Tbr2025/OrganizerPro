@@ -713,6 +713,31 @@ class Auction extends Model
         return $this->hasMany(AuctionOperator::class);
     }
 
+    /**
+     * Narrow a list of auctions to the ones this person is actually allowed to see.
+     *
+     * Somebody named on an auction as an operator is there to run THAT auction. Leaving the
+     * index unfiltered showed them every auction in the organization — with names, dates and
+     * budgets — and every link on the page led to a 403. Being refused at the door of a room
+     * you were shown is worse than never being shown it.
+     *
+     * The narrowing follows the operator rows, not the role: it applies to anyone named on at
+     * least one auction, and leaves everybody else exactly as they were. Admins, organizers and
+     * superadmins own the auctions and are never narrowed.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     */
+    public function scopeVisibleTo($query, ?\App\Models\User $user)
+    {
+        if (! $user || $user->hasAnyRole(['Superadmin', 'Admin', 'Organizer'])) {
+            return $query;
+        }
+
+        $ids = AuctionOperator::where('user_id', $user->id)->pluck('auction_id');
+
+        return $ids->isEmpty() ? $query : $query->whereIn('id', $ids);
+    }
+
     /** Sponsor artwork for the public screens — see AuctionAd. */
     public function ads()
     {

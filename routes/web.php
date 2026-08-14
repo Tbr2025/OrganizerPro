@@ -124,7 +124,16 @@ Route::get('/public/player-image/status', [PlayerImageProcessController::class, 
     ->name('public.player-image.status');
 
 // --- Main Admin Route Group for general pages ---
-Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager', 'organizer.access']], function () {
+/*
+ * `auction.operator` sits on the whole group, not only on the live panel.
+ *
+ * It reads broader than it is: the middleware stands aside for anybody not named on an auction,
+ * and again for any route with no {auction} in it — which is most of this group. What it catches is
+ * the rest of the auction surface, and that surface is wide: the show page, the pools, the reports,
+ * the email outbox, the player cards, the allotment screen. Guarding only the panel left an
+ * auctioneer able to open every OTHER page of an auction they were never given.
+ */
+Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'redirect.team-manager', 'organizer.access', 'auction.operator']], function () {
 
     /*
      * Auction Administration (CRUD for auctions).

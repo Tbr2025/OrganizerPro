@@ -248,19 +248,56 @@ class AuctioneerRoleTest extends TestCase
     }
 
     /**
-     * Being handed tonight's lots must not cost somebody the job they already had.
+     * The list shows the auctions they were given, and nothing else.
      *
-     * Adding a person to an auction grants them the Auctioneer role on top of their existing
-     * roles. If the per-auction narrowing then applied to everything they hold, a Scorer whose
-     * role already carried auction access would silently lose it on every OTHER auction the
-     * moment they were named on one — a lockout with nothing on screen to explain it.
+     * Being refused at the door of a room you were shown is worse than never being shown it: an
+     * unfiltered index put every auction in the organization in front of an auctioneer — names,
+     * dates, budgets — with every link on the page leading to a 403.
      */
     #[Test]
-    public function an_existing_role_keeps_its_own_auction_access_after_being_made_an_auctioneer(): void
+    public function an_auctioneer_only_sees_the_auction_they_were_given(): void
     {
         ['org' => $org, 'auction' => $auction] = $this->scenario();
 
-        // A second auction they are NOT named on: their own role is what has to carry them in.
+        $other = Auction::create([
+            'name' => 'Someone Elses Auction', 'status' => 'running',
+            'max_budget_per_team' => 100_000_000, 'base_price' => 1_000_000,
+            'organization_id' => $org->id, 'tournament_id' => $auction->tournament_id,
+            'bid_type' => 'open', 'bid_timer_seconds' => 30,
+            'bid_rules' => [['from' => 0, 'to' => 200_000_000, 'increment' => 100_000]],
+        ]);
+
+        $user = $this->auctioneer($org, $auction);
+
+        $this->actingAs($user)->get(route('admin.auctions.index'))
+            ->assertOk()
+            ->assertSee($auction->name)
+            ->assertDontSee('Someone Elses Auction');
+
+        // And not reachable by typing the id in either — the list is a courtesy, not the guard.
+        $this->actingAs($user)->get(route('admin.auctions.show', $other))->assertForbidden();
+        $this->actingAs($user)->get(route('admin.auctions.show', $auction))->assertOk();
+    }
+
+    /**
+     * The roles are additive; the auction access is not.
+     *
+     * Adding a person to an auction grants them the Auctioneer role ON TOP of what they hold —
+     * assignRole, never syncRoles, so a Scorer stays a Scorer and keeps everything else that came
+     * with it. What being named does NOT do is widen their auction access: naming somebody on one
+     * auction is an explicit statement of which auction they run, so it scopes them there even if
+     * another of their roles carries auction permissions of its own.
+     *
+     * This asserted the opposite for a day — that another auction-capable role kept its wider
+     * access — which is defensible in the abstract and not what an auction desk wants: it let a
+     * person given one evening's lots open every auction in the organization.
+     */
+    #[Test]
+    public function the_new_role_is_added_to_the_old_one_but_does_not_widen_which_auctions_are_open(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+
+        // A second auction they are NOT named on.
         $other = Auction::create([
             'name' => 'B', 'status' => 'running', 'max_budget_per_team' => 100_000_000,
             'base_price' => 1_000_000, 'organization_id' => $org->id,
@@ -283,8 +320,39 @@ class AuctioneerRoleTest extends TestCase
         $this->assertTrue($user->hasRole('Auction Desk'), 'the role they came with is still there');
         $this->assertTrue($user->hasRole('Auctioneer'), 'and the new one was added, not swapped in');
 
+        // The auction they were given opens; the one they were not does not.
         $this->actingAs($user)->get(route('admin.auction.organizer.panel', $auction))->assertOk();
-        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $other))->assertOk();
+        $this->actingAs($user)->get(route('admin.auction.organizer.panel', $other))->assertForbidden();
+
+        // Their own role still carries them everywhere it did before — this scopes auctions, and
+        // auctions only. Nothing else on their account changed.
+        $this->assertTrue($user->can('auction.observe'));
+        $this->assertTrue($user->can('auction.control'));
+    }
+
+    /**
+     * The sidebar is Dashboard, their auctions, Logout.
+     *
+     * A person at the desk to call one evening's lots was being offered players, tournaments,
+     * teams, fixtures, posters and settings — a list of doors that either 403 or let them change
+     * something nobody asked them to touch.
+     */
+    #[Test]
+    public function the_auctioneers_sidebar_is_only_the_dashboard_their_auction_and_logout(): void
+    {
+        ['org' => $org, 'auction' => $auction] = $this->scenario();
+        $user = $this->auctioneer($org, $auction);
+
+        $page = $this->actingAs($user)->get(route('admin.auctions.index'));
+        $page->assertOk();
+
+        // Straight to the panel, named — they should not have to find their own auction in a list.
+        $page->assertSee(route('admin.auction.organizer.panel', $auction), false);
+
+        foreach (['admin.players.index', 'admin.tournaments.index', 'admin.roles.index',
+                  'admin.users.index', 'admin.matches.index'] as $shouldBeAbsent) {
+            $page->assertDontSee(route($shouldBeAbsent), false);
+        }
     }
 
     #[Test]
