@@ -358,6 +358,13 @@ class AuctionTemplate extends Model
             // organizer decides where it belongs on the artwork — and because it is absent for
             // most players, so it cannot share a line with something always present.
             'travel_plan',
+            /*
+             * The club a player currently turns out for — where they come from, as against the
+             * team that buys them. The poster has carried this since the auction poster types
+             * were added; the wall had no element for it at all, so it could never be shown
+             * however the template was drawn.
+             */
+            'playing_team',
             'sold_badge', 'team_logo', 'highest_bidder', 'stats_table',
         ];
     }
@@ -437,6 +444,7 @@ class AuctionTemplate extends Model
              * editor AND on the wall. Same coordinates in both, but the wrong ones.
              */
             'travel_plan' => ['top' => 650, 'left' => 545, 'fontSize' => 24],
+            'playing_team' => ['top' => 690, 'left' => 545, 'fontSize' => 24],
             'highest_bidder' => ['top' => 715, 'left' => 600, 'fontSize' => 28],
             'stats_table' => ['top' => 545, 'left' => 550, 'width' => 500, 'height' => 150, 'fontSize' => 20,
                 /*

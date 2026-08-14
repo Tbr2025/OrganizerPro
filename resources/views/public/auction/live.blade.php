@@ -996,10 +996,22 @@
             visibility: hidden;
             {!! elementStyle($positions, 'travel_plan', ['top'=>470,'left'=>550,'fontSize'=>24,'color'=>'#7dd3fc'], $boxShadowMap, $textShadowMap) !!}
         }
-        #travel-plan svg {
+        #travel-plan svg,
+        #playing-team svg {
             width: 1em;
             height: 1em;
             flex-shrink: 0;
+        }
+
+        /* Hidden by VISIBILITY, not display, so a template author dragging it in the editor can
+           still see where it sits on a player who has no club recorded. */
+        #playing-team {
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45em;
+            visibility: hidden;
+            {!! elementStyle($positions, 'playing_team', ['top'=>510,'left'=>550,'fontSize'=>24,'color'=>'#fcd34d'], $boxShadowMap, $textShadowMap) !!}
         }
 
         #current-bid {
@@ -1540,6 +1552,17 @@
         </div>
         @endif
 
+        <!-- The club they currently play for: shown only when one is recorded -->
+        @if(isVisible($positions, 'playing_team'))
+        <div id="playing-team">
+            {{-- A shirt, inline so it takes the element's own colour and font size. --}}
+            <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M7.5 2 4 3.6 2.4 7l2.3 1.2.7-1.4V18h9V6.8l.7 1.4L17.6 7 16 3.6 12.5 2a2.5 2.5 0 0 1-5 0z"/>
+            </svg>
+            <span id="playing-team-value"></span>
+        </div>
+        @endif
+
         <!-- Stats Table -->
         @if(isVisible($positions, 'stats_table'))
         @php
@@ -1924,6 +1947,7 @@
              */
             renderBasePrice(ap.base_price, price);
             renderTravelPlan(ap.player);
+            renderPlayingTeam(ap.player);
 
             if (bidEl) {
                 rollBidTo(bidEl, Number(window._lastDisplayedPrice) || 0, price);
@@ -2583,6 +2607,7 @@
              */
             renderBasePrice(p.base_price, price);
             renderTravelPlan(p.player);
+            renderPlayingTeam(p.player);
 
             if (bidEl) {
                 // Rolls up to the new figure, exactly as the pushed path does — a raise must
@@ -3693,6 +3718,24 @@
             return String(value).replace(/[&<>"']/g, (c) => ({
                 '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
             })[c]);
+        }
+
+        /**
+         * The club the player currently turns out for.
+         *
+         * From the model's own `playing_team_label`, which is what the poster, the pools list
+         * and the players list all read — the wall had no element for this at all, so a card
+         * could not show where a player comes from however the template was drawn.
+         */
+        function renderPlayingTeam(player) {
+            const el = document.getElementById('playing-team');
+            if (! el) return;
+
+            const label = player?.playing_team_label || '';
+            const valueEl = document.getElementById('playing-team-value');
+
+            if (valueEl) valueEl.textContent = label;
+            el.style.visibility = label ? 'visible' : 'hidden';
         }
 
         function renderTravelPlan(player) {

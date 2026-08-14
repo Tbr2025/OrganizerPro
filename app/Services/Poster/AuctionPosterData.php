@@ -96,10 +96,16 @@ class AuctionPosterData
             'team_logo' => $this->imagePath($sold?->team_logo),
 
             /*
-             * The club they play for now. `playing_team_name_ref` is free text and has no logo of
-             * its own, so the logo comes from the registration team — the only one that has one.
+             * The club they play for now, from the model's own accessor — so the poster, the
+             * wall, the pools list and the players list cannot answer this four different ways,
+             * which is how the wall came to have no answer at all. It also handles the catch-all
+             * `Others` registration team, whose real name lives in `team_name_ref` and was
+             * otherwise printed as the word "Others".
+             *
+             * The logo still comes from the registration team: free text has no badge of its own,
+             * and that is the only team on a player carrying one.
              */
-            'playing_team_name' => (string) ($player?->playing_team_name_ref ?: ($player?->team?->name ?? '')),
+            'playing_team_name' => (string) ($player?->playing_team_label ?? ''),
             'playing_team_logo' => $this->imagePath($player?->team?->logo),
 
             // "12 Mar – 18 Mar", or blank when there is no plan — skipBlanks then drops the

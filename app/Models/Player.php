@@ -160,7 +160,33 @@ class Player extends Model implements MustVerifyEmail
      * would otherwise need their own copy of the "does this player have a travel plan" rule —
      * three copies of one question, in two languages.
      */
-    protected $appends = ['travel_plan_label'];
+    protected $appends = ['travel_plan_label', 'playing_team_label'];
+
+    /**
+     * The club this player currently turns out for, or null when none is recorded.
+     *
+     * There is no single column for it. `playing_team_name_ref` is free text an applicant typed;
+     * when that is blank the answer is their registration team, whose own name is the catch-all
+     * `Others` for the miscellaneous team, in which case the real name sits in `team_name_ref`.
+     *
+     * One accessor because four screens ask the question — the LED wall, the poster, the pools
+     * list and the players list — and each was resolving it separately, which is how the wall
+     * ended up with no answer at all.
+     */
+    public function getPlayingTeamLabelAttribute(): ?string
+    {
+        if (filled($this->playing_team_name_ref)) {
+            return $this->playing_team_name_ref;
+        }
+
+        $registration = $this->team?->name;
+
+        if ($registration === 'Others') {
+            return filled($this->team_name_ref) ? $this->team_name_ref : null;
+        }
+
+        return filled($registration) ? $registration : null;
+    }
 
     /**
      * The player's travel plan as one short line, or null when there is nothing to say.
