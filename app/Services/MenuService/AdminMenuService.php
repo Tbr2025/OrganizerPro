@@ -548,6 +548,13 @@ class AdminMenuService
                     'permissions' => 'auction.create',
                 ],
                 [
+                    'label' => __('Auctioned Players'),
+                    'route' => route('admin.auctions.auctioned-players'),
+                    'active' => Route::is('admin.auctions.auctioned-players'),
+                    'priority' => 15,
+                    'permissions' => 'auction.view',
+                ],
+                [
                     'label' => __('Closed Bids'),
                     'route' => route('admin.auctions.closed-bids'),
                     'active' => Route::is('admin.auctions.closed-bids'),

@@ -24,6 +24,7 @@ use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Models\Player;
 use Illuminate\Http\Request;
+use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -1089,6 +1090,92 @@ class AuctionAdminController extends Controller
             'players' => $players,
             'teams' => $teams,
             'bidRules' => $bidRules,
+        ]);
+    }
+
+    /**
+     * Every auctioned player, across auctions, with the filters an organizer actually asks for.
+     *
+     * The auction module could answer "who is in THIS pool" and "what has THIS auction sold",
+     * but not "who went unsold across the evening", "what did this team buy", or "what were the
+     * ten biggest buys" — each of which meant opening an auction, then a pool, then reading. A
+     * list keyed to the auction ROW rather than to a pool answers all of them from one screen.
+     *
+     * Deliberately a read-only list. Selling, passing and allotting all happen where the result
+     * is decided, with the guards that belong to them; a grid that could also sell would be a
+     * second, weaker path to the same write.
+     */
+    public function auctionedPlayers(Request $request): View
+    {
+        $this->authorize('auction.view');
+
+        $filters = [
+            'auction' => $request->query('auction'),
+            'status' => $request->query('status'),
+            'team' => $request->query('team'),
+            'search' => trim((string) $request->query('search', '')),
+            'sort' => $request->query('sort', 'price_desc'),
+        ];
+
+        $auctions = Auction::query()
+            ->when(! Auth::user()->hasRole('Superadmin') && Auth::user()->organization_id,
+                fn ($q) => $q->where('organization_id', Auth::user()->organization_id))
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'tournament_id']);
+
+        $query = AuctionPlayer::query()
+            ->whereIn('auction_id', $auctions->pluck('id'))
+            ->with(['player:id,name,image_path,player_type_id', 'player.playerType:id,type',
+                'soldToTeam:id,name,team_logo', 'team:id,name,team_logo', 'auction:id,name', 'pool:id,name'])
+            ->when($filters['auction'], fn ($q, $id) => $q->where('auction_id', $id))
+            ->when($filters['team'], fn ($q, $id) => $q->where(
+                fn ($w) => $w->where('sold_to_team_id', $id)->orWhere(
+                    fn ($k) => $k->where('is_retained', true)->where('team_id', $id)
+                )
+            ))
+            ->when($filters['search'], fn ($q, $term) => $q->whereHas(
+                'player', fn ($p) => $p->where('name', 'like', '%' . $term . '%')
+            ));
+
+        /*
+         * `status` here is the auction ROW's state, not the player record's — which is the whole
+         * point of this screen. "Icon" is not a status at all but a flag, and it has to be
+         * offered beside them because "which players never went to the block" is one of the
+         * questions being asked.
+         */
+        match ($filters['status']) {
+            'sold' => $query->where('status', 'sold'),
+            'unsold' => $query->whereIn('status', ['unsold', 'passed', 'skipped']),
+            'upcoming' => $query->where('status', 'waiting')->where('is_retained', false),
+            'on_auction' => $query->where('status', 'on_auction'),
+            'icon' => $query->where('is_retained', true),
+            default => null,
+        };
+
+        // Price sorts put the unpriced last rather than first: a page of nulls above the top buys
+        // is the one ordering nobody wants.
+        match ($filters['sort']) {
+            'price_asc' => $query->orderByRaw('COALESCE(final_price, retained_price, 0) ASC'),
+            'name' => $query->orderBy(
+                Player::select('name')->whereColumn('players.id', 'auction_players.player_id')
+            ),
+            'recent' => $query->orderByDesc('updated_at'),
+            default => $query->orderByRaw('COALESCE(final_price, retained_price, 0) DESC'),
+        };
+
+        $players = $query->paginate(50)->appends($filters);
+
+        $teams = ActualTeam::query()
+            ->whereIn('tournament_id', $auctions->pluck('tournament_id')->filter()->unique())
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        return view('backend.pages.auctions.auctioned-players', [
+            'players' => $players,
+            'auctions' => $auctions,
+            'teams' => $teams,
+            'filters' => $filters,
+            'breadcrumbs' => ['title' => __('Auctioned Players')],
         ]);
     }
 

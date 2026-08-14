@@ -264,6 +264,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         ->name('auctions.players.addBid');
     // Lift the leading team off a bid without changing the price — a raise recorded against
     // the wrong team. See AuctionAdminController::clearBidTeam().
+    // Every auctioned player across auctions, with sold/unsold/team/upcoming filters — the
+    // questions a pool-scoped list cannot answer. See AuctionAdminController::auctionedPlayers().
+    Route::get('/auctions/auctioned-players', [AuctionAdminController::class, 'auctionedPlayers'])
+        ->name('auctions.auctioned-players');
     Route::post('/auctions/clear-bid-team', [AuctionAdminController::class, 'clearBidTeam'])
         ->name('auctions.players.clearBidTeam');
     Route::post('/auctions/decrease-bid', [AuctionAdminController::class, 'decreaseBid'])
