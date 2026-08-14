@@ -315,6 +315,18 @@
                             </div>
                         </template>
 
+                        {{-- A figure with no team behind it is the organizer calling the room's
+                             price. Saying nothing left the previous line — "by Delhi Capitals YOU"
+                             — reading as though that team had bid the new figure, on the screen
+                             belonging to the team it named. Nobody had bid it. --}}
+                        <template x-if="! player.current_bid_team && player.current_price > player.base_price">
+                            <div class="flex items-center justify-center gap-1.5 mt-2">
+                                <span class="text-[11px] font-semibold text-amber-400/90">
+                                    Called by the organizer &mdash; no team yet
+                                </span>
+                            </div>
+                        </template>
+
                         {{-- The team's own SEALED amount, from the sealed entry.
                              This read `myBidAmount` — the team's last OPEN bid on this player — and
                              labelled it "Your Sealed Bid" whenever bidding had gone closed. So a

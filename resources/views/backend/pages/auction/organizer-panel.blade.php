@@ -4008,6 +4008,13 @@ function auctionOrganizerPanel() {
                         this.currentBid = data.current_price;
                         if (this.currentPlayer) this.currentPlayer.current_price = data.current_price;
                     }
+
+                    /* An adjustment names nobody, so the crest goes at once rather than at the
+                       next poll — a team shown beside a price the organizer just set asserts a
+                       bid that was never made. */
+                    this.winningTeamName = 'No Bids';
+                    if (this.currentPlayer) this.currentPlayer.current_bid_team_id = null;
+
                     this._clearPendingBid();
                 }
 

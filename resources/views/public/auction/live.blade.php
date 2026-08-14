@@ -717,6 +717,85 @@ HTML;
             background: rgba(var(--primary-rgb), 0.9); color: #08111f;
         }
 
+        /*
+         * ── The draw: a ring of the tied teams, turning ──
+         *
+         * A coin was an honest picture of a two-way draw and a misleading one for five, and the
+         * cycling name beside it was a list being scrolled rather than chance being taken. The
+         * teams themselves now turn on a ring — crest and name on each card, the tournament's mark
+         * standing in the middle of it — and the ring slows and stops with the winner facing the
+         * hall.
+         *
+         * One transform per card, set once when the ring is built, and a single rotation animated
+         * on the parent. The browser composites the lot on its own thread: a fifteen-second spin
+         * costs the wall nothing while it is also driving a projector.
+         */
+        #draw-ring {
+            position: relative;
+            width: 100%; height: 260px;
+            perspective: 1500px;
+            perspective-origin: 50% 45%;
+        }
+        #draw-ring.hidden { display: none; }
+
+        .draw-ring-inner {
+            position: absolute; inset: 0;
+            transform-style: preserve-3d;
+            animation: drawRingSpin 2.8s linear infinite;
+        }
+        /* Settling: the infinite spin stops and the ring turns to the winner's angle instead. */
+        .draw-ring-inner.settling {
+            animation: none;
+            transition: transform 1.65s cubic-bezier(0.16, 0.9, 0.2, 1);
+        }
+        @keyframes drawRingSpin {
+            from { transform: rotateY(0deg); }
+            to   { transform: rotateY(-360deg); }
+        }
+
+        .draw-card {
+            position: absolute; top: 50%; left: 50%;
+            width: 210px; height: 150px; margin: -75px 0 0 -105px;
+            border-radius: 18px;
+            background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98));
+            border: 2px solid rgba(192,132,252,0.45);
+            box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; padding: 12px;
+            backface-visibility: hidden;
+            transition: border-color 0.5s ease, box-shadow 0.5s ease, opacity 0.5s ease;
+        }
+        .draw-card img {
+            width: 66px; height: 66px; object-fit: contain;
+            filter: drop-shadow(0 6px 14px rgba(0,0,0,0.6));
+        }
+        .draw-card .draw-card-name {
+            font-size: 21px; font-weight: 900; letter-spacing: 0.03em; color: #fff;
+            text-align: center; line-height: 1.1;
+            max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        /* The one the lot landed on. */
+        .draw-card.is-winner {
+            border-color: #fde68a;
+            box-shadow: 0 0 60px rgba(253,230,138,0.55), 0 24px 60px rgba(0,0,0,0.6);
+        }
+        .draw-card.is-loser { opacity: 0.25; }
+
+        /* The tournament's mark, standing inside the ring while it turns. */
+        #draw-ring-logo {
+            position: absolute; top: 50%; left: 50%;
+            width: 120px; height: 120px; margin: -60px 0 0 -60px;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2; pointer-events: none;
+        }
+        #draw-ring-logo img { max-width: 100%; max-height: 100%; object-fit: contain;
+            filter: drop-shadow(0 8px 24px rgba(0,0,0,0.7)); }
+        #draw-ring-logo.hidden { display: none; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .draw-ring-inner { animation: none; }
+        }
+
         /* ── The draw coin ── */
         #draw-coin {
             width: 74px; height: 74px; margin: 0 auto 10px;
@@ -2117,6 +2196,13 @@ HTML;
                      The names were already cycling, but a cycling list reads as a menu being
                      scrolled rather than as chance being taken. A coin says what is happening
                      without a word of explanation, and it stops when the draw does. --}}
+                {{-- The teams themselves, turning. The coin stays in the markup but is never shown
+                     now — see renderSealedDraw: a coin is an honest picture of a two-way draw and
+                     a misleading one for five, and the room is watching teams, not currency. --}}
+                <div id="draw-ring" class="hidden">
+                    <div id="draw-ring-logo" class="hidden"><img id="draw-ring-logo-img" alt=""></div>
+                    <div class="draw-ring-inner" id="draw-ring-inner"></div>
+                </div>
                 <div id="draw-coin" class="hidden"><span>&#9679;</span></div>
                 <div style="font-size:12px;font-weight:800;letter-spacing:4px;text-transform:uppercase;color:#fde68a;">
                     <span id="sealed-draw-label">Drawing a lot</span>
@@ -3373,6 +3459,105 @@ HTML;
          * from a recorded seed before any of this runs, so the animation cannot influence it and a
          * screen that joins late simply shows the winner without the spin.
          */
+        /*
+         * ── The ring of tied teams ──
+         *
+         * Rebuilt only when the SET of teams changes: this runs on every poll, and tearing the
+         * cards down and putting them back twice a second would restart the spin from zero each
+         * time — a ring that judders in place rather than turning.
+         */
+        let _drawRingKey = null;
+
+        function buildDrawRing(teams) {
+            const ring = document.getElementById('draw-ring');
+            const inner = document.getElementById('draw-ring-inner');
+            if (! ring || ! inner) return;
+
+            const key = teams.map((t) => t.id).join(',');
+
+            if (_drawRingKey !== key) {
+                _drawRingKey = key;
+
+                /*
+                 * Radius from the count, so three cards do not overlap and eight do not fly apart.
+                 * Half the card width over tan(half the angle between them) is the exact distance
+                 * at which neighbours just touch; a little more leaves them breathing room.
+                 */
+                const step = 360 / Math.max(teams.length, 1);
+                const radius = Math.max(230, Math.round(118 / Math.tan(Math.PI / Math.max(teams.length, 2))));
+
+                inner.innerHTML = teams.map((team, i) => {
+                    const angle = i * step;
+                    const crest = team.logo
+                        ? `<img src="${escapeHtml(team.logo)}" alt="">`
+                        : '';
+
+                    return `<div class="draw-card" data-team="${team.id}" data-angle="${angle}"
+                                 style="transform: rotateY(${angle}deg) translateZ(${radius}px);">`
+                        + crest
+                        + `<div class="draw-card-name">${escapeHtml(team.name)}</div>`
+                        + '</div>';
+                }).join('');
+
+                inner.classList.remove('settling');
+                inner.style.transform = '';
+            }
+
+            // The tournament's own mark in the middle of the ring, when the wall has one.
+            const logoWrap = document.getElementById('draw-ring-logo');
+            const logoImg = document.getElementById('draw-ring-logo-img');
+            const source = document.getElementById('reel-logo');
+
+            if (logoWrap && logoImg) {
+                if (source && source.src && ! source.classList.contains('hidden')) {
+                    logoImg.src = source.src;
+                    logoWrap.classList.remove('hidden');
+                } else {
+                    logoWrap.classList.add('hidden');
+                }
+            }
+
+            ring.classList.remove('hidden');
+        }
+
+        /** Stop the ring with the winner facing the hall, and dim everybody else. */
+        function settleDrawRing(teams, winner) {
+            const inner = document.getElementById('draw-ring-inner');
+            if (! inner || ! winner) return;
+
+            const card = inner.querySelector(`.draw-card[data-team="${winner.id}"]`);
+            const angle = Number(card?.dataset.angle) || 0;
+
+            /*
+             * Turned the LONG way round, deliberately: two more full revolutions before landing.
+             * Stopping from wherever the loop happens to be reads as a dropped frame — the extra
+             * turns are what make it read as slowing down and settling.
+             */
+            inner.classList.add('settling');
+            inner.style.transform = `rotateY(${-angle - 720}deg)`;
+
+            inner.querySelectorAll('.draw-card').forEach((node) => {
+                const isWinner = node.dataset.team === String(winner.id);
+                node.classList.toggle('is-winner', isWinner);
+                node.classList.toggle('is-loser', ! isWinner);
+            });
+        }
+
+        function clearDrawRing() {
+            const ring = document.getElementById('draw-ring');
+            const inner = document.getElementById('draw-ring-inner');
+
+            _drawRingKey = null;
+
+            if (inner) {
+                inner.innerHTML = '';
+                inner.classList.remove('settling');
+                inner.style.transform = '';
+            }
+
+            ring?.classList.add('hidden');
+        }
+
         function renderSealedDraw(tie) {
             const wrap = document.getElementById('sealed-draw');
             if (! wrap) return;
@@ -3386,6 +3571,7 @@ HTML;
             if (! tie || teams.length === 0) {
                 wrap.classList.add('hidden');
                 document.getElementById('draw-coin')?.classList.remove('settled');
+                clearDrawRing();
                 if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
                 _drawSettledFor = null;
                 return;
@@ -3401,7 +3587,9 @@ HTML;
              * toss cannot. With more than two tied, the names circling IS the draw.
              */
             const coin = document.getElementById('draw-coin');
-            if (coin) coin.classList.toggle('hidden', teams.length !== 2);
+            if (coin) coin.classList.add('hidden');
+
+            buildDrawRing(teams);
 
             if (amountEl) {
                 amountEl.textContent = tie.amount
@@ -3434,7 +3622,7 @@ HTML;
 
                 if (_drawCycle) { clearInterval(_drawCycle); _drawCycle = null; }
 
-                if (coin) coin.classList.add('settled');
+                settleDrawRing(teams, winner);
 
                 if (labelEl) labelEl.textContent = 'Lot drawn';
                 if (nameEl) {

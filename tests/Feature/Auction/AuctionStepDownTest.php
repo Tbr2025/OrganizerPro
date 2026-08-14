@@ -27,7 +27,7 @@ class AuctionStepDownTest extends TestCase
     use CreatesAuctionScenario;
 
     #[Test]
-    public function it_lowers_one_rung_and_leaves_the_leading_team_alone(): void
+    public function it_lowers_one_rung_and_takes_the_leading_team_off_the_price(): void
     {
         $org = $this->makeOrganization();
         $auction = $this->makeAuction($org, [
@@ -58,7 +58,18 @@ class AuctionStepDownTest extends TestCase
         $ap->refresh();
 
         $this->assertSame('1200000.00', (string) $ap->current_price);
-        $this->assertSame($team->id, $ap->current_bid_team_id, 'the leading team must survive a price correction');
+
+        /*
+         * The leader comes off with the figure.
+         *
+         * This asserted the opposite for an afternoon — that a price correction leaves the leading
+         * team alone — which is defensible and was wrong in the room: "−" is the organizer saying
+         * the bidding is at this figure, and a crest beside it asserts that a particular team bid
+         * it. Nobody did. The panel showed a team leading at a price the organizer had just typed.
+         */
+        $this->assertNull($ap->current_bid_team_id, 'an organizer adjustment names nobody');
+
+        // The history is still intact: a correction moves a price, it does not delete a bid.
         $this->assertSame($bidsBefore, AuctionBid::where('auction_player_id', $ap->id)->count(), 'no bid is deleted');
     }
 

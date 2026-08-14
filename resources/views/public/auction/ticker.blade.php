@@ -303,9 +303,96 @@
             background: var(--panel);
             border: 1px solid var(--edge); border-top: 2px solid var(--primary);
         }
+
+        /*
+         * ── The sealed / draw band ──
+         *
+         * A strip is read at a glance from across a hall, so this is a band rather than a
+         * takeover: one line of what is happening, and — during a draw — the tied teams cycling
+         * through the middle of it before it settles on the winner.
+         *
+         * The cycle and the landing are driven from the SERVER's `drawn_at` and `spin_ms`, the
+         * same two numbers the organizer's panel and the LED wall use, so all three screens run
+         * one window from one instant. Without that the ticker would settle the moment it saw a
+         * winner and give the result away before the room watching the wall had it.
+         */
+        #lt-overlay {
+            position: fixed; inset: 0; z-index: 60;
+            display: none; align-items: center; justify-content: center; gap: 34px;
+            padding: 0 60px;
+            background: linear-gradient(90deg, rgba(2,6,23,0.97) 0%, rgba(30,10,60,0.95) 50%, rgba(2,6,23,0.97) 100%);
+            backdrop-filter: blur(8px);
+        }
+        #lt-overlay.is-on { display: flex; animation: ltOverlayIn 0.35s ease-out; }
+        @keyframes ltOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+        #lt-overlay-logos { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+        #lt-overlay-logos img { height: 76px; width: auto; object-fit: contain; }
+
+        #lt-overlay-title {
+            font-size: 40px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+            color: #fff; line-height: 1.05; white-space: nowrap;
+        }
+        #lt-overlay-sub {
+            margin-top: 6px;
+            font-size: 18px; font-weight: 700; letter-spacing: 1px;
+            color: rgba(233,213,255,0.75); white-space: nowrap;
+        }
+
+        /* The team being shown right now — cycling during the draw, then held on the winner. */
+        #lt-overlay-team {
+            display: none; align-items: center; gap: 16px; flex-shrink: 0;
+            padding: 12px 26px; border-radius: 999px;
+            background: rgba(2,6,23,0.6); border: 2px solid rgba(192,132,252,0.5);
+        }
+        #lt-overlay-team.is-on { display: flex; }
+        #lt-overlay-team img { height: 62px; width: 62px; object-fit: contain; }
+        #lt-overlay-team img[src=""] { display: none; }
+        #lt-overlay-name {
+            font-size: 34px; font-weight: 900; color: #fff; white-space: nowrap;
+        }
+        /* Each name arrives with a short flip, so the cycle reads as chance being taken rather
+           than a list being scrolled. */
+        #lt-overlay-team.cycling { animation: ltCycle 0.16s ease-out; }
+        @keyframes ltCycle {
+            from { opacity: 0.35; transform: rotateX(38deg) scale(0.96); }
+            to   { opacity: 1; transform: rotateX(0deg) scale(1); }
+        }
+        #lt-overlay-team.winner {
+            border-color: #fde68a;
+            box-shadow: 0 0 60px rgba(253,230,138,0.5);
+            animation: ltLand 0.6s cubic-bezier(0.2, 1.6, 0.3, 1);
+        }
+        @keyframes ltLand {
+            0%   { transform: scale(0.8); opacity: 0; }
+            60%  { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #lt-overlay.is-on, #lt-overlay-team.cycling, #lt-overlay-team.winner { animation: none; }
+        }
     </style>
 </head>
 <body>
+
+    {{-- The sealed round and the draw, over the strip.
+         Asked for after the sealed OVERLAY was deliberately kept off this screen — and the two
+         are different things. A full-bleed takeover would blank the one line a ticker exists to
+         show; this is a band across it that says what is happening and, for a draw, shows the
+         teams going round before landing on one. During a sealed round the cells behind it are
+         showing "—" anyway, because there is no public figure to show. --}}
+    <div id="lt-overlay">
+        <div id="lt-overlay-logos"></div>
+        <div id="lt-overlay-body">
+            <div id="lt-overlay-title">Sealed Bid In Progress</div>
+            <div id="lt-overlay-sub">Amounts are revealed once every team has submitted</div>
+        </div>
+        <div id="lt-overlay-team">
+            <img id="lt-overlay-crest" alt="">
+            <span id="lt-overlay-name"></span>
+        </div>
+    </div>
 
     {{-- Live badge + pool progress --}}
     <div id="top-bar">
@@ -912,6 +999,128 @@
         }
 
         renderStats(p.stats);
+
+        renderTickerOverlay(sealed);
+    }
+
+    /*
+     * ── The sealed band, and the draw inside it ──
+     *
+     * Three states, and only three:
+     *   · bidding has gone private   → say so, and say when it will be revealed
+     *   · a lot is being drawn       → cycle the tied teams, on the SERVER's clock
+     *   · the lot has landed         → hold the winner
+     *
+     * `drawn_at` and `spin_ms` come from the server and are the same two numbers the panel and
+     * the LED wall use. The winner is recorded the instant DRAW LOT is pressed, so a screen that
+     * settles as soon as it sees one gives the result away — here that would be to the stream,
+     * ahead of the room.
+     */
+    let ltDrawCycle = null;
+    let ltDrawSettledFor = null;
+
+    function renderTickerOverlay(sealed) {
+        const bar = document.getElementById('lt-overlay');
+        if (! bar) return;
+
+        const title = document.getElementById('lt-overlay-title');
+        const sub = document.getElementById('lt-overlay-sub');
+        const teamBox = document.getElementById('lt-overlay-team');
+        const crest = document.getElementById('lt-overlay-crest');
+        const nameEl = document.getElementById('lt-overlay-name');
+
+        const stop = () => {
+            if (ltDrawCycle) { clearInterval(ltDrawCycle); ltDrawCycle = null; }
+        };
+
+        if (! sealed || ! sealed.active) {
+            stop();
+            ltDrawSettledFor = null;
+            bar.classList.remove('is-on');
+            teamBox.classList.remove('is-on', 'winner', 'cycling');
+            return;
+        }
+
+        bar.classList.add('is-on');
+        renderOverlayLogos();
+
+        const tie = sealed.tie;
+        const teams = tie?.teams || [];
+
+        // Sealed, no draw: the band is one sentence.
+        if (! teams.length) {
+            stop();
+            ltDrawSettledFor = null;
+            teamBox.classList.remove('is-on', 'winner', 'cycling');
+            title.textContent = 'Sealed Bid In Progress';
+            sub.textContent = sealed.round_number > 1
+                ? `Round ${sealed.round_number} of ${sealed.total_rounds || 1} — revealed once every team has submitted`
+                : 'Amounts are revealed once every team has submitted';
+            return;
+        }
+
+        teamBox.classList.add('is-on');
+
+        const winner = tie.lot_winner_team_id
+            ? teams.find((t) => Number(t.id) === Number(tie.lot_winner_team_id))
+            : null;
+
+        const spinMs = Number(tie.spin_ms) || 0;
+        const drawnAt = tie.drawn_at ? Date.parse(tie.drawn_at) : null;
+        const stillSpinning = winner && drawnAt && spinMs > 0 && (Date.now() - drawnAt) < spinMs;
+
+        if (winner && ! stillSpinning) {
+            // Once. Every feed tick would otherwise replay the landing for the rest of the round.
+            if (ltDrawSettledFor === winner.id) return;
+            ltDrawSettledFor = winner.id;
+
+            stop();
+            title.textContent = 'Lot Drawn';
+            sub.textContent = tie.amount ? `${teams.length} teams matched at ${amount(tie.amount)}` : '';
+            crest.src = winner.logo || '';
+            nameEl.textContent = winner.name;
+            teamBox.classList.remove('cycling');
+            teamBox.classList.add('winner');
+            return;
+        }
+
+        ltDrawSettledFor = null;
+        title.textContent = 'Drawing A Lot';
+        sub.textContent = tie.amount ? `${teams.length} teams matched at ${amount(tie.amount)}` : `${teams.length} teams tied`;
+        teamBox.classList.remove('winner');
+
+        if (ltDrawCycle) return;   // already cycling — restarting it every tick judders
+
+        let i = 0;
+        const tick = () => {
+            const team = teams[i % teams.length];
+            crest.src = team.logo || '';
+            nameEl.textContent = team.name;
+            teamBox.classList.remove('cycling');
+            void teamBox.offsetWidth;
+            teamBox.classList.add('cycling');
+            i++;
+        };
+
+        tick();
+        ltDrawCycle = setInterval(tick, 160);
+    }
+
+    /** The event's marks on the band: whatever the ticker already has. */
+    function renderOverlayLogos() {
+        const wrap = document.getElementById('lt-overlay-logos');
+        if (! wrap || wrap.dataset.filled) return;
+
+        const sources = [
+            document.querySelector('#lt-tournament-logo img'),
+            document.querySelector('#lt-auction-logo img'),
+            document.getElementById('lt-logo'),
+        ].filter((el) => el && el.src);
+
+        if (! sources.length) return;
+
+        wrap.innerHTML = sources.map((el) => `<img src="${el.src}" alt="">`).join('');
+        wrap.dataset.filled = '1';
     }
 
     /* Retained so a pushed raise can patch and re-render without waiting for a feed. The

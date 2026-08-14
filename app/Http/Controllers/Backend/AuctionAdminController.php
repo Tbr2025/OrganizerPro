@@ -1367,15 +1367,20 @@ class AuctionAdminController extends Controller
                 $player->current_price = $newPrice;
                 $player->final_price = $newPrice;
                 /*
-                 * A correction leaves the leader alone; every other path sets it.
+                 * A correction names NOBODY, and that includes taking the previous name down.
                  *
-                 * Without this the adjustment would clear the leading team as a side effect of
-                 * naming nobody, which is a different action entirely — and one that already
-                 * has its own control ("Wrong team?").
+                 * This deliberately left the leader in place, reasoning that clearing it is a
+                 * different action with its own control ("Wrong team?"). That reasoning is sound
+                 * and the room disagrees with it: "+" is the organizer saying the bidding has
+                 * reached this figure, and the screen answering with a team crest asserts that a
+                 * particular team has bid it. Nobody has. The toast said "organizer adjustment, no
+                 * team" while the panel showed Delhi Capitals leading at the adjusted price.
+                 *
+                 * So a correction now clears it, and the price stands on its own until a team
+                 * chip is pressed — which, under the opening-bid rule, takes the standing price
+                 * rather than raising it.
                  */
-                if (! $isCorrection) {
-                    $player->current_bid_team_id = $data['teamId'] ?? null;
-                }
+                $player->current_bid_team_id = $data['teamId'] ?? null;
                 $player->save();
 
                 // Determine bid source based on current auction mode
@@ -1625,7 +1630,14 @@ class AuctionAdminController extends Controller
             $target = $floor;
         }
 
-        $player->update(['current_price' => $target]);
+        /*
+         * Same as "+": an organizer adjustment names nobody, so the leading team comes off with
+         * the figure. A crest beside a price the organizer set asserts a bid that was never made.
+         */
+        $player->update([
+            'current_price' => $target,
+            'current_bid_team_id' => null,
+        ]);
 
         $result = ['message' => 'Price lowered to ' . format_points($target) . '.'];
 
