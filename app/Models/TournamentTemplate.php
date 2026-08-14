@@ -74,6 +74,50 @@ class TournamentTemplate extends Model
     ];
 
     /**
+     * Every placeholder whose value is a FILE PATH rather than words.
+     *
+     * One list, read by the editor's sidebar and by the renderer, because these two disagreeing is
+     * a whole class of bug rather than one: the editor decides which drawer a placeholder appears
+     * in, and that decides the element type it is dragged in as, and THAT is what the renderer
+     * dispatches on. `sold_team_logo` was missing here, so it sat under "Text Placeholders" — a
+     * template author dragged the buying team's crest onto their poster and got its file path
+     * printed as a line of text. `team_a_sponsor_logo` and `team_b_sponsor_logo` were missing the
+     * same way.
+     *
+     * Keep additions here, not in the view. A placeholder added to getDefaultPlaceholders() above
+     * and forgotten here renders as a path, which looks like a data bug and is a list bug.
+     *
+     * @return list<string>
+     */
+    public static function imagePlaceholders(): array
+    {
+        return [
+            'player_image',
+            'team_logo',
+            'sold_team_logo',
+            'playing_team_logo',
+            'tournament_logo',
+            'team_a_logo',
+            'team_b_logo',
+            'team_a_sponsor_logo',
+            'team_b_sponsor_logo',
+            'team_a_captain_image',
+            'team_b_captain_image',
+            'man_of_the_match_image',
+            'best_batsman_image',
+            'best_bowler_image',
+            'winner_logo',
+            'qr_code',
+        ];
+    }
+
+    /** Is this placeholder's value a file path? See imagePlaceholders(). */
+    public static function isImagePlaceholder(?string $placeholder): bool
+    {
+        return $placeholder !== null && in_array($placeholder, self::imagePlaceholders(), true);
+    }
+
+    /**
      * Default placeholders for each template type
      */
     public static function getDefaultPlaceholders(string $type): array

@@ -924,20 +924,24 @@ class Auction extends Model
         }
 
         /*
-         * Nor anywhere else, now — acceptance has been removed on request.
+         * Otherwise the organizer's choice, per auction — "Teams must accept the invite" on the
+         * sealed-round settings.
          *
-         * The step never paid for itself. A team that wants the player enters an amount, and a
-         * team that does not simply enters nothing; accepting first said no more than that, and
-         * it added a way to be excluded from a round by forgetting to press a button. Online
-         * rooms hit that hardest, because the round can open while a manager is reading their
-         * purse rather than watching for a prompt.
+         * This was hard-wired off for a while, because the step does not pay for itself in every
+         * room: a team that wants the player enters an amount and a team that does not enters
+         * nothing, so accepting first can say no more than that while adding a way to be shut out
+         * of a round by missing a prompt. That is a real cost and it is why the DEFAULT for a new
+         * auction stays off.
          *
-         * Kept as one early return rather than deleted, so the reasoning survives and turning it
-         * back on is one line. `closed_bid_requires_acceptance` stays on the table for the same
-         * reason: the column is what a future setting would read, and dropping it would throw
-         * away the per-auction choice as well as the current default.
+         * It is worth having as a choice, though. An accept step is a record that a manager read
+         * their purse, their remaining places and their ceiling and said yes anyway — which is
+         * exactly what an organizer wants on a disputed lot, and what the decline state gives them
+         * when a team says no out loud instead of going quiet.
+         *
+         * Read here rather than in the view so the API, the submit guard and the team's screen
+         * cannot disagree about it.
          */
-        return false;
+        return (bool) $this->closed_bid_requires_acceptance;
     }
 
     /** How long the big screen announces a restart before carrying on. */

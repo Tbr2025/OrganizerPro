@@ -311,13 +311,19 @@ class ClosedBidConfigTest extends TestCase
         $this->assertSame(2, $auction->closedBidMaxRebidRounds());
         $this->assertSame(45, $auction->closedBidTimerSeconds());
         /*
-         * The column still takes the value — a per-auction setting has to be storable for a
-         * future switch to read — but acceptance itself has been removed, so the RULE is false
-         * whatever is saved. Asserted as a pair, because a stored 1 that silently did nothing
-         * would otherwise look like a bug the next time somebody reads this test.
+         * Acceptance is the organizer's choice per auction, so a stored 1 has to MEAN something —
+         * asserted as a pair, because a saved setting that silently did nothing is exactly what
+         * this was for a while and it read as a bug both ways round.
          */
         $this->assertSame(1, (int) $auction->closed_bid_requires_acceptance);
+        $this->assertTrue($auction->closedBidRequiresAcceptance());
+
+        // Off by default, and never in an offline room whatever is stored: the organizer is
+        // calling the round out loud in front of the teams, and there is nothing to accept.
+        $this->assertFalse((new \App\Models\Auction)->closedBidRequiresAcceptance());
+        $auction->open_bid_mode = 'offline';
         $this->assertFalse($auction->closedBidRequiresAcceptance());
+        $auction->open_bid_mode = 'online';
         $this->assertSame('lot', $auction->closedBidTieBreaker());
     }
 

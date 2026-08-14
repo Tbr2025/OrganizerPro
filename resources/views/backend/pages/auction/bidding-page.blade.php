@@ -488,12 +488,44 @@
                                     </div>
                                 </div>
 
-                                {{-- I ACCEPT and WITHDRAW removed on request.
-                                     A team that wants the player enters an amount; a team that
-                                     does not enters nothing. Accepting first said no more than
-                                     that, and it added a way to be shut out of a round by
-                                     missing a prompt while reading your own purse. The amount
-                                     box below is the only control this screen needs. --}}
+                                {{-- Accept, or say no out loud.
+                                     Only reached when the organizer turned acceptance on for this
+                                     auction — `requires_acceptance` gates the whole panel — because
+                                     an extra step before bidding is a way to be shut out of a round
+                                     by missing a prompt, and most rooms are better without it.
+                                     Where it IS on, both answers have to be here: a team that only
+                                     has ACCEPT has no way to tell the organizer it is out, and the
+                                     round then waits on a clock for somebody who has already
+                                     decided. REJECT is recorded, not just a dismissal. --}}
+                                <div class="mt-3 grid grid-cols-2 gap-2">
+                                    <button @click="sealedAccept()" :disabled="isSubmitting" type="button"
+                                            class="py-2.5 rounded-lg font-bold text-xs bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white transition">
+                                        I ACCEPT
+                                    </button>
+                                    <button @click="sealedDecline()" :disabled="isSubmitting" type="button"
+                                            class="py-2.5 rounded-lg font-bold text-xs bg-gray-800 border border-gray-700 hover:bg-gray-700 disabled:opacity-50 text-gray-300 transition">
+                                        REJECT
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-gray-500 text-center mt-2 leading-snug">
+                                    Accepting only lets you enter an amount &mdash; it is not a bid.
+                                </p>
+                            </div>
+                        </template>
+
+                        {{-- Declined. Said back to them, with a way in again while the round is
+                             still collecting: a manager who pressed REJECT and then had a rethink
+                             was otherwise out for good on a mis-tap. --}}
+                        <template x-if="sealed.active && sealedEntryState === 'declined'">
+                            <div class="bg-gray-900/60 border border-gray-800/60 rounded-lg p-3.5 text-center">
+                                <p class="text-gray-400 text-[11px] mb-2.5">
+                                    Your team has passed on this player.
+                                </p>
+                                <button @click="sealedAccept()" :disabled="isSubmitting"
+                                        x-show="['entry_open','collecting'].includes(sealed.state)"
+                                        class="w-full py-2.5 rounded-lg font-bold text-xs bg-gray-800 border border-gray-700 text-gray-200 hover:bg-gray-700 transition">
+                                    CHANGED MY MIND &mdash; ENTER THE ROUND
+                                </button>
                             </div>
                         </template>
 
@@ -1210,10 +1242,17 @@ function teamBiddingPanel() {
          * this is meant to prevent.
          */
         get sealedNeedsMe() {
+            /*
+             * `declined` counts as answered.
+             *
+             * The alarm exists to fetch a manager who has not responded. A team that has said no
+             * has responded — keeping the alarm going at them would be a warning about a decision
+             * they already made, on a dashboard they have every right to leave open.
+             */
             return !! this.sealed?.active
                 && this.sealed?.invited !== false
                 && ['entry_open', 'collecting'].includes(this.sealed?.state)
-                && ! ['submitted', 'withdrawn'].includes(this.sealedEntryState);
+                && ! ['submitted', 'withdrawn', 'declined'].includes(this.sealedEntryState);
         },
 
         /**
@@ -1481,6 +1520,11 @@ function teamBiddingPanel() {
          */
         sealedWithdraw() { return this.sealedPost('withdraw'); },
         sealedReinstate() { return this.sealedPost('reinstate'); },
+
+        /* Only reachable when the organizer has turned acceptance on for this auction; the
+           routes and the service have always been there. */
+        sealedAccept() { return this.sealedPost('accept'); },
+        sealedDecline() { return this.sealedPost('decline'); },
 
         async sealedSubmit() {
             if (!this.sealedCanSubmit) return;

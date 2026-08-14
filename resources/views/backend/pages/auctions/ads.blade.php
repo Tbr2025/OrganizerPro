@@ -71,11 +71,29 @@
             @if($group['items']->isEmpty())
                 <p class="text-sm text-gray-400">Nothing uploaded yet.</p>
             @else
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {{-- Two across, not four.
+                     Four to a row put a full-bleed slide into a 16:9 letterbox about 200px wide, so
+                     a wall of uploads all looked like grey boxes with something in the middle — the
+                     one thing this page exists for is checking that the artwork is right. Wider
+                     tiles, a taller box, and the sort order stated, because that is the order the
+                     reel plays them in. --}}
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     @foreach($group['items'] as $ad)
                         <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden {{ $ad->is_active ? '' : 'opacity-50' }}">
-                            <div class="bg-gray-100 dark:bg-gray-900 aspect-video flex items-center justify-center">
-                                <img src="{{ $ad->url }}" alt="" class="max-w-full max-h-full object-contain">
+                            <div class="relative bg-gray-100 dark:bg-gray-900 flex items-center justify-center"
+                                 style="min-height:220px;max-height:340px;">
+                                <img src="{{ $ad->url }}" alt=""
+                                     style="max-width:100%;max-height:340px;width:auto;height:auto;object-fit:contain;">
+
+                                {{-- Which one is which when four uploads look alike. --}}
+                                <span class="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/70 text-white
+                                             text-[10px] font-bold tracking-wider">
+                                    #{{ $ad->sort_order }}
+                                </span>
+                                @if(! $ad->is_active)
+                                    <span class="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500 text-black
+                                                 text-[10px] font-bold tracking-wider">OFF</span>
+                                @endif
                             </div>
 
                             <form action="{{ route('admin.auctions.ads.update', [$auction, $ad]) }}" method="POST"

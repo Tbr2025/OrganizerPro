@@ -132,6 +132,22 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
+        /*
+         * A logo is drawn as a logo, whatever type the layout says.
+         *
+         * The element type comes from which sidebar drawer it was dragged out of, and that list had
+         * drifted — `sold_team_logo` sat under Text Placeholders, so existing templates have the
+         * buying team's crest saved as a TEXT element whose value is a file path. Fixing the list
+         * fixes new layouts; this fixes the ones already drawn, without asking anybody to lay their
+         * poster out again.
+         *
+         * Safe in one direction only: a placeholder on this list never holds words, so printing it
+         * as text is never the right answer.
+         */
+        if ($type !== 'image' && \App\Models\TournamentTemplate::isImagePlaceholder($placeholder)) {
+            $type = 'image';
+        }
+
         // Get value from data, element's static text, or placeholder display
         $staticText = $element['text'] ?? '';
         // Ignore broken JS interpolation text saved by template editor

@@ -623,37 +623,89 @@ HTML;
             display: none !important;
         }
 
-        /* ── Highlights reel ── */
-        #reel .slide {
-            position: absolute; inset: 0;
-            display: grid; gap: 22px; align-content: center;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            opacity: 0; transition: opacity 0.7s ease;
+        /* ── Highlights reel: a layered carousel ──
+         *
+         * This cross-faded a grid of five buys at a time. Five faces at once means five small
+         * faces, and a fade gives the eye nothing to follow — from the back of a hall it read as
+         * a slideshow of thumbnails.
+         *
+         * It is now one card at a time, big in the middle, with its neighbours turned away behind
+         * it and sliding through: the middle card is the one being shown and the ones either side
+         * say more is coming. Ads ride the same ring, so they slide in horizontally like the
+         * players rather than interrupting as a separate full-screen frame.
+         *
+         * Every layer is transform + opacity, composited off the main thread. The whole ring is
+         * re-transformed on one tick — no per-frame JavaScript, no layout, nothing that touches
+         * the live auction's budget while a break runs.
+         */
+        #reel {
+            perspective: 1800px;
+            perspective-origin: 50% 45%;
+            overflow: hidden;
         }
-        #reel .slide.on { opacity: 1; }
-        #reel .rp { text-align: center; min-width: 0; }
+        #reel .slide {
+            position: absolute; top: 50%; left: 50%;
+            width: min(30%, 460px);
+            /* The card is sized off the stage rather than its contents, or a player with a long
+               name would be a different size from the one beside them. */
+            margin: 0;
+            transform-origin: 50% 50%;
+            transition: transform 0.85s cubic-bezier(0.22, 0.85, 0.28, 1),
+                        opacity 0.85s ease, filter 0.85s ease;
+            will-change: transform, opacity;
+            /* Placed by JS through these three custom properties; see positionReel(). */
+            transform:
+                translate(-50%, -50%)
+                translateX(calc(var(--reel-x, 0) * 1px))
+                scale(var(--reel-s, 1))
+                rotateY(calc(var(--reel-r, 0) * 1deg));
+            opacity: var(--reel-o, 0);
+            filter: brightness(var(--reel-b, 1)) saturate(var(--reel-b, 1));
+            pointer-events: none;
+        }
+
+        /* One buy. The card IS the layer — image, name, crest, price, stacked and lit. */
+        #reel .rp {
+            text-align: center; min-width: 0;
+            padding: 20px 20px 24px;
+            border-radius: 26px;
+            background: linear-gradient(180deg, rgba(15,23,42,0.92), rgba(2,6,23,0.96));
+            border: 1px solid rgba(var(--primary-rgb), 0.35);
+            box-shadow: 0 34px 90px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.08);
+        }
         #reel .rp img, #reel .rp .blank {
-            width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 14px;
+            width: 100%; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 18px;
             background: rgba(255,255,255,0.06);
             border: 1px solid rgba(var(--primary-rgb), 0.3);
         }
         #reel .rp .blank { display: flex; align-items: center; justify-content: center;
-            font-size: 40px; font-weight: 900; color: rgba(255,255,255,0.4); }
-        #reel .rp .nm { margin-top: 12px; font-size: 22px; font-weight: 900; color: #fff;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            font-size: 56px; font-weight: 900; color: rgba(255,255,255,0.4); }
+        #reel .rp .nm { margin-top: 16px; font-size: 34px; font-weight: 900; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.01em; }
         #reel .rp .tm {
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.6);
+            display: flex; align-items: center; justify-content: center; gap: 9px;
+            margin-top: 6px;
+            font-size: 19px; font-weight: 700; color: rgba(255,255,255,0.72);
             white-space: nowrap; overflow: hidden; }
         #reel .rp .tm span { overflow: hidden; text-overflow: ellipsis; }
         /* The buying team's crest. A hall reads a badge faster than a name, and on a reel of
            top buys the team is half the story. */
         #reel .rp .tm .crest {
-            width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+            width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
             flex-shrink: 0; background: rgba(255,255,255,0.08);
-            border: none; aspect-ratio: auto; }
-        #reel .rp .amt { margin-top: 6px; font-size: 34px; font-weight: 900;
-            color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums; }
+            border: 1px solid rgba(255,255,255,0.18); aspect-ratio: auto; }
+        #reel .rp .amt { margin-top: 10px; font-size: 46px; font-weight: 900;
+            color: rgb(var(--primary-rgb)); font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 42px rgba(var(--primary-rgb), 0.5); }
+
+        /* A ribbon on the dearest buy in the reel: on a top-buys board, which one is the top buy
+           is the fact the room is actually looking for. */
+        #reel .rp .top-tag {
+            display: inline-block; margin-bottom: 10px;
+            padding: 4px 14px; border-radius: 999px;
+            font-size: 13px; font-weight: 900; letter-spacing: 0.22em; text-transform: uppercase;
+            background: rgba(var(--primary-rgb), 0.9); color: #08111f;
+        }
 
         /* ── The draw coin ── */
         #draw-coin {
@@ -681,29 +733,74 @@ HTML;
             100% { transform: rotateY(360deg) scale(1); }
         }
 
-        /* ── Ads on the reel ── */
-        #reel .slide.ad { display: flex; align-items: center; justify-content: center; }
+        /* ── Ads on the reel ──
+           A card on the same ring as the players, so a sponsor slides in horizontally with the
+           rest instead of taking the whole wall for a beat. Wider than a player card, because
+           artwork is landscape and a portrait frame letterboxed every ad it was given. */
+        #reel .slide.ad { width: min(42%, 660px); }
+        #reel .slide.ad .frame {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; padding: 22px;
+            border-radius: 26px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(2,6,23,0.9));
+            border: 1px solid rgba(255,255,255,0.14);
+            box-shadow: 0 34px 90px rgba(0,0,0,0.7);
+        }
         #reel .slide.ad img {
-            max-width: 88%; max-height: 88%; object-fit: contain;
-            border-radius: 14px;
+            width: 100%; max-height: 46vh; object-fit: contain;
+            border-radius: 16px;
         }
         #reel .slide.ad .cap {
-            position: absolute; bottom: 6%; left: 0; right: 0; text-align: center;
-            font-size: 20px; font-weight: 700; letter-spacing: 0.08em;
-            text-transform: uppercase; color: rgba(255,255,255,0.75);
+            font-size: 20px; font-weight: 800; letter-spacing: 0.16em;
+            text-transform: uppercase; color: rgba(255,255,255,0.8);
+        }
+        /* Said once, small: an ad that is not labelled as one on a live auction wall is the kind
+           of thing a sponsor and an organizer end up arguing about. */
+        #reel .slide.ad .tag {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.3em; text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
         }
 
+        /*
+         * The sponsor strip, moving.
+         *
+         * A still centred row fitted whatever number of logos it was given by squeezing them, so
+         * an auction with twelve sponsors showed twelve unreadable marks. It now travels: the list
+         * is rendered TWICE and the track is translated by exactly half its width, which is what
+         * makes the wrap seamless — anything else shows a gap crossing the screen every cycle.
+         *
+         * Duration is set from the logo count in JS, so twenty sponsors move at the same speed as
+         * four rather than sprinting.
+         */
         #reel-sponsors {
             position: fixed; left: 0; right: 0; bottom: 0; z-index: 145;
-            display: flex; align-items: center; justify-content: center;
-            gap: 34px; flex-wrap: nowrap; overflow: hidden;
-            padding: 10px 24px;
+            overflow: hidden; padding: 10px 0;
             background: linear-gradient(to top, rgba(2,6,23,0.82), rgba(2,6,23,0));
+            /* Fades the logos out at both edges instead of clipping them mid-mark. */
+            mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
         }
         #reel-sponsors.hidden { display: none; }
+        #reel-sponsors .sponsor-track {
+            display: flex; align-items: center; gap: 60px; width: max-content;
+            animation: sponsorMarch var(--sponsor-secs, 40s) linear infinite;
+        }
         #reel-sponsors img {
-            height: 46px; width: auto; object-fit: contain;
-            opacity: 0.85;
+            height: 52px; width: auto; object-fit: contain;
+            opacity: 0.9; flex-shrink: 0;
+        }
+        @keyframes sponsorMarch {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+        /* Few enough to fit standing still: centre them and stop the march, rather than sliding
+           three logos across an empty strip for no reason. */
+        #reel-sponsors.is-static .sponsor-track {
+            animation: none;
+            width: 100%; justify-content: center;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #reel-sponsors .sponsor-track { animation: none; justify-content: center; width: 100%; }
         }
 
         /* A new player arriving. Short, and opacity plus a small rise only — nothing that
@@ -2628,18 +2725,23 @@ HTML;
         /**
          * The highlights reel: a few of the biggest buys at a time, fading between slides.
          *
-         * Sorted by price and then SHUFFLED within the slides, so a pause does not replay the
-         * same five faces in the same order every time it is put up — the room sees a different
-         * cut of the same story. Capped at the top of the market because a reel of everybody is
-         * a list, and a list is what the sold board is for.
+         * Sorted by price, ribboned at the top, and then SHUFFLED, so a pause does not replay the
+         * same faces in the same order every time it is put up — the room sees a different cut of
+         * the same story. Capped at the top of the market because a reel of everybody is a list,
+         * and a list is what the sold board is for.
          */
         let _reelTimer = null;
         let _reelSlides = [];
         let _reelIndex = 0;
 
-        const REEL_PER_SLIDE = 5;
         const REEL_POOL = 20;
-        const REEL_MS = 6000;
+        /* Cards between one ad and the next. A sponsor still comes round two or three times in a
+           normal break; the reel still reads as an auction recap rather than a commercial. */
+        const REEL_AD_EVERY = 6;
+        /* One card at a time now, so each gets less of the break than a slide of five did — 4.2s
+           is long enough to read a name, a crest and a figure, and short enough that a twenty-card
+           ring comes round inside a normal interval. */
+        const REEL_MS = 4200;
 
         function shuffled(list) {
             const out = list.slice();
@@ -2668,7 +2770,11 @@ HTML;
                     + `<span>${escapeHtml(tm)}</span></div>`
                 : '';
 
-            return '<div class="rp">' + face
+            /* Which one is the top buy is the fact a room looks for on a top-buys board, and a
+               list sorted by price cannot say it once the cards are shown one at a time. */
+            const tag = row?._isTop ? '<div class="top-tag">Top buy</div>' : '';
+
+            return '<div class="rp">' + tag + face
                 + `<div class="nm">${escapeHtml(nm)}</div>`
                 + team
                 + `<div class="amt">${formatMillions(Number(row?.final_price) || 0)}</div>`
@@ -2679,6 +2785,46 @@ HTML;
             if (_reelTimer) { clearInterval(_reelTimer); _reelTimer = null; }
             _reelSlides = [];
             _reelIndex = 0;
+        }
+
+        /*
+         * ── The ring ──
+         *
+         * Every buy is its own card and they all sit on one ring: the middle card is shown big and
+         * face-on, its neighbours are turned away and set back, and the ring turns by one card at a
+         * time. Positions are written as three custom properties per card and the CSS does the rest,
+         * so a turn is one style write per card and no layout at all.
+         */
+        const REEL_VISIBLE = 3;      // cards either side of the middle that stay on screen
+        const REEL_GAP = 0.62;       // how far apart they sit, as a fraction of the stage width
+
+        function positionReel(el) {
+            const nodes = el.querySelectorAll('.slide');
+            if (! nodes.length) return;
+
+            const stage = el.clientWidth || 1200;
+            const total = nodes.length;
+
+            nodes.forEach((node, i) => {
+                /*
+                 * Signed shortest distance around the ring, so a card at the end travels to the
+                 * front through the nearest side. Measured the naive way, the last card flew the
+                 * whole width of the wall to get back to the start.
+                 */
+                let offset = i - _reelIndex;
+                if (offset > total / 2) offset -= total;
+                if (offset < -total / 2) offset += total;
+
+                const away = Math.abs(offset);
+                const beyond = away > REEL_VISIBLE;
+
+                node.style.setProperty('--reel-x', (offset * stage * REEL_GAP * 0.5).toFixed(1));
+                node.style.setProperty('--reel-s', (Math.max(0.52, 1 - away * 0.17)).toFixed(3));
+                node.style.setProperty('--reel-r', (-offset * 26).toFixed(1));
+                node.style.setProperty('--reel-o', beyond ? '0' : (away === 0 ? '1' : (0.78 - away * 0.2).toFixed(2)));
+                node.style.setProperty('--reel-b', away === 0 ? '1' : (0.72 - away * 0.08).toFixed(2));
+                node.style.zIndex = String(100 - away);
+            });
         }
 
         function renderReel(rows) {
@@ -2698,32 +2844,44 @@ HTML;
                 return;
             }
 
-            const order = shuffled(top);
-
-            /* Highest first WITHIN a slide: the shuffle decides which five appear together,
-               and this makes those five read as a top-buys board rather than an arbitrary set. */
-            for (let i = 0; i < order.length; i += REEL_PER_SLIDE) {
-                _reelSlides.push({
-                    kind: 'players',
-                    rows: order.slice(i, i + REEL_PER_SLIDE)
-                        .sort((a, b) => Number(b.final_price) - Number(a.final_price)),
-                });
-            }
+            // Marked before the shuffle, so the ribbon follows the dearest buy wherever it lands.
+            if (top[0]) top[0]._isTop = true;
 
             /*
-             * Ads interleaved BETWEEN player slides, one after each.
+             * Shuffled, so a break does not open on the same three faces every time — the reel is
+             * a recap of the evening, not a leaderboard. The ribbon carries the ranking that
+             * matters.
+             */
+            const order = shuffled(top);
+
+            order.forEach((row) => _reelSlides.push({ kind: 'player', row }));
+
+            /*
+             * Ads interleaved BETWEEN cards, one after every few players.
              *
-             * Not grouped at the end, where a break cut short shows none of them; not on every
-             * slide, which turns the reel into an ad break. Alternating means a sponsor is seen
-             * as often as the players are, and the reel still reads as an auction recap.
+             * Not grouped at the end, where a break cut short shows none of them; not between
+             * every card, which turns the reel into an ad break. Spaced means a sponsor comes round
+             * as often as the players do and the reel still reads as an auction recap.
              */
             if (_reelAds.length) {
+                /*
+                 * One ad every REEL_AD_EVERY cards at most, however many are uploaded.
+                 *
+                 * Spacing them by ads-to-players meant that uploading more artwork made the reel
+                 * MORE of an ad break — five ads against twenty players put one every four cards,
+                 * which is what a room notices and complains about. The gap is now a floor, so
+                 * extra uploads take longer to come round instead of crowding in.
+                 */
+                const every = Math.max(REEL_AD_EVERY, Math.round(_reelSlides.length / (_reelAds.length + 1)) || REEL_AD_EVERY);
                 const mixed = [];
+                let adIndex = 0;
 
                 _reelSlides.forEach((slide, i) => {
                     mixed.push(slide);
-                    const ad = _reelAds[i % _reelAds.length];
-                    if (ad) mixed.push({ kind: 'ad', ad });
+                    if ((i + 1) % every === 0) {
+                        const ad = _reelAds[adIndex % _reelAds.length];
+                        if (ad) { mixed.push({ kind: 'ad', ad }); adIndex++; }
+                    }
                 });
 
                 _reelSlides = mixed;
@@ -2731,27 +2889,42 @@ HTML;
 
             el.innerHTML = _reelSlides.map((slide) => {
                 if (slide.kind === 'ad') {
-                    return '<div class="slide ad">'
+                    return '<div class="slide ad"><div class="frame">'
                         + `<img src="${escapeHtml(slide.ad.url)}" alt="">`
                         + (slide.ad.caption ? `<div class="cap">${escapeHtml(slide.ad.caption)}</div>` : '')
-                        + '</div>';
+                        + '<div class="tag">Sponsor</div>'
+                        + '</div></div>';
                 }
 
-                return '<div class="slide">' + slide.rows.map(reelCard).join('') + '</div>';
+                return '<div class="slide">' + reelCard(slide.row) + '</div>';
             }).join('');
 
-            const show = () => {
-                const nodes = el.querySelectorAll('.slide');
-                if (! nodes.length) return;
-                nodes.forEach((n, i) => n.classList.toggle('on', i === _reelIndex));
-                _reelIndex = (_reelIndex + 1) % nodes.length;
-            };
+            _reelIndex = 0;
+            positionReel(el);
 
-            show();
+            // Only worth turning if there is more than one card to turn to.
+            if (_reelSlides.length > 1) {
+                _reelTimer = setInterval(() => {
+                    _reelIndex = (_reelIndex + 1) % _reelSlides.length;
+                    positionReel(el);
+                }, REEL_MS);
+            }
 
-            // Only worth turning over if there is more than one slide.
-            if (_reelSlides.length > 1) _reelTimer = setInterval(show, REEL_MS);
+            /*
+             * A projector that changes resolution, or a browser window resized mid-break, changes
+             * how far apart the cards should sit. Re-measured rather than left at whatever the
+             * stage was when the reel started, which stranded the ring off-centre.
+             */
+            if (! _reelResizeBound) {
+                _reelResizeBound = true;
+                window.addEventListener('resize', () => {
+                    const reel = document.getElementById('reel');
+                    if (reel && ! reel.classList.contains('hidden')) positionReel(reel);
+                });
+            }
         }
+
+        let _reelResizeBound = false;
 
         /**
          * The sponsor strip, and the event's own mark above it.
@@ -2777,9 +2950,23 @@ HTML;
 
             const list = Array.isArray(sponsors) ? sponsors : [];
 
-            strip.innerHTML = list
-                .map((a) => `<img src="${escapeHtml(a.url)}" alt="">`)
-                .join('');
+            /*
+             * Rendered TWICE inside one track, which is what makes the march seamless: the CSS
+             * translates the track by exactly half its width, so the second copy is arriving as the
+             * first leaves. One copy leaves a gap crossing the wall every cycle.
+             *
+             * Few enough to stand still stay still — sliding three logos across an empty strip is
+             * motion for its own sake.
+             */
+            const marks = list.map((a) => `<img src="${escapeHtml(a.url)}" alt="">`).join('');
+
+            strip.innerHTML = list.length
+                ? `<div class="sponsor-track">${marks}${marks}</div>`
+                : '';
+
+            // Roughly six seconds per logo, so twenty sponsors do not sprint and four do not crawl.
+            strip.style.setProperty('--sponsor-secs', Math.max(24, list.length * 6) + 's');
+            strip.classList.toggle('is-static', list.length > 0 && list.length <= 4);
             strip.classList.toggle('hidden', ! list.length);
         }
 
@@ -2855,6 +3042,19 @@ HTML;
             if (! wrap || ! text || ! timer) return;
 
             if (! soldBoardShowing) {
+                wrap.classList.add('hidden');
+                return;
+            }
+
+            /*
+             * Nothing over the reel.
+             *
+             * The highlights reel is the thing being presented — a "BACK IN 4:32" clock sitting on
+             * top of it is a caption about waiting placed over the content that was put up so the
+             * room would not feel like it was waiting. The sold board is a list and carries a
+             * status line happily; the reel does not.
+             */
+            if (soldBoardShowing === 'highlights') {
                 wrap.classList.add('hidden');
                 return;
             }

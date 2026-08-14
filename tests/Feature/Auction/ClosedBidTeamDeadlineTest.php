@@ -121,13 +121,21 @@ class ClosedBidTeamDeadlineTest extends TestCase
         );
 
         /*
-         * Acceptance has been removed: a team that wants the player enters an amount and a team
-         * that does not enters nothing, so there is no I ACCEPT and no WITHDRAW. Asserted as an
-         * ABSENCE, because putting the step back is exactly the kind of change that should have
-         * to break a test first.
+         * Acceptance is now a per-auction choice, and this auction has not turned it on — so the
+         * accept step must be GATED, not merely present. The panel is inside `x-if` on
+         * `sealed.requires_acceptance`, which the server sets from the auction, so asserting the
+         * absence of the markup would only prove the buttons had been deleted again.
+         *
+         * What matters is that a team in an auction without the setting never sees it, and the
+         * gate is the thing that guarantees that.
          */
-        $this->assertStringNotContainsString('sealedAccept()', $html);
-        $this->assertStringNotContainsString('I ACCEPT', $html);
+        $this->assertStringContainsString('sealed.requires_acceptance', $html);
+        $this->assertFalse($auction->closedBidRequiresAcceptance());
+
+        // Both answers exist where it IS on: a team with only ACCEPT has no way to say it is out,
+        // and the round then waits on a clock for somebody who has already decided.
+        $this->assertStringContainsString('sealedAccept()', $html);
+        $this->assertStringContainsString('sealedDecline()', $html);
 
         // The amount box still refuses a submission once the deadline has passed, which is the
         // guarantee this test is really about.
