@@ -295,4 +295,60 @@ class AuctionPoolBulkDeleteTest extends TestCase
 
         $this->assertNotNull(AuctionPool::find($pool->id));
     }
+
+    /**
+     * An unsold player can be taken out of a pool; a sold one cannot.
+     *
+     * Removal allowed `waiting` alone, so the unsold pile — the one place an organizer actually
+     * goes to tidy up, because it is the players nobody took — could not be tidied at all.
+     * Unsold and skipped carry no result: no team, no price, nothing that deleting the row erases.
+     */
+    #[Test]
+    public function unsold_players_can_be_removed_from_a_pool_and_sold_ones_cannot(): void
+    {
+        $org = $this->makeOrganization();
+        $auction = $this->makeAuction($org);
+        $pool = \App\Models\AuctionPool::create([
+            'auction_id' => $auction->id, 'name' => 'Unsold', 'status' => 'pending',
+            'organization_id' => $org->id,
+        ]);
+        $team = $this->makeTeam($org, 'Alpha');
+
+        $unsold = $this->makeAuctionPlayer($auction, [
+            'status' => 'unsold', 'auction_pool_id' => $pool->id,
+        ]);
+        $sold = $this->makeAuctionPlayer($auction, [
+            'status' => 'sold', 'auction_pool_id' => $pool->id,
+            'sold_to_team_id' => $team->id, 'final_price' => 2_000_000,
+        ]);
+
+        // A bid left over from the block. `auction_bids.auction_player_id` has no cascade, so
+        // without clearing it the row would point at a deleted player for the rest of the auction.
+        \App\Models\AuctionBid::create([
+            'auction_id' => $auction->id, 'auction_player_id' => $unsold->id,
+            'player_id' => $unsold->player_id, 'team_id' => $team->id,
+            'user_id' => $this->makeAuctionOperator($org)->id, 'amount' => 1_500_000,
+        ]);
+
+        $operator = $this->makeAuctionOperator($org);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auctions.pools.bulk-unassign', $auction), [
+                'player_ids' => [$unsold->player_id],
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseMissing('auction_players', ['id' => $unsold->id]);
+        $this->assertDatabaseMissing('auction_bids', ['auction_player_id' => $unsold->id]);
+
+        // The sale is refused, and nothing is removed.
+        $this->actingAs($operator)
+            ->postJson(route('admin.auctions.pools.bulk-unassign', $auction), [
+                'player_ids' => [$sold->player_id],
+            ])
+            ->assertJson(['success' => false]);
+
+        $this->assertDatabaseHas('auction_players', ['id' => $sold->id]);
+    }
 }

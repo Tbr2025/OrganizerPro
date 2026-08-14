@@ -456,7 +456,11 @@
                                            data-player-id="{{ $ap->player_id }}"
                                            data-player-name="{{ $ap->player->name ?? 'Player #'.$ap->player_id }}"
                                            data-pool-of="{{ $pool->id }}"
-                                           @if($ap->status === 'waiting') data-removable="1" @endif
+                                           {{-- Unsold and skipped are removable too: neither carries a
+                                                result, and the unsold pool is exactly where an organizer
+                                                tidies up. Sold and on-the-block are not — see
+                                                AuctionPoolController::bulkUnassign(). --}}
+                                           @if(in_array($ap->status, ['waiting', 'unsold', 'skipped'], true)) data-removable="1" @endif
                                            class="h-4 w-4 rounded border-gray-300 text-indigo-600 cursor-pointer shrink-0"
                                            :checked="selectedPlayers.includes({{ $ap->player_id }})"
                                            @change="togglePlayer({{ $ap->player_id }})"

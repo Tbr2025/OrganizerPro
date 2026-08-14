@@ -491,7 +491,20 @@ class AuctionPoolController extends Controller
             return $this->poolReply($request, false, __('None of those players are in this auction.'));
         }
 
-        $inPlay = $rows->firstWhere(fn (AuctionPlayer $ap) => $ap->status !== 'waiting');
+        /*
+         * Waiting and UNSOLD players can be removed; a sale cannot.
+         *
+         * This allowed `waiting` alone, so an unsold player could not be taken out of the pool at
+         * all — and the unsold pool is precisely where an organizer goes to tidy up, because it is
+         * the pile of players nobody took. Unsold and skipped carry no result: no team, no price,
+         * nothing that deleting the row would erase.
+         *
+         * `sold` and `on_auction` stay refused. Deleting a sold row would quietly destroy a
+         * purchase, and one on the block is being bid on right now.
+         */
+        $removable = ['waiting', 'unsold', 'skipped'];
+
+        $inPlay = $rows->firstWhere(fn (AuctionPlayer $ap) => ! in_array($ap->status, $removable, true));
 
         if ($inPlay) {
             return $this->poolReply($request, false, __('“:name” is already in play or sold — nothing was removed.', [
@@ -503,6 +516,16 @@ class AuctionPoolController extends Controller
         $poolIds = $rows->pluck('auction_pool_id')->filter()->unique();
 
         DB::transaction(function () use ($rows, $poolIds) {
+            /*
+             * The bids go with them.
+             *
+             * A waiting player has none, which is why this never mattered before. An unsold one
+             * has been on the block and usually does, and `auction_bids.auction_player_id` has no
+             * cascade — leaving them behind would point live rows at a deleted player and count
+             * them into every bid-derived total for the rest of the auction.
+             */
+            \App\Models\AuctionBid::whereIn('auction_player_id', $rows->pluck('id'))->delete();
+
             AuctionPlayer::whereIn('id', $rows->pluck('id'))->delete();
 
             // Lot numbers are positional, so every touched pool has to be redrawn once —
