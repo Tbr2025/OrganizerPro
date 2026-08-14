@@ -579,7 +579,13 @@
                                                             would refuse instead of accepting it and failing later. --}}
                                                        :max="entry.binding_ceiling ? toM(entry.binding_ceiling) : null"
                                                        inputmode="decimal"
+                                                       {{-- Seeded from the recorded amount when there is one, so a
+                                                            submitted row shows the figure it holds rather than an
+                                                            empty box beside a SUBMITTED chip. --}}
                                                        x-model="sealedAdjustAmount[entry.entry_id]"
+                                                       x-effect="if (sealedAdjustAmount[entry.entry_id] === undefined && entry.amount) {
+                                                                     sealedAdjustAmount[entry.entry_id] = toM(entry.amount);
+                                                                 }"
                                                        {{-- Enter was the ONLY way to commit a typed amount, so typing
                                                             one and clicking away lost it silently — the +/- buttons
                                                             looked like the only thing that worked. Blur commits it
@@ -587,7 +593,11 @@
                                                        @keydown.enter.prevent="sealedAdjustCustom(entry)"
                                                        @change="sealedAdjustCustom(entry)"
                                                        class="w-16 px-1 py-0.5 bg-gray-800 border border-gray-700 rounded text-white text-[11px] text-center"
-                                                       :placeholder="sealed.floor ? toM(sealed.floor) : 'M'">
+                                                       {{-- "8.1" alone read as an amount already recorded — a
+                                                            greyed figure in a box looks like a value, not a hint,
+                                                            and the desk could not tell an empty row from an entered
+                                                            one. Named for what it is. --}}
+                                                       :placeholder="sealed.floor ? ('min ' + toM(sealed.floor)) : 'amount (M)'">
                                                 <button @click="sealedAdjust(entry, 'up')"
                                                         class="w-6 h-6 rounded bg-green-500/15 border border-green-500/25 text-green-400 text-xs font-bold">+</button>
                                                 <button @click="sealedAdjustCustom(entry)"
@@ -602,7 +612,14 @@
                                              way to look, an organizer could not check a bid a team had
                                              queried, or confirm that an amount they entered on a team's
                                              behalf had actually landed. --}}
-                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn && sealed.entry_opened">
+                                        {{-- Whether the bid is in, and what it is when the organizer asks.
+                                             This was gated on `entry_opened` — the mode where the TEAMS type
+                                             their own amounts — so on a round the organizer is entering on
+                                             behalf of the teams it never rendered at all, and "Show amounts"
+                                             toggled a flag with nothing behind it. That is the mode the desk
+                                             most needs to read back: it is the one where the organizer typed
+                                             the figures and wants to check them. --}}
+                                        <template x-if="sealed.state === 'collecting' && !entry.withdrawn">
                                             <span class="text-[11px] font-semibold tabular-nums"
                                                   :class="entry.submitted ? 'text-emerald-400' : 'text-gray-500'"
                                                   x-text="! entry.submitted
