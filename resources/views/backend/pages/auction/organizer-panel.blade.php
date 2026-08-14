@@ -1091,6 +1091,7 @@
                 {{-- RIGHT: Current Bid + Team Details --}}
                 <div class="w-80 flex items-center justify-center flex-shrink-0">
                     {{-- No bids yet --}}
+                    {{-- Only before anything has happened: no leader AND the price still at base. --}}
                     <template x-if="!currentBid || currentBid <= (currentPlayer?.base_price || 0)">
                         <div x-show="!winningTeamName || winningTeamName === 'No Bids'" class="text-center p-8 border-2 border-dashed border-gray-700 rounded-2xl w-full">
                             <div class="w-20 h-20 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
@@ -1103,8 +1104,16 @@
                         </div>
                     </template>
 
-                    {{-- Has bids: Team + Amount --}}
-                    <div x-show="winningTeamName && winningTeamName !== 'No Bids'" class="text-center w-full">
+                    {{-- Has a price: Amount, and the team when there is one.
+                         Gated on the FIGURE, not on the leader.
+                         When "+" and "−" started clearing the leading team — which is right, an
+                         organizer's adjustment names nobody — this block was still keyed on
+                         `winningTeamName`, so the first press took the whole panel away: the
+                         price, and the two buttons that had just been pressed, leaving an
+                         operator mid-correction with nothing to correct with. --}}
+                    <div x-show="(winningTeamName && winningTeamName !== 'No Bids')
+                                 || (currentBid > (currentPlayer?.base_price || 0))"
+                         class="text-center w-full">
                         {{-- Find current bid team --}}
                         <template x-if="teams.find(t => t.name === winningTeamName)">
                             <div>
@@ -1117,6 +1126,16 @@
                                     </template>
                                 </div>
                                 <div class="text-xl font-bold text-emerald-300 mb-4" x-text="winningTeamName"></div>
+                            </div>
+                        </template>
+
+                        {{-- A price with no team behind it is the organizer's own adjustment.
+                             Said here, where the crest used to be, so the gap reads as deliberate
+                             rather than as a panel that has lost track of who is leading. --}}
+                        <template x-if="(!winningTeamName || winningTeamName === 'No Bids')
+                                        && currentBid > (currentPlayer?.base_price || 0)">
+                            <div class="mb-4 text-sm font-semibold text-amber-400/90">
+                                Adjusted by you &mdash; no team on this price yet
                             </div>
                         </template>
 
@@ -1136,8 +1155,12 @@
                                      keep the LEADING TEAM as it is — this is correcting a figure,
                                      not taking a bid — which is why they sit on the amount rather
                                      than among the team chips. --}}
+                                {{-- Not disabled while one is in flight: presses QUEUE (see
+                                     _pendingSteps). An auctioneer calling a price up clicks faster
+                                     than a round trip, and a button that greys out between clicks
+                                     silently eats every press after the first. --}}
                                 <button type="button" @click="stepBidDown()"
-                                        :disabled="!canStepBid || isSteppingBid"
+                                        :disabled="!canStepBid"
                                         class="w-9 h-9 shrink-0 rounded-lg bg-gray-800 border border-gray-600 text-gray-300 text-xl font-bold leading-none hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                                         title="Take back the last raise">&minus;</button>
 
@@ -1145,7 +1168,7 @@
                                      x-text="formatCurrency(displayBid)"></div>
 
                                 <button type="button" @click="stepBidUp()"
-                                        :disabled="!canStepBid || isSteppingBid"
+                                        :disabled="!canStepBid"
                                         class="w-9 h-9 shrink-0 rounded-lg bg-gray-800 border border-gray-600 text-gray-300 text-xl font-bold leading-none hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
                                         title="Raise one step, same leading team">+</button>
                             </div>
@@ -3975,8 +3998,21 @@ function auctionOrganizerPanel() {
          * team's sealed bid rather than a price.
          */
         async stepBidDown() {
-            if (! this.canStepBid || this.isSteppingBid) return;
+            if (! this.canStepBid) return;
             if (! this.guardControl('correct the price')) return;
+
+            /*
+             * Queued while one is in flight, exactly as "+" is.
+             *
+             * This returned early when busy, so walking a price back down two or three rungs —
+             * which is what an operator does the moment they realise they over-clicked — landed
+             * one step and dropped the rest. The presses that matter most are the fast ones.
+             */
+            if (this.isSteppingBid) {
+                this._pendingDownSteps = (this._pendingDownSteps || 0) + 1;
+
+                return;
+            }
 
             this.isSteppingBid = true;
 
@@ -4024,6 +4060,13 @@ function auctionOrganizerPanel() {
                 this.toast('That did not go through.', 'error');
             } finally {
                 this.isSteppingBid = false;
+
+                // Replay what was pressed while this one was out, one at a time: two in flight
+                // would each read the same price and land on the same figure.
+                if (this._pendingDownSteps > 0) {
+                    this._pendingDownSteps -= 1;
+                    this.stepBidDown();
+                }
             }
         },
 
