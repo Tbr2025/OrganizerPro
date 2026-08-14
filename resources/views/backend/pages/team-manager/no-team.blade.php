@@ -13,11 +13,17 @@
         <p class="mt-2 text-gray-500 dark:text-gray-400">
             You are not currently assigned to any team. Please contact your tournament administrator to be assigned to a team.
         </p>
-        <div class="mt-6">
-            <a href="{{ route('admin.dashboard') }}" class="btn btn-primary">
-                Go to Dashboard
-            </a>
-        </div>
+        {{-- No "Go to Dashboard" for a team manager: /admin/dashboard bounces them back to the
+             team dashboard, which — having no team — renders this page again. A button that
+             returns you to the page you are on is worse than no button. Admins are not
+             redirected, so they keep the link. --}}
+        @if(auth()->user()?->hasAnyRole(['Superadmin', 'Admin', 'Organizer']))
+            <div class="mt-6">
+                <a href="{{ route('admin.dashboard') }}" class="btn btn-primary">
+                    Go to Dashboard
+                </a>
+            </div>
+        @endif
     </div>
 </div>
 @endsection

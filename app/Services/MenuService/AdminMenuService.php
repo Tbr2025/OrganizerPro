@@ -257,7 +257,10 @@ class AdminMenuService
             $this->addMenuItem([
                 'label' => __('Logout'),
                 'icon' => 'lucide:log-out',
-                'route' => route('admin.dashboard'),
+                // The item renders its own POST form; this is only a placeholder href. Pointed
+                // at a page a team manager can actually reach, so a stray click on the row
+                // rather than the form does not bounce them through /admin/dashboard.
+                'route' => route('team-manager.dashboard'),
                 'active' => false,
                 'id' => 'logout',
                 'priority' => 100,
