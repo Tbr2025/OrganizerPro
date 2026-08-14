@@ -1101,6 +1101,16 @@ class AuctionAdminController extends Controller
             // Index into the auction's configured quick-bid steps. An index rather than
             // an amount, so a client can never name its own jump size.
             'stepIndex' => 'nullable|integer|min:0',
+            /*
+             * A price CORRECTION rather than a competitive bid.
+             *
+             * The room moves faster than the person recording it: bidding goes 1M, 2M, 3M while
+             * the operator gets one click in. Catching up means raising the price WITHOUT
+             * changing who leads — which the "a team may not outbid itself" guard forbids, quite
+             * correctly, for an ordinary bid. This says the operator means the other thing, and
+             * it is the panel's + button and nothing else.
+             */
+            'correction' => 'nullable|boolean',
         ]);
 
         $auction = Auction::findOrFail($data['auctionId']);
@@ -1120,8 +1130,24 @@ class AuctionAdminController extends Controller
                     ->lockForUpdate()
                     ->findOrFail($data['playerID']);
 
-                // Prevent consecutive bids by the same team
-                if ($data['teamId'] && $player->current_bid_team_id == $data['teamId']) {
+                $isCorrection = (bool) ($data['correction'] ?? false);
+
+                /*
+                 * A correction with no team named raises the price for whoever already leads.
+                 * Filled in here rather than asked of the client, where the leader can be a
+                 * poll behind.
+                 */
+                if ($isCorrection && empty($data['teamId'])) {
+                    $data['teamId'] = $player->current_bid_team_id;
+                }
+
+                if ($isCorrection && empty($data['teamId'])) {
+                    throw new \Exception('Nobody has bid yet, so there is no price to correct. Click a team to open the bidding.');
+                }
+
+                // Prevent consecutive bids by the same team — except when correcting the price,
+                // where keeping the same leader is exactly what is being asked for.
+                if (! $isCorrection && $data['teamId'] && $player->current_bid_team_id == $data['teamId']) {
                     throw new \Exception('This team is already the highest bidder.');
                 }
 

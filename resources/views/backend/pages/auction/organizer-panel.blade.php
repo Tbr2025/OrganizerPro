@@ -1060,8 +1060,26 @@
                                  put the true number a moment behind the click. tabular-nums keeps
                                  every digit one width, so "4.5M" becoming "11.1M" cannot nudge
                                  the panel sideways. --}}
-                            <div class="text-5xl font-black text-emerald-400 tabular-nums"
-                                 x-text="formatCurrency(displayBid)"></div>
+                            <div class="flex items-center justify-center gap-3">
+                                {{-- Catch the price up, or walk it back.
+                                     The room moves faster than the person recording it: bidding
+                                     goes 1M, 2M, 3M while the operator gets one click in. Both
+                                     keep the LEADING TEAM as it is — this is correcting a figure,
+                                     not taking a bid — which is why they sit on the amount rather
+                                     than among the team chips. --}}
+                                <button type="button" @click="stepBidDown()"
+                                        :disabled="!canStepBid || isSteppingBid"
+                                        class="w-9 h-9 shrink-0 rounded-lg bg-gray-800 border border-gray-600 text-gray-300 text-xl font-bold leading-none hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title="Take back the last raise">&minus;</button>
+
+                                <div class="text-5xl font-black text-emerald-400 tabular-nums"
+                                     x-text="formatCurrency(displayBid)"></div>
+
+                                <button type="button" @click="stepBidUp()"
+                                        :disabled="!canStepBid || isSteppingBid"
+                                        class="w-9 h-9 shrink-0 rounded-lg bg-gray-800 border border-gray-600 text-gray-300 text-xl font-bold leading-none hover:bg-gray-700 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                                        title="Raise one step, same leading team">+</button>
+                            </div>
                         </div>
 
                         {{-- Team Budget --}}
@@ -1543,6 +1561,16 @@
                                     <span class="absolute -top-1.5 -left-1 z-10 w-[15px] h-[15px] bg-gray-700 border border-gray-900 rounded-full text-[9px] font-mono flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                           x-text="idx < 9 ? String(idx + 1) : (idx === 9 ? \'0\' : \'\')"></span>
                                 </button>
+
+                                {{-- The team's NAME, under its logo.
+                                     A logo is not always enough at a glance — two dark crests
+                                     across a hall look alike, and the name was only reachable by
+                                     hovering, which a projector cannot do. Clamped to two lines
+                                     and centred so the row height stays even whatever the name. --}}
+                                <span class="w-full px-0.5 text-[10px] font-semibold leading-tight text-center text-gray-300"
+                                      style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;"
+                                      :title="team.name"
+                                      x-text="team.name"></span>
 
                                 {{-- Purse, in flow under the square rather than overlapping the
                                      neighbouring cell. The unit word is dropped once there are
@@ -3477,6 +3505,117 @@ function auctionOrganizerPanel() {
          * pick this up on its own. Running it is always a deliberate choice.
          */
         unsoldPool: null,
+
+        isSteppingBid: false,
+
+        /**
+         * Can the price be nudged at all right now?
+         *
+         * Only with somebody on the block and a leader to attach the correction to — a step
+         * keeps the leading team as it is, so with nobody leading there is nothing to correct
+         * and the first bid has to name a team.
+         */
+        get canStepBid() {
+            return !! this.currentPlayer
+                && this.displayState === 'bidding'
+                && !! this.currentPlayer.current_bid_team_id;
+        },
+
+        /**
+         * Raise one rung, leaving the leading team where it is.
+         *
+         * For when the room outruns the person recording it — bidding goes 1M, 2M, 3M while the
+         * operator gets one click in. `correction` tells the server this is a figure being
+         * caught up rather than a bid being taken, which is what lets it past the "a team may
+         * not outbid itself" guard. Everything else still applies: the ladder decides the step,
+         * the squad reserve is still checked, the sealed ceiling still holds, and it lands on
+         * the undo stack like any other raise.
+         */
+        async stepBidUp() {
+            if (! this.canStepBid || this.isSteppingBid) return;
+            if (! this.guardControl('correct the price')) return;
+
+            this.isSteppingBid = true;
+
+            try {
+                const res = await fetch('/admin/auctions/add-bid', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auctionId: this.auctionId,
+                        playerID: this.currentPlayer.id,
+                        correction: true,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    this.currentBid = data.current_price;
+                    this._lastKnownBid = data.current_price;
+                    if (this.currentPlayer) this.currentPlayer.current_price = data.current_price;
+                    this._lastAppliedBidId = Math.max(this._lastAppliedBidId || 0, Number(data.bid_id) || 0);
+                    this.resetBiddingTimer();
+                } else {
+                    this.toast(data.message || 'The price could not be raised.', 'error');
+                }
+            } catch (e) {
+                console.error('Step up error:', e);
+                this.toast('That did not go through.', 'error');
+            } finally {
+                this.isSteppingBid = false;
+            }
+        },
+
+        /**
+         * Walk the price back one raise.
+         *
+         * Retracts the newest bid rather than writing a lower one — a bid row at a reduced
+         * amount would pollute the history every budget total is derived from. The endpoint
+         * refuses during a sealed round, where the newest thing on the stack is very likely a
+         * team's sealed bid rather than a price.
+         */
+        async stepBidDown() {
+            if (! this.canStepBid || this.isSteppingBid) return;
+            if (! this.guardControl('correct the price')) return;
+
+            this.isSteppingBid = true;
+
+            try {
+                const res = await fetch('/admin/auctions/decrease-bid', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auctionId: this.auctionId,
+                        playerID: this.currentPlayer.id,
+                    }),
+                });
+                const data = await res.json();
+
+                if (data.success === false) {
+                    this.toast(data.message || 'The price could not be lowered.', 'error');
+                } else {
+                    // A retraction moves the ordering BACKWARDS, exactly as undo does — so the
+                    // staleness guard has to forget what it knows or it will hold the old figure.
+                    this._lastAppliedBidId = 0;
+                    this._clearPendingBid();
+                }
+
+                await this.pollAuctionState();
+            } catch (e) {
+                console.error('Step down error:', e);
+                this.toast('That did not go through.', 'error');
+            } finally {
+                this.isSteppingBid = false;
+            }
+        },
 
         async bidForTeam(teamId, stepIndex = null) {
             if (!this.currentPlayer || this.displayState !== 'bidding') return;
