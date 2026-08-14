@@ -580,19 +580,39 @@
                                     <p class="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-2">
                                         Select which teams take part in this round
                                     </p>
+                                    {{-- A team that could not bid the floor is shown as such HERE,
+                                         before it is invited.
+                                         Every team was offered as a plain tick, so a round could
+                                         be opened for a full squad, or for a team whose ceiling
+                                         is 1.8M against a floor of 8.1M. Nothing said so until
+                                         the round was running and the entry was refused — by
+                                         which point the board is built and the room is waiting.
+                                         The reasons were already on this screen, in the amber
+                                         list below the chips; they just were not applied to the
+                                         one control that decides who takes part. --}}
                                     <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
                                         <template x-for="team in (teams || [])" :key="team.id">
-                                            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
-                                                   :class="isSealedTeamSelected(team.id)
-                                                       ? 'border-purple-500 bg-purple-500/10'
-                                                       : 'border-gray-800 bg-gray-900/40'">
+                                            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors"
+                                                   :class="sealedTeamBlockReason(team)
+                                                       ? 'border-gray-800 bg-gray-900/20 opacity-50 cursor-not-allowed'
+                                                       : (isSealedTeamSelected(team.id)
+                                                           ? 'border-purple-500 bg-purple-500/10 cursor-pointer'
+                                                           : 'border-gray-800 bg-gray-900/40 cursor-pointer')"
+                                                   :title="sealedTeamBlockReason(team) || team.name">
                                                 <input type="checkbox" class="accent-purple-500"
+                                                       :disabled="!! sealedTeamBlockReason(team)"
                                                        :checked="isSealedTeamSelected(team.id)"
                                                        @change="toggleSealedTeam(team.id)">
                                                 <template x-if="team.logo_url">
                                                     <img :src="team.logo_url" class="w-5 h-5 rounded-full object-cover shrink-0" alt="">
                                                 </template>
-                                                <span class="text-white text-xs font-semibold truncate" x-text="team.name"></span>
+                                                <span class="min-w-0">
+                                                    <span class="block text-white text-xs font-semibold truncate" x-text="team.name"></span>
+                                                    {{-- Why, on the row itself. --}}
+                                                    <span x-show="sealedTeamBlockReason(team)"
+                                                          class="block text-[10px] text-amber-400/90 truncate"
+                                                          x-text="sealedTeamBlockReason(team)"></span>
+                                                </span>
                                             </label>
                                         </template>
                                     </div>
@@ -1410,7 +1430,10 @@
                                     :class="p.is_unsold_pool
                                         ? 'bg-amber-900/30 hover:bg-amber-900/50 border-amber-700/60 text-amber-300'
                                         : 'bg-gray-800 hover:bg-gray-700 border-gray-600 text-gray-300'">
-                                <span x-text="(p.is_unsold_pool ? 'Run ' : 'Reopen ') + p.name"></span>
+                                {{-- "Use", not "Run" or "Reopen": one word for one action, and the
+                                     one an organizer actually says out loud when picking which
+                                     pool goes next. --}}
+                                <span x-text="'Use ' + p.name"></span>
                                 <span class="opacity-70"
                                       x-text="'(' + ((p.waiting || 0) + (p.unsold_from || 0)) + ')'"></span>
                             </button>
@@ -2343,6 +2366,17 @@ function auctionOrganizerPanel() {
         },
 
         toggleSealedTeam(teamId) {
+            // Belt and braces: the checkbox is disabled, but a selection made before the purse
+            // moved must not survive into the round.
+            const team = (this.teams || []).find(t => t.id == teamId);
+            const blocked = this.sealedTeamBlockReason(team);
+
+            if (blocked) {
+                this.toast(`${team?.name || 'That team'}: ${blocked.toLowerCase()}.`, 'info', 'Cannot take part');
+
+                return;
+            }
+
             if (this.sealedTeamSelection === null) {
                 // First tick on an untouched panel: this team, and only this team.
                 this.sealedTeamSelection = [teamId];
@@ -4454,6 +4488,31 @@ function auctionOrganizerPanel() {
 
             if (amount > 0 && isFinite(ceiling) && amount > ceiling) {
                 return `${team.name} cannot reach ${this.formatCurrency(amount)} — ${this.formatCurrency(ceiling)} is their limit for this player.`;
+            }
+
+            return null;
+        },
+
+        /**
+         * Why this team cannot take part in the sealed round, or null if it can.
+         *
+         * A sealed round has a FLOOR — the lowest amount an entry may carry — so a team whose
+         * ceiling is below it cannot submit anything valid, and a team whose squad is full has
+         * nowhere to put the player. Both were already known to this screen and printed in the
+         * amber list under the chips; they simply were not applied to the control that decides
+         * who is invited. So a round could be opened for teams that could never enter it, and
+         * the refusal arrived only once the board was built and the room was waiting.
+         */
+        sealedTeamBlockReason(team) {
+            if (! team) return null;
+
+            if (team.squad_full) return 'Squad is full';
+
+            const floor = Number(this.sealed?.floor) || 0;
+            const ceiling = Number(team.max_bid_allowed);
+
+            if (floor > 0 && isFinite(ceiling) && ceiling < floor) {
+                return `Cannot reach the ${this.formatCurrency(floor)} floor`;
             }
 
             return null;
