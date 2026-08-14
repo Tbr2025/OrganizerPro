@@ -120,9 +120,18 @@ class ClosedBidTeamDeadlineTest extends TestCase
             'The open clock must be hidden for a sealed round that is entry_open as well as one collecting.'
         );
 
-        // Accept still turns on the SEALED clock, which is the one that governs from here.
-        $this->assertStringContainsString('sealedAccept()', $html);
-        $this->assertStringContainsString(':disabled="isSubmitting || sealedExpired"', $condition);
+        /*
+         * Acceptance has been removed: a team that wants the player enters an amount and a team
+         * that does not enters nothing, so there is no I ACCEPT and no WITHDRAW. Asserted as an
+         * ABSENCE, because putting the step back is exactly the kind of change that should have
+         * to break a test first.
+         */
+        $this->assertStringNotContainsString('sealedAccept()', $html);
+        $this->assertStringNotContainsString('I ACCEPT', $html);
+
+        // The amount box still refuses a submission once the deadline has passed, which is the
+        // guarantee this test is really about.
+        $this->assertStringContainsString('sealedExpired', $condition);
     }
 
     #[Test]
@@ -424,13 +433,14 @@ class ClosedBidTeamDeadlineTest extends TestCase
 
         /*
          * The countdown lived inside the bid box, which only renders once the team CAN bid — so a
-         * team still deciding whether to accept had no idea how long it had, and the clock appeared
-         * only after the decision it was supposed to inform. It is now shown to any invited team
-         * while the round is collecting, and Accept is disabled once the deadline passes: accepting
-         * late gets a team into a round it can no longer bid in.
+         * team had no idea how long it had. It is now shown to any invited team while the round
+         * is collecting. (The accept step it originally informed has since been removed — a team
+         * that wants the player simply enters an amount — but the clock still has to be visible
+         * for the amount to be entered against.)
          */
         $this->assertStringContainsString("sealed.invited !== false && sealed.state === 'collecting'", $html);
-        $this->assertStringContainsString('isSubmitting || sealedExpired', $html);
+        // The deadline still governs the amount box; it is the accept step that has gone.
+        $this->assertStringContainsString('sealedExpired', $html);
         $this->assertStringContainsString('Sealed bid completed', $html);
     }
 

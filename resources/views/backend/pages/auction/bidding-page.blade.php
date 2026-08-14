@@ -488,22 +488,12 @@
                                     </div>
                                 </div>
 
-                                {{-- The clock disables these too.
-                                     Accepting after the deadline gets a team into a round it can no
-                                     longer bid in — the server refuses the amount — so the button has
-                                     to stop offering it rather than lead them there. --}}
-                                <div class="flex gap-2 mt-3">
-                                    <button @click="sealedAccept()" :disabled="isSubmitting || sealedExpired"
-                                            class="flex-1 py-2.5 rounded-lg font-bold text-xs text-white transition disabled:opacity-40 disabled:cursor-not-allowed"
-                                            :class="sealedExpired
-                                                ? 'bg-gray-700'
-                                                : 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'"
-                                            x-text="sealedExpired ? 'TIME UP' : 'I ACCEPT'"></button>
-                                    <button @click="sealedDecline()" :disabled="isSubmitting"
-                                            class="px-4 py-2.5 rounded-lg font-bold text-xs bg-gray-800/60 border border-gray-700/40 text-gray-400 hover:text-gray-200 transition">
-                                        WITHDRAW
-                                    </button>
-                                </div>
+                                {{-- I ACCEPT and WITHDRAW removed on request.
+                                     A team that wants the player enters an amount; a team that
+                                     does not enters nothing. Accepting first said no more than
+                                     that, and it added a way to be shut out of a round by
+                                     missing a prompt while reading your own purse. The amount
+                                     box below is the only control this screen needs. --}}
                             </div>
                         </template>
 
@@ -1413,8 +1403,12 @@ function teamBiddingPanel() {
             }
         },
 
-        sealedAccept() { return this.sealedPost('accept'); },
-        sealedDecline() { return this.sealedPost('decline'); },
+        /*
+         * accept and decline went with the acceptance step itself. Withdraw and reinstate stay:
+         * a team that has already entered an amount may still need to pull it, and the organizer
+         * can put them back — neither is the "do you want to take part" question that was
+         * removed. The endpoints for all four are untouched.
+         */
         sealedWithdraw() { return this.sealedPost('withdraw'); },
         sealedReinstate() { return this.sealedPost('reinstate'); },
 

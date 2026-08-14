@@ -803,9 +803,21 @@ class Auction extends Model
             return false;
         }
 
-        return $this->closed_bid_requires_acceptance !== null
-            ? (bool) $this->closed_bid_requires_acceptance
-            : true;
+        /*
+         * Nor anywhere else, now — acceptance has been removed on request.
+         *
+         * The step never paid for itself. A team that wants the player enters an amount, and a
+         * team that does not simply enters nothing; accepting first said no more than that, and
+         * it added a way to be excluded from a round by forgetting to press a button. Online
+         * rooms hit that hardest, because the round can open while a manager is reading their
+         * purse rather than watching for a prompt.
+         *
+         * Kept as one early return rather than deleted, so the reasoning survives and turning it
+         * back on is one line. `closed_bid_requires_acceptance` stays on the table for the same
+         * reason: the column is what a future setting would read, and dropping it would throw
+         * away the per-auction choice as well as the current default.
+         */
+        return false;
     }
 
     /** How long the big screen announces a restart before carrying on. */

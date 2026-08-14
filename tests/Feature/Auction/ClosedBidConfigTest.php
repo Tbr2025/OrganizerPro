@@ -310,7 +310,14 @@ class ClosedBidConfigTest extends TestCase
         $this->assertSame(70.0, $auction->closedBidMaxPct());
         $this->assertSame(2, $auction->closedBidMaxRebidRounds());
         $this->assertSame(45, $auction->closedBidTimerSeconds());
-        $this->assertTrue($auction->closedBidRequiresAcceptance());
+        /*
+         * The column still takes the value — a per-auction setting has to be storable for a
+         * future switch to read — but acceptance itself has been removed, so the RULE is false
+         * whatever is saved. Asserted as a pair, because a stored 1 that silently did nothing
+         * would otherwise look like a bug the next time somebody reads this test.
+         */
+        $this->assertSame(1, (int) $auction->closed_bid_requires_acceptance);
+        $this->assertFalse($auction->closedBidRequiresAcceptance());
         $this->assertSame('lot', $auction->closedBidTieBreaker());
     }
 

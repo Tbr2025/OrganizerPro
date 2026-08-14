@@ -563,12 +563,14 @@
                                                         : (sealedAmountsVisible ? formatCurrency(entry.amount) : 'Bid in')"></span>
                                         </template>
 
-                                        <button x-show="!entry.withdrawn && !sealed.revealed"
-                                                @click="sealedEntryCommand(entry.entry_id, 'withdraw')"
-                                                class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-red-400">Withdraw</button>
-                                        <button x-show="entry.withdrawn && !sealed.revealed"
-                                                @click="sealedEntryCommand(entry.entry_id, 'reinstate')"
-                                                class="px-2 py-0.5 rounded bg-gray-800 border border-gray-700 text-gray-400 text-[10px] hover:text-emerald-400">Restore</button>
+                                        {{-- Withdraw and Restore removed with acceptance itself.
+                                             A team that wants the player enters an amount and a
+                                             team that does not enters nothing, so there is
+                                             nothing left for these to express — and a control
+                                             that pulls somebody out of a live round is worth
+                                             more as a deliberate absence than as a button one
+                                             row away from Pick. The entry endpoints are
+                                             untouched if this needs to come back. --}}
                                         {{-- Says why it is refused BEFORE the click.
                                              This was always clickable and answered with a toast —
                                              "an unexplained override cannot be defended later" —

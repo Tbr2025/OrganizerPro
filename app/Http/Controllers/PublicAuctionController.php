@@ -257,6 +257,12 @@ class PublicAuctionController extends Controller
          * aggregates here is four queries a tick per viewer.
          */
         $byStatus = $auction->auctionPlayers()
+            /*
+             * Biddable players only. Icon players are kept by their team before the auction and
+             * never go on the block, so counting them makes the wall's "x of y done" measure
+             * progress against people nobody will ever bid for.
+             */
+            ->where('is_retained', false)
             ->selectRaw('status, COUNT(*) as aggregate')
             ->groupBy('status')
             ->pluck('aggregate', 'status');
@@ -568,10 +574,18 @@ class PublicAuctionController extends Controller
                 'max' => $auction->maxSquadSize(),
             ],
             'active_pool' => $progress['active_pool'],
+            /*
+             * Counted over the players who can actually be BID ON.
+             *
+             * `total` was every auction_players row, which includes the icon players kept by
+             * their teams before the auction — they never go on the block, so the strip read
+             * "25/51 sold" for a room with 31 players to get through. A denominator that
+             * counts people nobody will ever bid for is not a measure of progress.
+             */
             'stats' => [
                 'sold' => $auction->auctionPlayers()->where('status', 'sold')->count(),
                 'unsold' => $auction->auctionPlayers()->whereIn('status', ['unsold', 'skipped'])->count(),
-                'total' => $auction->auctionPlayers()->count(),
+                'total' => $auction->auctionPlayers()->where('is_retained', false)->count(),
             ],
             'server_time' => now()->timestamp,
         ]);

@@ -518,6 +518,11 @@
             color: rgb(var(--primary-rgb));
         }
 
+        @keyframes boardPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: 0.35; transform: scale(0.82); }
+        }
+
         /* While a board is up, the live overlays stay off it.
            The board sits at z-index 140 and every live overlay is far above — the raise banner
            at 9995, the closing-call dim at 9000, the result banner and the unsold warning with
@@ -1307,8 +1312,24 @@
     <div id="sold-board" class="hidden"
          style="position:fixed;inset:0;z-index:140;background:rgba(2,6,23,0.97);
                 display:flex;flex-direction:column;padding:36px 44px;">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;gap:24px;">
             <div id="sold-board-title" style="font-size:38px;font-weight:900;letter-spacing:0.04em;color:#fff;">SOLD SO FAR</div>
+
+            {{-- What the room is waiting for.
+                 A board with no explanation reads as the auction having stopped. If a sealed
+                 round is running, that is the answer; otherwise it is a break, and a break with
+                 a clock on it is the difference between "they have gone" and "they are coming
+                 back". Counts up rather than down, because nobody knows when a break ends and a
+                 countdown that reaches zero with an empty stage is worse than no countdown. --}}
+            <div id="board-status" class="hidden" style="display:flex;align-items:center;gap:12px;">
+                <span id="board-status-dot" style="width:12px;height:12px;border-radius:50%;
+                      background:rgb(var(--primary-rgb));animation:boardPulse 1.6s ease-in-out infinite;"></span>
+                <span id="board-status-text" style="font-size:24px;font-weight:800;
+                      letter-spacing:0.06em;color:#fff;"></span>
+                <span id="board-status-timer" style="font-size:24px;font-weight:900;
+                      color:rgba(var(--primary-rgb),0.95);font-variant-numeric:tabular-nums;"></span>
+            </div>
+
             <div id="sold-board-count" style="font-size:22px;font-weight:700;
                  color:rgba(var(--primary-rgb),0.95);"></div>
         </div>
@@ -2165,6 +2186,54 @@
          * pushed frame calls it the moment the button is pressed. Only a CHANGE refetches, so
          * the list is not pulled thirty times a minute while it sits on screen.
          */
+        /**
+         * The status line on a board: what the room is waiting for, and for how long.
+         *
+         * A board with nothing said over it reads as the auction having stopped. A sealed round
+         * is an answer in itself; anything else is a break, and a break with a clock on it is
+         * the difference between "they have gone" and "they are coming back".
+         *
+         * The clock counts UP from when the board went up. Nobody knows when a break ends, and a
+         * countdown that reaches zero over an empty stage is worse than no countdown at all.
+         */
+        let _boardSince = null;
+        let _boardStatusTimer = null;
+
+        function boardElapsed() {
+            if (! _boardSince) return '';
+
+            const secs = Math.max(0, Math.floor((Date.now() - _boardSince) / 1000));
+            const m = Math.floor(secs / 60);
+            const ss = String(secs % 60).padStart(2, '0');
+
+            return `${m}:${ss}`;
+        }
+
+        function paintBoardStatus() {
+            const wrap = document.getElementById('board-status');
+            const text = document.getElementById('board-status-text');
+            const timer = document.getElementById('board-status-timer');
+            if (! wrap || ! text || ! timer) return;
+
+            if (! soldBoardShowing) {
+                wrap.classList.add('hidden');
+                return;
+            }
+
+            wrap.classList.remove('hidden');
+
+            // `sealedState` is set by the poll before the card renders; a live round outranks a
+            // break, because it says what the delay actually is.
+            if (sealedState && sealedState.active) {
+                text.textContent = 'SEALED BID IN PROGRESS';
+                timer.textContent = '';
+                return;
+            }
+
+            text.textContent = 'BACK SHORTLY';
+            timer.textContent = boardElapsed();
+        }
+
         function applySoldBoard(board) {
             const el = document.getElementById('sold-board');
             if (! el) return;
@@ -2190,11 +2259,26 @@
 
             if (! next) stopReel();
 
+            // The break clock starts when the board goes up, and only then — re-applying the
+            // same board on every poll must not keep resetting it to 0:00.
+            if (next && ! soldBoardShowing) {
+                _boardSince = Date.now();
+                if (_boardStatusTimer) clearInterval(_boardStatusTimer);
+                _boardStatusTimer = setInterval(paintBoardStatus, 1000);
+            }
+
+            if (! next) {
+                _boardSince = null;
+                if (_boardStatusTimer) { clearInterval(_boardStatusTimer); _boardStatusTimer = null; }
+            }
+
             // Only a CHANGE refetches — the poll calls this every tick and the list is every
             // sale in the auction.
             if (next && next !== soldBoardShowing) fetchSoldBoard(next);
 
             soldBoardShowing = next;
+
+            paintBoardStatus();
         }
 
         function markCardChanged() {
