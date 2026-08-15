@@ -667,11 +667,13 @@ class PublicAuctionController extends Controller
 
         $timerState = $auction->timerStateFor($current);
 
+        // Five, not twelve. The strip shows a handful of recent sales in a carousel; the rest
+        // were fetched every second and never seen.
         $recentSales = $auction->auctionPlayers()
             ->where('status', 'sold')
             ->with(['player:id,name', 'soldToTeam:id,name,team_logo'])
             ->orderByDesc('updated_at')
-            ->limit(12)
+            ->limit(5)
             ->get()
             ->map(fn ($ap) => [
                 'id' => $ap->id,
@@ -681,24 +683,19 @@ class PublicAuctionController extends Controller
                 'price' => $ap->final_price,
             ]);
 
-        // Purses are not exposed by any other public endpoint, so the ticker needs its
-        // own read — figures only, no per-team internals.
-        // Only the teams actually taking part — the strip used to list every team in the
-        // tournament, including ones with no allocation who were never in this auction.
-        $teams = $pools->participatingTeams($auction)
-            ->map(function (ActualTeam $team) use ($auction, $pools) {
-                $state = $pools->teamPurseState($auction, $team->id);
-
-                return [
-                    'id' => $team->id,
-                    'name' => $team->name,
-                    'short_name' => $team->short_name ?: mb_substr($team->name, 0, 3),
-                    'logo' => $team->team_logo_url,
-                    'remaining' => $state['remaining'] >= 1.0e15 ? null : $state['remaining'],
-                    'players' => $state['slots_filled'],
-                    'squad_required' => $state['slots_required'],
-                ];
-            });
+        /*
+         * No teams panel on the ticker, and therefore no purse queries.
+         *
+         * The strip used to carry every team's purse and squad count so it could slide a table
+         * in from the side. That table is not wanted on a broadcast overlay — and it was the
+         * single most expensive thing the feed did: participatingTeams() plus a purse read per
+         * team, rebuilt every second for as long as one ticker screen was open anywhere.
+         *
+         * Dropping the key is all that is needed. renderTeams() already hides the panel when the
+         * list is empty ("if (!teams || !teams.length) { panel.classList.add('hidden'); return; }"),
+         * so no markup changes and an older cached page degrades to a hidden panel rather than a
+         * broken one.
+         */
 
         $progress = $pools->poolProgress($auction);
 
@@ -778,9 +775,14 @@ class PublicAuctionController extends Controller
             // amount, never a team-to-amount mapping.
             'closed_bid' => app(\App\Services\Auction\ClosedBidService::class)
                 ->stateForPublic($auction, $current),
-            'teams' => $teams,
-            // Squad bounds for the teams table footer. `max` is null when unconfigured
-            // so the display can omit it rather than invent a ceiling.
+            /*
+             * Squad bounds stay, even though the teams panel has gone.
+             *
+             * They are not the panel's: html-template.blade.php reads `d.squad` to fill the
+             * {squad_min} and {squad_max} tokens a custom HTML overlay can print, and removing
+             * them would blank those in somebody's design. They also cost nothing — two model
+             * reads, no queries — so there was never anything to save here.
+             */
             'squad' => [
                 'min' => $auction->minSquadSize(),
                 'max' => $auction->maxSquadSize(),

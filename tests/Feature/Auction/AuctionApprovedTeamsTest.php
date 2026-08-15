@@ -140,19 +140,15 @@ class AuctionApprovedTeamsTest extends TestCase
         $this->assertNotContains('Pending Rovers', $names);
     }
 
-    #[Test]
-    public function the_broadcast_ticker_lists_the_same_teams_as_the_sealed_round(): void
-    {
-        [$org, $tournament, $auction] = $this->scenario();
-
-        $this->registerTeam($org, $tournament, 'Approved United', 'approved');
-        $this->registerTeam($org, $tournament, 'Pending Rovers', 'pending');
-
-        // One definition, so the strip on the stream and the board the organizer is
-        // running cannot disagree in front of an audience about who is even in the room.
-        $this->getJson("/auction/{$auction->id}/ticker-feed")
-            ->assertOk()
-            ->assertSee('Approved United')
-            ->assertDontSee('Pending Rovers');
-    }
+    /*
+     * The ticker no longer lists teams at all.
+     *
+     * There was a test here asserting the broadcast strip named the approved teams and not the
+     * pending ones. The strip's team panel has since been removed — it was the most expensive
+     * part of that feed (a purse read per team, rebuilt every second) and is not wanted on a
+     * stream overlay. AuctionTickerTest::the_feed_carries_no_team_purse_panel() pins its absence.
+     *
+     * The invariant this guarded — that every screen agrees on who is in the room — is still
+     * covered above by the control-panel test, which reads the same participatingTeams() source.
+     */
 }

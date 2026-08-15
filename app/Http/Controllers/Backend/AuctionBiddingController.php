@@ -526,6 +526,101 @@ class AuctionBiddingController extends Controller
             : $query->where('status', 'on_auction')->first();
     }
 
+    /**
+     * Everything one bidding screen needs, in ONE request.
+     *
+     * The screen was fetching four endpoints on every tick — the player on the block, the sold
+     * list, its purse and the sealed state. Measured on live: 83% of all traffic, ~20 req/s from
+     * around forty screens, on two cores.
+     *
+     * The payloads were not the problem. Two of the four are served from a one-second shared
+     * cache and do almost no work — but EVERY request still pays a full Laravel boot first
+     * (~19 ms measured on a pure cache hit, more on a loaded box). Four boots per screen per tick
+     * where one would do is what put the machine at 0% idle.
+     *
+     * Composed from the existing sources rather than reimplemented:
+     *
+     *   - `active` comes from PublicAuctionController::activePlayer(), so it shares the same
+     *     one-second cache as the wall and the ticker. No second copy of that payload logic and
+     *     no extra builds — if the wall already warmed it this costs a cache read.
+     *   - `purse` and `sealed` are the same calls their own endpoints make.
+     *   - `sold` is the ONE deliberate difference — see below.
+     *
+     * The four original endpoints are untouched. The wall, the ticker and the OBS overlay use
+     * them, and they remain the fallback for any screen still running older Javascript, which
+     * matters during a deploy mid-auction.
+     */
+    public function tick(Request $request, Auction $auction)
+    {
+        $userTeam = $this->resolveTeam($request, $auction);
+
+        if (! $userTeam) {
+            return response()->json(['error' => 'You are not assigned to a team in this tournament.'], 403);
+        }
+
+        $auctionPlayer = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+        $nextBid = $auctionPlayer
+            ? $this->increments->nextBidForPlayer($auction, $auctionPlayer)
+            : null;
+
+        $purse = $this->pools->teamPurseState($auction, $userTeam->id, $nextBid);
+
+        return response()->json([
+            'success' => true,
+
+            // Straight from the shared cache the public feed already maintains.
+            'active' => app(\App\Http\Controllers\PublicAuctionController::class)
+                ->activePlayer($auction)
+                ->getData(true),
+
+            /*
+             * This team's squad — not every sale in the auction.
+             *
+             * The public sold-players feed returns every sold player and grows all evening: it
+             * was 4.7 KB in the morning and 18.5 KB by mid-auction, re-fetched by every screen on
+             * every tick. And the screen throws nearly all of it away — `mySquad` is its only
+             * consumer and filters to this team, so ~200 rows were downloaded to render ten.
+             *
+             * Scoped to the team here instead. NOT "the latest ten": capping globally would drop
+             * a player bought earlier in the evening out of My Squad, and the squad would shrink
+             * as the auction ran. A team holds a dozen at most, so this is under 1 KB and stays
+             * correct by construction.
+             *
+             * The public endpoint keeps returning everything — the wall's sold board needs it.
+             */
+            'sold' => $auction->auctionPlayers()
+                ->where('status', 'sold')
+                ->where('sold_to_team_id', $userTeam->id)
+                ->with(['player:id,name,image_path', 'soldToTeam:id,name,team_logo'])
+                ->orderByDesc('updated_at')
+                ->get()
+                ->map(fn ($ap) => [
+                    'id' => $ap->id,
+                    'player' => $ap->player ? [
+                        'id' => $ap->player->id,
+                        'name' => $ap->player->name,
+                        'image' => $ap->player->image_path ? asset('storage/' . $ap->player->image_path) : null,
+                    ] : null,
+                    'sold_to_team' => $ap->soldToTeam ? [
+                        'id' => $ap->soldToTeam->id,
+                        'name' => $ap->soldToTeam->name,
+                    ] : null,
+                    'final_price' => $ap->final_price,
+                ])
+                ->values(),
+
+            'purse' => [
+                'success' => true,
+                'team_id' => $userTeam->id,
+                'excluded' => $purse['excluded'],
+                'next_bid_amount' => $nextBid,
+            ] + $this->pursePayload($purse),
+
+            'sealed' => app(ClosedBidService::class)
+                ->stateForTeam($auction, $this->sealedTarget($auction), $userTeam->id),
+        ]);
+    }
+
     /** Sealed-round state for the requesting team. */
     public function closedBidState(Request $request, Auction $auction)
     {

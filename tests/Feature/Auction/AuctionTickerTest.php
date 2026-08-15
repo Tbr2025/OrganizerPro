@@ -60,8 +60,23 @@ class AuctionTickerTest extends TestCase
             ->assertJsonPath('current_player.current_price', '2500.00');
     }
 
+    /**
+     * The broadcast strip carries NO team purses.
+     *
+     * It used to: the feed listed every team with its remaining purse and squad count so the
+     * strip could slide a table in from the side. That panel is not wanted on a stream overlay,
+     * and it was the most expensive thing the feed did — one purse read per team, rebuilt every
+     * second for as long as a single ticker screen was open anywhere. On a 16-team auction that
+     * was ~112 aggregate queries a second from one forgotten browser tab.
+     *
+     * Dropping the key is the whole change: renderTeams() hides the panel when the list is
+     * empty, so an older cached page degrades to a hidden panel rather than a broken one.
+     *
+     * It also stops a public, unauthenticated endpoint from publishing what every team has left
+     * to spend.
+     */
     #[Test]
-    public function the_feed_reports_team_purses_which_no_other_public_endpoint_exposes(): void
+    public function the_feed_carries_no_team_purse_panel(): void
     {
         $org = $this->makeOrganization();
         $tournament = $this->makeTournament($org);
@@ -81,11 +96,10 @@ class AuctionTickerTest extends TestCase
 
         $feed = $this->getJson(route('public.auction.ticker-feed', $auction))->assertOk()->json();
 
-        $this->assertCount(1, $feed['teams']);
-        $this->assertSame('Strikers', $feed['teams'][0]['name']);
-        $this->assertSame(7500.0, (float) $feed['teams'][0]['remaining']);
-        $this->assertSame(1, $feed['teams'][0]['players']);
-        $this->assertSame(4, $feed['teams'][0]['squad_required']);
+        $this->assertArrayNotHasKey('teams', $feed, 'the ticker must not publish team purses');
+
+        // The sale itself is still reported — only the side panel went.
+        $this->assertSame('Strikers', $feed['recent_sales'][0]['team_name']);
     }
 
     #[Test]

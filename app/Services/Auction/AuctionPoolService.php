@@ -667,11 +667,22 @@ class AuctionPoolService
      */
     public function allotmentTeams(Auction $auction)
     {
-        return \App\Models\ActualTeam::forTournament($auction->tournament_id)
+        $teams = \App\Models\ActualTeam::forTournament($auction->tournament_id)
             ->orderBy('name')
-            ->get()
-            ->map(function ($team) use ($auction) {
-                $state = $this->teamPurseState($auction, $team->id);
+            ->get();
+
+        /*
+         * One read for every team, not seven queries each.
+         *
+         * The same loop the ticker feed carried: sixteen teams cost ~112 aggregate queries to
+         * draw one screen. teamPurseStates() answers it in three, and both paths end in the same
+         * purseFrom(), so no figure here can differ from what the panel or the bidding page shows.
+         */
+        $purses = $this->teamPurseStates($auction, $teams->pluck('id')->all());
+
+        return $teams
+            ->map(function ($team) use ($auction, $purses) {
+                $state = $purses[$team->id];
 
                 return [
                     'team' => $team,

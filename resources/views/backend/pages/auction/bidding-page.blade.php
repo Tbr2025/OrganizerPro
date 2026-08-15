@@ -1140,12 +1140,7 @@ function teamBiddingPanel() {
         startPolling() {
             const tick = async () => {
                 try {
-                    await Promise.all([
-                        this.fetchCurrentPlayer(),
-                        this.fetchSoldPlayers(),
-                        this.fetchPurse(),
-                        this.fetchSealed(),
-                    ]);
+                    await this.fetchTick();
                 } catch (e) {
                     // A failed tick must not end the loop — that is what would leave the
                     // screen frozen for the rest of the auction.
@@ -1679,10 +1674,72 @@ function teamBiddingPanel() {
             } catch (e) { /* a dropped poll is not worth surfacing */ }
         },
 
+        /**
+         * One request per tick, instead of four.
+         *
+         * This screen used to fetch the player on the block, the sold list, its purse and the
+         * sealed state as four separate calls every couple of seconds. Two of them are answered
+         * from a one-second shared cache and cost the server almost nothing — but every request
+         * still pays a full framework boot before it gets that far, and with forty screens open
+         * that was 83% of all traffic and a two-core box sitting at 0% idle.
+         *
+         * The sections are handed to exactly the same appliers the individual fetches use, so
+         * the screen behaves identically; only the number of round trips changed.
+         *
+         * On any failure it falls back to the four original endpoints, which are still live.
+         * That covers a half-finished deploy, an older cached page, and anything unexpected
+         * about the new route — a bidding screen must never go dark because an optimisation
+         * misfired.
+         */
+        async fetchTick() {
+            try {
+                const res = await fetch(
+                    `/admin/team/auction/${this.auctionId}/api/tick${this.teamQuery()}`,
+                    { headers: { Accept: 'application/json' } }
+                );
+
+                if (! res.ok) throw new Error('tick ' + res.status);
+
+                const data = await res.json();
+
+                if (data.active) this.applyActivePlayer(data.active);
+                if (Array.isArray(data.sold)) this.soldPlayers = data.sold;
+                if (data.purse) this.applyPurse(data.purse);
+
+                /* Sealed state is only meaningful in a closed-bid auction; fetchSealed() also
+                   clears a stale round when the mode is open, so that rule lives in one place. */
+                if (this.bidType === 'closed') {
+                    this.applySealed(data.sealed);
+                } else if (this.sealed.active) {
+                    this.sealed = { active: false };
+                    this.syncSealedTimer();
+                }
+            } catch (e) {
+                await Promise.all([
+                    this.fetchCurrentPlayer(),
+                    this.fetchSoldPlayers(),
+                    this.fetchPurse(),
+                    this.fetchSealed(),
+                ]);
+            }
+        },
+
         async fetchCurrentPlayer() {
             try {
                 const res = await fetch("/auction/" + this.auctionId + "/active-player");
-                const data = await res.json();
+                this.applyActivePlayer(await res.json());
+            } catch (e) { console.error("[BiddingPanel] Error:", e); }
+        },
+
+        /**
+         * Everything the active-player payload drives, split out from the fetch.
+         *
+         * Identical logic to before — it is lifted verbatim — but reachable from the combined
+         * tick as well as from its own endpoint, so the two paths cannot drift apart in what
+         * they do with the same data.
+         */
+        applyActivePlayer(data) {
+            try {
                 if (data.auction_status) this.auctionStatus = data.auction_status;
                 if (data.stage) this.stage = data.stage;
                 if (data.open_bid_mode) this.auctionMode = data.open_bid_mode;

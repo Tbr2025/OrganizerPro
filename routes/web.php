@@ -534,6 +534,19 @@ Route::middleware(['auth'])
         // Authenticated purse poll — the public active-player feed carries no team data.
         Route::get('/api/purse', [AuctionBiddingController::class, 'pursePoll'])->name('api.purse');
 
+        /*
+         * One request per tick instead of four.
+         *
+         * The bidding screen used to fetch active-player, sold-players, purse and closed-bid
+         * state separately every couple of seconds. Two of those are served from a shared cache
+         * and cost almost nothing to answer, but each still paid a full framework boot — and at
+         * forty screens that was 83% of all traffic and a machine at 0% idle. See tick().
+         *
+         * The four originals stay: the wall and the ticker use them, and they are the fallback
+         * for a screen whose Javascript predates this route.
+         */
+        Route::get('/api/tick', [AuctionBiddingController::class, 'tick'])->name('api.tick');
+
         // Sealed rounds. These routes carry only `auth`, like place-bid beside them, so
         // AuctionBiddingController does the role/team/preview work in the method bodies.
         Route::prefix('api/closed-bid')->name('api.closed-bid.')->group(function () {
