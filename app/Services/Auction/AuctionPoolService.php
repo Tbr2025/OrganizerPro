@@ -669,6 +669,16 @@ class AuctionPoolService
                     'remaining' => $state['remaining'],
                     'spent' => $state['spent'],
                     'needs_players' => $state['slots_remaining'] > 0,
+                    /*
+                     * The most this team may pay for ONE player — the purse less the minimum its
+                     * other empty places still need. The screen showed the purse alone, so a team
+                     * with six places to fill and 50M appeared able to spend all 50M on one
+                     * allotment; canAllot() refuses that, and this is the figure it refuses it
+                     * against.
+                     */
+                    'max_allot' => $this->budgetApplies($auction)
+                        ? max(0.0, $state['remaining'] - $this->reserveFrom($auction, $state['slots_remaining']))
+                        : $state['remaining'],
                 ];
             })
             ->sortByDesc('slots_short')
@@ -678,9 +688,18 @@ class AuctionPoolService
     /**
      * Can this team take this player at this price?
      *
-     * Allotment checks the *total* purse, deliberately not the squad reserve: the
-     * reserve exists precisely to guarantee the remaining slots stay affordable, so
-     * applying it here would refuse the very purchases it was reserved for.
+     * The SQUAD RESERVE binds here, exactly as it does on a bid.
+     *
+     * This checked the total purse and said so in a comment: applying the reserve "would refuse
+     * the very purchases it was reserved for". That is only true of the last slot, and the
+     * formula already handles that case — the reserve is `(slotsRemaining - 1) × minimum`, where
+     * the "- 1" IS the slot being filled right now. With one place left the reserve is zero and
+     * the whole purse is available.
+     *
+     * With six places left it is not zero, and without this a team with 50M and six places to
+     * fill could be allotted a single player for the entire 50M — leaving five places, no money,
+     * and no legal squad. Allotment is the one moment that is most likely to happen: it runs at
+     * the end, on teams that are short, with a figure typed by hand.
      *
      * @return array{allowed: bool, reason: string|null, remaining: float}
      */
@@ -699,6 +718,27 @@ class AuctionPoolService
                     'Only %s left in the purse, and this player costs %s.',
                     format_points($remaining),
                     format_points($price)
+                ),
+                'remaining' => $remaining,
+            ];
+        }
+
+        $ceiling = $this->maxAllowedBid($auction, $actualTeamId);
+
+        if ($price > $ceiling) {
+            $others = max(0, $this->slotsRemaining($auction, $actualTeamId) - 1);
+
+            return [
+                'allowed' => false,
+                // Says what the ceiling is AND where it comes from. "Not allowed" over a figure
+                // that is plainly inside the purse reads as a bug unless the arithmetic is shown.
+                'reason' => sprintf(
+                    'Most this team can pay is %s. It has %s left and %d more %s to fill after this one, each needing at least %s.',
+                    format_points($ceiling),
+                    format_points($remaining),
+                    $others,
+                    $others === 1 ? 'place' : 'places',
+                    format_points($auction->minPricePerPlayer())
                 ),
                 'remaining' => $remaining,
             ];
@@ -736,10 +776,22 @@ class AuctionPoolService
             $price = (float) $auctionPlayer->base_price;
             $name = $auctionPlayer->player->name ?? ('Player #' . $auctionPlayer->player_id);
 
-            // Neediest team that can still afford this player.
+            /*
+             * Neediest team that can still afford this player — WITHOUT eating the purse its
+             * other empty places need.
+             *
+             * The working copy carries `short` and `remaining` forward as players are handed
+             * out, so the ceiling is recomputed for each team on each pass rather than read
+             * from the database. Same formula as maxAllowedBid(): everything except the
+             * minimum owed to the places left after this one.
+             */
             $bestKey = null;
             foreach ($teams as $key => $team) {
-                if ($team['short'] < 1 || $team['remaining'] < $price) {
+                $ceiling = $this->budgetApplies($auction)
+                    ? $team['remaining'] - $this->reserveFrom($auction, $team['short'])
+                    : $team['remaining'];
+
+                if ($team['short'] < 1 || $ceiling < $price) {
                     continue;
                 }
                 if ($bestKey === null

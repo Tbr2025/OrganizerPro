@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auction;
 
+use App\Models\AuctionBid;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -216,6 +217,64 @@ class AuctionPoolBulkDeleteTest extends TestCase
             ->assertJsonPath('affected', [$ap->player_id]);
 
         $this->assertNull(AuctionPlayer::find($ap->id));
+    }
+
+    /**
+     * One unsold player, on their own.
+     *
+     * The bulk endpoint learned to remove unsold players and this one did not, so a removal was
+     * allowed or refused depending on how many boxes happened to be ticked — and the unsold pile
+     * is tidied one name at a time, which is the case that was refused.
+     */
+    #[Test]
+    public function a_single_unsold_player_can_be_removed_from_the_pool(): void
+    {
+        [$org, $auction] = $this->scenario();
+        $operator = $this->makeAuctionOperator($org);
+        $pool = $this->makePool($auction);
+        $ap = $this->makeAuctionPlayer($auction, ['status' => 'unsold', 'auction_pool_id' => $pool->id]);
+
+        // An unsold player has been on the block, so they usually have bids. There is no cascade
+        // on auction_bids.auction_player_id, so these have to go with the row.
+        $bid = AuctionBid::create([
+            'auction_id' => $auction->id,
+            'auction_player_id' => $ap->id,
+            'player_id' => $ap->player_id,
+            'team_id' => $this->makeTeam($org, 'Bidders', $auction->tournament)->id,
+            'user_id' => $operator->id,
+            'amount' => 500,
+            'bid_source' => 'offline',
+        ]);
+
+        $this->actingAs($operator)
+            ->postJson(route('admin.auctions.pools.unassign', $auction), ['player_id' => $ap->player_id])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            // And the panel is handed the player it must now list as unassigned, so it does
+            // not have to be reloaded to show them.
+            ->assertJsonPath('freed.0.id', $ap->player_id);
+
+        $this->assertNull(AuctionPlayer::find($ap->id));
+        $this->assertNull(AuctionBid::find($bid->id));
+    }
+
+    #[Test]
+    public function a_single_sold_player_is_still_refused(): void
+    {
+        [$org, $auction] = $this->scenario();
+        $pool = $this->makePool($auction);
+        $ap = $this->makeAuctionPlayer($auction, [
+            'status' => 'sold',
+            'auction_pool_id' => $pool->id,
+            'final_price' => 500,
+        ]);
+
+        $this->actingAs($this->makeAuctionOperator($org))
+            ->postJson(route('admin.auctions.pools.unassign', $auction), ['player_id' => $ap->player_id])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNotNull(AuctionPlayer::find($ap->id));
     }
 
     #[Test]

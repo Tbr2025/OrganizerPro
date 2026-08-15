@@ -182,12 +182,17 @@
                                 <option value="">Allot to&hellip;</option>
                                 @foreach($teams as $row)
                                     @php
-                                        $affordable = $row['remaining'] >= (float) $ap->base_price;
+                                        /* Measured against the CEILING, not the purse: a team with
+                                           places still to fill must keep the minimum each of them
+                                           costs, and that is the figure the server allots by. */
+                                        $ceiling = $row['max_allot'];
+                                        $affordable = $ceiling >= (float) $ap->base_price;
+                                        $capped = $ceiling < $row['remaining'];
                                     @endphp
                                     <option value="{{ $row['team']->id }}" @disabled(! $affordable)>
                                         {{ $row['team']->name }}
                                         ({{ $row['slots_short'] > 0 ? 'needs ' . $row['slots_short'] : 'squad full' }},
-                                        {{ format_points($row['remaining'], '0') }} left){{ $affordable ? '' : ' — cannot afford' }}
+                                        {{ format_points($row['remaining'], '0') }} left{{ $capped ? ', max ' . format_points($ceiling, '0') : '' }}){{ $affordable ? '' : ' — cannot afford' }}
                                     </option>
                                 @endforeach
                             </select>
@@ -208,10 +213,16 @@
                             <div class="flex items-center gap-1"
                                  x-data="{
                                      raw: @js((float) $ap->base_price),
-                                     purses: @js($teams->mapWithKeys(fn ($row) => [$row['team']->id => (float) $row['remaining']])),
+                                     /* The CEILING per team, not the purse. A team with six places
+                                        to fill and 50M can pay at most 50M less the minimum the
+                                        other five places cost — the same figure canAllot() applies,
+                                        so the box and the server cannot disagree. */
+                                     purses: @js($teams->mapWithKeys(fn ($row) => [$row['team']->id => (float) $row['max_allot']])),
+                                     shorts: @js($teams->mapWithKeys(fn ($row) => [$row['team']->id => (int) $row['slots_short']])),
                                      toM(v) { return window.auctionToM ? window.auctionToM(v) : v },
                                      fromM(v) { return window.auctionFromM ? window.auctionFromM(v) : v },
                                      get purse() { return this.teamId ? (this.purses[this.teamId] ?? null) : null },
+                                     get placesAfter() { return Math.max(0, (this.shorts[this.teamId] ?? 0) - 1) },
                                      get overPurse() { return this.purse !== null && Number(this.raw) > this.purse },
                                  }">
                                 <div class="relative">
@@ -229,7 +240,7 @@
                             <button type="submit"
                                     :disabled="overPurse || ! teamId"
                                     :title="overPurse
-                                        ? ('Only ' + toM(purse) + 'M left in that purse')
+                                        ? ('The most this team can pay is ' + toM(purse) + 'M')
                                         : (! teamId ? 'Choose a team first' : 'Allot this player')"
                                     class="px-3 py-1.5 text-sm font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">
                                 Allot
@@ -237,9 +248,14 @@
 
                             {{-- Named, not just refused: the organizer needs the figure that WOULD
                                  work, not only to be told this one does not. --}}
+                            {{-- Says WHY, when the cap is the squad reserve rather than an empty
+                                 purse. "Max 45M" against a team showing 50M left reads as a bug
+                                 unless the five places it is holding money for are named. --}}
                             <span x-show="overPurse" x-cloak
                                   class="text-[11px] font-semibold text-red-600 dark:text-red-400 whitespace-nowrap"
-                                  x-text="'Only ' + toM(purse) + 'M left'"></span>
+                                  x-text="placesAfter > 0
+                                    ? ('Max ' + toM(purse) + 'M — ' + placesAfter + ' more place' + (placesAfter === 1 ? '' : 's') + ' to fill')
+                                    : ('Only ' + toM(purse) + 'M left')"></span>
                         </form>
                     </div>
                 @endforeach

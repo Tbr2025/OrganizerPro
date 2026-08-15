@@ -12,9 +12,11 @@ use Tests\TestCase;
  * Final allotment: placing players nobody bid on with teams that are still short of a
  * legal squad, at base price, once bidding is over.
  *
- * Budget rule here is the *total* purse rather than the squad reserve — the reserve
- * exists to keep these slots affordable, so applying it at allotment would refuse the
- * very purchases it was held back for.
+ * The squad reserve binds here exactly as it does on a bid: a team may spend everything except
+ * the minimum its other empty places still cost. It used to check the total purse alone, on the
+ * reasoning that the reserve was held back FOR these purchases — but that let one allotment take
+ * the whole purse and leave the team with places it could no longer fill. The last place is
+ * unaffected either way, because the reserve counts the places after this one.
  */
 class AuctionAllotmentTest extends TestCase
 {
@@ -167,12 +169,12 @@ class AuctionAllotmentTest extends TestCase
     }
 
     #[Test]
-    public function the_squad_reserve_does_not_block_allotment(): void
+    public function the_squad_reserve_blocks_an_allotment_that_would_strand_the_other_places(): void
     {
         $org = $this->makeOrganization();
         $tournament = $this->makeTournament($org);
-        // A reserve that would refuse this purchase during bidding: 5 slots at 1,000
-        // each holds back 4,000 of a 5,000 purse, capping a bid at 1,000.
+        // Five places at 1,000 minimum each. Filling one of them leaves four, so 4,000 of the
+        // 5,000 purse is spoken for and the most this team may pay for one player is 1,000.
         $auction = $this->makeAuction($org, [
             'tournament_id' => $tournament->id,
             'max_budget_per_team' => 5000,
@@ -186,7 +188,51 @@ class AuctionAllotmentTest extends TestCase
         $ap = $this->makeAuctionPlayer($auction, [
             'auction_pool_id' => $pool->id,
             'status' => 'unsold',
-            'base_price' => 2500, // above the 1,000 bid cap, inside the 5,000 purse
+            'base_price' => 2500, // inside the purse, past the reserve
+        ]);
+
+        $this->actingAs($operator)->post(route('admin.auctions.allotment.allot', $auction), [
+            'auction_player_id' => $ap->id,
+            'team_id' => $team->id,
+        ])->assertSessionHas('error');
+
+        $this->assertSame('unsold', $ap->fresh()->status);
+    }
+
+    /**
+     * The other half of the rule, and the reason it is safe.
+     *
+     * The reserve covers the places left AFTER this one, so on the last place it is zero and the
+     * whole purse is available — a team is never left holding money it is not allowed to spend.
+     */
+    #[Test]
+    public function the_last_place_may_be_filled_with_the_whole_purse(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, [
+            'tournament_id' => $tournament->id,
+            'max_budget_per_team' => 5000,
+            'min_squad_size' => 2,
+            'min_price_per_player' => 1000,
+        ]);
+        $operator = $this->makeAuctionOperator($org);
+        $team = $this->makeTeam($org, 'Strikers', $tournament);
+        $pool = $this->makePool($auction);
+
+        // One place already filled, for nothing, so the purse is untouched and exactly one
+        // place remains.
+        $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $pool->id,
+            'status' => 'sold',
+            'sold_to_team_id' => $team->id,
+            'final_price' => 0,
+        ]);
+
+        $ap = $this->makeAuctionPlayer($auction, [
+            'auction_pool_id' => $pool->id,
+            'status' => 'unsold',
+            'base_price' => 4800,
         ]);
 
         $this->actingAs($operator)->post(route('admin.auctions.allotment.allot', $auction), [

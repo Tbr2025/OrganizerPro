@@ -7,7 +7,7 @@
 @endphp
 
 @section('admin-content')
-<div class="p-4 mx-auto max-w-7xl md:p-6" x-data="poolManager({{ $auction->id }})">
+<div class="p-4 mx-auto max-w-7xl md:p-6" x-data="poolManager({{ $auction->id }}, @js($availableRows))">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
     {{-- The archive, findable without the progress dialog. Once that was dismissed the export was
@@ -567,41 +567,81 @@
         <div class="lg:col-span-1">
             <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]" x-data="{ q: '' }">
                 <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
-                    <h4 class="font-semibold text-gray-900 dark:text-white">Unassigned players <span class="text-xs text-gray-400">({{ $available->count() }})</span></h4>
+                    {{-- Counted from the live list, not the server's snapshot: removing a player
+                         from a pool puts them back in here, and the heading has to agree with
+                         what is underneath it. --}}
+                    <h4 class="font-semibold text-gray-900 dark:text-white">Unassigned players <span class="text-xs text-gray-400">(<span x-text="availablePlayers.length"></span>)</span></h4>
                 </div>
-                @if($pools->count() && $available->count())
+                @if($pools->count())
                 <form action="{{ route('admin.auctions.pools.assign', $auction) }}" method="POST" class="p-4">
                     @csrf
                     <div class="flex items-center gap-2 mb-3">
                         <select name="pool_id" required class="form-control flex-1">
                             @foreach($pools as $pool)<option value="{{ $pool->id }}">{{ $pool->name }}</option>@endforeach
                         </select>
-                        <button type="submit" class="px-3 py-2 text-sm font-medium rounded-lg bg-brand-500 text-white hover:bg-brand-600 whitespace-nowrap">Assign →</button>
+                        <button type="submit" :disabled="! availablePlayers.length"
+                                class="px-3 py-2 text-sm font-medium rounded-lg bg-brand-500 text-white hover:bg-brand-600 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed">Assign →</button>
                     </div>
-                    <input type="text" x-model="q" placeholder="Search players…" class="form-control mb-2">
-                    <label class="flex items-center gap-2 text-xs text-gray-500 mb-2 cursor-pointer">
-                        <input type="checkbox" @change="$root.querySelectorAll('input[name=\'player_ids[]\']').forEach(c => c.checked = $event.target.checked)"> Select all (visible)
-                    </label>
+                    <div x-show="availablePlayers.length">
+                        <input type="text" x-model="q" placeholder="Search players…" class="form-control mb-2">
+                        <label class="flex items-center gap-2 text-xs text-gray-500 mb-2 cursor-pointer">
+                            <input type="checkbox" @change="$root.querySelectorAll('input[name=\'player_ids[]\']').forEach(c => c.checked = $event.target.checked)"> Select all (visible)
+                        </label>
+                    </div>
                     <div class="max-h-[28rem] overflow-y-auto space-y-1 pr-1">
-                        {{-- Icon players are not listed: this panel feeds a bidding
+                        {{-- Drawn from Javascript rather than Blade.
+                             A player removed from a pool belongs in this list immediately —
+                             that is where the removal sends them — and a server-rendered list
+                             could only say so after a reload. On the unsold pile, where players
+                             are moved out one at a time, that reload was the whole workflow.
+
+                             Icon players are not listed at all: this panel feeds a bidding
                              queue, and a retained player is never bid on. Their retention
                              price is set on their team (Teams -> edit -> squad). --}}
-                        @foreach($available as $p)
-                        <div class="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 text-sm"
-                             x-show="q === '' || '{{ strtolower($p->name) }}'.includes(q.toLowerCase())">
-                            <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
-                                <input type="checkbox" name="player_ids[]" value="{{ $p->id }}" class="h-4 w-4 rounded border-gray-300 text-indigo-600">
-                                <span class="truncate text-gray-800 dark:text-gray-100">{{ $p->name }}</span>
-                                @if($p->playerType)<span class="text-[10px] text-gray-400">{{ $p->playerType->name }}</span>@endif
-                            </label>
-                        </div>
-                        @endforeach
+                        <template x-for="p in availablePlayers" :key="p.id">
+                            <div class="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-1.5 text-sm"
+                                 x-show="q === '' || p.name.toLowerCase().includes(q.toLowerCase())">
+                                <label class="flex items-center gap-2 min-w-0 flex-1 cursor-pointer">
+                                    <input type="checkbox" name="player_ids[]" :value="p.id" class="h-4 w-4 rounded border-gray-300 text-indigo-600 shrink-0">
+
+                                    {{-- The face, so a name is recognisable at a glance — the
+                                         pool rows below already have it. --}}
+                                    <template x-if="p.image">
+                                        <img :src="p.image" alt="" loading="lazy"
+                                             class="w-7 h-7 rounded-full object-cover shrink-0 bg-gray-100 dark:bg-gray-700">
+                                    </template>
+                                    <template x-if="! p.image">
+                                        <span class="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-500"
+                                              x-text="p.initials"></span>
+                                    </template>
+
+                                    <span class="min-w-0 flex-1">
+                                        <span class="flex items-center gap-1.5 min-w-0">
+                                            <span class="truncate text-gray-800 dark:text-gray-100" x-text="p.name"></span>
+                                            <span class="text-[10px] text-gray-400 whitespace-nowrap" x-show="p.type" x-text="p.type"></span>
+                                        </span>
+
+                                        {{-- How they bat and bowl. An organizer filing players
+                                             into pools is judging exactly this, and had to assign
+                                             them first to find out. --}}
+                                        <span class="block text-[10px] text-gray-400 truncate" x-show="p.styles" x-text="p.styles"></span>
+
+                                        <span class="flex flex-wrap items-center gap-1.5" x-show="p.wk || p.travel">
+                                            <span x-show="p.wk" title="Wicket keeper"
+                                                  class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 whitespace-nowrap">WK</span>
+                                            <span x-show="p.travel" title="Travel plan"
+                                                  class="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-300 whitespace-nowrap"
+                                                  x-text="p.travel"></span>
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+                        </template>
                     </div>
+                    <p class="text-sm text-gray-400" x-show="! availablePlayers.length">All approved players are assigned to a pool. 🎉</p>
                 </form>
-                @elseif(! $pools->count())
-                <p class="p-4 text-sm text-gray-400">Create a pool first, then assign players to it.</p>
                 @else
-                <p class="p-4 text-sm text-gray-400">All approved players are assigned to a pool. 🎉</p>
+                <p class="p-4 text-sm text-gray-400">Create a pool first, then assign players to it.</p>
                 @endif
             </div>
         </div>
@@ -667,10 +707,14 @@
  * edit forms the organizer has open — on a page with a dozen pools, a full reload after
  * every delete meant scrolling back each time.
  */
-function poolManager(auctionId) {
+function poolManager(auctionId, availablePlayers = []) {
     return {
         showCreate: false,
         selected: [],
+        /* The Unassigned panel's list, held here rather than rendered once by the server so a
+           player removed from a pool lands in it straight away. Sorted by name, the order the
+           server sends it in, so an arrival does not appear at the bottom of an A–Z list. */
+        availablePlayers,
         // Players picked for removal from their pool, and those already gone.
         selectedPlayers: [],
         playerRemoved: [],
@@ -1007,6 +1051,14 @@ function poolManager(auctionId) {
                 const gone = data.affected || playerIds;
                 this.playerRemoved = [...this.playerRemoved, ...gone];
                 this.selectedPlayers = this.selectedPlayers.filter(id => !gone.includes(id));
+
+                /* And put them where the removal actually sent them.
+                   The dialog says "They go back to Unassigned", and until now that panel did not
+                   change until the page was reloaded — so the screen contradicted its own
+                   confirmation. Merged by id, so a double-submit cannot list anybody twice, and
+                   re-sorted by name to match the order the server builds the list in. */
+                this.addAvailable(data.freed || []);
+
                 this.toast(data.message || 'Removed.');
             } catch (e) {
                 this.toast('Network error — nothing was removed.', 'error');
@@ -1014,6 +1066,18 @@ function poolManager(auctionId) {
                 this.busy = false;
                 this._resetConfirm();
             }
+        },
+
+        /** Add freed players to the Unassigned panel, without duplicates and in name order. */
+        addAvailable(rows) {
+            if (! rows.length) return;
+
+            const known = new Set(this.availablePlayers.map(p => p.id));
+            const fresh = rows.filter(p => p && ! known.has(p.id));
+            if (! fresh.length) return;
+
+            this.availablePlayers = [...this.availablePlayers, ...fresh]
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
         },
 
         _headers() {
@@ -1088,6 +1152,11 @@ function poolManager(auctionId) {
                 const gone = data.deleted || ids;
                 this.removed = [...this.removed, ...gone];
                 this.selected = this.selected.filter(id => !gone.includes(id));
+
+                // Deleting a pool sends its waiting players back to Unassigned — same as
+                // removing them by hand, so the panel gains them the same way.
+                this.addAvailable(data.freed || []);
+
                 this.toast(data.message || 'Deleted.');
             } catch (e) {
                 this.toast('Network error — nothing was deleted.', 'error');

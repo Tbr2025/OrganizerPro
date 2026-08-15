@@ -92,9 +92,23 @@ class AuctionPoolController extends Controller
              * one place to change it.
              */
             ->where(fn ($q) => $q->where('player_mode', '!=', 'retained')->orWhereNull('player_mode'))
-            ->with(['playerType', 'actualTeam:id,name'])
+            /*
+             * The same detail the pool rows carry.
+             *
+             * This panel listed a name and a player type, and the pool below it listed the face,
+             * the batting and bowling styles, the keeper badge and the travel window — so an
+             * organizer deciding which pool somebody belongs in could only see what they needed
+             * AFTER assigning them, which is the wrong way round. The columns and the two profile
+             * relations are what those accessors read; without them each row would fire its own
+             * queries.
+             */
+            ->with(['playerType', 'actualTeam:id,name', 'battingProfile', 'bowlingProfile'])
             ->orderBy('name')
-            ->get(['id', 'name', 'player_type_id', 'organization_id', 'player_mode', 'actual_team_id', 'retained_value']);
+            ->get([
+                'id', 'name', 'player_type_id', 'organization_id', 'player_mode', 'actual_team_id',
+                'retained_value', 'image_path', 'is_wicket_keeper', 'batting_profile_id',
+                'bowling_profile_id', 'travel_date_from', 'travel_date_to', 'no_travel_plan',
+            ]);
 
         // Is there an auto-assign run that can still be reverted?
         $revertibleAutoAssign = AuctionActionLog::where('auction_id', $auction->id)
@@ -151,6 +165,9 @@ class AuctionPoolController extends Controller
             'pools' => $auction->pools,
             'posterTemplates' => $posterTemplates,
             'available' => $available,
+            // The same rows the removal endpoint hands back, so the panel is drawn by one
+            // renderer whether a player was there on load or arrived by being removed from a pool.
+            'availableRows' => $available->map(fn (Player $p) => $this->playerRow($p))->values()->all(),
             'orderModes' => self::ORDER_MODES,
             'isAuctionType' => $isAuctionType,
             'teamBudgets' => $teamBudgets,
@@ -222,6 +239,12 @@ class AuctionPoolController extends Controller
                 : back()->with('error', $message);
         }
 
+        // Read before the delete: these are the players the panel has to gain, and afterwards
+        // there is nothing left to read them from.
+        $freed = $this->freedPlayerRows(
+            $pool->players()->where('status', 'waiting')->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])->get()
+        );
+
         DB::transaction(function () use ($pool) {
             // Only clear players that haven't been actioned yet; sold/on-auction keep their row.
             $pool->players()->where('status', 'waiting')->delete();
@@ -231,7 +254,7 @@ class AuctionPoolController extends Controller
         $message = __('Pool deleted.');
 
         return $request->expectsJson()
-            ? response()->json(['success' => true, 'message' => $message, 'deleted' => [$pool->id]])
+            ? response()->json(['success' => true, 'message' => $message, 'deleted' => [$pool->id], 'freed' => $freed])
             : back()->with('success', $message);
     }
 
@@ -284,6 +307,13 @@ class AuctionPoolController extends Controller
 
         $ids = $pools->pluck('id')->all();
 
+        $freed = $this->freedPlayerRows(
+            AuctionPlayer::whereIn('auction_pool_id', $ids)
+                ->where('status', 'waiting')
+                ->with(['player.playerType', 'player.battingProfile', 'player.bowlingProfile'])
+                ->get()
+        );
+
         DB::transaction(function () use ($pools) {
             foreach ($pools as $pool) {
                 $pool->players()->where('status', 'waiting')->delete();
@@ -294,7 +324,7 @@ class AuctionPoolController extends Controller
         $message = trans_choice('{1} Pool deleted.|[2,*] :count pools deleted.', count($ids), ['count' => count($ids)]);
 
         return $request->expectsJson()
-            ? response()->json(['success' => true, 'message' => $message, 'deleted' => $ids])
+            ? response()->json(['success' => true, 'message' => $message, 'deleted' => $ids, 'freed' => $freed])
             : back()->with('success', $message);
     }
 
@@ -441,30 +471,90 @@ class AuctionPoolController extends Controller
         return back()->with('success', $moved);
     }
 
-    /** Remove a single player from its pool (returns them to the unassigned bucket). */
+    /**
+     * Remove a single player from its pool (returns them to the unassigned bucket).
+     *
+     * This is the endpoint the pools screen uses whenever exactly ONE player is ticked, and it
+     * kept a rule the bulk path had already dropped: `waiting` only. So an unsold player could be
+     * removed in a batch of two and refused on their own — "Cannot unassign a player who is
+     * already in play or sold" over a player nobody had bid for, in the unsold pile, which is the
+     * one list an organizer tidies up one name at a time.
+     *
+     * It also deleted the auction_players row without its bids. A waiting player has none, so it
+     * never showed; an unsold one has been on the block and usually does, and
+     * `auction_bids.auction_player_id` has no cascade.
+     *
+     * Both are now the bulk path's, exactly — one set of rules, applied by one method.
+     */
     public function unassign(Request $request, Auction $auction): RedirectResponse|JsonResponse
     {
         $this->authorize('auction.edit');
 
         $data = $request->validate(['player_id' => 'required|integer']);
 
-        $ap = AuctionPlayer::where('auction_id', $auction->id)
-            ->where('player_id', $data['player_id'])->first();
+        $rows = AuctionPlayer::where('auction_id', $auction->id)
+            ->where('player_id', $data['player_id'])
+            ->get();
 
-        if (! $ap) {
+        if ($rows->isEmpty()) {
             return $this->poolReply($request, false, __('Player is not in this auction.'));
         }
-        if ($ap->status !== 'waiting') {
-            return $this->poolReply($request, false, __('Cannot unassign a player who is already in play or sold.'));
+
+        if ($blocked = $this->firstInPlay($rows)) {
+            return $this->poolReply($request, false, __('“:name” is already in play or sold — nothing was removed.', [
+                'name' => $blocked->player->name ?? ('Player #' . $blocked->player_id),
+            ]));
         }
 
-        $pool = $ap->pool;
-        $ap->delete();
-        if ($pool) {
-            $this->poolService->generateLotNumbers($pool);
-        }
+        // Collected BEFORE the delete — afterwards the relation has nothing to read.
+        $freed = $this->freedPlayerRows($rows);
 
-        return $this->poolReply($request, true, __('Player removed from pool.'), [$data['player_id']]);
+        $this->deleteAuctionPlayers($rows);
+
+        return $this->poolReply($request, true, __('Player removed from pool.'), [(int) $data['player_id']], $freed);
+    }
+
+    /**
+     * The first row that cannot be removed, or null when every one of them can.
+     *
+     * Waiting, unsold and skipped carry no result: no team, no price, nothing that deleting the
+     * row would erase. `sold` would quietly destroy a purchase and `on_auction` is being bid on
+     * right now, so both stay refused.
+     *
+     * @param  \Illuminate\Support\Collection<int, AuctionPlayer>  $rows
+     */
+    private function firstInPlay($rows): ?AuctionPlayer
+    {
+        $removable = ['waiting', 'unsold', 'skipped'];
+
+        return $rows->first(fn (AuctionPlayer $ap) => ! in_array($ap->status, $removable, true));
+    }
+
+    /**
+     * Delete the rows, their bids, and redraw the lot numbers of every pool they left.
+     *
+     * @param  \Illuminate\Support\Collection<int, AuctionPlayer>  $rows
+     */
+    private function deleteAuctionPlayers($rows): void
+    {
+        $poolIds = $rows->pluck('auction_pool_id')->filter()->unique();
+
+        DB::transaction(function () use ($rows, $poolIds) {
+            // No cascade on auction_bids.auction_player_id: leaving these behind would point
+            // live rows at a deleted player and count them into every bid-derived total for
+            // the rest of the auction.
+            \App\Models\AuctionBid::whereIn('auction_player_id', $rows->pluck('id'))->delete();
+
+            AuctionPlayer::whereIn('id', $rows->pluck('id'))->delete();
+
+            // Lot numbers are positional, so every touched pool is redrawn once — after the
+            // deletes, not per player, or the intermediate draws are wasted.
+            foreach ($poolIds as $poolId) {
+                if ($pool = AuctionPool::find($poolId)) {
+                    $this->poolService->generateLotNumbers($pool);
+                }
+            }
+        });
     }
 
     /**
@@ -491,57 +581,27 @@ class AuctionPoolController extends Controller
             return $this->poolReply($request, false, __('None of those players are in this auction.'));
         }
 
-        /*
-         * Waiting and UNSOLD players can be removed; a sale cannot.
-         *
-         * This allowed `waiting` alone, so an unsold player could not be taken out of the pool at
-         * all — and the unsold pool is precisely where an organizer goes to tidy up, because it is
-         * the pile of players nobody took. Unsold and skipped carry no result: no team, no price,
-         * nothing that deleting the row would erase.
-         *
-         * `sold` and `on_auction` stay refused. Deleting a sold row would quietly destroy a
-         * purchase, and one on the block is being bid on right now.
-         */
-        $removable = ['waiting', 'unsold', 'skipped'];
-
-        $inPlay = $rows->firstWhere(fn (AuctionPlayer $ap) => ! in_array($ap->status, $removable, true));
-
-        if ($inPlay) {
+        // Waiting and UNSOLD players can be removed; a sale cannot. Both rules — which statuses,
+        // and what a delete has to take with it — live in the two helpers below, shared with the
+        // single-player endpoint, because that one drifted apart from this and refused work this
+        // one allowed.
+        if ($inPlay = $this->firstInPlay($rows)) {
             return $this->poolReply($request, false, __('“:name” is already in play or sold — nothing was removed.', [
                 'name' => $inPlay->player->name ?? ('Player #' . $inPlay->player_id),
             ]));
         }
 
         $playerIds = $rows->pluck('player_id')->all();
-        $poolIds = $rows->pluck('auction_pool_id')->filter()->unique();
+        $freed = $this->freedPlayerRows($rows);
 
-        DB::transaction(function () use ($rows, $poolIds) {
-            /*
-             * The bids go with them.
-             *
-             * A waiting player has none, which is why this never mattered before. An unsold one
-             * has been on the block and usually does, and `auction_bids.auction_player_id` has no
-             * cascade — leaving them behind would point live rows at a deleted player and count
-             * them into every bid-derived total for the rest of the auction.
-             */
-            \App\Models\AuctionBid::whereIn('auction_player_id', $rows->pluck('id'))->delete();
-
-            AuctionPlayer::whereIn('id', $rows->pluck('id'))->delete();
-
-            // Lot numbers are positional, so every touched pool has to be redrawn once —
-            // after the deletes, not per player, or the intermediate draws are wasted.
-            foreach ($poolIds as $poolId) {
-                if ($pool = AuctionPool::find($poolId)) {
-                    $this->poolService->generateLotNumbers($pool);
-                }
-            }
-        });
+        $this->deleteAuctionPlayers($rows);
 
         return $this->poolReply(
             $request,
             true,
             trans_choice('{1} Player removed from pool.|[2,*] :count players removed from their pools.', count($playerIds), ['count' => count($playerIds)]),
-            $playerIds
+            $playerIds,
+            $freed
         );
     }
 
@@ -552,16 +612,68 @@ class AuctionPoolController extends Controller
      * forms; the same endpoints still answer a plain form post with a redirect, so nothing
      * depends on JavaScript being reachable.
      */
-    private function poolReply(Request $request, bool $ok, string $message, array $affected = []): RedirectResponse|JsonResponse
+    private function poolReply(Request $request, bool $ok, string $message, array $affected = [], array $freed = []): RedirectResponse|JsonResponse
     {
         if ($request->expectsJson()) {
             return response()->json(
-                ['success' => $ok, 'message' => $message, 'affected' => $affected],
+                ['success' => $ok, 'message' => $message, 'affected' => $affected, 'freed' => $freed],
                 $ok ? 200 : 422
             );
         }
 
         return back()->with($ok ? 'success' : 'error', $message);
+    }
+
+    /**
+     * A removed player, in the shape the Unassigned panel draws.
+     *
+     * Removing somebody from a pool puts them back in that panel — but the panel is rendered by
+     * the server and the removal is a fetch, so the organizer removed a player, watched them
+     * disappear from the pool, and found the Unassigned list unchanged until they reloaded. On
+     * the unsold pile, where players are moved one at a time, that is the whole workflow.
+     *
+     * Built here rather than in Javascript because the panel now shows what the pool rows show —
+     * the face, how they bat and bowl, whether they keep wicket and when they can travel — and
+     * those come off the model's own accessors. Reconstructing them from the DOM row that is
+     * being deleted would be a second, quietly different answer.
+     *
+     * @param  \Illuminate\Support\Collection<int, AuctionPlayer>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function freedPlayerRows($rows): array
+    {
+        return $rows
+            ->map(fn (AuctionPlayer $ap) => $ap->player)
+            ->filter()
+            ->map(fn (Player $p) => $this->playerRow($p))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * One player, as the Unassigned panel draws them.
+     *
+     * Shared by the page's initial list and by the rows handed back after a removal, so a player
+     * who arrives in that panel by being removed from a pool looks exactly like one who was
+     * already there.
+     *
+     * @return array<string, mixed>
+     */
+    private function playerRow(Player $p): array
+    {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'type' => $p->playerType?->name,
+            'image' => $p->image_path ? asset('storage/' . $p->image_path) : null,
+            'initials' => mb_strtoupper(mb_substr($p->name ?? '?', 0, 2)),
+            'styles' => implode(' · ', array_filter([
+                $p->battingProfile?->style,
+                $p->bowlingProfile?->style,
+            ])),
+            'wk' => (bool) $p->is_wicket_keeper,
+            'travel' => $p->travel_plan_label,
+        ];
     }
 
     /** Auto-group all unassigned approved players into pools by player type. */

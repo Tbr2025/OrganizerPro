@@ -489,39 +489,57 @@ HTML;
         /* Current bidder. Same position and shape as the result banner, so the two read as
            one slot at the top of the screen rather than two competing strips. */
         /*
-         * The raise banner, off.
+         * The raise notice — small, and only for a moment.
          *
-         * The card already carries CURRENT BID where the template puts it, and this repeated the
-         * same figure and team in a floating pill over the artwork — two answers to one
-         * question, one of them covering the design. display:none rather than deletion, so
-         * renderBidFlash still runs and switching it back on is one line.
+         * It used to be a full-width pill carrying the team AND the figure in 1.9rem type, which
+         * is why it was switched off: the card already prints CURRENT BID where the template puts
+         * it, so the wall answered one question twice and covered the artwork doing it.
+         *
+         * What was missing is smaller than that. When a raise lands the room wants to know WHO
+         * just bid, for a second, and then wants its screen back. So this is a chip: one line, in
+         * a corner, up on the raise and gone before the next one — and it names the team, with
+         * the amount only as a small trailing figure, because the big figure is on the card.
          */
-        #bid-flash { display: none !important; }
-
-        #bid-flash-off {
-            position: fixed; left: 50%; top: 8%; transform: translateX(-50%);
-            z-index: 9995; display: flex; align-items: center; gap: 18px;
-            padding: 12px 38px; border-radius: 9999px;
-            background: rgba(2,6,23,0.88); backdrop-filter: blur(10px);
-            border: 2px solid rgba(34,197,94,0.55);
+        #bid-flash {
+            position: fixed; left: 50%; top: 4%; transform: translateX(-50%);
+            z-index: 9995; display: flex; align-items: center; gap: 10px;
+            padding: 7px 18px; border-radius: 9999px;
+            background: rgba(2,6,23,0.86); backdrop-filter: blur(8px);
+            border: 1px solid rgba(34,197,94,0.5);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.45);
             white-space: nowrap;
         }
+        #bid-flash.hidden { display: none !important; }
+        /* Fades itself out rather than vanishing — see the hide timer in renderBidFlash(). */
+        #bid-flash { transition: opacity 0.45s ease-out; }
+        #bid-flash.fading { opacity: 0; }
         #bid-flash #bid-flash-team {
-            font-size: 1.9rem; font-weight: 900; letter-spacing: 0.06em;
+            font-size: 0.95rem; font-weight: 900; letter-spacing: 0.08em;
             text-transform: uppercase; color: #ffffff;
         }
+        #bid-flash #bid-flash-team::after {
+            content: 'bidding';
+            margin-left: 8px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.22em;
+            color: rgba(255,255,255,0.5);
+        }
         #bid-flash #bid-flash-amount {
-            font-size: 1.9rem; font-weight: 900; color: #22c55e;
+            font-size: 0.95rem; font-weight: 900; color: #22c55e;
         }
         /* Pulses only when the figure CHANGES — a banner that flashes continuously stops
            being read after the first minute. Re-armed by removing and re-adding the class. */
         #bid-flash.bid-flash-pulse {
-            animation: bid-flash-pop 0.9s ease-out 2;
+            animation: bid-flash-pop 0.85s cubic-bezier(0.22, 1.3, 0.4, 1) 1;
         }
+        /* Zooms in from nothing, then settles — it appears WITH the raise, so it has to arrive
+           rather than simply be there. */
         @keyframes bid-flash-pop {
-            0%   { transform: translateX(-50%) scale(1);    box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
-            35%  { transform: translateX(-50%) scale(1.06); box-shadow: 0 0 42px 12px rgba(34,197,94,0.45); }
-            100% { transform: translateX(-50%) scale(1);    box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+            0%   { transform: translateX(-50%) scale(0.6);  opacity: 0; box-shadow: 0 0 0 0 rgba(34,197,94,0.55); }
+            30%  { transform: translateX(-50%) scale(1.12); opacity: 1; box-shadow: 0 0 42px 12px rgba(34,197,94,0.45); }
+            55%  { transform: translateX(-50%) scale(0.98); }
+            100% { transform: translateX(-50%) scale(1);    opacity: 1; box-shadow: 0 8px 30px rgba(0,0,0,0.45); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #bid-flash.bid-flash-pulse { animation: none; }
         }
         #result-banner.is-unsold { border: 2px solid #f43f5e; box-shadow: 0 0 54px rgba(244,63,94,0.4); }
         #result-banner.is-unsold #result-word { color: #fb7185; }
@@ -1594,13 +1612,24 @@ HTML;
          * over the artwork: the card carries CURRENT BID where the template puts it, and two
          * answers to one question is what got that banner switched off.
          *
-         * Colour, glow and weight only — deliberately NO transform and no size change. This
-         * element is positioned by whoever laid the template out, and a figure that grows on every
-         * raise either shoves its neighbours or climbs out of its box. Text-shadow and colour are
-         * painted, not laid out, so nothing on the card moves.
+         * It now ZOOMS as well as glows.
+         *
+         * Brightness alone was still missable from the back of a hall — the figure is one line of
+         * text among several and nothing about it moved. A scale bounce is the one change the eye
+         * catches without reading.
+         *
+         * Safe here for a reason worth writing down: `#current-bid` is positioned by the
+         * template, absolutely, so a transform on it cannot shove a neighbour or reflow the card
+         * — transforms are painted, not laid out. The earlier "no transform" rule was about
+         * elements in flow.
+         *
+         * The template's own rotation rides through `--bid-rot`, read off the computed transform
+         * before the class goes on. Without it a tilted figure would snap upright for the length
+         * of the animation and back, because an animation beats an inline style.
          */
         .bid-updated {
-            animation: bid-figure-flash 0.95s ease-out 2;
+            animation: bid-figure-flash 0.95s cubic-bezier(0.22, 1.3, 0.4, 1) 2;
+            transform-origin: center center;
         }
         /*
          * Brightness and glow, NOT colour.
@@ -1615,12 +1644,19 @@ HTML;
          * that started this: the figure is positioned by the template and must not move.
          */
         @keyframes bid-figure-flash {
-            0%   { filter: none;             text-shadow: none; }
-            15%  { filter: brightness(2.1);  text-shadow: 0 0 34px rgba(255,255,255,0.95), 0 0 78px rgba(255,255,255,0.55); }
-            55%  { filter: brightness(1.35); text-shadow: 0 0 22px rgba(255,255,255,0.5); }
-            100% { filter: none;             text-shadow: none; }
+            0%   { filter: none;             text-shadow: none;
+                   transform: rotate(var(--bid-rot, 0deg)) scale(1); }
+            15%  { filter: brightness(2.1);  text-shadow: 0 0 34px rgba(255,255,255,0.95), 0 0 78px rgba(255,255,255,0.55);
+                   transform: rotate(var(--bid-rot, 0deg)) scale(1.22); }
+            38%  { filter: brightness(1.7);  text-shadow: 0 0 28px rgba(255,255,255,0.7);
+                   transform: rotate(var(--bid-rot, 0deg)) scale(0.96); }
+            60%  { filter: brightness(1.35); text-shadow: 0 0 22px rgba(255,255,255,0.5);
+                   transform: rotate(var(--bid-rot, 0deg)) scale(1.07); }
+            100% { filter: none;             text-shadow: none;
+                   transform: rotate(var(--bid-rot, 0deg)) scale(1); }
         }
         @media (prefers-reduced-motion: reduce) {
+            /* No bounce, but keep the lift — the raise still has to be visible. */
             .bid-updated { animation: none; filter: brightness(1.4); }
         }
 
@@ -2622,6 +2658,44 @@ HTML;
             _bidRollFrame = requestAnimationFrame(step);
         }
 
+        /**
+         * Copy an element's current rotation into a custom property.
+         *
+         * A keyframe that sets `transform` replaces whatever the template put there, so any
+         * animation that scales has to write the author's rotation back into every frame. Read
+         * from the computed matrix rather than the inline style, because a template can set the
+         * tilt from either.
+         */
+        function carryRotation(el, prop) {
+            if (! el) return;
+
+            let rot = 0;
+            const matrix = getComputedStyle(el).transform || '';
+
+            if (matrix.startsWith('matrix')) {
+                const n = matrix.slice(matrix.indexOf('(') + 1, -1).split(',').map(Number);
+                if (n.length >= 4 && ! n.slice(0, 4).some(isNaN)) {
+                    rot = Math.atan2(n[1], n[0]) * 180 / Math.PI;
+                }
+            }
+
+            el.style.setProperty(prop, rot.toFixed(2) + 'deg');
+        }
+
+        /* How long the raise chip stays up. Long enough to read a team name from the back of a
+           hall, short enough that it is gone before the next raise in a busy exchange. */
+        const BID_CHIP_MS = 3200;
+        let _bidChipTimer = null;
+        let _bidChipHide = null;
+
+        function hideBidChip(el) {
+            if (_bidChipTimer) { clearTimeout(_bidChipTimer); _bidChipTimer = null; }
+            if (_bidChipHide) { clearTimeout(_bidChipHide); _bidChipHide = null; }
+
+            el.classList.add('hidden');
+            el.classList.remove('fading', 'bid-flash-pulse');
+        }
+
         function renderBidFlash(p) {
             const el = document.getElementById('bid-flash');
             if (!el) return;
@@ -2632,8 +2706,7 @@ HTML;
             // Not on the block, nobody leading, or a sealed round where the leader is
             // frozen and the amounts are secret — nothing honest to announce.
             if (!live) {
-                el.classList.add('hidden');
-                el.classList.remove('bid-flash-pulse');
+                hideBidChip(el);
                 _lastFlashKey = null;
                 return;
             }
@@ -2641,18 +2714,41 @@ HTML;
             const amount = p.current_price ?? p.base_price ?? 0;
             const key = `${team.id ?? team.name}:${amount}`;
 
+            /*
+             * Only on a NEW raise.
+             *
+             * This element is re-rendered on every poll and every push, and it used to be shown
+             * unconditionally — so once a team led, the chip sat there for the rest of the lot.
+             * It is a notice, not a status: it belongs on screen for the moment after a bid
+             * lands and nowhere else. A repeat of the same figure re-renders nothing.
+             */
+            if (key === _lastFlashKey) {
+                return;
+            }
+
             document.getElementById('bid-flash-team').textContent = team.name || '';
             document.getElementById('bid-flash-amount').textContent = formatMillions(amount);
-            el.classList.remove('hidden');
+            el.classList.remove('hidden', 'fading');
 
-            if (key !== _lastFlashKey) {
-                _lastFlashKey = key;
-                // Removing, forcing a reflow, then re-adding restarts the animation; without
-                // the reflow the browser coalesces the two changes and nothing plays.
-                el.classList.remove('bid-flash-pulse');
-                void el.offsetWidth;
-                el.classList.add('bid-flash-pulse');
-            }
+            // Any hide still pending from the PREVIOUS raise is cancelled, so a fast exchange
+            // of bids cannot fade the chip out half a second after the newest one appeared.
+            if (_bidChipTimer) clearTimeout(_bidChipTimer);
+            if (_bidChipHide) clearTimeout(_bidChipHide);
+
+            _bidChipTimer = setTimeout(() => {
+                el.classList.add('fading');
+                // Removed only once the fade has finished — `hidden` is display:none and would
+                // cut the transition off at the first frame.
+                _bidChipHide = setTimeout(() => hideBidChip(el), 500);
+            }, BID_CHIP_MS);
+
+            _lastFlashKey = key;
+
+            // Removing, forcing a reflow, then re-adding restarts the animation; without
+            // the reflow the browser coalesces the two changes and nothing plays.
+            el.classList.remove('bid-flash-pulse');
+            void el.offsetWidth;
+            el.classList.add('bid-flash-pulse');
         }
 
         function clearOutcomeState() {
@@ -2688,8 +2784,10 @@ HTML;
             // underneath a live bid.
             const flash = document.getElementById('bid-flash');
             if (flash) {
-                flash.classList.add('hidden');
-                flash.classList.remove('bid-flash-pulse');
+                // Through the same helper, so its pending fade-out timers are cancelled too —
+                // otherwise one left over from the last raise would re-hide (and un-fade) the
+                // chip during the NEXT player's first bid.
+                hideBidChip(flash);
             }
             _lastFlashKey = null;
         }
@@ -2908,6 +3006,9 @@ HTML;
                     // Removed, reflowed, re-added — a CSS animation does not replay while its
                     // class is already there, so back-to-back raises flashed only the first.
                     bidEl.classList.remove('bid-updated');
+                    // The template's own tilt, carried into the bounce. Read with the class
+                    // off, so a previous flash's frame cannot be mistaken for it.
+                    carryRotation(bidEl, '--bid-rot');
                     void bidEl.offsetWidth;
                     bidEl.classList.add('bid-updated');
                     /* Cleared after the animation has finished, not during it: two pulses of
@@ -4246,6 +4347,9 @@ HTML;
                     // Removed, reflowed, re-added — a CSS animation does not replay while its
                     // class is already there, so back-to-back raises flashed only the first.
                     bidEl.classList.remove('bid-updated');
+                    // The template's own tilt, carried into the bounce. Read with the class
+                    // off, so a previous flash's frame cannot be mistaken for it.
+                    carryRotation(bidEl, '--bid-rot');
                     void bidEl.offsetWidth;
                     bidEl.classList.add('bid-updated');
                     /* Cleared after the animation has finished, not during it: two pulses of

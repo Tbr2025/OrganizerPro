@@ -360,15 +360,10 @@
                     </select>
                 </div>
 
-                <div id="prop-text-transform-wrap">
-                    <label class="text-xs text-gray-500">Text Transform</label>
-                    <select id="prop-text-transform" class="form-control form-control-sm">
-                        <option value="none">None</option>
-                        <option value="uppercase">Uppercase</option>
-                        <option value="lowercase">Lowercase</option>
-                        <option value="capitalize">Capitalize</option>
-                    </select>
-                </div>
+                {{-- No second case control here.
+                     "Text Transform" sat in this section doing the same job as "Text Case" in
+                     Styling above, and the two disagreed: one saved and one did not, so which
+                     you got depended on which you happened to find. One property, one input. --}}
 
                 <div id="prop-letter-spacing-wrap">
                     <label class="text-xs text-gray-500">Letter Spacing (px)</label>
@@ -1668,13 +1663,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Typography fields - only for text elements
         document.getElementById('prop-text-align-wrap').style.display = isText ? '' : 'none';
-        document.getElementById('prop-text-transform-wrap').style.display = isText ? '' : 'none';
         document.getElementById('prop-letter-spacing-wrap').style.display = isText ? '' : 'none';
         document.getElementById('prop-line-height-wrap').style.display = isText ? '' : 'none';
 
         // New typography values
         document.getElementById('prop-text-align').value = el.dataset.textAlign || 'left';
-        document.getElementById('prop-text-transform').value = el.dataset.textTransform || 'none';
         document.getElementById('prop-letter-spacing').value = el.dataset.letterSpacing || 0;
         document.getElementById('prop-line-height').value = el.dataset.lineHeight || '';
 
@@ -1920,13 +1913,6 @@ document.addEventListener('DOMContentLoaded', () => {
         syncToHidden(activeEl);
     });
 
-    document.getElementById('prop-text-transform').addEventListener('change', (e) => {
-        if (!activeEl) return;
-        activeEl.dataset.textTransform = e.target.value;
-        applyVisualStyling(activeEl);
-        syncToHidden(activeEl);
-    });
-
     document.getElementById('prop-letter-spacing').addEventListener('input', (e) => {
         if (!activeEl) return;
         activeEl.dataset.letterSpacing = e.target.value;
@@ -1992,15 +1978,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Position props panel → element sync ──
-    /* Case: written to BOTH the style and the data attribute — the canvas renders from one and
-       the saved layout is collected from the other. */
+    /*
+     * Case.
+     *
+     * This wrote the canvas and the data attribute and stopped there — and the layout is NOT
+     * posted from either of those. It is posted from the hidden `pos_<el>_textTransform`
+     * inputs, which only `syncToHidden()` fills. So picking UPPERCASE changed the editor in
+     * front of you, saved `none`, and came back "As typed" on the next load. The wall was
+     * honouring the template correctly the whole time; the choice never reached it.
+     */
     document.getElementById('prop-transform')?.addEventListener('change', (e) => {
         if (! activeEl) return;
 
-        const value = e.target.value || 'none';
-
-        activeEl.style.textTransform = value === 'none' ? '' : value;
-        activeEl.dataset.textTransform = value;
+        activeEl.dataset.textTransform = e.target.value || 'none';
+        applyVisualStyling(activeEl);
+        syncToHidden(activeEl);
     });
 
     ['prop-top', 'prop-left', 'prop-width', 'prop-height', 'prop-fontsize', 'prop-bottom'].forEach(id => {
