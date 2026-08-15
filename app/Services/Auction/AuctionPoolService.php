@@ -452,6 +452,15 @@ class AuctionPoolService
             'active_pool' => $active ? [
                 'id' => $active->id,
                 'name' => $active->name,
+                /*
+                 * How this pool is meant to be worked through, so the panel's NEXT can obey it.
+                 *
+                 * A sequential pool is called in its drawn order; a random one is drawn afresh
+                 * every time NEXT is pressed, so nobody can read the queue and know who is
+                 * coming. Without this on the payload the panel had no way to tell the two
+                 * apart and treated every pool as sequential.
+                 */
+                'order_mode' => $active->order_mode,
                 'category' => $active->category,
                 'base_price' => $active->base_price,
                 'sequence' => $active->sequence,
@@ -489,6 +498,9 @@ class AuctionPoolService
             'pools' => $pools->map(fn (AuctionPool $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
+                // Carried per pool as well, for the case where no pool has been started and
+                // the queue is being served from whichever comes first in sequence.
+                'order_mode' => $p->order_mode,
                 'category' => $p->category,
                 'sequence' => $p->sequence,
                 'status' => $p->status,

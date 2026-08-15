@@ -4249,6 +4249,70 @@ HTML;
             return true;
         }
 
+        /*
+         * ── The player's photo ──
+         *
+         * Two ways the wall used to get stuck on the wrong face, both fixed here.
+         *
+         * 1. The fallback for a player with no photo was a ui-avatars.com URL — a THIRD-PARTY
+         *    request from a hall's uplink, on the one screen in the building that must not wait
+         *    for the internet. When it is slow the box stays empty; when it is blocked the
+         *    browser paints its broken-image mark and leaves it there for the rest of the
+         *    auction. The initials are drawn locally now, as an inline SVG: no request, no
+         *    dependency, and a different mark for every player.
+         *
+         * 2. There was no `onerror`. A path that 404s (a file moved, a bad import) leaves the
+         *    PREVIOUS player's photo on screen in several browsers — they keep the last decoded
+         *    frame when the new source fails — so the hall reads the wrong face under the right
+         *    name. A failure now falls back to that player's own initials.
+         *
+         * The handler is re-attached every time rather than set once, because it has to close
+         * over the player it is a fallback FOR: a stale handler would draw the previous
+         * player's initials.
+         */
+        function setPlayerImage(player) {
+            const el = document.getElementById('player-image');
+            if (! el || ! player) return;
+
+            const fallback = initialsAvatar(player.name);
+
+            el.onerror = () => {
+                // Cleared first, or a failing fallback would re-enter this forever.
+                el.onerror = null;
+                el.src = fallback;
+            };
+
+            el.src = player.image_path ? `/storage/${player.image_path}` : fallback;
+        }
+
+        /** A player's initials on a neutral disc, drawn inline — never a network request. */
+        function initialsAvatar(name) {
+            const initials = (String(name || '?')
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map(part => part.charAt(0))
+                .join('')
+                .toUpperCase() || '?')
+                /* The initials go into SVG markup, so a name beginning with < or & would
+                   produce a document that does not parse — and an image that never loads.
+                   Quotes are left alone deliberately: they are legal in element text, and a
+                   regex literal carrying one breaks AuctionWallScriptIntegrityTest's parser,
+                   which strips strings without understanding regexes. */
+                .replace(/[<>&]/g, '');
+
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+                <rect width="400" height="400" rx="24" fill="#0f172a"/>
+                <circle cx="200" cy="200" r="150" fill="#1e293b"/>
+                <text x="200" y="200" font-family="Inter, Arial, sans-serif" font-size="140" font-weight="700"
+                      fill="#94a3b8" text-anchor="middle" dominant-baseline="central">${initials}</text>
+            </svg>`;
+
+            // encodeURIComponent rather than btoa: a name can carry characters outside Latin-1
+            // and btoa throws on those, which would take the whole card render down with it.
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+        }
+
         function updatePlayerCard(p) {
             console.log('[Live] updatePlayerCard() called with:', p);
             if (!p || !p.player) {
@@ -4262,10 +4326,7 @@ HTML;
 
             const cardContainer = document.getElementById('card-container');
 
-            // Player image
-            document.getElementById('player-image').src = p.player.image_path
-                ? `/storage/${p.player.image_path}`
-                : `https://ui-avatars.com/api/?name=${encodeURIComponent(p.player.name)}`;
+            setPlayerImage(p.player);
 
             // Stats table — populate all data-field cells
             document.querySelectorAll('#stats-table-wrap td[data-field]').forEach(td => {

@@ -4850,16 +4850,24 @@ function auctionOrganizerPanel() {
                 return;
             }
 
-            // Next player in drawn lot order — the server returns availablePlayers
-            // sorted by pool sequence then lot number, scoped to the active pool.
-            // This used to pick at random, discarding the draw entirely.
-            const chosenPlayer = this.availablePlayers[0];
+            const chosenPlayer = this.pickNextFromQueue();
 
             try {
-                // The animation is theatre; the player is already decided. The cover stays up
-                // past the reveal — see keepOverlay — so nothing shows between landing on the
-                // name and the player actually being live.
-                await this._runShuffleAnimation(chosenPlayer, null, { keepOverlay: true });
+                /*
+                 * The spin belongs to a RANDOM pool.
+                 *
+                 * It exists to show a draw happening — names cycling before one is landed on.
+                 * In a sequential pool nothing is being drawn: the next name is the next line
+                 * of a list everybody can already see, so four seconds of theatre is four
+                 * seconds of the room waiting for an answer it has. Sequential goes straight
+                 * up; random keeps the spin.
+                 *
+                 * The cover stays up past the reveal either way — see keepOverlay — so nothing
+                 * shows between landing on the name and the player actually being live.
+                 */
+                if (this.poolOrderMode(chosenPlayer.auction_pool_id ?? null) === 'random') {
+                    await this._runShuffleAnimation(chosenPlayer, null, { keepOverlay: true });
+                }
 
                 this.selectedPlayerId = chosenPlayer.id;
                 await this.putPlayerOnBid();
@@ -5009,9 +5017,10 @@ function auctionOrganizerPanel() {
 
             let shuffleCount = 0;
             const maxShuffles = 25;
-            // Decide up front (lot order), then spin names purely for effect and land
-            // on the real pick.
-            const chosenPlayer = this.availablePlayers[0];
+            // Decided up front, by the pool's own order mode — see the NEXT handler for why a
+            // random pool is drawn here rather than served from the stored lot order. The spin
+            // is only theatre; it lands on this pick.
+            const chosenPlayer = this.pickNextFromQueue();
 
             const shuffleInterval = setInterval(() => {
                 const randomIndex = Math.floor(Math.random() * this.availablePlayers.length);
@@ -5567,6 +5576,57 @@ function auctionOrganizerPanel() {
                 this.stopBiddingTimer();
                 await this.pollAuctionState();
             }
+        },
+
+        /**
+         * ── Who goes up next: the POOL decides ──
+         *
+         * This was availablePlayers[0] everywhere — the server returns them in pool sequence
+         * then lot order — which is right for a sequential pool and wrong for a random one. A
+         * random pool's draw is stored in `lot_number` and printed in the queue beside every
+         * name, so serving it in that order makes the whole running order readable in advance
+         * from the panel or the pools screen. A pool is set to random precisely so that it is
+         * not knowable.
+         *
+         * Sequential, manual and odd/even are called in their drawn order — somebody set those
+         * on purpose. Random is drawn again here, at the moment NEXT is pressed, from whoever
+         * is still waiting.
+         *
+         * The draw is confined to ONE pool. `availablePlayers` spans pools when none has been
+         * started, and picking at random across all of them would jump between pools
+         * mid-evening; the pool being served is the first row's, and the draw happens inside it.
+         */
+        pickNextFromQueue() {
+            const queue = this.availablePlayers || [];
+            if (! queue.length) return null;
+
+            const poolId = queue[0].auction_pool_id ?? null;
+            const candidates = queue.filter(p => (p.auction_pool_id ?? null) === poolId);
+
+            if (this.poolOrderMode(poolId) !== 'random') {
+                return candidates[0];
+            }
+
+            return candidates[Math.floor(Math.random() * candidates.length)];
+        },
+
+        /**
+         * A pool's order mode, from the server's own payload.
+         *
+         * Falls back to 'sequential' rather than 'random' when the pool is unknown: calling
+         * players in their drawn order is the behaviour an organizer can see and predict, and
+         * guessing "random" would silently scramble a pool that was set up deliberately.
+         */
+        poolOrderMode(poolId) {
+            if (poolId === null || poolId === undefined) return 'sequential';
+
+            if (this.activePool && Number(this.activePool.id) === Number(poolId)) {
+                return this.activePool.order_mode || 'sequential';
+            }
+
+            const pool = (this.pools || []).find(p => Number(p.id) === Number(poolId));
+
+            return pool?.order_mode || 'sequential';
         },
 
         async putPlayerOnBid() {
