@@ -2749,6 +2749,9 @@ function auctionOrganizerPanel() {
         openBidCeiling: null,
         modeManuallyOverridden: @js((bool) $auction->mode_manually_overridden),
         bidIncrement: null,
+        /* The auction's increment ladder, so a batched burst of "+" climbs the same rungs the
+           server will. Empty until the first poll; incrementAt() falls back to bidIncrement. */
+        bidRules: [],
         maxBidReached: false,
         quickBidSteps: [],
         // Armed jump amount: the next team click uses this instead of the increment.
@@ -2807,6 +2810,20 @@ function auctionOrganizerPanel() {
         init(auctionId, status, players, teams, currentPlayer) {
             this.auctionId = auctionId;
             this.auctionStatus = status;
+
+            /*
+             * Never strand a batched price step.
+             *
+             * The rungs sit on this page for up to a second before they are sent. A tab hidden,
+             * a laptop closed or a navigation in that window would lose a price the operator has
+             * already announced to the room, and the wall would keep showing the old figure.
+             * `pagehide` is the one that fires reliably on mobile Safari; `visibilitychange`
+             * covers a tab switch.
+             */
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') this.flushSteps();
+            });
+            window.addEventListener('pagehide', () => this.flushSteps());
             this.availablePlayers = players;
             this.teams = teams;
 
@@ -2974,7 +2991,36 @@ function auctionOrganizerPanel() {
         _snapshotPredatesLocalBid(newPlayer) {
             if (! newPlayer) return false;
 
-            if (this._pendingBid && newPlayer.current_bid_team_id != this._pendingBid.teamId) {
+            /*
+             * Price steps that have not been confirmed yet.
+             *
+             * Presses are batched and sent about a second after the last one, so for that second
+             * this panel is deliberately AHEAD of the server — and a poll landing in the window
+             * carries the old figure. Adopting it made the number bounce: 1M, up to 1.1M on the
+             * press, back to 1M on the next poll, then forward to 1.4M when the batch landed.
+             *
+             * The operator's presses are the truth here; the server has simply not been told
+             * yet. Covers the in-flight request too, since the same is true until it answers.
+             */
+            if ((this._pendingSteps || 0) > 0 || this.isSteppingBid) {
+                return true;
+            }
+
+            /*
+             * A team bid of ours that the server has not confirmed yet.
+             *
+             * This compared the snapshot's leader with ours and only held back when they
+             * differed — which covers the leader but not the PRICE. A poll answered before the
+             * click, coming back with the same leader and the older figure, was therefore
+             * adopted in full, and the board dropped from the raise just made back to the
+             * previous price until the response landed. Clicking a team crest flickered exactly
+             * the way the +/- buttons did.
+             *
+             * While our own raise is unconfirmed the snapshot cannot speak for either field. The
+             * 8-second backstop above still returns control to the server if the POST never
+             * answers at all.
+             */
+            if (this._pendingBid) {
                 return true;
             }
 
@@ -3341,6 +3387,7 @@ function auctionOrganizerPanel() {
                 // Whether OFFLINE is a standing choice or just this player — see the badge.
                 this.modeManuallyOverridden = !! data.mode_manually_overridden;
                 this.bidIncrement = data.bid_increment ?? null;
+                if (Array.isArray(data.bid_rules)) this.bidRules = data.bid_rules;
                 this.maxBidReached = !!data.max_bid_reached;
 
                 /* Restart notice, measured by the server so this panel and the wall count
@@ -3946,6 +3993,8 @@ function auctionOrganizerPanel() {
         breakMinutes: 10,
         // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
         _pendingSteps: 0,
+        /* Debounce handle for batched price steps — see stepBidUp()/flushSteps(). */
+        _stepTimer: null,
 
         /**
          * Can the price be nudged at all right now?
@@ -3978,23 +4027,44 @@ function auctionOrganizerPanel() {
             if (! this.guardControl('correct the price')) return;
 
             /*
-             * A press while one is in flight QUEUES rather than being dropped.
+             * Presses are BATCHED, and sent once the operator stops.
              *
-             * This returned early if busy, so holding + or clicking it quickly registered one
-             * raise and threw the rest away — and the figure on the wall then sat below what
-             * the room had called. The display moves on every press; the requests still go out
-             * one at a time, because two at once would each read the same price and land on the
-             * same figure.
+             * Every press used to be its own request, queued one behind the other. Each one
+             * costs a fresh TLS handshake to Pusher — measured from the live box at ~950 ms to
+             * the configured cluster — so an auctioneer calling a price up put seconds of
+             * third-party network on the server and walked a sequence of intermediate figures
+             * across the wall, one at a time, arriving late.
+             *
+             * Now: the figure on this panel moves on every press, immediately, exactly as
+             * before. The rungs accumulate, and one request goes out a second after the last
+             * press carrying the count. The hall sees one authoritative jump to where the
+             * bidding actually got to, which is what it should have seen all along.
              */
-            if (this.isSteppingBid) {
-                this._pendingSteps = (this._pendingSteps || 0) + 1;
-                this._advanceDisplayedBid();
+            this._pendingSteps = (this._pendingSteps || 0) + 1;
+            this._advanceDisplayedBid();
 
-                return;
+            if (this._stepTimer) clearTimeout(this._stepTimer);
+            this._stepTimer = setTimeout(() => this.flushSteps(), 1000);
+        },
+
+        /**
+         * Send the batched rungs now.
+         *
+         * Awaited by anything that depends on the price being settled — SELL, PASS, NEXT, UNDO,
+         * RE-BID — because the hammer must not fall on a figure the server has not been told
+         * about. Safe to call when nothing is pending: it returns immediately.
+         */
+        async flushSteps() {
+            if (this._stepTimer) {
+                clearTimeout(this._stepTimer);
+                this._stepTimer = null;
             }
 
+            const rungs = this._pendingSteps || 0;
+            if (! rungs || this.isSteppingBid) return;
+
+            this._pendingSteps = 0;
             this.isSteppingBid = true;
-            this._advanceDisplayedBid();
 
             try {
                 const res = await fetch('/admin/auctions/add-bid', {
@@ -4008,6 +4078,8 @@ function auctionOrganizerPanel() {
                         auctionId: this.auctionId,
                         playerID: this.currentPlayer.id,
                         correction: true,
+                        // How many presses, not what price — the server climbs the ladder.
+                        steps: rungs,
                     }),
                 });
                 const data = await res.json();
@@ -4051,10 +4123,9 @@ function auctionOrganizerPanel() {
             } finally {
                 this.isSteppingBid = false;
 
-                // Whatever was pressed while this was in flight, one at a time.
+                // Anything pressed while this was in flight goes in the next batch.
                 if (this._pendingSteps > 0) {
-                    this._pendingSteps -= 1;
-                    this.stepBidUp();
+                    this.flushSteps();
                 }
             }
         },
@@ -4067,11 +4138,60 @@ function auctionOrganizerPanel() {
          * answer overwrites this a moment later either way.
          */
         _advanceDisplayedBid() {
-            const step = Number(this.bidIncrement) || 0;
+            const from = Number(this.currentBid) || 0;
+            const step = this.incrementAt(from);
 
             if (step > 0) {
-                this.currentBid = (Number(this.currentBid) || 0) + step;
+                this.currentBid = from + step;
             }
+        },
+
+        /**
+         * The rung the ladder gives at a price — the same rule the server applies.
+         *
+         * `bidIncrement` is the increment for the price the SERVER currently holds, and it was
+         * being reused for every press. Batched presses climb through bands, so from 1.9M with a
+         * 0.1M band below 2M and 0.2M above it, four presses drew 2.3M on the panel while the
+         * server would land on 2.5M — the operator watching a figure that was about to change
+         * under them.
+         *
+         * Mirrors BidIncrementService::incrementFor():
+         *   - bands are inclusive at both ends, and at a shared boundary the HIGHER band wins
+         *     (ladders read 1–2, 2–3, so both match at exactly 2M)
+         *   - in a gap, the nearest band above
+         *   - above every band, the top band keeps applying
+         *
+         * Falls back to the server's own figure if no rules have arrived yet, so the display
+         * still moves on the first press after a reload.
+         */
+        incrementAt(price) {
+            const rules = (this.bidRules || [])
+                .map(r => ({
+                    from: Number(r.from) || 0,
+                    to: Number(r.to) || 0,
+                    increment: Number(r.increment) || 0,
+                }))
+                .filter(r => r.increment > 0);
+
+            if (! rules.length) return Number(this.bidIncrement) || 0;
+
+            // Inside a band; the highest `from` among the matches wins the boundary.
+            let best = null;
+            for (const r of rules) {
+                if (price < r.from || price > r.to) continue;
+                if (best === null || r.from > best.from) best = r;
+            }
+            if (best) return best.increment;
+
+            // In a gap: the nearest band above.
+            let next = null;
+            for (const r of rules) {
+                if (price < r.from && (next === null || r.from < next.from)) next = r;
+            }
+            if (next) return next.increment;
+
+            // Past the top of the ladder: the last band keeps applying.
+            return rules.reduce((top, r) => (r.from > top.from ? r : top), rules[0]).increment;
         },
 
         /**
@@ -4085,6 +4205,16 @@ function auctionOrganizerPanel() {
         async stepBidDown() {
             if (! this.canStepBid) return;
             if (! this.guardControl('correct the price')) return;
+
+            /*
+             * Settle any batched "+" first.
+             *
+             * "-" retracts the newest bid on the server. With presses batched, the rungs just
+             * pressed may not have been sent yet — so without this it would retract whatever
+             * came BEFORE them, and the pending batch would then land on top. Over-clicking and
+             * correcting it is the exact moment this happens.
+             */
+            await this.flushSteps();
 
             /*
              * Queued while one is in flight, exactly as "+" is.
@@ -4822,6 +4952,10 @@ function auctionOrganizerPanel() {
 
         // ── SHUFFLE / NEXT PLAYER ──
         async loadNextPlayer() {
+            /* Any batched price steps go first: the hammer must not fall on a figure the
+               server has not been told about yet. See flushSteps(). */
+            await this.flushSteps();
+
             if (this.displayState === 'bidding') {
                 if (! await this.askConfirm('Pass current player and load next?', { title: 'Pass player' })) return;
                 await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
@@ -5271,6 +5405,11 @@ function auctionOrganizerPanel() {
          */
         async undoLast() {
             if (this.isUndoing) return;
+
+            /* Any batched price steps go first: the hammer must not fall on a figure the
+               server has not been told about yet. See flushSteps(). */
+            await this.flushSteps();
+
 
             // Which pool this is happening in. With several pools in an evening, "undo the last
             // action" is a different sentence depending on where the auction currently is.
@@ -5799,6 +5938,11 @@ function auctionOrganizerPanel() {
         async sellPlayer() {
             if (!this.currentPlayer) return;
 
+            /* Any batched price steps go first: the hammer must not fall on a figure the
+               server has not been told about yet. See flushSteps(). */
+            await this.flushSteps();
+
+
             const highestBid = this.currentPlayer.bids?.length
                 ? this.currentPlayer.bids.reduce((a, b) => (a.amount > b.amount ? a : b), this.currentPlayer.bids[0])
                 : null;
@@ -5852,6 +5996,11 @@ function auctionOrganizerPanel() {
 
         async passPlayer() {
             if (!this.currentPlayer || this.currentPlayer?.current_bid_team_id) return;
+
+            /* Any batched price steps go first: the hammer must not fall on a figure the
+               server has not been told about yet. See flushSteps(). */
+            await this.flushSteps();
+
             const result = await this.sendCommand('pass-player', { auction_player_id: this.currentPlayer.id });
             if (result) await this.pollAuctionState();
         },
@@ -5878,6 +6027,11 @@ function auctionOrganizerPanel() {
 
         async rebidCurrentPlayer() {
             if (!this.currentPlayer) return;
+
+            /* Any batched price steps go first: the hammer must not fall on a figure the
+               server has not been told about yet. See flushSteps(). */
+            await this.flushSteps();
+
             // Names the player and the pool. In an evening of four pools, "this player" is
             // whoever the operator believes is up, and that is exactly what a re-bid is for
             // when they are wrong.

@@ -1389,6 +1389,28 @@ HTML;
             display: none !important;
         }
 
+        /* ── The full-screen control ──
+           Top-right, deliberately dim, and it fades rather than blinks so a projector never
+           shows a hard flash. `z-index` above the card but below the overlays that own the
+           screen (the draw ring, the sealed screen, the loader), because it must never sit on
+           top of an announcement. */
+        #fs-toggle {
+            position: fixed; top: 18px; right: 18px; z-index: 9990;
+            width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+            border-radius: 10px; cursor: pointer;
+            color: rgba(255,255,255,0.75);
+            background: rgba(2,6,23,0.55);
+            border: 1px solid rgba(255,255,255,0.18);
+            backdrop-filter: blur(6px);
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+        #fs-toggle svg { width: 20px; height: 20px; }
+        #fs-toggle:hover { color: #fff; background: rgba(2,6,23,0.8); }
+        /* Only interactive while it is actually visible, so an invisible button cannot swallow
+           a click meant for the page. */
+        #fs-toggle.show { opacity: 1; pointer-events: auto; }
+
         @php
             $st = array_merge([
                 'top'=>480,'left'=>550,'width'=>500,'height'=>150,'fontSize'=>20,'zIndex'=>10,
@@ -1882,6 +1904,23 @@ HTML;
 
 <body class="text-white">
 
+    {{-- ── Full screen, for the projector ──
+
+         A wall is nearly always run full screen, and the browser will only go there from a
+         real click — `requestFullscreen()` from a script alone is refused. So there has to be
+         a button, and the whole problem with a button on this page is that it is ON the
+         projection.
+
+         It hides itself: visible when the mouse moves, gone three seconds later, and gone the
+         moment full screen is entered. A projector left alone therefore shows nothing but the
+         auction, and a nudge of the mouse brings the control back if it is needed again. --}}
+    <button id="fs-toggle" type="button" title="Full screen (F)" aria-label="Full screen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+    </button>
+
     {{-- Dims the stage through the closing call. Empty by design: it is a wash of colour,
          not a message — the banners above it carry the words. --}}
     <div id="final-call-dim"></div>
@@ -2050,20 +2089,7 @@ HTML;
          unchanged. --}}
     <div id="reel-sponsors" class="hidden"></div>
 
-    {{-- Sound has to be switched on by a tap.
-         Browsers refuse audio until the page has been interacted with, and a wall on a projector
-         never has been — so the first chime would be silently ignored. Rather than pretend, the
-         control says so and takes itself away once armed. --}}
-    <button id="sound-arm" type="button"
-            style="position:fixed;right:18px;top:18px;z-index:9999;padding:8px 14px;border-radius:999px;
-                   background:rgba(2,6,23,0.8);border:1px solid rgba(var(--primary-rgb),0.5);
-                   color:#fff;font-size:13px;font-weight:700;cursor:pointer;">
-        &#128266; Enable sound
-    </button>
 
-    {{-- The gavel, struck once as a sale lands, on the SOLD tag itself. Positioned against that
-         tag at strike time — see #sold-hammer in the stylesheet for why it is not fixed to a spot
-         on the page. --}}
     <div id="sold-hammer" aria-hidden="true">
         <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -2676,6 +2702,62 @@ HTML;
 
             _bidRollFrame = requestAnimationFrame(step);
         }
+
+        /*
+         * ── Full screen ──
+         *
+         * Browsers only grant full screen from a genuine user gesture, so this cannot be done
+         * for the operator — there has to be something to click. The control therefore has to
+         * exist on a screen whose whole purpose is to show no controls, which is why it spends
+         * almost all of its life invisible.
+         *
+         * Shown on mouse movement, hidden three seconds after the mouse stops, and hidden
+         * outright once full screen is on. `F` does the same thing without touching the mouse,
+         * which is what somebody at the back of a hall with a presenter remote will use.
+         */
+        (function initFullscreen() {
+            const btn = document.getElementById('fs-toggle');
+            if (! btn) return;
+
+            let hideTimer = null;
+
+            const reveal = () => {
+                // Nothing to offer once it is already full screen; Escape is the way out and
+                // every browser says so itself.
+                if (document.fullscreenElement) return;
+
+                btn.classList.add('show');
+                if (hideTimer) clearTimeout(hideTimer);
+                hideTimer = setTimeout(() => btn.classList.remove('show'), 3000);
+            };
+
+            const toggle = () => {
+                /* Never throw at the hall. A refused request — an iframe without the
+                   permission, a browser that will not — must leave the wall exactly as it was. */
+                try {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen?.();
+                    } else {
+                        document.documentElement.requestFullscreen?.().catch(() => {});
+                    }
+                } catch (e) {}
+            };
+
+            btn.addEventListener('click', toggle);
+            document.addEventListener('mousemove', reveal);
+
+            document.addEventListener('keydown', (e) => {
+                // Bare F only: never steal a browser or OS shortcut.
+                if (e.key !== 'f' && e.key !== 'F') return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+                toggle();
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) btn.classList.remove('show');
+            });
+        })();
 
         /**
          * Copy an element's current rotation into a custom property.

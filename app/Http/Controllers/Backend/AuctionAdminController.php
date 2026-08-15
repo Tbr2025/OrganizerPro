@@ -1277,6 +1277,21 @@ class AuctionAdminController extends Controller
              * it is the panel's + button and nothing else.
              */
             'correction' => 'nullable|boolean',
+            /*
+             * How many RUNGS to climb, for a correction only.
+             *
+             * The panel no longer sends one request per press of "+". It advances its own figure
+             * immediately and posts once the operator stops clicking, saying how many rungs were
+             * pressed — because every request costs a fresh TLS handshake to Pusher (measured
+             * from the live box at ~950 ms to the configured cluster), so a burst of five presses
+             * put five seconds of somebody else's network on the machine and walked five separate
+             * figures across the wall.
+             *
+             * A COUNT, never an amount: the server still computes each rung from the ladder, so
+             * the property that a client cannot name its own jump size is unchanged. Capped, so a
+             * stuck key or a bad actor cannot walk the price up indefinitely in one call.
+             */
+            'steps' => 'nullable|integer|min:1|max:20',
         ]);
 
         $auction = Auction::findOrFail($data['auctionId']);
@@ -1327,6 +1342,25 @@ class AuctionAdminController extends Controller
                 if (! $runsTheAuction && $auction->timerStateFor($player)['expired']) {
                     throw new \Exception('Time is up for this player. Bidding is closed — use SELL or PASS.');
                 }
+
+                /*
+                 * One rung, or several if the panel batched a burst of presses.
+                 *
+                 * Each pass computes its own increment from the ladder at the price the previous
+                 * pass left — identical to the old behaviour of one request per press, and it
+                 * writes one bid row per rung, so UNDO still walks back a rung at a time and the
+                 * bid log reads exactly as it did.
+                 *
+                 * Only a correction may batch. A team's bid is a single deliberate act and stays
+                 * one rung, with every purse and reserve check exactly where it was.
+                 */
+                $rungCount = ($isCorrection && isset($data['steps'])) ? max(1, (int) $data['steps']) : 1;
+                $applied = 0;
+                $lastBid = null;
+                $increment = 0;
+                $newPrice = (float) $player->current_price;
+
+                for ($rung = 0; $rung < $rungCount; $rung++) {
 
                 $current = (float) $player->current_price;
 
@@ -1393,6 +1427,16 @@ class AuctionAdminController extends Controller
 
                 if ($ceiling !== null && $newPrice > $ceiling) {
                     if ($current >= $ceiling) {
+                        /*
+                         * Already at the threshold. On the first rung that is an error the
+                         * operator needs to see; on a later one the burst has simply run into the
+                         * ceiling, and the rungs already applied are real and must stand — so it
+                         * stops there and reports the figure it reached.
+                         */
+                        if ($applied > 0) {
+                            break;
+                        }
+
                         throw new \Exception(sprintf(
                             'Open bidding stops at %s, the sealed-bid threshold. Move to a sealed bid, sell to the leading team, or choose to keep open bidding.',
                             format_points($ceiling)
@@ -1493,10 +1537,15 @@ class AuctionAdminController extends Controller
                         : sprintf('Bid %s by %s', format_points($newPrice), $teamName ?? 'unknown team')
                 );
 
+                $applied++;
+                $lastBid = $bid;
+
+                } // end rung loop
+
                 // A successful bid restarts the clock (at bid_timer_reset_seconds).
                 $auction->update(['timer_started_at' => now()]);
 
-                return ['newPrice' => $newPrice, 'increment' => $increment, 'player' => $player, 'bid_id' => $bid->id];
+                return ['newPrice' => $newPrice, 'increment' => $increment, 'player' => $player, 'bid_id' => $lastBid->id, 'applied' => $applied];
             });
         } catch (\Exception $e) {
             $player = AuctionPlayer::where('auction_id', $auction->id)->find($data['playerID']);

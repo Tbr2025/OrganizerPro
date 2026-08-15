@@ -503,6 +503,23 @@ class AuctionOrganizerController extends Controller
             'max_squad_size' => $freshAuction->maxSquadSize(),
             'min_price_per_player' => $freshAuction->minPricePerPlayer(),
             'bid_increment' => $bidState['increment'] ?? null,
+            /*
+             * The whole LADDER, not just the rung at today's price.
+             *
+             * `bid_increment` is the step for the price the server currently holds. The panel
+             * moves its own figure the moment "+" is pressed, and with presses batched it may
+             * climb several rungs before the server is told — so reusing one increment walked it
+             * across band boundaries wrongly. On this auction's ladder, four presses from 2.1M
+             * drew 2.5M on the panel while the server would land on 2.9M: 0.1M bands below 2M,
+             * 0.2M above.
+             *
+             * With the bands here, incrementAt() in the panel applies the same rule the server
+             * does — inclusive ends, higher band wins a shared boundary, nearest band above in a
+             * gap — so the figure the operator watches is the figure that will be saved.
+             */
+            'bid_rules' => is_string($freshAuction->bid_rules)
+                ? (json_decode($freshAuction->bid_rules, true) ?: [])
+                : ($freshAuction->bid_rules ?? []),
             'next_bid_amount' => $bidState['next_bid_amount'] ?? null,
             'max_bid_reached' => $bidState['max_reached'] ?? false,
             /*
