@@ -768,11 +768,13 @@ HTML;
             position: fixed; inset: 0; z-index: 205;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 30px;
+            /* Fully opaque. At 94% the previous player was still visible underneath — the room
+               saw the face they had just finished with sitting behind "loading next player",
+               which is worse than no loader: it looks like the wall has failed to move on. */
             background:
-                radial-gradient(circle at 50% 42%, rgba(var(--primary-rgb),0.28) 0%, rgba(2,6,23,0.96) 62%),
-                rgba(2,6,23,0.94);
-            backdrop-filter: blur(10px);
-            animation: sealedOverlayIn 0.35s ease-out;
+                radial-gradient(circle at 50% 42%, rgba(var(--primary-rgb),0.30) 0%, #020617 62%),
+                #020617;
+            animation: sealedOverlayIn 0.3s ease-out;
         }
         #next-loader.hidden { display: none; }
 
@@ -2519,6 +2521,8 @@ HTML;
         // anything not newer than this is dropped rather than drawn on the wall.
         let _lastAppliedBidId = 0;
         let lastActionPlayerId = null;
+        /* One pending re-read for the end of the last-result hold — see the feed handler. */
+        let _stageHoldTimer = null;
 
         /**
          * Take the previous player's outcome off the screen.
@@ -2942,11 +2946,15 @@ HTML;
         }
 
         /* ── The waiting screen, told what it is actually waiting for ──
-           "WAITING FOR AUCTION" was hardcoded, so a room that had already sold half its
-           players still announced that the auction had not begun every time the block was
-           empty between players. What decides the wording is not `status` alone — an
-           auction is `running` from the moment it starts, before anyone is up — but how
-           much of the room has actually been worked through. */
+           The wording used to be worked out here, from `status` and two counts, and that is
+           not enough to tell three different silences apart: between players, between pools,
+           and after the auction has been closed. The server decides it now
+           (AuctionStageService) so the wall, the strip and every manager's phone say the same
+           sentence at the same moment — including the two this screen could never reach,
+           "<pool> complete" and "auction complete".
+
+           The old branches are kept as the fallback for a feed served from a cache built
+           before this shipped, and for a wall left open across the deploy. */
         function renderWaitingScreen(data) {
             const title = document.getElementById('waiting-title');
             const sub = document.getElementById('waiting-sub');
@@ -2957,6 +2965,7 @@ HTML;
 
             const status = data?.auction_status;
             const p = data?.progress || {};
+            const stage = data?.stage || null;
             const total = Number(p.total || 0);
             const done = Number(p.done || 0);
             const waiting = Number(p.waiting || 0);
@@ -2964,7 +2973,10 @@ HTML;
 
             let heading, subline;
 
-            if (status === 'paused') {
+            if (stage?.heading) {
+                heading = stage.heading;
+                subline = stage.subline || AUCTION_NAME;
+            } else if (status === 'paused') {
                 heading = 'AUCTION PAUSED';
                 subline = 'Back shortly';
             } else if (!started) {
@@ -2986,7 +2998,10 @@ HTML;
             title.textContent = heading;
             sub.textContent = subline;
 
-            renderStagePool(p.pool_name);
+            /* The pool chip is the ACTIVE pool. A pool that has just ended is already named in
+               the headline, and showing "Pool 1" as the running pool underneath "POOL 1
+               COMPLETE" would contradict it. */
+            renderStagePool(stage && stage.key === 'pool_complete' ? null : p.pool_name);
 
             // The rail is meaningless before anyone has been through the block.
             if (bar && fill && text) {
@@ -3610,12 +3625,30 @@ HTML;
             const el = document.getElementById('next-loader');
             if (! el) return;
 
+            /*
+             * The previous player goes down as the loader goes up.
+             *
+             * The card is repainted underneath while this runs — the push already carries the new
+             * player — so without hiding it the sequence was: old face, loader over old face, new
+             * face. Hiding it makes the three beats the room should see: the old one leaves,
+             * something is coming, the new one arrives.
+             */
+            clearOutcomeState();
+            document.getElementById('card-container')?.classList.add('hidden');
+
             el.classList.remove('hidden');
 
             if (_loaderTimer) clearTimeout(_loaderTimer);
             _loaderTimer = setTimeout(() => {
                 _loaderTimer = null;
                 el.classList.add('hidden');
+
+                // Back to whatever the wall should be showing now — the card if a player is up,
+                // and markCardChanged so it arrives rather than appears.
+                if (lastOnAuctionPlayerId) {
+                    document.getElementById('card-container')?.classList.remove('hidden');
+                    markCardChanged();
+                }
             }, LOADER_MS);
         }
 
@@ -4829,7 +4862,58 @@ HTML;
                         const lap = data.lastActionPlayer;
                         console.log('[Live] No active player, lastActionPlayer:', lap?.player?.name, lap?.status);
 
-                        if (lap && lap.id !== lastActionPlayerId) {
+                        /*
+                         * ── The end of a pool, announced ──
+                         *
+                         * With nobody on the block the wall holds the last result on screen —
+                         * deliberately, so the hall keeps seeing who won the player just sold
+                         * instead of a blank waiting screen. But it held it for as long as the
+                         * gap lasted, which meant a pool ending, and an auction being closed,
+                         * were never announced on the wall at all: the room sat looking at a
+                         * card of a player sold ten minutes earlier.
+                         *
+                         * So the hold is now a hold, not a state: once the result has had its
+                         * moment, a stage the room needs told about takes the screen. An
+                         * ordinary gap between two players is not one of those — that still
+                         * keeps the card up, which is the behaviour this had.
+                         *
+                         * Both timestamps come from the server. The app runs on Asia/Dubai and
+                         * the database on UTC, so a browser clock cannot be part of this sum.
+                         */
+                        const ANNOUNCE_STAGES = ['pool_complete', 'all_done', 'completed', 'not_started', 'paused', 'no_pool'];
+                        const RESULT_HOLD_S = 10;
+                        const stageKey = data?.stage?.key;
+                        const heldFor = (lap && data?.server_time && lap.updated_at)
+                            ? (Number(data.server_time) - Number(lap.updated_at))
+                            : Infinity;
+                        const announce = ANNOUNCE_STAGES.includes(stageKey) && heldFor >= RESULT_HOLD_S;
+
+                        /*
+                         * Nothing else will wake the wall.
+                         *
+                         * It stops polling while push is healthy and refetches on events, and
+                         * the end of a hold is not an event — so without this one-shot the
+                         * announcement would wait for whatever the organizer did next, which
+                         * during a break between pools is nothing at all.
+                         */
+                        if (! announce && ANNOUNCE_STAGES.includes(stageKey) && heldFor !== Infinity && ! _stageHoldTimer) {
+                            _stageHoldTimer = setTimeout(() => {
+                                _stageHoldTimer = null;
+                                refreshNow('stage-hold');
+                            }, Math.max(500, (RESULT_HOLD_S - heldFor) * 1000 + 250));
+                        }
+
+                        if (announce && stageKey === 'completed') {
+                            // A closed auction has its own screen, and it is the one the hall
+                            // should end on — not the waiting screen wearing a different caption.
+                            clearOutcomeState();
+                            showCompleted();
+                            return;
+                        }
+
+                        if (announce) {
+                            showWaiting();
+                        } else if (lap && lap.id !== lastActionPlayerId) {
                             lastActionPlayerId = lap.id;
                             lastPlayerId = lap.id;
                             updatePlayerCard(lap);

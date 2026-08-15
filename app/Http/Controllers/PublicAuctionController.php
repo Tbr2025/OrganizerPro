@@ -320,6 +320,18 @@ class PublicAuctionController extends Controller
 
         $progress['pool_name'] = $activePool?->name;
 
+        /*
+         * What the room is waiting for, in the server's words.
+         *
+         * Every screen used to word this itself, and none of them could say "the pool has ended"
+         * or "the auction has ended" — both of which look identical to "between players" from a
+         * feed that only reports the player on the block. Decided once, in
+         * AuctionStageService, so the wall, the strip and every manager's phone read the same
+         * caption at the same moment.
+         */
+        $stage = app(\App\Services\Auction\AuctionStageService::class)
+            ->for($auction, null, $byStatus->all());
+
         if (! $auctionPlayer) {
             // Return the most recently sold or unsold player so the live page
             // can show the correct state instead of stale data
@@ -375,6 +387,13 @@ class PublicAuctionController extends Controller
                 'open_bid_mode' => $auction->open_bid_mode,
                 'waitingPlayers' => $waitingPlayers,
                 'progress' => $progress,
+                'stage' => $stage,
+                /*
+                 * Both clocks from the server, so the wall can work out how long the last result
+                 * has been up without touching `Date.now()`. The app runs on Asia/Dubai and the
+                 * database on UTC, and a browser subtracting one from the other is four hours out.
+                 */
+                'server_time' => now()->timestamp,
             ]);
         }
 
@@ -455,6 +474,7 @@ class PublicAuctionController extends Controller
             'server_time' => now()->timestamp,
             'waitingPlayers' => $waitingPlayers,
             'progress' => $progress,
+            'stage' => $stage,
         ]);
     }
 
@@ -671,6 +691,14 @@ class PublicAuctionController extends Controller
                 'max' => $auction->maxSquadSize(),
             ],
             'active_pool' => $progress['active_pool'],
+            /*
+             * What the strip says when there is nobody on the block.
+             *
+             * It used to say "Next player coming up…" in every one of those cases — before the
+             * auction had started, between pools, and after the auction had been closed. The
+             * server decides the caption now; the strip just prints it.
+             */
+            'stage' => app(\App\Services\Auction\AuctionStageService::class)->for($auction, $progress),
             /*
              * Counted over the players who can actually be BID ON.
              *

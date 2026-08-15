@@ -6022,10 +6022,53 @@ function auctionOrganizerPanel() {
                             : 'Nothing in this pool has been sold.',
                         disabled: sold === 0,
                     },
+                    /*
+                     * The whole auction, from this same dialog.
+                     *
+                     * Restarting everything was only reachable when NO pool was running — the
+                     * toolbar button switches to "restart this pool" the moment one is — so an
+                     * organizer mid-pool who wanted to start the evening over had to close the
+                     * pool first to be offered the thing they actually wanted.
+                     *
+                     * Unticked, and last, because it is the biggest button in the room: it wipes
+                     * every pool, not this one.
+                     */
+                    {
+                        value: 'whole_auction',
+                        label: 'Restart the ENTIRE auction instead',
+                        hint: 'Every pool is reset and every sale undone, not just this one. You then choose which pool to start.',
+                    },
                 ],
             });
 
             if (! include || ! include.length) return;
+
+            /*
+             * Whole-auction wins over the per-pool boxes: it is a different action, and ticking it
+             * alongside "unsold only" would be asking for two contradictory things at once.
+             */
+            if (include.includes('whole_auction')) {
+                const sure = await this.askConfirm(
+                    'Restart the ENTIRE auction?\n\nEvery pool goes back to the start and every sale in the'
+                    + ' auction is undone — every team gets its money back and loses every player it bought.'
+                    + '\n\nNothing is kept. You will choose which pool to start afterwards.',
+                    { title: 'Restart entire auction', danger: true }
+                );
+
+                if (! sure) return;
+
+                const wiped = await this.sendCommand('restart');
+                if (! wiped?.success) return;
+
+                this._clearForNextPlayer();
+                await this.pollAuctionState();
+
+                // The pool chooser is what the panel shows with nothing running, which is exactly
+                // the state a full restart leaves it in.
+                this.toast('Auction restarted — choose a pool to start.', 'success');
+
+                return;
+            }
 
             // force only when there is genuinely something to force past, so the guard keeps
             // protecting the ordinary case.

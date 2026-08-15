@@ -109,6 +109,24 @@
         /* Every line in this cell stays on one line — see above. */
         #lt-bid .lt-label, #lt-bid-val, #lt-bid-team { white-space: nowrap; }
         #lt-bid-val { color: var(--secondary); font-size: 44px; line-height: 1.05; }
+        /*
+         * A raise, flashed.
+         *
+         * Brightness and a halo rather than a colour change: the figure is already the accent
+         * colour, so flashing it green would be green on green — which is exactly how this was
+         * invisible on the wall. Neither property affects layout, so nothing in the lower third
+         * shifts while it runs.
+         */
+        #lt-bid-val.flash { animation: ltBidFlash 0.95s ease-out 2; }
+        @keyframes ltBidFlash {
+            0%   { filter: none;             text-shadow: none; }
+            15%  { filter: brightness(2.1);  text-shadow: 0 0 30px rgba(255,255,255,0.95), 0 0 70px rgba(255,255,255,0.5); }
+            55%  { filter: brightness(1.35); text-shadow: 0 0 18px rgba(255,255,255,0.5); }
+            100% { filter: none;             text-shadow: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #lt-bid-val.flash { animation: none; }
+        }
         #lt-bid-team { font-size: 15px; font-weight: 700; opacity: 0.85; margin-top: 4px; }
 
         /* Nameplate. clip-path cannot clip a border, so the edge and the fill are two
@@ -408,11 +426,22 @@
 
         #idle {
             position: fixed; bottom: 132px; left: 64px;
-            padding: 22px 40px;
-            font-size: 30px; font-weight: 900; letter-spacing: 1px;
+            padding: 20px 40px;
             background: var(--panel);
             border: 1px solid var(--edge); border-top: 2px solid var(--primary);
         }
+        #idle-head { font-size: 30px; font-weight: 900; letter-spacing: 1px; line-height: 1.1; }
+        #idle-sub {
+            margin-top: 6px; font-size: 16px; font-weight: 700; letter-spacing: 0.4px;
+            color: rgba(255,255,255,0.62);
+        }
+        /* A finished pool is a pause the room is meant to notice, so the strip's accent moves
+           to it. A finished auction is not a pause at all — it goes grey, because nothing
+           further is coming and a live-looking caption would say otherwise. */
+        #idle.stage-pool_complete { border-top-color: #f59e0b; }
+        #idle.stage-pool_complete #idle-head { color: #fcd34d; }
+        #idle.stage-completed, #idle.stage-all_done { border-top-color: rgba(255,255,255,0.35); }
+        #idle.stage-completed #idle-head, #idle.stage-all_done #idle-head { color: rgba(255,255,255,0.78); }
 
         /*
          * ── The sealed / draw band ──
@@ -580,8 +609,13 @@
         <div id="lt-stats" class="hidden"></div>
     </div>
 
-    {{-- Between players --}}
-    <div id="idle" class="glass hidden">Next player coming up…</div>
+    {{-- Between players — and between pools, and after the auction has finished. The wording
+         comes from the server (AuctionStageService); the default here is only what shows for
+         the split second before the first feed lands. --}}
+    <div id="idle" class="glass hidden">
+        <div id="idle-head">Next player coming up…</div>
+        <div id="idle-sub" class="hidden"></div>
+    </div>
 
     {{-- Recent sales --}}
     <div id="sales-strip" class="glass hidden">
@@ -1170,12 +1204,45 @@
             cells.map(([k, v]) => `<div class="st"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
     }
 
-    function renderCurrent(p, sealed = null) {
+    /*
+     * ── The caption between lots ──
+     *
+     * One line for every silence was wrong in both directions: a hall that had just finished a
+     * pool was told the next player was coming up, and so was a hall watching an auction that
+     * had been closed. The stage comes from the server so the strip, the wall and the manager
+     * dashboards cannot disagree about which silence this is.
+     */
+    let _lastIdleKey = null;
+
+    function renderIdle(stage) {
+        const idle = document.getElementById('idle');
+        const head = document.getElementById('idle-head');
+        const sub = document.getElementById('idle-sub');
+        if (! idle || ! head || ! sub) return;
+
+        const key = stage?.key || '';
+        head.textContent = stage?.heading || 'Next player coming up…';
+
+        const line = stage?.subline || '';
+        sub.textContent = line;
+        sub.classList.toggle('hidden', line === '');
+
+        // Only the stage-* class is swapped: `hidden` is owned by renderCurrent, and rewriting
+        // className wholesale would drop it and leave the caption over a live lot.
+        if (key !== _lastIdleKey) {
+            if (_lastIdleKey) idle.classList.remove(`stage-${_lastIdleKey}`);
+            if (key) idle.classList.add(`stage-${key}`);
+            _lastIdleKey = key;
+        }
+    }
+
+    function renderCurrent(p, sealed = null, stage = null) {
         const wrap = document.getElementById('lt-wrap');
         const idle = document.getElementById('idle');
 
         if (!p) {
             wrap.classList.add('hidden');
+            renderIdle(stage);
             idle.classList.remove('hidden');
             return;
         }
@@ -1249,7 +1316,22 @@
                 : '';
         } else {
             document.getElementById('lt-bid-label').textContent = hasBid ? 'Current Bid' : 'No Bids';
-            document.getElementById('lt-bid-val').textContent = hasBid ? amount(p.current_price) : '—';
+
+            /* Flashed only when the FIGURE moves — a poll that repaints the same number must not
+               set it off, or the strip strobes for the whole lot. Re-armed by removing the class
+               and forcing a reflow, or a second raise plays nothing. */
+            const bidEl = document.getElementById('lt-bid-val');
+            const next = hasBid ? amount(p.current_price) : '—';
+
+            if (bidEl.textContent !== next) {
+                bidEl.textContent = next;
+
+                if (hasBid) {
+                    bidEl.classList.remove('flash');
+                    void bidEl.offsetWidth;
+                    bidEl.classList.add('flash');
+                }
+            }
             document.getElementById('lt-bid-team').textContent = hasBid ? (p.leading_team_short || p.leading_team) : '';
         }
 
@@ -1446,7 +1528,7 @@
                 // tracks this: the poll is the backstop for a screen that missed the frame.
                 // scheduleTickerPoll() reads it after every fetch.
                 sealedActive = !!(lastSealed && lastSealed.active);
-                renderCurrent(d.current_player, d.closed_bid || null);
+                renderCurrent(d.current_player, d.closed_bid || null, d.stage || null);
                 renderTeams(d.teams || [], d.squad || null);
                 renderSales(d.recent_sales || []);
                 renderResultBadge(d.last_action || null);

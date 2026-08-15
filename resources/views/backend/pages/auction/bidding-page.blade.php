@@ -3,6 +3,18 @@
 
 @push('styles')
 <style>
+    /* The same bounce, zoom and turn the wall's loader uses, so a room with both screens in it
+       sees one event rather than two different animations. */
+    .tm-loader-mark { animation: tmLoaderMark 2.4s cubic-bezier(0.45, 0, 0.35, 1) infinite; }
+    @keyframes tmLoaderMark {
+        0%   { transform: translateY(0) scale(1) rotate(0deg); }
+        25%  { transform: translateY(-18px) scale(1.12) rotate(8deg); }
+        50%  { transform: translateY(0) scale(1) rotate(0deg); }
+        75%  { transform: translateY(-8px) scale(1.06) rotate(-6deg); }
+        100% { transform: translateY(0) scale(1) rotate(0deg); }
+    }
+    @media (prefers-reduced-motion: reduce) { .tm-loader-mark { animation: none; } }
+
     .bidding-wrapper {
         background: #030712;
         color: #fff;
@@ -136,15 +148,13 @@
 
                 {{-- Center: Status badges --}}
                 <div class="flex items-center gap-1.5 flex-shrink-0">
-                    {{-- Connection health, so a team on a struggling hall wifi knows that is what
-                         they are looking at. Silent when push is up, which is the normal state:
-                         a permanent indicator is one nobody reads by the time it matters. --}}
-                    <div x-show="!pushConnected" x-cloak
-                         class="flex items-center gap-1 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full"
-                         :title="networkWarning || 'Live updates are not getting through — this screen is refreshing itself instead.'">
-                        <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                        <span class="text-[10px] font-bold text-amber-300 uppercase tracking-wide">Slow link</span>
-                    </div>
+                    {{-- The "slow link" badge is gone from this screen, on request.
+                         It was written for the organizer's benefit — a team on struggling hall wifi
+                         knowing why their screen felt behind — but on a manager's phone during a
+                         live lot it reads as "your bid may not have gone through", which is alarming
+                         and, since the screen falls back to polling automatically, not true. The
+                         organizer's panel keeps its own badge; that is the seat where knowing the
+                         socket is down actually changes what somebody does. --}}
                     <div x-show="auctionStatus !== 'completed'" class="flex items-center gap-1 bg-red-500/15 border border-red-500/25 px-2 py-0.5 rounded-full">
                         <span class="w-1.5 h-1.5 rounded-full bg-red-500 live-dot"></span>
                         <span class="text-[10px] font-bold text-red-400 uppercase tracking-wide">Live</span>
@@ -193,8 +203,14 @@
                     <div class="w-16 h-16 mx-auto mb-3 rounded-full border-2 border-dashed border-gray-700/60 flex items-center justify-center">
                         <svg class="w-8 h-8 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     </div>
-                    <h2 class="text-lg font-semibold text-gray-500 mb-1">Waiting for Next Player</h2>
-                    <p class="text-gray-600 text-xs">{{ $auction->name }}</p>
+                    {{-- The same sentence the wall and the ticker are showing, from the server.
+                         This screen said "Waiting for Next Player" through a finished pool and a
+                         finished auction alike, so a manager had no way to tell a gap from an
+                         ending. --}}
+                    <h2 class="text-lg font-semibold mb-1"
+                        :class="stage.key === 'pool_complete' ? 'text-amber-400' : 'text-gray-500'"
+                        x-text="stage.heading || 'Waiting for Next Player'"></h2>
+                    <p class="text-gray-600 text-xs" x-text="stage.subline || @js($auction->name)"></p>
                     <div class="flex justify-center gap-1.5 mt-3">
                         <div class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
                         <div class="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" style="animation-delay:0.2s"></div>
@@ -210,7 +226,31 @@
                 </div>
 
                 {{-- BIDDING STATE --}}
-                <div x-show="state === 'bidding'" x-transition x-cloak class="w-full max-w-lg mx-auto">
+                {{-- "Loading next player", over the card.
+                     Opaque, and it hides the outgoing player: a manager's screen swapped one face
+                     for another with nothing in between, so a lot ending and the next beginning
+                     looked identical to a page that had simply re-rendered. It shows the event's
+                     mark and no player data — a team must not learn who is next before the room. --}}
+                <template x-if="nextLoading">
+                    <div class="w-full max-w-lg mx-auto py-16 flex flex-col items-center justify-center gap-6 text-center">
+                        <div class="w-28 h-28 flex items-center justify-center tm-loader-mark">
+                            <div class="w-full h-full rounded-full bg-gradient-to-br from-orange-500 to-amber-600
+                                        flex items-center justify-center text-white text-3xl font-black">
+                                &#9673;
+                            </div>
+                        </div>
+                        <div class="text-lg font-black uppercase tracking-[0.2em] text-gray-200">
+                            Loading next player
+                        </div>
+                        <div class="flex gap-2">
+                            <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse"></span>
+                            <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse" style="animation-delay:.15s"></span>
+                            <span class="w-2 h-2 rounded-full bg-orange-400 animate-pulse" style="animation-delay:.3s"></span>
+                        </div>
+                    </div>
+                </template>
+
+                <div x-show="state === 'bidding' && ! nextLoading" x-transition x-cloak class="w-full max-w-lg mx-auto">
 
                     {{-- Player card --}}
                     <div class="flex items-start gap-4 mb-4">
@@ -949,6 +989,9 @@ function teamBiddingPanel() {
         player: { id: null, name: "", image_url: "", base_price: 0, current_price: 0, current_bid_team: null, role: "", batting_style: "", bowling_style: "", is_wicket_keeper: false, travel_plan_label: "", total_matches: null, total_runs: null, total_wickets: null },
         soldPlayers: @json($soldPlayers ?? []),
         state: "waiting",
+        /* What the room is waiting for, worded by the server (AuctionStageService) and shared
+           with the LED wall and the ticker. Empty until the first feed lands. */
+        stage: { key: '', heading: '', subline: '' },
         auctionStatus: "{{ $auction->status }}",
         bidType: "{{ $auction->bid_type ?? 'open' }}",
         teamBudget: {{ $remainingBudget ?? 0 }},
@@ -1213,9 +1256,35 @@ function teamBiddingPanel() {
              * previous one's maximum on screen is a figure a manager could bid against.
              */
             channel.listen('.player.onbid', () => {
+                /*
+                 * The same beat the wall gets, from the same event.
+                 *
+                 * A manager's screen swapped one face for another with nothing in between, so a
+                 * lot ending and the next beginning looked identical to a page that had simply
+                 * re-rendered. It carries no player data — a team must not learn who is next
+                 * before the room does.
+                 */
+                this.showNextLoader();
                 this.fetchCurrentPlayer();
                 this.fetchPurse();
             });
+
+            /*
+             * Pause, resume, end, restart, and the pool actions.
+             *
+             * These publish on `auction.public.X`, a different channel, and this screen was
+             * subscribed only to the one above — so a pool ending, an auction being closed or a
+             * restart reached the wall and the ticker at once and reached a manager's phone
+             * whenever its next reconciliation sweep happened to come round, up to fifteen
+             * seconds later. The three screens now change together.
+             */
+            if (window.Echo) {
+                window.Echo.channel(`auction.public.${this.auctionId}`)
+                    .listen('.auction.status', () => {
+                        this.fetchCurrentPlayer();
+                        this.fetchPurse();
+                    });
+            }
         },
 
         /**
@@ -1615,6 +1684,7 @@ function teamBiddingPanel() {
                 const res = await fetch("/auction/" + this.auctionId + "/active-player");
                 const data = await res.json();
                 if (data.auction_status) this.auctionStatus = data.auction_status;
+                if (data.stage) this.stage = data.stage;
                 if (data.open_bid_mode) this.auctionMode = data.open_bid_mode;
                 if (data.bid_type) this.bidType = data.bid_type;
                 if (data.bid_rules) this.bidRules = data.bid_rules;
@@ -1703,6 +1773,24 @@ function teamBiddingPanel() {
             };
             this.state = "bidding";
             this.timerExpired = false;
+        },
+
+        /*
+         * "Loading next player", held for the same beat as the wall so the two screens in one room
+         * are not a second apart. Fixed length rather than "until the fetch returns": the fetch is
+         * usually instant, and a loader that flashes for one frame reads as a glitch.
+         */
+        nextLoading: false,
+        _nextLoaderTimer: null,
+
+        showNextLoader() {
+            this.nextLoading = true;
+
+            if (this._nextLoaderTimer) clearTimeout(this._nextLoaderTimer);
+            this._nextLoaderTimer = setTimeout(() => {
+                this._nextLoaderTimer = null;
+                this.nextLoading = false;
+            }, 1600);
         },
 
         resetPlayer() {
