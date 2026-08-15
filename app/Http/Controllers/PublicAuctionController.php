@@ -629,6 +629,36 @@ class PublicAuctionController extends Controller
                 'final_call_stages' => $timerState['final_call_stages'],
             ],
             'recent_sales' => $recentSales,
+
+            /*
+             * The last player to be decided, sold or unsold.
+             *
+             * `recent_sales` carries sales only, and `current_player` is null the moment a lot
+             * ends — so between lots the strip had nothing to say about what had just happened.
+             * A hall watching a stream sees the player disappear and no result.
+             *
+             * One row, with the badge the ticker needs: who, what happened, and to whom.
+             */
+            'last_action' => (function () use ($auction) {
+                $last = $auction->auctionPlayers()
+                    ->whereIn('status', ['sold', 'unsold', 'skipped'])
+                    ->with(['player:id,name', 'soldToTeam:id,name,team_logo'])
+                    ->orderByDesc('updated_at')
+                    ->first();
+
+                if (! $last) {
+                    return null;
+                }
+
+                return [
+                    'id' => $last->id,
+                    'player_name' => $last->player->name ?? 'Player',
+                    'status' => $last->status,
+                    'team_name' => $last->soldToTeam->name ?? null,
+                    'team_logo' => $last->soldToTeam?->team_logo_url,
+                    'price' => $last->status === 'sold' ? $last->final_price : null,
+                ];
+            })(),
             // That a sealed round is running, and nothing else. Counts only — never an
             // amount, never a team-to-amount mapping.
             'closed_bid' => app(\App\Services\Auction\ClosedBidService::class)

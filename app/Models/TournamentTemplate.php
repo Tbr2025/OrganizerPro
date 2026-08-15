@@ -344,6 +344,9 @@ class TournamentTemplate extends Model
                 'lot_number',
                 'pool_name',
                 'base_price',
+                // A kept player's figure, for a template that wants to caption it as such —
+                // `base_price` already falls back to it, see AuctionPosterData.
+                'retained_value',
                 /*
                  * The team a player CURRENTLY plays for — their club before this auction. A
                  * separate fact from whoever buys them, and both belong on the poster: one is

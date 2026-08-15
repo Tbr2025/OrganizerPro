@@ -1544,16 +1544,28 @@ HTML;
          * painted, not laid out, so nothing on the card moves.
          */
         .bid-updated {
-            animation: bid-figure-flash 1.05s ease-out 2;
+            animation: bid-figure-flash 0.95s ease-out 2;
         }
+        /*
+         * Brightness and glow, NOT colour.
+         *
+         * This animated `color` to green — and the templates already paint the live figure green,
+         * so the flash was green over green: the class was applied, the animation ran, and nothing
+         * on the wall changed. A flash cannot be defined in terms of a colour the template is free
+         * to choose.
+         *
+         * `filter: brightness()` lifts whatever colour the author picked, and the halo is drawn in
+         * white so it reads against any of them. Neither affects layout, which is the constraint
+         * that started this: the figure is positioned by the template and must not move.
+         */
         @keyframes bid-figure-flash {
-            0%   { color: inherit; text-shadow: none; }
-            18%  { color: #22c55e; text-shadow: 0 0 46px rgba(34,197,94,0.95), 0 0 90px rgba(34,197,94,0.55); }
-            55%  { color: #4ade80; text-shadow: 0 0 26px rgba(34,197,94,0.6); }
-            100% { color: inherit; text-shadow: none; }
+            0%   { filter: none;             text-shadow: none; }
+            15%  { filter: brightness(2.1);  text-shadow: 0 0 34px rgba(255,255,255,0.95), 0 0 78px rgba(255,255,255,0.55); }
+            55%  { filter: brightness(1.35); text-shadow: 0 0 22px rgba(255,255,255,0.5); }
+            100% { filter: none;             text-shadow: none; }
         }
         @media (prefers-reduced-motion: reduce) {
-            .bid-updated { animation: none; color: #22c55e; }
+            .bid-updated { animation: none; filter: brightness(1.4); }
         }
 
         /* ── Highest bidder ──

@@ -300,10 +300,31 @@ class AuctionMailService
                     : null
             ),
             AuctionPendingEmail::TYPE_UNSOLD => new PlayerUnsoldMail($player, $auction),
-            AuctionPendingEmail::TYPE_WELCOME_CARD => throw new \RuntimeException(
-                'The welcome card is generated and sent in one step, with its poster, so it '
-                . 'cannot be previewed here without sending it. Use the email template '
-                . 'preview under Admin -> Emails to see its layout.'
+            /*
+             * The welcome card previews like everything else now.
+             *
+             * It used to refuse, and the message said why: it was generated and sent in one step
+             * by TournamentNotificationService, so there was no way to build it without also
+             * sending it. That is no longer how it works — the card is rendered here and handed to
+             * PlayerWelcomeMail — and since every sale now raises this type and nothing else, a
+             * refusal meant the outbox could preview none of its rows.
+             *
+             * Rendering the poster for a preview costs a few seconds and is the point: test mode
+             * exists to show what a real run would have sent, attachment included.
+             */
+            AuctionPendingEmail::TYPE_WELCOME_CARD => new \App\Mail\PlayerWelcomeMail(
+                $player,
+                ($row->auctionPlayer && $auction
+                    ? app(AuctionPosterMailer::class)->render($auction, $row->auctionPlayer)
+                    : null) ?? '',
+                $auction?->tournament,
+                \App\Models\EmailTemplate::TYPE_WELCOME_CARD,
+                array_filter([
+                    '{team_name}' => ($row->team ?? $row->auctionPlayer?->soldToTeam)?->name,
+                    '{sold_price}' => $row->auctionPlayer && $row->auctionPlayer->final_price !== null && $auction
+                        ? $auction->formatAmount($row->auctionPlayer->final_price)
+                        : null,
+                ])
             ),
             default => throw new \RuntimeException("Unknown auction email type [{$row->type}]."),
         };

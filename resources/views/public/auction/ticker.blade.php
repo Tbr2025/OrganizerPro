@@ -296,6 +296,40 @@
          * board already is. Five, one at a time, big enough to read — and the sponsors' artwork
          * riding the same rotation, which is the only way an ad reaches this screen at all.
          */
+        /*
+         * ── The result badge ──
+         *
+         * Minimal on purpose: a strip is read at a glance from across a hall, and this competes
+         * with the lower third rather than replacing it. Word, player, crest, team, price — no
+         * panel, no border, no animation beyond the arrival.
+         */
+        #lt-result {
+            position: fixed; left: 50%; bottom: 132px; transform: translateX(-50%);
+            z-index: 70; display: flex; align-items: center; gap: 16px;
+            padding: 12px 30px; border-radius: 999px; white-space: nowrap;
+            background: rgba(2,6,23,0.92); border: 2px solid rgba(34,197,94,0.55);
+            animation: ltResultIn .4s ease-out;
+        }
+        #lt-result.hidden { display: none; }
+        #lt-result.is-unsold { border-color: rgba(244,63,94,0.55); }
+        @keyframes ltResultIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+        #lt-result-word {
+            font-size: 26px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
+            color: #4ade80;
+        }
+        #lt-result.is-unsold #lt-result-word { color: #fb7185; }
+        #lt-result-player { font-size: 26px; font-weight: 800; color: #fff; }
+        #lt-result-crest { height: 40px; width: 40px; object-fit: contain; border-radius: 50%; }
+        #lt-result-crest[src=""] { display: none; }
+        #lt-result-team { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.8); }
+        #lt-result-price {
+            font-size: 26px; font-weight: 900; color: var(--secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
         #sb-reel {
             flex: 1; position: relative; overflow: hidden;
         }
@@ -472,6 +506,18 @@
         <div id="sold-board-grid"></div>
         {{-- Used for the highlights board; the grid above stays for the full sold list. --}}
         <div id="sb-reel" class="hidden"></div>
+    </div>
+
+    {{-- What just happened, named.
+         Between lots the strip had nothing to say: `current_player` is null the moment a lot ends
+         and the teams table alone does not tell a stream who took the player. One line, up for a
+         few seconds, then gone. --}}
+    <div id="lt-result" class="hidden">
+        <span id="lt-result-word">SOLD</span>
+        <span id="lt-result-player"></span>
+        <img id="lt-result-crest" alt="">
+        <span id="lt-result-team"></span>
+        <span id="lt-result-price"></span>
     </div>
 
     {{-- The player on the block --}}
@@ -755,6 +801,46 @@
         panel.classList.remove('tp-in');
         panel.classList.add('tp-out');
         if (teamsHideTimer) { clearTimeout(teamsHideTimer); teamsHideTimer = null; }
+    }
+
+    /*
+     * ── What just happened ──
+     *
+     * Shown when the RESULT changes, not on every feed tick: this runs every couple of seconds and
+     * a badge that re-arms itself constantly never goes away. Held for eight seconds, which is
+     * long enough to read across a room and short enough that it is gone before the next lot.
+     */
+    let lastResultId = null;
+    let resultHideTimer = null;
+
+    function renderResultBadge(action) {
+        const bar = document.getElementById('lt-result');
+        if (! bar) return;
+
+        if (! action) {
+            bar.classList.add('hidden');
+            lastResultId = null;
+
+            return;
+        }
+
+        if (action.id === lastResultId) return;   // already shown, or already hidden by the timer
+
+        lastResultId = action.id;
+
+        const sold = action.status === 'sold';
+
+        bar.classList.toggle('is-unsold', ! sold);
+        document.getElementById('lt-result-word').textContent = sold ? 'Sold' : 'Unsold';
+        document.getElementById('lt-result-player').textContent = action.player_name || '';
+        document.getElementById('lt-result-crest').src = (sold && action.team_logo) ? action.team_logo : '';
+        document.getElementById('lt-result-team').textContent = sold ? (action.team_name || '') : '';
+        document.getElementById('lt-result-price').textContent = sold && action.price ? amount(action.price) : '';
+
+        bar.classList.remove('hidden');
+
+        if (resultHideTimer) clearTimeout(resultHideTimer);
+        resultHideTimer = setTimeout(() => bar.classList.add('hidden'), 8000);
     }
 
     function renderTeams(teams, squad) {
@@ -1320,6 +1406,7 @@
                 renderCurrent(d.current_player, d.closed_bid || null);
                 renderTeams(d.teams || [], d.squad || null);
                 renderSales(d.recent_sales || []);
+                renderResultBadge(d.last_action || null);
 
                 // The ticker feed exposes the leading team's NAME (never an amount during a
                 // sealed round), which is all that is needed to know whether anyone has bid.

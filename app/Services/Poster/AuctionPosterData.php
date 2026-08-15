@@ -72,7 +72,26 @@ class AuctionPosterData
                 ? str_pad((string) $auctionPlayer->lot_number, 3, '0', STR_PAD_LEFT)
                 : '',
             'pool_name' => (string) ($auctionPlayer->pool?->name ?? ''),
-            'base_price' => $this->amount($auctionPlayer->base_price, $auction),
+            /*
+             * A retained player's figure is their RETENTION, not a base price.
+             *
+             * A retained player never goes on the block, so their base price is 0 by design — and
+             * `amount()` renders 0 as blank. The poster then printed the author's "BASE PRICE"
+             * caption with nothing after it, which reads as a broken card rather than as a player
+             * who was kept.
+             *
+             * The retention value is the figure the room associates with them, and it is what
+             * counts against their team's purse. Blank stays blank when there is no figure of
+             * either kind: skipBlanks then drops the element entirely.
+             */
+            'base_price' => $auctionPlayer->is_retained
+                ? $this->amount($auctionPlayer->retained_price, $auction)
+                : $this->amount($auctionPlayer->base_price, $auction),
+
+            // Named separately as well, for a template that wants to caption it correctly.
+            'retained_value' => $auctionPlayer->is_retained
+                ? $this->amount($auctionPlayer->retained_price, $auction)
+                : '',
 
             /*
              * Blank before the hammer falls, rather than a zero or a dash.
