@@ -1750,19 +1750,69 @@
                     }
                     return;
                 }
-                // Pick the winner before animation
-                // Take the next player in drawn lot order (the server already sorted
-                // availablePlayers by pool sequence then lot number). Picking at random
-                // here threw away the draw the organizer configured.
-                const chosenPlayer = this.availablePlayers[0];
+                /*
+                 * Who is next: the POOL decides — the same rule as the online panel.
+                 *
+                 * This always took availablePlayers[0], the server's pool-sequence-then-lot
+                 * order. That is right for a sequential pool and wrong for a random one: the
+                 * draw is stored in `lot_number` and printed in the queue, so serving it in
+                 * that order makes the running order readable in advance. A random pool is
+                 * drawn again here, at the moment NEXT is pressed.
+                 */
+                const chosenPlayer = this.pickNextFromQueue();
+                if (! chosenPlayer) {
+                    this.toast('No more players waiting.', 'info');
+                    return;
+                }
 
-                // Shuffle animation is theatre only — the player is already decided.
-                await this._runShuffleAnimation(chosenPlayer);
+                /*
+                 * The spin belongs to a random draw.
+                 *
+                 * In a sequential pool nothing is being drawn — the next name is the next line
+                 * of a list the room can already see — so the player goes straight up.
+                 */
+                if (this.poolOrderMode(this.activePool?.id ?? chosenPlayer.auction_pool_id ?? null) === 'random') {
+                    await this._runShuffleAnimation(chosenPlayer);
+                }
 
                 // NOTE: deliberately does NOT overwrite base_price. This used to stamp
                 // the auction-wide default over every player right before putting them
                 // on the block, erasing both per-player and per-pool prices.
                 await this.putPlayerOnBid(chosenPlayer.id);
+            },
+
+            /**
+             * The next player, honouring the pool's order mode.
+             *
+             * Sequential, manual and odd/even are called in their drawn order; random is drawn
+             * afresh on every press, confined to the pool being served. Mirrors the online
+             * panel deliberately — two panels that disagreed about who is next would be worse
+             * than either rule on its own.
+             */
+            pickNextFromQueue() {
+                const queue = this.availablePlayers || [];
+                if (! queue.length) return null;
+
+                const poolId = this.activePool?.id ?? queue[0].auction_pool_id ?? null;
+                const scoped = queue.filter(p => Number(p.auction_pool_id) === Number(poolId));
+                const candidates = scoped.length ? scoped : queue;
+
+                if (this.poolOrderMode(poolId) !== 'random') {
+                    return candidates[0];
+                }
+
+                return candidates[Math.floor(Math.random() * candidates.length)];
+            },
+
+            /** A pool's order mode, from the server's payload. Unknown pools are sequential. */
+            poolOrderMode(poolId) {
+                if (poolId === null || poolId === undefined) return 'sequential';
+
+                if (this.activePool && Number(this.activePool.id) === Number(poolId)) {
+                    return this.activePool.order_mode || 'sequential';
+                }
+
+                return (this.pools || []).find(p => Number(p.id) === Number(poolId))?.order_mode || 'sequential';
             },
 
             // ─── SHUFFLE ANIMATION ───
@@ -2550,6 +2600,9 @@
                     this.availablePlayers = (data.available_players || []).map(ap => ({
                         id: ap.id,
                         player_id: ap.player_id,
+                        // What tells pickNextFromQueue() which pool it is serving, and so
+                        // whether to call the queue in order or draw from it.
+                        auction_pool_id: ap.auction_pool_id ?? null,
                         base_price: ap.base_price,
                         player: ap.player,
                     }));

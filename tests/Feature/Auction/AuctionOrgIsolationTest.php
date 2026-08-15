@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -30,6 +31,24 @@ class AuctionOrgIsolationTest extends TestCase
 
         $ourPlayer = Player::create(['organization_id' => $orgA->id, 'name' => 'Ours', 'email' => 'ours@x.test', 'status' => 'approved']);
         $foreignPlayer = Player::create(['organization_id' => $orgB->id, 'name' => 'Foreign', 'email' => 'foreign@x.test', 'status' => 'approved']);
+
+        /*
+         * BOTH are approved for the tournament, deliberately.
+         *
+         * The wizard now refuses anyone without an approved registration, and if only our own
+         * player had one this test would pass for that reason rather than the one it is about.
+         * The foreign player is eligible in every way except the organisation they belong to,
+         * so the org filter is the only thing that can keep them out.
+         */
+        foreach ([$orgA->id => $ourPlayer, $orgB->id => $foreignPlayer] as $orgId => $player) {
+            TournamentRegistration::create([
+                'tournament_id' => $tournament->id,
+                'organization_id' => $orgId,
+                'type' => 'player',
+                'player_id' => $player->id,
+                'status' => 'approved',
+            ]);
+        }
 
         Permission::create(['name' => 'auction.create', 'group_name' => 'auction']);
         // A bare Superadmin ROW is not a Superadmin: the auction routes are permission-gated,

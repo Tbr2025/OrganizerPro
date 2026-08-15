@@ -216,7 +216,8 @@ class AuctionBidIncrementTest extends TestCase
         $operator = $this->makeAuctionOperator($org);
 
         $pool = $this->makePool($auction, ['name' => 'Marquee', 'base_price' => 5000]);
-        $player = $this->makePlayer($org);
+        // Approved for this tournament: the wizard refuses anyone who is not.
+        $player = $this->makeApprovedPlayer($org, $tournament);
 
         $this->actingAs($operator)->put(route('admin.auctions.update', $auction), [
             'name' => $auction->name,

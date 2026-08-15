@@ -5176,6 +5176,17 @@ HTML;
                 }
 
                 applySoldBoard(event?.board);
+
+                /*
+                 * And re-read the feed, always.
+                 *
+                 * The dialog changes more than the board and the artwork — the BREAK LENGTH is
+                 * on it too, and that lives on the feed as `break_remaining`. Applying a new
+                 * break with the same board showing changed nothing here until something else
+                 * happened to refetch. One request per press of Apply is not a cost worth
+                 * reasoning about; a wall showing a stale clock in front of a hall is.
+                 */
+                refreshNow('board');
             })
             .listen('.player-on-sold', (event) => {
                 console.log('[Live] Player sold event:', event);

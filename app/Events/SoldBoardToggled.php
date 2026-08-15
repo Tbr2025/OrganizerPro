@@ -81,9 +81,30 @@ class SoldBoardToggled implements ShouldBroadcastNow
         return 'board.changed';
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @return array<string, mixed>
+     *
+     * Everything the dialog can change, not just the board.
+     *
+     * This returned `['board' => …]` alone while the constructor had grown a target and two
+     * artwork switches — and a broadcastWith() replaces the payload entirely, so those three
+     * were dropped on the wire even though both screens were written to read them. The effect
+     * on the wall and the ticker was that Apply did nothing: `target` arrived undefined and fell
+     * back to "both", and the artwork pair arrived undefined every time, so the comparison that
+     * decides whether to refetch never saw a change. Pressing Apply with only a checkbox or a
+     * target touched left the hall's screens exactly as they were until some unrelated event
+     * happened to refresh them.
+     *
+     * Key names match what the screens read (`adSlides`, `adSponsors`) rather than being
+     * snake_cased — these are read straight off the event object in Javascript.
+     */
     public function broadcastWith(): array
     {
-        return ['board' => $this->board];
+        return [
+            'board' => $this->board,
+            'target' => $this->target,
+            'adSlides' => $this->adSlides,
+            'adSponsors' => $this->adSponsors,
+        ];
     }
 }

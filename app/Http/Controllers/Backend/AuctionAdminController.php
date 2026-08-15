@@ -708,12 +708,56 @@ class AuctionAdminController extends Controller
             ->when($auction->organization_id, fn ($q) => $q->where('organization_id', $auction->organization_id))
             ->pluck('id')->flip();
 
+        /*
+         * Only players the tournament has APPROVED may be put in a bidding pool.
+         *
+         * The two paths on the pools screen — Assign and Auto-assign — both require an approved
+         * registration for this tournament. This one required nothing at all: it wrote a row for
+         * every id in the submitted payload, so the wizard was the single door into a pool that
+         * did not ask. That is how a player whose registration was never approved ended up in
+         * Pool 2 of a live auction, counted in its totals, and queued to go on the block.
+         *
+         * Retained players are exempt, deliberately. An icon player is kept by their team and may
+         * never have registered themselves — syncRetainedPlayers() scopes them by their team's
+         * tournament for exactly that reason — so requiring a registration here would drop them.
+         *
+         * Null when the auction has no tournament (legacy/global auctions): there is nothing to
+         * be approved for, and the check is skipped rather than dropping every player, which is
+         * how the org filter above treats the same case.
+         */
+        $eligibleIds = $auction->tournament_id
+            ? \App\Models\Player::withoutGlobalScopes()
+                ->whereHas('registrations', fn ($q) => $q
+                    ->where('tournament_id', $auction->tournament_id)
+                    ->where('status', 'approved'))
+                ->pluck('id')->flip()
+            : null;
+
+        // What the check turned away, so a silently missing player can be explained later.
+        $refused = [];
+
         foreach (array_values($pools) as $sequence => $poolData) {
             $players = is_array($poolData['players'] ?? null) ? $poolData['players'] : [];
-            // Keep only org players that aren't already actioned.
-            $players = array_values(array_filter($players, function ($pl) use ($validPlayerIds, $skip) {
+            // Keep only org players that aren't already actioned, and that the tournament has
+            // approved (icon players excepted — see $eligibleIds above).
+            $players = array_values(array_filter($players, function ($pl) use ($validPlayerIds, $skip, $eligibleIds, $retainedIds, &$refused) {
                 $id = (int) ($pl['id'] ?? 0);
-                return ($validPlayerIds === null || isset($validPlayerIds[$id])) && ! isset($skip[$id]);
+
+                if ($validPlayerIds !== null && ! isset($validPlayerIds[$id])) {
+                    return false;
+                }
+
+                if (isset($skip[$id])) {
+                    return false;
+                }
+
+                if ($eligibleIds !== null && ! isset($eligibleIds[$id]) && ! isset($retainedIds[$id])) {
+                    $refused[] = $id;
+
+                    return false;
+                }
+
+                return true;
             }));
             if (! count($players)) {
                 continue;
@@ -796,6 +840,21 @@ class AuctionAdminController extends Controller
 
             // Final lot order per the pool's rule (sequential/random/odd_even/manual).
             $poolService->generateLotNumbers($pool);
+        }
+
+        /*
+         * A skip that nobody can see is how this went unnoticed for a whole auction.
+         *
+         * The wizard cannot report per-player outcomes — it redirects with one message — so the
+         * refusal is at least written down, with the ids, and can be matched against a pool that
+         * came out one player short.
+         */
+        if ($refused) {
+            \Log::warning('Auction wizard refused players without an approved registration.', [
+                'auction_id' => $auction->id,
+                'tournament_id' => $auction->tournament_id,
+                'player_ids' => array_values(array_unique($refused)),
+            ]);
         }
     }
 

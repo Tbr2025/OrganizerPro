@@ -59,9 +59,14 @@ class AuctionPollPayloadSizeTest extends TestCase
          *
          * Both are scalars, which is the point of asserting the shape here: the queue must stay a
          * flat projection and never drift back to whole models on a two-second poll.
+         *
+         * `auction_pool_id` joined them for a different reason: the panel decides who goes up
+         * next and has to obey the pool's order mode — in order for a sequential pool, drawn
+         * afresh for a random one — and it cannot tell which pool it is serving without this.
+         * Its absence made every pool behave as sequential, silently.
          */
         $this->assertSame([
-            'id', 'name', 'base_price', 'image_path', 'player_type',
+            'id', 'auction_pool_id', 'name', 'base_price', 'image_path', 'player_type',
             'batting_style', 'bowling_style', 'is_wicket_keeper', 'travel_plan_label',
             'total_matches', 'total_runs', 'total_wickets',
         ], array_keys($first));

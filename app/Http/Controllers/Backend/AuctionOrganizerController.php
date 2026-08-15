@@ -290,6 +290,8 @@ class AuctionOrganizerController extends Controller
             return [
                 'id' => $ap->id,
                 'player_id' => $ap->player_id,
+                // Needed by the panel's next-player rule — see projectAvailablePlayers().
+                'auction_pool_id' => $ap->auction_pool_id,
                 'base_price' => $ap->base_price,
                 'jersey_number' => $ap->player->jersey_number ?? null,
                 'player' => $ap->player,
@@ -1761,6 +1763,16 @@ class AuctionOrganizerController extends Controller
     {
         return $players->map(fn ($ap) => [
             'id' => $ap->id,
+            /*
+             * Which pool this player is queued in.
+             *
+             * The panel decides who goes up next and has to obey the pool's order mode — a
+             * random pool is drawn afresh on every NEXT, a sequential one is called in order.
+             * Without the pool id on the row the panel could not tell which pool the queue was
+             * being served from, so it treated every pool as sequential and the random setting
+             * did nothing at all.
+             */
+            'auction_pool_id' => $ap->auction_pool_id,
             'name' => $ap->player?->name,
             'base_price' => $ap->base_price,
             'image_path' => $ap->player?->image_path,

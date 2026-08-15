@@ -91,6 +91,9 @@
          '{{ $auction->status }}',
          {{ json_encode($availablePlayers->map(fn($ap) => [
              'id' => $ap->id,
+             /* The pool this player is queued in — what tells NEXT whether to call the
+                queue in order or draw from it at random. See pickNextFromQueue(). */
+             'auction_pool_id' => $ap->auction_pool_id,
              'name' => $ap->player?->name,
              'base_price' => $ap->base_price,
              'image_path' => $ap->player?->image_path,
@@ -3248,6 +3251,9 @@ function auctionOrganizerPanel() {
                  */
                 this.availablePlayers = (data.available_players || []).map(ap => ({
                     id: ap.id,
+                    // Carried through, or pickNextFromQueue() cannot tell which pool it is
+                    // serving and falls back to calling every pool in order.
+                    auction_pool_id: ap.auction_pool_id ?? ap.pool_id ?? null,
                     name: ap.name || ap.player?.name || 'Unknown',
                     base_price: ap.base_price,
                     image_path: ap.image_path ?? ap.player?.image_path ?? null,
@@ -4865,7 +4871,7 @@ function auctionOrganizerPanel() {
                  * The cover stays up past the reveal either way — see keepOverlay — so nothing
                  * shows between landing on the name and the player actually being live.
                  */
-                if (this.poolOrderMode(chosenPlayer.auction_pool_id ?? null) === 'random') {
+                if (this.poolOrderMode(this.activePool?.id ?? chosenPlayer.auction_pool_id ?? null) === 'random') {
                     await this._runShuffleAnimation(chosenPlayer, null, { keepOverlay: true });
                 }
 
@@ -5600,8 +5606,26 @@ function auctionOrganizerPanel() {
             const queue = this.availablePlayers || [];
             if (! queue.length) return null;
 
-            const poolId = queue[0].auction_pool_id ?? null;
-            const candidates = queue.filter(p => (p.auction_pool_id ?? null) === poolId);
+            /*
+             * The running pool first, the queue's own first row second.
+             *
+             * While a pool is running the server already scopes this queue to it, so
+             * `activePool` is the reliable answer and does not depend on the row shape. The
+             * fallback covers the case where no pool has been started and the queue is being
+             * served from whichever pool comes first in sequence.
+             */
+            const poolId = this.activePool?.id ?? queue[0].auction_pool_id ?? null;
+
+            /*
+             * Confine the draw to that pool — but never to nothing.
+             *
+             * A panel still running the HTML from before the pool id was added to the payload
+             * has `auction_pool_id: undefined` on every row, and filtering on it would leave an
+             * empty list and no next player at all. An empty result means the rows cannot say,
+             * so the whole queue is used.
+             */
+            const scoped = queue.filter(p => Number(p.auction_pool_id) === Number(poolId));
+            const candidates = scoped.length ? scoped : queue;
 
             if (this.poolOrderMode(poolId) !== 'random') {
                 return candidates[0];

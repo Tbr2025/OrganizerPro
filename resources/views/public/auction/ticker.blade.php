@@ -1787,6 +1787,10 @@
                     lastArtwork = artwork;
 
                     applySoldBoard(e?.board);
+
+                    /* And re-read the feed, always — the same dialog also sets the BREAK LENGTH,
+                       which lives on the feed rather than on this event. */
+                    refreshNow('board');
                 });
 
             /* Pause, resume, end and restart publish on their own channel. Without this the

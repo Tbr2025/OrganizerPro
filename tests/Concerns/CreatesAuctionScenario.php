@@ -12,6 +12,7 @@ use App\Models\AuctionPool;
 use App\Models\Organization;
 use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -126,6 +127,31 @@ trait CreatesAuctionScenario
             'status' => 'approved',
             'organization_id' => $org->id,
         ], $attributes));
+    }
+
+    /**
+     * A player the tournament has APPROVED — what the auction wizard requires.
+     *
+     * The wizard's pool step refuses anyone without an approved registration for the tournament
+     * being auctioned, the same rule the pools screen's Assign and Auto-assign apply. A bare
+     * makePlayer() has no registration at all, which is not a state any live auction is in, so
+     * any test that posts players through the wizard needs this one.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    protected function makeApprovedPlayer(Organization $org, Tournament $tournament, array $attributes = []): Player
+    {
+        $player = $this->makePlayer($org, $attributes);
+
+        TournamentRegistration::create([
+            'tournament_id' => $tournament->id,
+            'organization_id' => $org->id,
+            'type' => 'player',
+            'player_id' => $player->id,
+            'status' => 'approved',
+        ]);
+
+        return $player;
     }
 
     /**

@@ -11,6 +11,7 @@ use App\Models\Permission;
 use App\Models\Player;
 use App\Models\Role;
 use App\Models\Tournament;
+use App\Models\TournamentRegistration;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,7 +36,7 @@ class AuctionUpdatePoolsTest extends TestCase
 
         $players = [];
         for ($i = 1; $i <= 4; $i++) {
-            $players[] = Player::create(['organization_id' => $org->id, 'name' => "P{$i}", 'email' => "p{$i}@x.test", 'status' => 'approved']);
+            $players[] = $this->approvedFor($org, $tournament, "P{$i}", "p{$i}@x.test");
         }
 
         // One player already SOLD — must survive the rebuild untouched.
@@ -99,9 +100,7 @@ class AuctionUpdatePoolsTest extends TestCase
             'base_price' => 100, 'organization_id' => null, 'tournament_id' => $tournament->id, 'bid_type' => 'open',
         ]);
 
-        $players = collect(range(1, 3))->map(fn ($i) => Player::create([
-            'organization_id' => $org->id, 'name' => "P{$i}", 'email' => "p{$i}@x.test", 'status' => 'approved',
-        ]));
+        $players = collect(range(1, 3))->map(fn ($i) => $this->approvedFor($org, $tournament, "P{$i}", "p{$i}@x.test"));
 
         Permission::create(['name' => 'auction.edit', 'group_name' => 'auction']);
         $role = Role::create(['name' => 'Superadmin']);
@@ -155,5 +154,29 @@ class AuctionUpdatePoolsTest extends TestCase
         $this->assertDatabaseHas('auction_team_budgets', [
             'auction_id' => $auction->id, 'actual_team_id' => $team->id, 'budget' => 1500,
         ]);
+    }
+
+    /**
+     * A player the tournament has APPROVED.
+     *
+     * The wizard's pool step refuses anyone without an approved registration — the same rule the
+     * pools screen has always applied — so a fixture of registration-less players no longer
+     * describes anything the app will accept.
+     */
+    private function approvedFor(Organization $org, Tournament $tournament, string $name, string $email): Player
+    {
+        $player = Player::create([
+            'organization_id' => $org->id, 'name' => $name, 'email' => $email, 'status' => 'approved',
+        ]);
+
+        TournamentRegistration::create([
+            'tournament_id' => $tournament->id,
+            'organization_id' => $org->id,
+            'type' => 'player',
+            'player_id' => $player->id,
+            'status' => 'approved',
+        ]);
+
+        return $player;
     }
 }

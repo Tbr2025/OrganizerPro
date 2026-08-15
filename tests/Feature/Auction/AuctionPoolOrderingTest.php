@@ -109,4 +109,57 @@ class AuctionPoolOrderingTest extends TestCase
         AuctionPlayer::find($p1[1])->update(['status' => 'sold']);
         $this->assertSame($p2[0], $service->nextPlayer($auction)->id);
     }
+
+    /**
+     * The panel cannot obey a pool's order mode it is never told about.
+     *
+     * NEXT calls a sequential pool in its drawn order and draws a random one afresh on every
+     * press — a decision it makes in the browser, from the queue and the pool payload. Both
+     * halves of that were missing: `order_mode` was not on the pool payload, and
+     * `auction_pool_id` was not on the queue rows, so every pool looked sequential and the
+     * random setting did nothing at all. Neither omission could fail a test that only checked
+     * lot numbers, which is why this one checks the payload.
+     */
+    #[Test]
+    public function the_pool_payload_carries_its_order_mode(): void
+    {
+        $auction = $this->auction();
+        $pool = AuctionPool::create([
+            'auction_id' => $auction->id,
+            'name' => 'Marquee',
+            'order_mode' => 'random',
+            'sequence' => 1,
+            'status' => AuctionPool::STATUS_ACTIVE,
+        ]);
+        $this->seedPool($pool, 3);
+
+        $progress = app(AuctionPoolService::class)->poolProgress($auction);
+
+        $this->assertSame('random', $progress['active_pool']['order_mode']);
+        $this->assertSame('random', $progress['pools'][0]['order_mode']);
+    }
+
+    #[Test]
+    public function the_queue_rows_say_which_pool_they_are_in(): void
+    {
+        $auction = $this->auction();
+        $pool = AuctionPool::create([
+            'auction_id' => $auction->id,
+            'name' => 'Marquee',
+            'order_mode' => 'random',
+            'sequence' => 1,
+        ]);
+        $this->seedPool($pool, 2);
+
+        // The panel's own projection, reached through the controller so the test exercises
+        // the method the payload is actually built by.
+        $rows = (new \ReflectionMethod(\App\Http\Controllers\Backend\AuctionOrganizerController::class, 'projectAvailablePlayers'))
+            ->invoke(
+                app(\App\Http\Controllers\Backend\AuctionOrganizerController::class),
+                app(AuctionPoolService::class)->waitingPlayersQuery($auction)->with('player')->get()
+            );
+
+        $this->assertCount(2, $rows);
+        $this->assertSame($pool->id, $rows[0]['auction_pool_id']);
+    }
 }
