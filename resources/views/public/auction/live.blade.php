@@ -2576,6 +2576,8 @@ HTML;
         let lastActionPlayerId = null;
         /* One pending re-read for the end of the last-result hold — see the feed handler. */
         let _stageHoldTimer = null;
+        /* And one for the end of a tie-break spin, for the same reason. */
+        let _spinRecheck = null;
 
         /**
          * Take the previous player's outcome off the screen.
@@ -4884,6 +4886,25 @@ HTML;
                        has to keep asking. scheduleWallPoll() reads this on the way out of
                        every fetch. */
                     sealedActive = !!(data.closed_bid && data.closed_bid.active);
+
+                    /*
+                     * Come back when the tie-break spin has finished.
+                     *
+                     * The award lands in the same request as the draw and the server withholds
+                     * the result for the length of the spin — so a refresh during it sees
+                     * nothing, and once the round is resolved `sealedActive` goes false and the
+                     * 2s sealed cadence stops. Without this the wall could sit on the pre-draw
+                     * frame until the next unrelated event. The window is the server's own
+                     * figure; a browser clock has no part in it.
+                     */
+                    const spinLeft = Number(data?.closed_bid?.tie?.spin_remaining_ms || 0);
+
+                    if (spinLeft > 0 && ! _spinRecheck) {
+                        _spinRecheck = setTimeout(() => {
+                            _spinRecheck = null;
+                            refreshNow('lot-spin-end');
+                        }, spinLeft + 400);
+                    }
 
                     // No player on the block means no meaningful countdown.
                     clockHasPlayer = data?.auctionPlayer?.status === 'on_auction';

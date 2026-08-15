@@ -1360,6 +1360,8 @@
 
     /* What the artwork switches were last set to, so a change can be noticed. */
     let lastArtwork = null;
+    /* One pending re-read for the end of a tie-break spin — see the feed handler. */
+    let _spinRecheck = null;
 
     let ltDrawCycle = null;
     let ltDrawSettledFor = null;
@@ -1524,6 +1526,29 @@
 
                 lastCurrentPlayer = d.current_player || null;
                 lastSealed = d.closed_bid || null;
+
+                /*
+                 * ── Come back when the draw has finished ──
+                 *
+                 * A tie-break award happens in the SAME request as the draw, so the sale exists
+                 * from the first millisecond — but the server withholds the winner, the price and
+                 * the buying team for the length of the spin, deliberately, so the hall cannot
+                 * read the result before the ring stops.
+                 *
+                 * The push that announced the draw therefore lands while there is still nothing
+                 * to show, and nothing pushes again when the spin ends. So the strip kept the
+                 * pre-draw state: no sale in Recent Sales, no result badge, the player still on
+                 * the block. This asks once more, just after the withholding window the SERVER
+                 * measured — never a local clock, which is four hours out against the database.
+                 */
+                const spinLeft = Number(d.closed_bid?.tie?.spin_remaining_ms || 0);
+
+                if (spinLeft > 0 && ! _spinRecheck) {
+                    _spinRecheck = setTimeout(() => {
+                        _spinRecheck = null;
+                        refreshNow('lot-spin-end');
+                    }, spinLeft + 400);
+                }
                 // Sealed transitions are pushed now (.sealed.changed), but the strip still
                 // tracks this: the poll is the backstop for a screen that missed the frame.
                 // scheduleTickerPoll() reads it after every fetch.

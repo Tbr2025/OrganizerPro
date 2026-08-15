@@ -109,6 +109,8 @@ class AuctionAllotmentController extends Controller
 
         $this->applyAllotment($auction, $auctionPlayer, $team, $price);
 
+        $this->nudgeScreens($auction);
+
         return $this->respond(
             $request,
             true,
@@ -177,6 +179,13 @@ class AuctionAllotmentController extends Controller
 
         $skipped = count($plan['unassigned']) + (count($plan['proposals']) - $allotted);
 
+        // ONE nudge for the whole run, not one per player: a bulk distribution can place
+        // dozens, and a broadcast each would have every screen in the hall refetch dozens of
+        // times for a single press.
+        if ($allotted > 0) {
+            $this->nudgeScreens($auction);
+        }
+
         return $this->respond(
             $request,
             true,
@@ -207,6 +216,31 @@ class AuctionAllotmentController extends Controller
      * Write the allotment: the same sale path as SELL, plus an audit bid and an undo
      * entry, so an allotment behaves exactly like any other acquisition.
      */
+    /**
+     * Tell the public screens an allotment happened.
+     *
+     * Allotment writes a real sale — the player joins a squad, the price comes off a purse — and
+     * it broadcast nothing at all. The wall and the ticker only learn about a sale from an event,
+     * so an allotted player stayed unsold on the strip, missing from Recent Sales and from the
+     * team's figures, until something unrelated caused a refetch. In the end-of-auction window
+     * where allotment runs, nothing unrelated happens.
+     *
+     * `AuctionStatusUpdate` rather than a sold event, deliberately: it means "something changed,
+     * come and look", and every public screen already listens for it. A sold event would also
+     * fire the wall's sale celebration, which is wrong for a clerical placement made after the
+     * bidding has finished — and unbearable in a bulk run of thirty.
+     */
+    private function nudgeScreens(Auction $auction): void
+    {
+        try {
+            broadcast(new \App\Events\AuctionStatusUpdate($auction->id, $auction->fresh()->status));
+        } catch (\Throwable $e) {
+            // A screen that misses this recovers on its next poll or reconnect. A failed
+            // broadcast must never fail the allotment that has already been written.
+            \Log::warning('Allotment screen nudge failed: ' . $e->getMessage(), ['auction_id' => $auction->id]);
+        }
+    }
+
     private function applyAllotment(Auction $auction, AuctionPlayer $auctionPlayer, ActualTeam $team, float $price): void
     {
         $auditBid = AuctionBid::create([
