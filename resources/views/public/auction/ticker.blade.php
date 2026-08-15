@@ -223,34 +223,59 @@
         #teams-panel.dense .tr { font-size: 15px; }
 
         /* ── Scrolling recent sales, along the very bottom ── */
+        /*
+         * ── Recent sales ──
+         *
+         * Names, teams and figures ran together at one weight and one size, with the label block
+         * butted hard against the first crest — from across a room it read as a single line of
+         * text rather than as a list of sales. Each sale is now a card with its own ground, the
+         * pieces are separated by weight and colour rather than by spaces, and the label has room
+         * to breathe.
+         */
         #sales-strip {
             position: fixed; bottom: 46px; left: 60px; right: 60px;
-            height: 62px; border-radius: 14px; overflow: hidden;
+            height: 72px; border-radius: 16px; overflow: hidden;
             display: flex; align-items: center;
+            background: rgba(6, 10, 20, 0.92);
+            border: 1px solid var(--edge);
         }
         #sales-label {
-            flex-shrink: 0; padding: 0 22px; height: 100%;
+            flex-shrink: 0; padding: 0 26px; height: 100%;
             display: flex; align-items: center;
             background: var(--primary); color: #001018;
-            font-size: 14px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase;
+            font-size: 13px; font-weight: 900; letter-spacing: 3px; text-transform: uppercase;
         }
         #sales-viewport { flex: 1; overflow: hidden; position: relative; height: 100%; }
         #sales-track {
-            display: flex; align-items: center; gap: 48px;
+            display: flex; align-items: center; gap: 14px;
             height: 100%; white-space: nowrap;
             position: absolute; left: 0; top: 0;
+            padding-left: 14px;
             will-change: transform;
         }
-        .sale { display: flex; align-items: center; gap: 11px; font-size: 19px; }
+
+        /* One sale, one card — the gap between them is what makes a list read as a list. */
+        .sale {
+            display: flex; align-items: center; gap: 12px;
+            font-size: 19px; padding: 8px 18px; border-radius: 999px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
         .sale img, .sale .initials {
-            width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+            width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
             background: rgba(255,255,255,0.12);
             display: flex; align-items: center; justify-content: center;
             font-size: 11px; font-weight: 900;
         }
-        .sale .who { font-weight: 700; }
-        .sale .to { opacity: 0.5; font-size: 15px; }
-        .sale .price { font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums; }
+        /* The player is the subject and the team is the answer, so they are not the same weight. */
+        .sale .who { font-weight: 800; color: #fff; }
+        .sale .team { font-weight: 600; color: rgba(255,255,255,0.72); }
+        .sale .to { opacity: 0.4; font-size: 14px; font-weight: 600; }
+        .sale .price {
+            font-weight: 900; color: var(--secondary); font-variant-numeric: tabular-nums;
+            padding-left: 12px; margin-left: 2px;
+            border-left: 1px solid rgba(255,255,255,0.12);
+        }
 
         /* ── Sold board ── */
         #sold-board {
@@ -714,7 +739,7 @@
                     : `<span class="initials">${esc(initials(s.team_name))}</span>`}
                 <span class="who">${esc(s.player_name)}</span>
                 <span class="to">to</span>
-                <span class="who">${esc(s.team_name)}</span>
+                <span class="team">${esc(s.team_name)}</span>
                 <span class="price">${esc(amount(s.price))}</span>
             </div>`).join('');
 
@@ -1293,9 +1318,27 @@
             /* The organizer's own wording, from the Sealed Bid Screen settings — the same words
                the wall carries, so the two screens in one room do not say different things. */
             title.textContent = SEALED_HEADING;
-            sub.textContent = sealed.round_number > 1
-                ? `${SEALED_MESSAGE} · round ${sealed.round_number} of ${sealed.total_rounds || 1}`
-                : SEALED_MESSAGE;
+
+            /*
+             * How far along the round is, not just that one is running.
+             *
+             * "Amounts are revealed once every team has submitted" is true for the whole round and
+             * therefore says nothing about it — a stream watching a sealed round for two minutes
+             * has no idea whether it is waiting on one team or four. The counts carry no amounts
+             * and no names, which is the only thing a sealed round has to protect.
+             */
+            const submitted = Number(sealed.submitted_count);
+            const invited = Number(sealed.invited_count);
+
+            const progress = Number.isFinite(submitted) && Number.isFinite(invited) && invited > 0
+                ? `${submitted} of ${invited} in`
+                : '';
+
+            const round = sealed.round_number > 1
+                ? `round ${sealed.round_number} of ${sealed.total_rounds || 1}`
+                : '';
+
+            sub.textContent = [SEALED_MESSAGE, progress, round].filter(Boolean).join(' · ');
             return;
         }
 

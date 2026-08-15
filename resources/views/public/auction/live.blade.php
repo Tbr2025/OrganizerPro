@@ -756,6 +756,60 @@ HTML;
             background: rgba(var(--primary-rgb), 0.9); color: #08111f;
         }
 
+        /*
+         * ── "Loading next player" ──
+         *
+         * Bounce, zoom and turn on the event's own mark: three transforms on one element, which
+         * the browser composites on its own thread, so a wall driving a projector pays nothing for
+         * it. Deliberately says nothing about the player — the whole point is that the room does
+         * not learn who is next before the card arrives.
+         */
+        #next-loader {
+            position: fixed; inset: 0; z-index: 205;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 30px;
+            background:
+                radial-gradient(circle at 50% 42%, rgba(var(--primary-rgb),0.28) 0%, rgba(2,6,23,0.96) 62%),
+                rgba(2,6,23,0.94);
+            backdrop-filter: blur(10px);
+            animation: sealedOverlayIn 0.35s ease-out;
+        }
+        #next-loader.hidden { display: none; }
+
+        #next-loader-mark {
+            width: 260px; height: 260px;
+            display: flex; align-items: center; justify-content: center;
+            animation: loaderMark 2.4s cubic-bezier(0.45, 0, 0.35, 1) infinite;
+        }
+        #next-loader-mark img { max-width: 100%; max-height: 100%; object-fit: contain;
+            filter: drop-shadow(0 18px 44px rgba(0,0,0,0.65)); }
+        #next-loader-mark span { font-size: 150px; line-height: 1; color: rgb(var(--primary-rgb)); }
+
+        @keyframes loaderMark {
+            0%   { transform: translateY(0) scale(1) rotate(0deg); }
+            25%  { transform: translateY(-38px) scale(1.12) rotate(8deg); }
+            50%  { transform: translateY(0) scale(1) rotate(0deg); }
+            75%  { transform: translateY(-16px) scale(1.06) rotate(-6deg); }
+            100% { transform: translateY(0) scale(1) rotate(0deg); }
+        }
+
+        #next-loader-text {
+            font-size: 46px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase;
+            color: #fff; text-shadow: 0 0 50px rgba(var(--primary-rgb),0.5);
+        }
+        #next-loader-dots { display: flex; gap: 14px; }
+        #next-loader-dots span {
+            width: 16px; height: 16px; border-radius: 50%;
+            background: rgb(var(--primary-rgb)); opacity: 0.3;
+            animation: sealedWorking 1.3s ease-in-out infinite;
+        }
+        #next-loader-dots span:nth-child(2) { animation-delay: 0.16s; }
+        #next-loader-dots span:nth-child(3) { animation-delay: 0.32s; }
+
+        @media (prefers-reduced-motion: reduce) {
+            #next-loader-mark, #next-loader-dots span { animation: none; }
+        }
+
         /* ── The draw's own surface ── */
         #draw-overlay {
             position: fixed; inset: 0; z-index: 210;
@@ -2090,7 +2144,27 @@ HTML;
             </div>
     </div>
 
-    {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
+    {{-- Loading the next player.
+         Put up the moment the organizer starts choosing and taken down when the card arrives, so
+         the wall says something is coming rather than sitting on an empty waiting screen. It says
+         nothing about WHO: the room finding out early is the one thing a reveal must not do, so
+         this carries the event's own mark and no player data at all. --}}
+    <div id="next-loader" class="hidden" aria-hidden="true">
+        @php
+            $loaderMark = $auction->auction_logo_url ?: ($auction->tournament->logo_url ?? null);
+        @endphp
+        <div id="next-loader-mark">
+            @if($loaderMark)
+                <img src="{{ $loaderMark }}" alt="">
+            @else
+                <span>&#9673;</span>
+            @endif
+        </div>
+        <div id="next-loader-text">Loading next player</div>
+        <div id="next-loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+
+    {{-- Paused overlay (shown in real-time when the organizer pauses) --}}    {{-- Paused overlay (shown in real-time when the organizer pauses) --}}
     <div id="paused-overlay" class="hidden"
          style="position:fixed;inset:0;z-index:9999;background:rgba(2,6,23,0.82);backdrop-filter:blur(6px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
         <div style="font-size:5rem;line-height:1;margin-bottom:1rem;">⏸️</div>
@@ -2821,7 +2895,7 @@ HTML;
              */
             renderBasePrice(ap.base_price, price);
             renderTravelPlan(ap.player);
-            renderPlayingTeam(ap.player);
+            renderPlayingTeam(ap.player, ap);
 
             if (bidEl) {
                 rollBidTo(bidEl, Number(window._lastDisplayedPrice) || 0, price);
@@ -3521,6 +3595,36 @@ HTML;
             });
         })();
 
+        /*
+         * The "loading next player" surface.
+         *
+         * Held for a fixed beat rather than until the card is ready: the card is usually ready
+         * immediately (the push carries it), so hiding on arrival would flash the loader for a
+         * frame and read as a glitch. LOADER_MS is what a hall actually perceives as "something is
+         * coming", and the card is painted underneath while it runs.
+         */
+        const LOADER_MS = 1600;
+        let _loaderTimer = null;
+
+        function showNextLoader() {
+            const el = document.getElementById('next-loader');
+            if (! el) return;
+
+            el.classList.remove('hidden');
+
+            if (_loaderTimer) clearTimeout(_loaderTimer);
+            _loaderTimer = setTimeout(() => {
+                _loaderTimer = null;
+                el.classList.add('hidden');
+            }, LOADER_MS);
+        }
+
+        /** Taken down at once when something more important needs the wall. */
+        function hideNextLoader() {
+            if (_loaderTimer) { clearTimeout(_loaderTimer); _loaderTimer = null; }
+            document.getElementById('next-loader')?.classList.add('hidden');
+        }
+
         function markCardChanged() {
             const card = document.getElementById('card-container');
             if (! card) return;
@@ -3601,6 +3705,9 @@ HTML;
                     ? `${text} — round ${sealedState.round_number} of ${sealedState.total_rounds || 1}`
                     : text;
             }
+
+            /* A sealed round or a draw outranks the loader — both take the whole wall. */
+            hideNextLoader();
 
             renderSealedDraw(sealedState.tie);
             renderSealedOverlay(sealedState);
@@ -4094,7 +4201,7 @@ HTML;
              */
             renderBasePrice(p.base_price, price);
             renderTravelPlan(p.player);
-            renderPlayingTeam(p.player);
+            renderPlayingTeam(p.player, p);
 
             if (bidEl) {
                 // Rolls up to the new figure, exactly as the pushed path does — a raise must
@@ -4838,6 +4945,17 @@ HTML;
                 if (!ap) return;
 
                 if (ap.id !== lastOnAuctionPlayerId) {
+                    /*
+                     * A beat before the card, so the wall says something is coming.
+                     *
+                     * The push arrives with the whole player on it, so the card could be painted
+                     * on the same frame — and a hall would see the previous result blink straight
+                     * into the next face with nothing in between. The loader carries the event's
+                     * mark and NO player data: the room finding out who is next before the reveal
+                     * is the one thing this must not do.
+                     */
+                    showNextLoader();
+
                     // Straight to the card — see the poll path above, including why the
                     // previous player's result has to be cleared here.
                     lastOnAuctionPlayerId = ap.id;
@@ -5298,14 +5416,34 @@ HTML;
          * and the players list all read — the wall had no element for this at all, so a card
          * could not show where a player comes from however the template was drawn.
          */
-        function renderPlayingTeam(player) {
+        /**
+         * The club they come from — until they are bought, when it becomes who bought them.
+         *
+         * @param player      the Player, for the club they currently turn out for
+         * @param auctionPlayer  the lot, for the result
+         *
+         * One element, two facts, because they answer the same question at different moments: who
+         * does this player belong to? Before the hammer that is their current club; after it, it is
+         * the team that just paid for them, and the old club stops being the interesting half.
+         *
+         * The buyer's name is only ever read from a payload that HAS one — during a lot draw the
+         * server withholds it, so this cannot leak a winner the room has not been shown.
+         */
+        function renderPlayingTeam(player, auctionPlayer = null) {
             const el = document.getElementById('playing-team');
             if (! el) return;
 
-            const label = player?.playing_team_label || '';
             const valueEl = document.getElementById('playing-team-value');
+            const buyer = auctionPlayer?.status === 'sold'
+                ? (auctionPlayer.sold_to_team?.name || auctionPlayer.current_bid_team?.name || '')
+                : '';
+
+            const label = buyer ? `Sold to ${buyer}` : (player?.playing_team_label || '');
 
             if (valueEl) valueEl.textContent = label;
+
+            // Marked, so a template can colour the two states differently if it wants to.
+            el.classList.toggle('is-sold-to', !! buyer);
             el.style.visibility = label ? 'visible' : 'hidden';
         }
 
