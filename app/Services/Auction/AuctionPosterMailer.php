@@ -44,13 +44,7 @@ class AuctionPosterMailer
         try {
             $auctionPlayer->loadMissing(['player', 'soldToTeam', 'pool', 'sourcePool']);
 
-            $template = TournamentTemplate::where('tournament_id', $auction->tournament_id)
-                ->whereIn('type', [
-                    TournamentTemplate::TYPE_AUCTION_POSTER,
-                    TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
-                ])
-                ->orderByDesc('is_default')
-                ->first();
+            $template = $this->templateFor($auction);
 
             if (! $template) {
                 // No designed poster: the LED wall card, exactly as the download falls back.
@@ -72,6 +66,35 @@ class AuctionPosterMailer
 
             return null;
         }
+    }
+
+    /**
+     * Which poster design this auction emails, or null when none has been drawn.
+     *
+     * The organizer's choice first. A tournament usually has more than one auction poster — a
+     * portrait for social, a landscape for the wall, an older one kept for reference — and which
+     * of them a sold player receives used to be decided by whichever happened to be the default.
+     *
+     * Still scoped to the tournament, and a chosen id that no longer resolves falls through to the
+     * default rather than failing: a template can be deleted long after an auction was configured,
+     * and a setting that has gone stale must not be the reason a player is never emailed.
+     *
+     * Public so it can be asserted directly. Resolution is the part with rules in it; rendering an
+     * image is not something a test should have to do to check them.
+     */
+    public function templateFor(Auction $auction): ?TournamentTemplate
+    {
+        $templates = TournamentTemplate::where('tournament_id', $auction->tournament_id)
+            ->whereIn('type', [
+                TournamentTemplate::TYPE_AUCTION_POSTER,
+                TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+            ]);
+
+        $chosen = $auction->sold_poster_template_id
+            ? (clone $templates)->whereKey($auction->sold_poster_template_id)->first()
+            : null;
+
+        return $chosen ?? $templates->orderByDesc('is_default')->first();
     }
 
     /** What the file is called when it lands in somebody's inbox. */

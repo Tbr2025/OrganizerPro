@@ -79,6 +79,8 @@ class Auction extends Model
         'max_squad_size',
         'auction_template_id',
         'ticker_template_id',
+        // Which poster a sold player is emailed — see AuctionPosterMailer.
+        'sold_poster_template_id',
         'default_retained_value',
         'expected_retained_per_team',
         'closed_bid_step',

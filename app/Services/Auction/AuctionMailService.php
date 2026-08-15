@@ -193,6 +193,24 @@ class AuctionMailService
      * Deferring this is what keeps the auction fast: the card is a rendered poster, so
      * generating it mid-auction cost real time on every single sale.
      */
+    /**
+     * The one email a sold player gets, carrying their sold card.
+     *
+     * This delegated to TournamentNotificationService::sendRetainedWelcomeCard(), which is built
+     * for RETENTION and behaves accordingly: it requires a `retained_welcome_card` design and,
+     * with none, logs "No retained_welcome_card template found — skipping" and sends nothing. Live
+     * has been doing exactly that. When it did send, the attachment was the welcome design rather
+     * than the card showing what the player went for.
+     *
+     * An auction sale attaches the SOLD card — the same artwork the pools screen downloads and the
+     * wall shows — from the template the organizer chose in the auction's settings. That card is
+     * always renderable: AuctionPosterMailer falls back to the LED wall card when no poster has
+     * been designed, so a sale can no longer go out silently unemailed for want of a template
+     * nobody knew they had to draw.
+     *
+     * The welcome WORDING is unchanged: the same EmailTemplate type, the same per-tournament
+     * overrides. Only the attachment and the reason it cannot fail have changed.
+     */
     private function sendWelcomeCard(AuctionPendingEmail $row): void
     {
         $auction = $row->auction;
@@ -204,7 +222,43 @@ class AuctionMailService
             throw new \RuntimeException('No tournament registration found for this player.');
         }
 
-        $this->notifications->sendRetainedWelcomeCard($registration);
+        $player = $registration->player;
+        $email = $player?->email;
+
+        if (! $player || ! $email) {
+            throw new \RuntimeException('Player has no email address to send the card to.');
+        }
+
+        $auctionPlayer = $row->auctionPlayer;
+        $poster = $auctionPlayer && $auction
+            ? app(AuctionPosterMailer::class)->render($auction, $auctionPlayer)
+            : null;
+
+        /*
+         * A card that could not be drawn does not stop the email.
+         *
+         * `$poster` is null when a render fails — a corrupt upload, GD out of memory, no template
+         * and no LED card either. Being told you were sold is the message; the card is what makes
+         * it worth keeping. PlayerWelcomeMail already skips a missing attachment, so an empty path
+         * sends the same email without it.
+         *
+         * This is the behaviour the old path did not have: it required a `retained_welcome_card`
+         * design and, with none, logged a line and sent nothing at all.
+         */
+        $team = $row->team ?? $auctionPlayer?->soldToTeam;
+
+        Mail::to($email)->send(new \App\Mail\PlayerWelcomeMail(
+            $player,
+            $poster ?? '',
+            $registration->tournament,
+            \App\Models\EmailTemplate::TYPE_WELCOME_CARD,
+            array_filter([
+                '{team_name}' => $team?->name,
+                '{sold_price}' => $auctionPlayer && $auctionPlayer->final_price !== null
+                    ? $auction->formatAmount($auctionPlayer->final_price)
+                    : null,
+            ])
+        ));
     }
 
     /**

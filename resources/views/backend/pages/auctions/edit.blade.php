@@ -1411,6 +1411,40 @@
                             'tickerTemplates' => $tickerTemplates ?? collect(),
                         ])
 
+                        {{-- The card a sold player is emailed.
+                             Sits with the screen templates because it is the same kind of choice —
+                             which design this auction uses — even though this one leaves the
+                             building rather than going on a wall. --}}
+                        <div class="mb-6 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                            <label for="sold_poster_template_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Sold card emailed to the player
+                            </label>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                Attached to the welcome email a player receives when they are sold —
+                                by the panel, by a drawn lot, or by allotment.
+                            </p>
+
+                            @if(($soldPosterTemplates ?? collect())->isEmpty())
+                                <p class="text-xs text-amber-600 dark:text-amber-400">
+                                    No auction poster has been designed for this tournament yet, so the
+                                    LED wall card is sent instead. Design one under Tournament &rarr;
+                                    Templates to choose it here.
+                                </p>
+                            @else
+                                <select name="sold_poster_template_id" id="sold_poster_template_id" class="form-control">
+                                    {{-- Not "none": there is always a card. Blank means the tournament's
+                                         default, which is what every auction did before this setting. --}}
+                                    <option value="">Tournament default</option>
+                                    @foreach($soldPosterTemplates as $tpl)
+                                        <option value="{{ $tpl->id }}"
+                                            @selected(old('sold_poster_template_id', $auction->sold_poster_template_id) == $tpl->id)>
+                                            {{ $tpl->name }}{{ $tpl->is_default ? ' (default)' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            @endif
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {{-- Card Background Image --}}
                             <div class="md:col-span-2">

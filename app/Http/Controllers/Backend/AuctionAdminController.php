@@ -369,6 +369,8 @@ class AuctionAdminController extends Controller
             'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
             'ticker_template_id' => 'nullable|exists:auction_templates,id',
+            // Which poster design a sold player is emailed — see AuctionPosterMailer.
+            'sold_poster_template_id' => 'nullable|exists:tournament_templates,id',
             'default_retained_value' => 'nullable|numeric|min:0',
             'expected_retained_per_team' => 'nullable|integer|min:0|max:50',
             // Sealed-round rules. A step of 0 is a configuration error, not "any amount
@@ -500,6 +502,7 @@ class AuctionAdminController extends Controller
                 // blank field stays blank and stays clearable.
                 'auction_template_id' => $validated['auction_template_id'] ?? null,
                 'ticker_template_id' => $validated['ticker_template_id'] ?? null,
+                'sold_poster_template_id' => $validated['sold_poster_template_id'] ?? null,
                 /*
                  * Derived from Team Size, never taken from the request.
                  *
@@ -1754,7 +1757,26 @@ class AuctionAdminController extends Controller
         $displayTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_LIVE_DISPLAY);
         $tickerTemplates = $this->selectableTemplates(\App\Models\AuctionTemplate::TYPE_TICKER);
 
+        /*
+         * The poster designs a sold player can be emailed.
+         *
+         * The same list the pools screen builds for its download menu — a tournament usually has
+         * more than one, and which of them a player receives was decided by whichever happened to
+         * be the default.
+         */
+        $soldPosterTemplates = $auction->tournament_id
+            ? \App\Models\TournamentTemplate::where('tournament_id', $auction->tournament_id)
+                ->whereIn('type', [
+                    \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER,
+                    \App\Models\TournamentTemplate::TYPE_AUCTION_POSTER_PORTRAIT,
+                ])
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get()
+            : collect();
+
         return view('backend.pages.auctions.edit', compact(
+            'soldPosterTemplates',
             'auction',
             'organizations',
             'tournaments',
@@ -1831,6 +1853,8 @@ class AuctionAdminController extends Controller
             'max_bid_pct_of_budget' => 'nullable|numeric|min:1|max:100',
             'auction_template_id' => 'nullable|exists:auction_templates,id',
             'ticker_template_id' => 'nullable|exists:auction_templates,id',
+            // Which poster design a sold player is emailed — see AuctionPosterMailer.
+            'sold_poster_template_id' => 'nullable|exists:tournament_templates,id',
             'default_retained_value' => 'nullable|numeric|min:0',
             'expected_retained_per_team' => 'nullable|integer|min:0|max:50',
             // Sealed-round rules. A step of 0 is a configuration error, not "any amount
@@ -1951,6 +1975,7 @@ class AuctionAdminController extends Controller
                 // impossible to clear, the same trap the colour fields fell into.
                 'auction_template_id' => $validated['auction_template_id'] ?? null,
                 'ticker_template_id' => $validated['ticker_template_id'] ?? null,
+                'sold_poster_template_id' => $validated['sold_poster_template_id'] ?? null,
                 /*
                  * Derived from Team Size, never taken from the request.
                  *

@@ -36,6 +36,27 @@ class AuctionEmailQueueTest extends TestCase
         return $ap;
     }
 
+    /**
+     * The tournament registration a sale email is built from.
+     *
+     * The card is rendered with the tournament's wording and branding, so the email cannot be
+     * assembled without one. These fixtures never created it, which was invisible while a panel
+     * sale ALSO sent a sold notice that needed no registration — that second email is gone, so
+     * the registration is now the difference between an email and a failed row.
+     */
+    private function registerPlayer(\App\Models\Player $player, $tournament): void
+    {
+        \App\Models\TournamentRegistration::create([
+            'tournament_id' => $tournament->id,
+            'player_id' => $player->id,
+            'type' => 'player',
+            'status' => 'approved',
+            // Registrations carry the organization scope; without this the row exists and the
+            // lookup cannot see it, which reads as "no registration" rather than as a scope.
+            'organization_id' => $player->organization_id,
+        ]);
+    }
+
     #[Test]
     public function a_sale_holds_its_emails_instead_of_sending_them(): void
     {
@@ -56,10 +77,16 @@ class AuctionEmailQueueTest extends TestCase
         // Nothing left the building during the auction.
         Mail::assertNothingSent();
 
-        // Both the sold notice and the welcome card are waiting.
+        /*
+         * ONE email is waiting, not two.
+         *
+         * A panel sale used to raise both a sold notice and a welcome card, while a draw or an
+         * allotment raised only the welcome card — the same event producing different mail
+         * depending on which button reached it. The welcome card now carries the sold card as its
+         * attachment, so there is one email per sale from every route.
+         */
         $types = AuctionPendingEmail::where('auction_id', $auction->id)->pluck('type')->all();
-        $this->assertContains(AuctionPendingEmail::TYPE_SOLD, $types);
-        $this->assertContains(AuctionPendingEmail::TYPE_WELCOME_CARD, $types);
+        $this->assertSame([AuctionPendingEmail::TYPE_WELCOME_CARD], $types);
         $this->assertSame(
             count($types),
             AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count()
@@ -87,7 +114,8 @@ class AuctionEmailQueueTest extends TestCase
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.end', $auction))
             ->assertOk()
-            ->assertJsonPath('queued_emails', 2);
+            // One per sale now — see the note in a_sale_holds_its_emails_instead_of_sending_them.
+            ->assertJsonPath('queued_emails', 1);
 
         // Queued, so ending the auction returns without waiting on the mail server.
         Bus::assertDispatched(FlushAuctionEmails::class);
@@ -117,10 +145,25 @@ class AuctionEmailQueueTest extends TestCase
 
         $result = app(AuctionMailService::class)->flush($auction->fresh());
 
-        // The sold notice goes out; the welcome card needs a registration, which this
-        // player has none of, so it is recorded as failed rather than silently dropped.
-        $this->assertSame(1, $result['sent']);
-        Mail::assertSent(\App\Mail\PlayerSoldMail::class);
+        /*
+         * Nothing sends, and the row is marked FAILED rather than quietly dropped.
+         *
+         * This player has no tournament registration, and the sale email is built from one — it
+         * supplies the tournament whose wording and branding the card is rendered with. The point
+         * of the assertion is the recording: a sale whose email cannot be built has to leave a
+         * trace in the outbox for somebody to retry, not disappear.
+         *
+         * It used to assert one SENT, because a panel sale also raised a sold notice that needed
+         * no registration. That second email is gone — one per sale now, whichever route made it.
+         */
+        $this->assertSame(0, $result['sent']);
+        $this->assertSame(1, $result['failed']);
+        Mail::assertNothingSent();
+
+        $this->assertSame(
+            1,
+            AuctionPendingEmail::where('auction_id', $auction->id)->where('status', 'failed')->count()
+        );
 
         $this->assertSame(0, AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count());
         $this->assertNotNull($auction->fresh()->emails_flushed_at);
@@ -194,13 +237,17 @@ class AuctionEmailQueueTest extends TestCase
 
         $playerUser = $this->makePlainUser($org);
         $player = $this->makePlayer($org, ['user_id' => $playerUser->id]);
+        $this->registerPlayer($player, $tournament);
+
         $ap = $this->makeAuctionPlayer($auction, ['player' => $player, 'status' => 'on_auction']);
         $this->makeBid($ap, $team, 500, $operator);
         $this->actingAs($operator)
             ->postJson(route('admin.auction.organizer.api.player.sell', $auction), ['auction_player_id' => $ap->id])
             ->assertOk();
 
-        Mail::assertSent(\App\Mail\PlayerSoldMail::class);
+        // One email, carrying the sold card — see the note on the queued-types assertion above.
+        Mail::assertSent(\App\Mail\PlayerWelcomeMail::class);
+        Mail::assertNotSent(\App\Mail\PlayerSoldMail::class);
         $this->assertSame(0, AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count());
     }
 
@@ -252,8 +299,9 @@ class AuctionEmailQueueTest extends TestCase
             ->postJson(route('admin.auction.organizer.api.player.sell', $auction), ['auction_player_id' => $apOrphan->id])
             ->assertOk();
 
-        // The next one is fine.
+        // The next one is fine — and registered, which is what the sale email is built from.
         $good = $this->makePlayer($org, ['user_id' => $this->makePlainUser($org)->id]);
+        $this->registerPlayer($good, $tournament);
         $apGood = $this->makeAuctionPlayer($auction, ['player' => $good, 'status' => 'on_auction']);
         $this->makeBid($apGood, $team, 500, $operator);
         $this->actingAs($operator)
@@ -287,6 +335,8 @@ class AuctionEmailQueueTest extends TestCase
         $team = $this->makeTeam($org, 'Strikers', $tournament);
 
         $player = $this->makePlayer($org, ['user_id' => $this->makePlainUser($org)->id]);
+        $this->registerPlayer($player, $tournament);
+
         $ap = $this->makeAuctionPlayer($auction, ['player' => $player, 'status' => 'on_auction']);
         $this->makeBid($ap, $team, 500, $operator);
         $this->actingAs($operator)
@@ -298,7 +348,7 @@ class AuctionEmailQueueTest extends TestCase
             ->post(route('admin.auctions.emails.flush', $auction))
             ->assertRedirect()->assertSessionHas('success');
 
-        Mail::assertSent(\App\Mail\PlayerSoldMail::class);
+        Mail::assertSent(\App\Mail\PlayerWelcomeMail::class);
         $this->assertSame(0, AuctionPendingEmail::where('auction_id', $auction->id)->pending()->count());
     }
 

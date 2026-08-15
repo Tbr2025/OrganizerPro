@@ -1226,7 +1226,16 @@ class AuctionOrganizerController extends Controller
             sprintf('Sold to %s for %s', $team->name, format_points($amount))
         );
 
-        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
+        /*
+         * One email per sale.
+         *
+         * This sent a SECOND one — applySale() above already raises the welcome card, which now
+         * carries the sold poster, so a panel sale emailed the player twice while a draw or an
+         * allotment emailed them once. Three routes, three outcomes, for what is the same event.
+         *
+         * `notifyPlayerSold()` and the TYPE_SOLD mailable stay: the outbox can still raise one by
+         * hand and the preview renders it. What has gone is the automatic duplicate.
+         */
 
         // Nobody is on the block now, so the clock stops. Left running it counted through
         // the gap to the next player and arrived already expired.
@@ -1466,7 +1475,16 @@ class AuctionOrganizerController extends Controller
         );
 
         // Send notifications
-        $this->notifyPlayerSold($auctionPlayer->player_id, $team, $auction, $amount);
+        /*
+         * One email per sale.
+         *
+         * This sent a SECOND one — applySale() above already raises the welcome card, which now
+         * carries the sold poster, so a panel sale emailed the player twice while a draw or an
+         * allotment emailed them once. Three routes, three outcomes, for what is the same event.
+         *
+         * `notifyPlayerSold()` and the TYPE_SOLD mailable stay: the outbox can still raise one by
+         * hand and the preview renders it. What has gone is the automatic duplicate.
+         */
 
         // Nobody on the block, so the clock stops with them.
         $auction->stopTimer();
