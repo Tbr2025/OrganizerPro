@@ -213,6 +213,20 @@
                 <hr class="border-gray-300 dark:border-gray-600">
                 <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Styling</p>
 
+                {{-- Case.
+                     Every text element already carries `data-text-transform`, and the wall honours
+                     it — there was simply no control that set it, so a template could be saved with
+                     a case it had no way to choose. --}}
+                <div id="prop-transform-wrap">
+                    <label class="text-xs text-gray-500">Text Case</label>
+                    <select id="prop-transform" class="form-control form-control-sm">
+                        <option value="none">As typed</option>
+                        <option value="uppercase">UPPERCASE</option>
+                        <option value="capitalize">Capitalise Each Word</option>
+                        <option value="lowercase">lowercase</option>
+                    </select>
+                </div>
+
                 {{-- Text Color --}}
                 <div id="prop-text-color-wrap">
                     <label class="text-xs text-gray-500">Text Color</label>
@@ -1041,6 +1055,18 @@ document.addEventListener('DOMContentLoaded', () => {
         team_logo: { label: 'Team Logo', color: '#06b6d4', hasBottom: true, hasWidth: true, hasHeight: true, isImage: true },
         highest_bidder: { label: 'Highest Bidder', color: '#00ff00', hasFontSize: true },
         stats_table: { label: 'Stats Table', color: '#9333ea', hasWidth: true, hasHeight: true, hasFontSize: true, isTable: true },
+
+        /*
+         * Added after this map was written, and missing from it until now.
+         *
+         * The panel decides which controls to show from `hasFontSize` here — so an element absent
+         * from the map got no font size box at all. It could be dragged and coloured and nothing
+         * else, which reads as the editor being broken for that field rather than as a list that
+         * was never updated. The same drift hid `playing_team` from the palette entirely.
+         */
+        base_price: { label: 'Base Price', color: '#facc15', hasFontSize: true },
+        travel_plan: { label: 'Travel Plan', color: '#38bdf8', hasFontSize: true },
+        playing_team: { label: 'Current Playing Team', color: '#84cc16', hasFontSize: true },
     };
 
     // Auto-scale canvas to fit wrapper
@@ -1629,6 +1655,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const isImage = meta.isImage;
         const isText = !isImage && !meta.isCustomShape;
         document.getElementById('prop-text-color-wrap').style.display = isImage ? 'none' : '';
+
+        // Case is a text concern; an image or a table has nothing to transform.
+        const transformWrap = document.getElementById('prop-transform-wrap');
+        if (transformWrap) {
+            transformWrap.style.display = (isImage || meta.isTable) ? 'none' : '';
+            document.getElementById('prop-transform').value =
+                el.dataset.textTransform || el.style.textTransform || 'none';
+        }
         document.getElementById('prop-text-shadow-wrap').style.display = (isImage || meta.isCustomShape) ? 'none' : '';
         document.getElementById('prop-font-weight-wrap').style.display = (isImage || meta.isCustomShape) ? 'none' : '';
 
@@ -1958,6 +1992,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ── Position props panel → element sync ──
+    /* Case: written to BOTH the style and the data attribute — the canvas renders from one and
+       the saved layout is collected from the other. */
+    document.getElementById('prop-transform')?.addEventListener('change', (e) => {
+        if (! activeEl) return;
+
+        const value = e.target.value || 'none';
+
+        activeEl.style.textTransform = value === 'none' ? '' : value;
+        activeEl.dataset.textTransform = value;
+    });
+
     ['prop-top', 'prop-left', 'prop-width', 'prop-height', 'prop-fontsize', 'prop-bottom'].forEach(id => {
         document.getElementById(id).addEventListener('input', (e) => {
             if (!activeEl) return;

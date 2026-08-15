@@ -329,7 +329,62 @@ class AuctionMailService
             default => throw new \RuntimeException("Unknown auction email type [{$row->type}]."),
         };
 
-        return $mailable->render();
+        $html = $mailable->render();
+
+        /*
+         * Show the ATTACHMENT, not just the words.
+         *
+         * `render()` returns the body, and a mail body says nothing about what is clipped to it —
+         * so the one thing test mode exists to check, the card the player receives, was the one
+         * thing the preview could not show. An organizer approving artwork was approving a
+         * sentence about it.
+         *
+         * Prepended as a strip rather than merged into the body: this is a note ABOUT the email,
+         * and dressing it up as part of the email would misrepresent what actually arrives.
+         */
+        foreach ($mailable->attachments() as $attachment) {
+            $path = $this->attachmentPath($attachment);
+
+            if (! $path || ! is_file($path)) {
+                continue;
+            }
+
+            $html = '<div style="padding:14px 18px;background:#0f172a;color:#e2e8f0;'
+                . 'font:600 12px/1.4 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;">'
+                . 'Attached to this email'
+                . '</div>'
+                . '<div style="padding:18px;background:#1e293b;text-align:center;">'
+                . '<img src="data:image/png;base64,' . base64_encode((string) file_get_contents($path)) . '"'
+                . ' alt="" style="max-width:520px;width:100%;height:auto;border-radius:8px;">'
+                . '</div>'
+                . $html;
+
+            break;
+        }
+
+        return $html;
+    }
+
+    /**
+     * The file behind a Mailable attachment.
+     *
+     * Laravel's Attachment keeps its path in a protected property, so it is read through the
+     * resolver the framework itself uses rather than by reaching inside the object.
+     */
+    private function attachmentPath(\Illuminate\Mail\Mailables\Attachment $attachment): ?string
+    {
+        $resolved = null;
+
+        $attachment->attachWith(
+            function ($path) use (&$resolved) {
+                $resolved = $path;
+
+                return null;
+            },
+            fn () => null
+        );
+
+        return is_string($resolved) ? $resolved : null;
     }
 
     private function sendSold(AuctionPendingEmail $row): void
