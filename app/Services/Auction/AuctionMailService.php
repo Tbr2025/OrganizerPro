@@ -251,7 +251,10 @@ class AuctionMailService
             $player,
             $poster ?? '',
             $registration->tournament,
-            \App\Models\EmailTemplate::TYPE_WELCOME_CARD,
+            /* The SOLD template, not the registration welcome — that one says "welcome aboard,
+               complete your profile", which belongs to somebody joining a tournament. A player
+               bought in front of a hall was already in it. See EmailTemplate::TYPE_AUCTION_SOLD. */
+            \App\Models\EmailTemplate::TYPE_AUCTION_SOLD,
             array_filter([
                 '{team_name}' => $team?->name,
                 '{sold_price}' => $auctionPlayer && $auctionPlayer->final_price !== null
@@ -318,7 +321,10 @@ class AuctionMailService
                     ? app(AuctionPosterMailer::class)->render($auction, $row->auctionPlayer)
                     : null) ?? '',
                 $auction?->tournament,
-                \App\Models\EmailTemplate::TYPE_WELCOME_CARD,
+                /* The SOLD template, not the registration welcome — that one says "welcome aboard,
+               complete your profile", which belongs to somebody joining a tournament. A player
+               bought in front of a hall was already in it. See EmailTemplate::TYPE_AUCTION_SOLD. */
+            \App\Models\EmailTemplate::TYPE_AUCTION_SOLD,
                 array_filter([
                     '{team_name}' => ($row->team ?? $row->auctionPlayer?->soldToTeam)?->name,
                     '{sold_price}' => $row->auctionPlayer && $row->auctionPlayer->final_price !== null && $auction

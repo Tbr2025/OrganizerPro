@@ -51,6 +51,11 @@ class EmailTemplateService
                 'subject' => 'Welcome to the Team!',
                 'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{retained_value}', '{complete_profile_url}']),
             ],
+            EmailTemplate::TYPE_AUCTION_SOLD => [
+                'label' => 'Sold at Auction (when a player is bought, with their card attached)',
+                'subject' => 'You have been selected!',
+                'placeholders' => array_merge($common, ['{player_name}', '{team_name}', '{sold_price}']),
+            ],
         ];
     }
 
@@ -213,6 +218,15 @@ class EmailTemplateService
             '{team_name}' => e($reg?->team_name ?? ''),
             '{player_name}' => e($player?->name ?? 'Player'),
             '{retained_value}' => '',
+            /*
+             * Blank by default and supplied per-send.
+             *
+             * A sold email is the only type that knows these, and it passes them as overrides —
+             * the same way the retained card passes its value. Defaulted here so the editor's
+             * preview shows an empty line rather than a raw {sold_price} token.
+             */
+            '{sold_price}' => '',
+            '{auction_name}' => '',
             '{complete_profile_url}' => route('login'),
             '{contact_info}' => $contactHtml,
         ];
@@ -271,6 +285,10 @@ class EmailTemplateService
             EmailTemplate::TYPE_RETAINED_WELCOME_CARD => [
                 'subject' => 'Welcome to the Team! - {tournament_name}',
                 'body_html' => $this->seedRetainedWelcome(),
+            ],
+            EmailTemplate::TYPE_AUCTION_SOLD => [
+                'subject' => 'You have been selected by {team_name}! - {tournament_name}',
+                'body_html' => $this->seedAuctionSold(),
             ],
             default => ['subject' => '', 'body_html' => ''],
         };
@@ -382,6 +400,86 @@ HTML;
     <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 12px;">
         <p style="margin: 0;">Thank you for joining {brand_name}</p>
         <p style="margin: 5px 0 0 0;">Good luck!</p>
+    </div>
+</body>
+</html>
+HTML;
+    }
+
+    /**
+     * A player told they have been bought, and for how much.
+     *
+     * Modelled on the sold notice this replaces rather than on the registration welcome an auction
+     * sale used to borrow — that one says "welcome aboard, complete your profile", which belongs
+     * to somebody joining a tournament. A player bought in front of a hall was already in it and
+     * has no profile to complete; what they want is the team, the figure, and their card.
+     *
+     * `{sold_price}` and `{team_name}` come from the send as overrides; everything else is the
+     * same brand furniture the other templates use.
+     */
+    private function seedAuctionSold(): string
+    {
+        return <<<'HTML'
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background: {primary_color}; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+        <div style="margin: 0 auto 15px;">{header_logos}</div>
+        <h1 style="color: {header_text_color}; margin: 0; font-size: 24px;">You have been selected!</h1>
+    </div>
+
+    <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+        <div style="text-align: center; margin-bottom: 22px;">
+            <span style="display: inline-block; padding: 10px 34px; border-radius: 999px; background: #15803d;
+                         color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: 3px;">SOLD</span>
+            <div style="margin-top: 10px; font-size: 15px; color: #15803d; font-weight: 700;">
+                {player_name} &rarr; {team_name} &middot; {sold_price}
+            </div>
+        </div>
+
+        <p style="margin: 0 0 20px 0; font-size: 16px;">Dear <strong>{player_name}</strong>,</p>
+
+        <p style="margin: 0 0 20px 0;">
+            Congratulations! You have been selected by <strong>{team_name}</strong> in
+            <strong>{tournament_name}</strong>.
+        </p>
+
+        <div style="background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border-left: 4px solid {primary_color};">
+            <h3 style="margin: 0 0 15px 0; color: #495057; font-size: 16px;">Auction Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #6c757d; width: 40%;">Team:</td>
+                    <td style="padding: 8px 0; font-weight: 600;">{team_name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #6c757d;">Sale Amount:</td>
+                    <td style="padding: 8px 0; font-weight: 600; color: {primary_color};">{sold_price}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #6c757d;">Tournament:</td>
+                    <td style="padding: 8px 0;">{tournament_name}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="background: #d4edda; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+            <p style="margin: 0; color: #155724; font-size: 14px;">
+                Welcome to <strong>{team_name}</strong>! Your card is attached. Stay tuned for match
+                schedules and further updates.
+            </p>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{tournament_url}" style="display: inline-block; background: {primary_color};
+               color: {header_text_color}; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+                View Tournament
+            </a>
+        </div>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #6c757d; font-size: 13px;">
+        <p style="margin: 0;">{contact_info}</p>
     </div>
 </body>
 </html>
