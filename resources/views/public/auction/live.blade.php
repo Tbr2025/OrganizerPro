@@ -1317,6 +1317,10 @@ HTML;
             margin-left: 0.5em;
             vertical-align: middle;
             white-space: nowrap;
+            /* Not affected by the name's case. These sit INSIDE the name element, so the
+               uppercase above would otherwise reach the travel window and print
+               "19 AUG – 29 AUG" — a date is not a headline. The WK pill sets its own case. */
+            text-transform: none;
         }
         #player-name-badges .badge {
             display: inline-flex;
@@ -1365,6 +1369,19 @@ HTML;
 
         #player-name {
             position: absolute;
+            /*
+             * The name is UPPERCASE on the wall unless the template asks for something else.
+             *
+             * A hall reads this from the back of the room and the artwork is built around a
+             * block of capitals — a name typed "Sanju New" at registration came out that way,
+             * next to CURRENT BID and DUBAI STRIKERS, and looked like a mistake. The case is
+             * whatever the player typed into a form months earlier, which is not a design
+             * decision anybody made about this screen.
+             *
+             * Written BEFORE elementStyle(), so a template that explicitly picks lowercase or
+             * "Capitalise Each Word" still wins — the default only fills the gap.
+             */
+            text-transform: uppercase;
             {!! elementStyle($positions, 'player_name', ['top'=>210,'left'=>545,'fontSize'=>46,'color'=>'#ffffff'], $boxShadowMap, $textShadowMap) !!}
         }
 
