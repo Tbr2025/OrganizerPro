@@ -362,14 +362,18 @@ class PublicAuctionController extends Controller
             }
         }
 
-        // Fetch waiting player names for shuffle animation
-        $waitingPlayers = $auction->auctionPlayers()
-            ->where('status', 'waiting')
-            ->with('player:id,name')
-            ->get()
-            ->pluck('player.name')
-            ->filter()
-            ->values();
+        /*
+         * The waiting list is NOT published.
+         *
+         * This shipped every waiting player's name, in running order, on a public endpoint —
+         * 7.4 KB of the 8.3 KB response, rebuilt from 400 rows on every poll by every screen in
+         * the hall. Nothing has read it since the wall's shuffle animation was removed: a grep
+         * of the whole codebase finds no consumer.
+         *
+         * It also contradicted the rest of the design. The wall deliberately does not reveal who
+         * is coming up — that was the point of taking the reveal off the public screens — while
+         * this handed the entire queue order to anyone who opened the URL.
+         */
 
         /*
          * How far through the room is, for the waiting screen.
@@ -478,7 +482,6 @@ class PublicAuctionController extends Controller
                 'restarting' => $auction->isRestarting(),
                 'restart_seconds' => $auction->restartNoticeRemaining(),
                 'open_bid_mode' => $auction->open_bid_mode,
-                'waitingPlayers' => $waitingPlayers,
                 'progress' => $progress,
                 'stage' => $stage,
                 /*
@@ -565,7 +568,6 @@ class PublicAuctionController extends Controller
             'amount_unit' => $auction->amountUnitConfig(),
             'player_updated_at' => $auctionPlayer->updated_at->timestamp,
             'server_time' => now()->timestamp,
-            'waitingPlayers' => $waitingPlayers,
             'progress' => $progress,
             'stage' => $stage,
         ]);
