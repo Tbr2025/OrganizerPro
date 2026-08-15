@@ -35,6 +35,99 @@ class PublicAuctionController extends Controller
      * purse poll is a separate endpoint precisely because this one carries no team data — so
      * one cached copy is correct for every viewer.
      */
+    /**
+     * Columns of `players` that no public screen renders.
+     *
+     * The feeds put the WHOLE Eloquent model on the wire — 86 columns, of which the wall and the
+     * team screen read about a dozen. Measured on live that is 11.4 KB per response, fetched by
+     * every screen in the hall every couple of seconds, and the serialising is paid in PHP on a
+     * two-core box. It also published a player's email, mobile number, date of birth, employer
+     * and visa status on an endpoint that needs no login at all.
+     *
+     * A BLOCKLIST, deliberately, not an allowlist. Miss a field in an allowlist and something
+     * silently disappears from the wall mid-auction; miss one here and the payload is merely a
+     * little bigger than it could be. The failure mode has to be "less fast", never "broken".
+     *
+     * `verified_*` is stripped by pattern rather than by name — there are twenty of them and a
+     * twenty-first will arrive with the next verifiable field. They are admin review state and no
+     * public screen has ever shown one.
+     *
+     * @return list<string>
+     */
+    private function hiddenPlayerFields(Auction $auction): array
+    {
+        $hide = [
+            // Contact and identity — none of it belongs on a public endpoint.
+            'email', 'email_verified_at', 'date_of_birth', 'country', 'state',
+            'visa_status', 'visa_expiry',
+            'mobile_country_code', 'mobile_national_number', 'mobile_number_full',
+            'cricheroes_country_code', 'cricheroes_national_number', 'cricheroes_number_full',
+            'cricheroes_profile_url',
+            'employer_name', 'employer_address', 'employer_position',
+            // Availability and kit: organizer paperwork, never on a screen.
+            'available_weekends', 'available_saturday', 'available_sunday', 'played_ys_ipl_s1',
+            'kit_size_id', 'tshirt_size', 'pant_size', 'transportation_required',
+            'preferred_batting_positions', 'jersey_name', 'batting_mode',
+            // Internal plumbing and audit trail.
+            'layout_json', 'welcome_image_path', 'image', 'user_id', 'created_by', 'approved_by',
+            'welcome_email_sent_at', 'created_at', 'updated_at', 'organization_id',
+            'team_id', 'team_name_ref', 'location_id', 'status', 'player_mode', 'retained_value',
+            'first_name', 'last_name',
+        ];
+
+        /*
+         * Never hide a field the WALL TEMPLATE is bound to.
+         *
+         * The stats table is filled by `p.player[td.dataset.field]` (live.blade.php), and the
+         * field names come from the template's own `tableColumns` — so which columns are read is
+         * a design decision, not something this file can know. Today's templates use
+         * total_matches / total_runs / total_wickets, all kept regardless; this makes a future
+         * column safe by construction rather than by luck.
+         *
+         * Cached for a minute: templates change when somebody edits one, not per request.
+         */
+        $bound = Cache::remember(
+            "auction-template-stat-fields:{$auction->id}",
+            60,
+            function () use ($auction) {
+                return AuctionTemplate::where('auction_id', $auction->id)
+                    ->orWhereNull('auction_id')
+                    ->get(['element_positions'])
+                    ->flatMap(function (AuctionTemplate $t) {
+                        $cols = $t->element_positions['stats_table']['tableColumns'] ?? [];
+                        $cols = is_string($cols) ? (json_decode($cols, true) ?: []) : $cols;
+
+                        return collect($cols)->pluck('field')->filter()->all();
+                    })
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
+        );
+
+        return array_values(array_diff($hide, $bound));
+    }
+
+    /**
+     * Strip the unread columns off a player before it goes on a feed.
+     *
+     * `verified_*` goes by pattern; the rest by the list above. Returns the same model instance
+     * the caller passed in, so the existing `$player->player_type = …` assignments still work.
+     */
+    private function trimPlayer(?\App\Models\Player $player, Auction $auction): ?\App\Models\Player
+    {
+        if (! $player) {
+            return null;
+        }
+
+        $verified = array_values(array_filter(
+            array_keys($player->getAttributes()),
+            fn (string $key) => str_starts_with($key, 'verified_')
+        ));
+
+        return $player->makeHidden(array_merge($this->hiddenPlayerFields($auction), $verified));
+    }
+
     private function cachedFeed(string $name, Auction $auction, \Closure $build): JsonResponse
     {
         $payload = Cache::remember(
@@ -189,7 +282,7 @@ class PublicAuctionController extends Controller
 
         // The same shape the live feed hands updatePlayerCard(), so the page renders it by
         // exactly the path it uses for a player on the block.
-        $player = $ap->player;
+        $player = $this->trimPlayer($ap->player, $auction);
         $player->player_type = $ap->player->playerType;
         $player->batting_profile = $ap->player->battingProfile;
         $player->bowling_profile = $ap->player->bowlingProfile;
@@ -346,7 +439,7 @@ class PublicAuctionController extends Controller
 
             $lastActionData = null;
             if ($lastActionPlayer) {
-                $lpData = $lastActionPlayer->player;
+                $lpData = $this->trimPlayer($lastActionPlayer->player, $auction);
                 $lpData->player_type = $lastActionPlayer->player->playerType;
                 $lpData->batting_profile = $lastActionPlayer->player->battingProfile;
                 $lpData->bowling_profile = $lastActionPlayer->player->bowlingProfile;
@@ -398,7 +491,7 @@ class PublicAuctionController extends Controller
         }
 
         // Build complete player object with all needed data
-        $playerData = $auctionPlayer->player;
+        $playerData = $this->trimPlayer($auctionPlayer->player, $auction);
         $playerData->player_type = $auctionPlayer->player->playerType;
         $playerData->batting_profile = $auctionPlayer->player->battingProfile;
         $playerData->bowling_profile = $auctionPlayer->player->bowlingProfile;

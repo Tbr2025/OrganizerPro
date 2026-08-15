@@ -604,12 +604,42 @@ Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showR
 // Transparent 1920x1080 overlay for a streaming mixer (OBS browser source).
 Route::get('/auction/{auction}/ticker', [PublicAuctionController::class, 'liveTicker'])
     ->name('public.auction.ticker');
-Route::get('/auction/{auction}/ticker-feed', [PublicAuctionController::class, 'tickerFeed'])
-    ->name('public.auction.ticker-feed');
-// API endpoint for AJAX polling
-Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
+/*
+ * ── The three broadcast feeds: no session ──
+ *
+ * These are polled by every screen in the hall — on a busy auction they were 54% of all requests
+ * — and being in routes/web.php they inherited the `web` group, so each one STARTED A SESSION:
+ * a session file read, an exclusive lock, and a rewrite, per request. Two consequences, both
+ * measured on live:
+ *
+ *   - The lock serialises a single browser's own polls. The team screen fires three of these at
+ *     once and they queued behind each other, each holding a php-fpm worker while it waited.
+ *   - Every response carried `Set-Cookie: sportzley_session=…`, which makes the responses
+ *     uncacheable at the CDN. Cloudflare will not cache a response with Set-Cookie, and forcing
+ *     it would hand one visitor's session cookie to every other visitor.
+ *
+ * Nothing here reads the session: these are public, unauthenticated, and identical for every
+ * viewer — which is exactly why cachedFeed() already shares one payload between them all. A team
+ * manager's login is unaffected; it lives on the page load and is refreshed by the authenticated
+ * purse poll, which is untouched.
+ *
+ * VerifyCsrfToken is excluded too, and must be: it short-circuits for GET, but still calls
+ * `$request->session()->token()` on the way out to refresh the XSRF cookie, which throws once
+ * StartSession is gone.
+ */
+Route::middleware([])->withoutMiddleware([
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+])->group(function () {
+    Route::get('/auction/{auction}/ticker-feed', [PublicAuctionController::class, 'tickerFeed'])
+        ->name('public.auction.ticker-feed');
+    // API endpoint for AJAX polling
+    Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
+    Route::get('/auction/{auction}/sold-players', [PublicAuctionController::class, 'soldPlayers']);
+});
+
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
-Route::get('/auction/{auction}/sold-players', [PublicAuctionController::class, 'soldPlayers']);
 
 // --- Public Tournament Registration Routes ---
 Route::get('/tournament/{tournament}/register', [PublicTournamentRegistrationController::class, 'showForm'])
