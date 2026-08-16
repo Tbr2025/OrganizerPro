@@ -218,6 +218,23 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {{-- Pools --}}
         <div class="lg:col-span-2 space-y-4">
+            {{-- Search across every pool at once.
+
+                 With four hundred players over eight pools, finding one meant expanding each
+                 pool and scrolling. This filters the rows already on the page — no request — and
+                 opens any pool that holds a match so a collapsed pool cannot hide the answer. --}}
+            <div class="relative">
+                <input type="text" x-model="playerFilter"
+                       placeholder="Search players in all pools — name, or sold / unsold / waiting"
+                       class="form-control w-full pl-9 pr-9">
+                <span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
+                    <iconify-icon icon="lucide:search" width="15"></iconify-icon>
+                </span>
+                <button type="button" x-show="playerFilter" @click="playerFilter = ''" x-cloak
+                        class="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
+                        title="Clear">&times;</button>
+            </div>
+
             @forelse($pools as $pool)
                 @php $players = $pool->players->sortBy(fn($p) => $p->lot_number ?? PHP_INT_MAX); @endphp
                 <div class="rounded-md border bg-white dark:bg-white/[0.03] transition-colors"
@@ -333,12 +350,14 @@
                         @if($players->count())
                         <button type="button" @click="open = !open" x-show="{{ $players->count() > 25 ? 'true' : 'false' }}"
                                 class="w-full mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                            <span x-text="open ? 'Hide {{ $players->count() }} players' : 'Show {{ $players->count() }} players'"></span>
+                            <span x-text="(open || playerFilter) ? 'Hide {{ $players->count() }} players' : 'Show {{ $players->count() }} players'"></span>
                             <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
-                        <div x-show="open" x-cloak>
+                        {{-- Open while searching, whatever the collapse state — otherwise the
+                             filter would hide its own matches inside a shut pool. --}}
+                        <div x-show="open || playerFilter" x-cloak>
                         {{-- Per-pool selection strip. Scoped to this pool so "select all"
                              on a page of six pools cannot pick up 200 players at once. --}}
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
@@ -457,11 +476,20 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             @foreach($players as $ap)
                             <div class="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
-                                 x-show="!playerRemoved.includes({{ $ap->player_id }})" x-transition
+                                 x-show="!playerRemoved.includes({{ $ap->player_id }})
+                                    && matchesPlayer(@js($ap->player->name ?? ''), @js($ap->status))"
+                                 x-transition
                                  :class="selectedPlayers.includes({{ $ap->player_id }})
                                     ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
                                     : 'border-gray-100 dark:border-gray-700'">
-                                <span class="flex items-center gap-2 min-w-0">
+                                {{-- `flex-wrap`: the name gets a line of its own rather than a fight.
+
+                                     Two columns of rows and team names like "Alrukan Pegasus
+                                     Trivandrum Spartans" leave no width to share, so juggling
+                                     percentages here only decides which piece of text gets cut.
+                                     Wrapping means the badge drops below when it will not fit and
+                                     the name is always fully readable. --}}
+                                <span class="flex items-center flex-wrap gap-x-2 gap-y-1 min-w-0">
                                     {{-- Every player gets a tick, sold or not.
                                          This was rendered only for `waiting`, on the reasoning that
                                          a sold player is not removable — true, but the tick had
@@ -512,7 +540,7 @@
                                          squeezed this block to zero width. `truncate` then hid what
                                          was left, so the list showed a lot number, an avatar and a
                                          price with no player attached to them. --}}
-                                    <span class="min-w-0 flex-1">
+                                    <span class="min-w-0 basis-[9rem] grow">
                                         <span class="block truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
                                         @php
                                             $styles = array_filter([
@@ -549,7 +577,7 @@
                                     @if($ap->status === 'sold')
                                         {{-- Truncates rather than pushing. The buying team and the
                                              price matter, but not more than knowing who was sold. --}}
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 whitespace-nowrap truncate max-w-[55%] shrink"
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 whitespace-nowrap"
                                               title="sold{{ $ap->soldToTeam ? ' · ' . $ap->soldToTeam->name : '' }}{{ (float) $ap->final_price > 0 ? ' · ' . $auction->formatAmount($ap->final_price) : '' }}">
                                             sold{{ $ap->soldToTeam ? ' · ' . $ap->soldToTeam->name : '' }}{{ (float) $ap->final_price > 0 ? ' · ' . $auction->formatAmount($ap->final_price) : '' }}
                                         </span>
@@ -743,6 +771,10 @@
 function poolManager(auctionId, availablePlayers = []) {
     return {
         showCreate: false,
+        /* Free-text filter across every pool. Rows carry their own name, so this needs no
+           request — and it opens any pool holding a match, or a collapsed pool would hide the
+           very player being searched for. */
+        playerFilter: '',
         selected: [],
         /* The Unassigned panel's list, held here rather than rendered once by the server so a
            player removed from a pool lands in it straight away. Sorted by name, the order the
@@ -777,6 +809,17 @@ function poolManager(auctionId, availablePlayers = []) {
         get allSelected() {
             const ids = this.selectableIds;
             return ids.length > 0 && ids.every(id => this.selected.includes(id));
+        },
+
+        /** Does this player match what has been typed? Empty filter matches everything. */
+        matchesPlayer(name, status) {
+            const q = this.playerFilter.trim().toLowerCase();
+            if (! q) return true;
+
+            /* `sold`, `unsold`, `waiting` and `skipped` are searchable words too — "unsold" is
+               the single most useful thing to filter a finished auction by. */
+            return String(name || '').toLowerCase().includes(q)
+                || String(status || '').toLowerCase().includes(q);
         },
 
         toggle(id) {
