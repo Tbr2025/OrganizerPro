@@ -504,7 +504,15 @@
                                         </span>
                                     @endif
 
-                                    <span class="min-w-0">
+                                    {{-- `flex-1`, or the name loses.
+
+                                         The sold badge beside this is whitespace-nowrap and reads
+                                         "sold · Inkspire Hyderabad Chargers · 11.1M Points" — long,
+                                         and with nothing to stop it, it took the whole row and
+                                         squeezed this block to zero width. `truncate` then hid what
+                                         was left, so the list showed a lot number, an avatar and a
+                                         price with no player attached to them. --}}
+                                    <span class="min-w-0 flex-1">
                                         <span class="block truncate text-gray-800 dark:text-gray-100">{{ $ap->player->name ?? 'Player #'.$ap->player_id }}</span>
                                         @php
                                             $styles = array_filter([
@@ -539,7 +547,10 @@
                                          to WHOM. The buying team is the whole result of the lot and
                                          the reason anybody reads this list afterwards. --}}
                                     @if($ap->status === 'sold')
-                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 whitespace-nowrap">
+                                        {{-- Truncates rather than pushing. The buying team and the
+                                             price matter, but not more than knowing who was sold. --}}
+                                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 whitespace-nowrap truncate max-w-[55%] shrink"
+                                              title="sold{{ $ap->soldToTeam ? ' · ' . $ap->soldToTeam->name : '' }}{{ (float) $ap->final_price > 0 ? ' · ' . $auction->formatAmount($ap->final_price) : '' }}">
                                             sold{{ $ap->soldToTeam ? ' · ' . $ap->soldToTeam->name : '' }}{{ (float) $ap->final_price > 0 ? ' · ' . $auction->formatAmount($ap->final_price) : '' }}
                                         </span>
                                     @elseif($ap->status !== 'waiting')
