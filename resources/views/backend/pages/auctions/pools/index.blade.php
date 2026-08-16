@@ -315,9 +315,30 @@
                         </form>
                     </div>
 
-                    {{-- Players --}}
-                    <div class="p-4">
+                    {{-- ── Players, collapsed when the pool is large ──
+
+                         Every row carries the player's photo, and a full auction is hundreds of
+                         them: opening this screen pulled every image the moment it was scrolled,
+                         which is what made the page crawl once photos were added.
+
+                         A pool over 25 starts closed. A hidden container never triggers a lazy
+                         image load, so the page opens instantly and only the pool actually being
+                         worked on costs anything. Smaller pools stay open — collapsing four rows
+                         helps nobody.
+
+                         The rows are still RENDERED, only hidden, so "select all in this pool",
+                         the poster runs and the bulk remove keep working exactly as they did:
+                         they read the DOM, not what is on screen. --}}
+                    <div class="p-4" x-data="{ open: {{ $players->count() > 25 ? 'false' : 'true' }} }">
                         @if($players->count())
+                        <button type="button" @click="open = !open" x-show="{{ $players->count() > 25 ? 'true' : 'false' }}"
+                                class="w-full mb-3 flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                            <span x-text="open ? 'Hide {{ $players->count() }} players' : 'Show {{ $players->count() }} players'"></span>
+                            <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div x-show="open" x-cloak>
                         {{-- Per-pool selection strip. Scoped to this pool so "select all"
                              on a page of six pools cannot pick up 200 players at once. --}}
                         <div class="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
@@ -551,6 +572,7 @@
                             </div>
                             @endforeach
                         </div>
+                        </div>{{-- /x-show="open" --}}
                         @else
                         <p class="text-sm text-gray-400">No players in this pool yet — assign some from the right.</p>
                         @endif

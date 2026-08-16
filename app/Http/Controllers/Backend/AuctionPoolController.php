@@ -120,9 +120,31 @@ class AuctionPoolController extends Controller
         // Per-team budget summary — auction tournaments only.
         $teamBudgets = collect();
         if ($isAuctionType && $auction->tournament_id) {
-            $teamBudgets = ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get()
-                ->map(function ($t) use ($auction) {
-                    $state = $this->poolService->teamPurseState($auction, $t->id);
+            $budgetTeams = ActualTeam::forTournament($auction->tournament_id)->orderBy('name')->get();
+
+            /*
+             * Every team's purse in one read, not seven queries each.
+             *
+             * With sixteen teams this loop was ~112 of the 182 queries this page ran, and it is
+             * a page an organizer opens while an auction is live. teamPurseStates() answers the
+             * same question in three grouped queries; both paths end in the same purseFrom(), so
+             * no figure here can differ from the panel's.
+             */
+            $purses = $this->poolService->teamPurseStates($auction, $budgetTeams->pluck('id')->all());
+
+            // And the unpriced-retention count for every team in one grouped read, rather than
+            // a COUNT per team inside the map below.
+            $unpriced = AuctionPlayer::where('auction_id', $auction->id)
+                ->where('is_retained', true)
+                ->whereNotNull('team_id')
+                ->where(fn ($q) => $q->whereNull('retained_price')->orWhere('retained_price', 0))
+                ->groupBy('team_id')
+                ->selectRaw('team_id, COUNT(*) as aggregate')
+                ->pluck('aggregate', 'team_id');
+
+            $teamBudgets = $budgetTeams
+                ->map(function ($t) use ($purses, $unpriced) {
+                    $state = $purses[$t->id];
 
                     return [
                         'team' => $t,
@@ -134,11 +156,7 @@ class AuctionPoolController extends Controller
                         'retained_expected' => $state['retained_expected'],
                         // Retained players nobody priced. They currently cost their team
                         // nothing, which is the bug that made this column necessary.
-                        'retained_unpriced' => AuctionPlayer::where('auction_id', $auction->id)
-                            ->where('is_retained', true)
-                            ->where('team_id', $t->id)
-                            ->where(fn ($q) => $q->whereNull('retained_price')->orWhere('retained_price', 0))
-                            ->count(),
+                        'retained_unpriced' => (int) ($unpriced[$t->id] ?? 0),
                     ];
                 });
         }
