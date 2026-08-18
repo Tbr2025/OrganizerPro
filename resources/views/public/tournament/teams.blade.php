@@ -75,6 +75,34 @@
     .player-avatar {
         background: linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.02) 100%);
     }
+    /* Icon Player / Auction, the one chip on the row that is not a playing attribute —
+       gradient-filled rather than the flat tinted pills beside it so it reads first. */
+    .acquisition-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #fff;
+        padding: 2px 9px;
+        border-radius: 9999px;
+        white-space: nowrap;
+    }
+    .acquisition-retained {
+        background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+    }
+    .acquisition-auction {
+        background: linear-gradient(135deg, #10b981 0%, #0d9488 100%);
+    }
+    /* The money, set apart from the label so a long team-unit figure ("120 Points") does not
+       read as part of the word beside it. */
+    .acquisition-price {
+        font-variant-numeric: tabular-nums;
+        padding-left: 6px;
+        margin-left: 1px;
+        border-left: 1px solid rgba(255, 255, 255, 0.35);
+    }
     @keyframes fadeInUp {
         from {
             opacity: 0;
@@ -284,6 +312,36 @@
                                                                     @endif
                                                                 </div>
                                                                 <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                                                    {{-- How this player reached the squad, and what they cost.
+                                                                         Attached by SquadAcquisitionService, NOT read from
+                                                                         players.player_mode — selling a player sets that to
+                                                                         `retained` too, so the column cannot tell a buy from a
+                                                                         keep. Both labels are already null when the organizer has
+                                                                         the badge or the amounts switched off, so there is nothing
+                                                                         to check here: an empty label simply renders no chip. --}}
+                                                                    @if(($teamPlayer->acquisition_label ?? null) && $teamPlayer->acquisition === 'retained')
+                                                                        <span class="acquisition-chip acquisition-retained">
+                                                                            <i class="fas fa-lock opacity-80"></i>
+                                                                            {{ $teamPlayer->acquisition_label }}
+                                                                            @if($teamPlayer->acquisition_price_label)
+                                                                                <span class="acquisition-price">{{ $teamPlayer->acquisition_price_label }}</span>
+                                                                            @endif
+                                                                        </span>
+                                                                    @elseif(($teamPlayer->acquisition_label ?? null) && $teamPlayer->acquisition === 'auction')
+                                                                        <span class="acquisition-chip acquisition-auction">
+                                                                            <i class="fas fa-gavel opacity-80"></i>
+                                                                            {{ $teamPlayer->acquisition_label }}
+                                                                            @if($teamPlayer->acquisition_price_label)
+                                                                                <span class="acquisition-price">{{ $teamPlayer->acquisition_price_label }}</span>
+                                                                            @endif
+                                                                        </span>
+                                                                    @elseif($teamPlayer->acquisition_price_label ?? null)
+                                                                        {{-- Badge off but amounts on: the price still belongs on the
+                                                                             card, without saying how it was arrived at. --}}
+                                                                        <span class="acquisition-chip acquisition-auction">
+                                                                            {{ $teamPlayer->acquisition_price_label }}
+                                                                        </span>
+                                                                    @endif
                                                                     @if($playerTypeName)
                                                                         <span class="text-xs font-medium text-blue-300 px-2 py-0.5 rounded-full" style="background: rgba(59, 130, 246, 0.2);">
                                                                             <i class="fas fa-user-tag mr-1 opacity-70"></i>{{ $playerTypeName }}

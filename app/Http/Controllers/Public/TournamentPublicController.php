@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
+use App\Services\Auction\SquadAcquisitionService;
 use App\Services\Tournament\PointTableService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -170,6 +171,23 @@ class TournamentPublicController extends Controller
                 }
             }])
             ->get();
+
+        /*
+         * How each player reached their squad, for the badge and the price on the squad modal.
+         *
+         * Only for an auction tournament — an open tournament has no buys and no icon players, so
+         * there is nothing to say. The badge and the money are two separate switches inside the
+         * service (show_acquisition_badge / show_squad_values, resolved from the tournament unless
+         * the auction overrides), which is why this page does not check them itself: it renders
+         * `acquisition_label` and `acquisition_price_label` and gets null for whatever the
+         * organizer has chosen to keep private.
+         */
+        if ($isAuction) {
+            app(SquadAcquisitionService::class)->attachByTeam(
+                $teams->mapWithKeys(fn ($team) => [$team->id => $team->playersPerTournament])->all(),
+                $tournament->id,
+            );
+        }
 
         return view('public.tournament.teams', [
             'tournament' => $tournament,

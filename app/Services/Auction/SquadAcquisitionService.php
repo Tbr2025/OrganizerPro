@@ -105,30 +105,120 @@ class SquadAcquisitionService
                 continue;
             }
 
-            $bought = $row->status === 'sold' && (int) $row->sold_to_team_id === (int) $team->id;
-            $price = (float) ($bought ? $row->final_price : $row->retained_price);
-
-            $player->acquisition = $bought ? self::AUCTION : self::RETAINED;
-            /*
-             * The badge LABEL is null when the tournament has the badge switched off, exactly as
-             * the price label is when values are off — so a view renders what it is given and
-             * there is one decision here rather than one per template. `acquisition` itself is
-             * left alone: filters, exports and squad arithmetic all read it, and hiding a badge
-             * must not change what a player IS.
-             */
-            $player->acquisition_label = $showBadge ? self::label($player->acquisition) : null;
-            $player->acquisition_price = $price;
-
-            /*
-             * The price LABEL is null when the auction has values switched off — so a view can
-             * render `acquisition_price_label` without also having to know about the setting,
-             * and there is one decision instead of one per template. The raw
-             * `acquisition_price` is left in place for anything that needs to compute.
-             */
-            $player->acquisition_price_label = $showValues && $price > 0
-                ? ($auction ? $auction->formatAmount($price) : format_points($price))
-                : null;
+            $this->stamp($player, $row, (int) $team->id, $auction, $showBadge, $showValues);
         }
+    }
+
+    /**
+     * The same three fields for a whole tournament at once — two queries, not two per team.
+     *
+     * attach() resolves the auction and then queries the auction rows, and a public teams page
+     * renders every squad in the competition: called per team that is 2N queries for a page that
+     * needs 2. The caller hands over a map of team id => that team's players, which it already
+     * has loaded, and every squad is stamped from one pass.
+     *
+     * @param  array<int, \Illuminate\Support\Collection<int, \App\Models\Player>>  $playersByTeam
+     */
+    public function attachByTeam(array $playersByTeam, int $tournamentId): void
+    {
+        $playerIds = [];
+
+        foreach ($playersByTeam as $players) {
+            foreach ($players as $player) {
+                $playerIds[] = $player->id;
+            }
+        }
+
+        if ($playerIds === []) {
+            return;
+        }
+
+        $auction = Auction::where('tournament_id', $tournamentId)->latest('id')->first();
+
+        $showValues = $auction === null || $auction->showsSquadValues();
+        $showBadge = $auction === null || $auction->showsAcquisitionBadge();
+
+        /*
+         * Every buy and every keep in this tournament, in one query. Keyed by the team the row
+         * concerns — `sold_to_team_id` for a buy, `team_id` for a keep — so each squad below
+         * looks up only its own rows and a player sold to a rival is never stamped onto this
+         * team's card.
+         */
+        $rows = AuctionPlayer::query()
+            ->whereIn('player_id', array_unique($playerIds))
+            ->whereHas('auction', fn ($q) => $q->where('tournament_id', $tournamentId))
+            ->where(function ($q) {
+                $q->where(fn ($sold) => $sold->where('status', 'sold')->whereNotNull('sold_to_team_id'))
+                    ->orWhere(fn ($kept) => $kept->where('is_retained', true)->whereNotNull('team_id'));
+            })
+            ->get();
+
+        /*
+         * Filed under the team the row concerns, and under BOTH when both columns are populated —
+         * that is exactly what attach()'s two-branch WHERE did when asked about each team in
+         * turn, and stamp() then decides buy-or-keep from the team it is given. Keying on one
+         * column would silently drop a row for the other team.
+         */
+        $byTeam = [];
+
+        foreach ($rows as $row) {
+            if ($row->status === 'sold' && $row->sold_to_team_id !== null) {
+                $byTeam[(int) $row->sold_to_team_id][$row->player_id] = $row;
+            }
+
+            if ($row->is_retained && $row->team_id !== null) {
+                $byTeam[(int) $row->team_id][$row->player_id] = $row;
+            }
+        }
+
+        foreach ($playersByTeam as $teamId => $players) {
+            $teamRows = $byTeam[(int) $teamId] ?? [];
+
+            foreach ($players as $player) {
+                $row = $teamRows[$player->id] ?? null;
+
+                if (! $row) {
+                    $this->clear($player);
+
+                    continue;
+                }
+
+                $this->stamp($player, $row, (int) $teamId, $auction, $showBadge, $showValues);
+            }
+        }
+    }
+
+    /**
+     * Write the four acquisition fields onto one player from one auction row.
+     *
+     * Shared by attach() and attachByTeam() so the two cannot drift — which is the bug this
+     * whole service exists to stop, one squad view describing a player differently from another.
+     */
+    private function stamp($player, AuctionPlayer $row, int $teamId, ?Auction $auction, bool $showBadge, bool $showValues): void
+    {
+        $bought = $row->status === 'sold' && (int) $row->sold_to_team_id === $teamId;
+        $price = (float) ($bought ? $row->final_price : $row->retained_price);
+
+        $player->acquisition = $bought ? self::AUCTION : self::RETAINED;
+        /*
+         * The badge LABEL is null when the tournament has the badge switched off, exactly as
+         * the price label is when values are off — so a view renders what it is given and
+         * there is one decision here rather than one per template. `acquisition` itself is
+         * left alone: filters, exports and squad arithmetic all read it, and hiding a badge
+         * must not change what a player IS.
+         */
+        $player->acquisition_label = $showBadge ? self::label($player->acquisition) : null;
+        $player->acquisition_price = $price;
+
+        /*
+         * The price LABEL is null when the auction has values switched off — so a view can
+         * render `acquisition_price_label` without also having to know about the setting,
+         * and there is one decision instead of one per template. The raw
+         * `acquisition_price` is left in place for anything that needs to compute.
+         */
+        $player->acquisition_price_label = $showValues && $price > 0
+            ? ($auction ? $auction->formatAmount($price) : format_points($price))
+            : null;
     }
 
     /**
