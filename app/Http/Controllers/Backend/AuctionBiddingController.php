@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Events\SealedRoundChanged;
 use App\Http\Controllers\Controller;
 use App\Models\Auction;
 use App\Models\AuctionClosedBidEntry;
@@ -13,6 +14,7 @@ use App\Services\Auction\AuctionPoolService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
 use App\Services\Auction\ClosedBidService;
+use App\Support\AfterResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -782,6 +784,29 @@ class AuctionBiddingController extends Controller
         if (! ($result['handled'] ?? false)) {
             return response()->json(['error' => $result['message'] ?? 'That is not possible right now.'], 422);
         }
+
+        /*
+         * Tell the room that the sealed round moved.
+         *
+         * A team accepting, submitting, withdrawing or being reinstated broadcast NOTHING, so
+         * every other screen learned about it only from its own poll — and the organizer panel
+         * backs its poll off to thirty seconds while push is healthy. The desk could therefore
+         * sit half a minute behind the room during the one part of an auction where the organizer
+         * is doing nothing but waiting on the teams. Its own comment says so.
+         *
+         * Here rather than in the six endpoints above: accept, decline, submit, withdraw,
+         * reinstate and the legacy place-bid sealed path all funnel through this method, and six
+         * call sites is six chances to miss one.
+         *
+         * After the guards, deliberately. A refused action must not announce a state that never
+         * happened, so this sits below the `handled` check rather than beside the request.
+         *
+         * The payload carries no amounts and no team-to-amount mapping — see SealedRoundChanged,
+         * which documents that invariant — so this is safe on the public channel it shares with
+         * the open-bid price. Listeners re-read the feed and get the disclosure rules they always
+         * had. AfterResponse so the manager never waits on Pusher's network to see their own tap.
+         */
+        AfterResponse::run(fn () => SealedRoundChanged::announce($round->fresh()));
 
         $purse = $this->pools->teamPurseState($auction, $userTeam->id);
 

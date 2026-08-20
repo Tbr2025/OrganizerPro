@@ -14,6 +14,7 @@ use App\Models\Player;
 use App\Events\AuctionStatusUpdate;
 use App\Events\PlayerOnBid;
 use App\Events\PlayerSoldEvent;
+use App\Events\SealedRoundChanged;
 use App\Notifications\GeneralNotification;
 use App\Jobs\FlushAuctionEmails;
 use App\Models\AuctionPendingEmail;
@@ -22,6 +23,7 @@ use App\Services\Auction\AuctionPoolService;
 use App\Services\Auction\AuctionSaleService;
 use App\Services\Auction\AuctionUndoService;
 use App\Services\Auction\BidIncrementService;
+use App\Support\AfterResponse;
 use App\Services\Export\AuctionSnapshotExport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -1568,6 +1570,16 @@ class AuctionOrganizerController extends Controller
                     ->openRoundFor($onBlock, $auction->fresh());
             }
         }
+
+        /*
+         * And announce it. This is the manual "take the room to a sealed bid" path — the moment
+         * every screen in the hall most needs to change — and it broadcast nothing at all, so the
+         * wall kept showing open bidding until somebody's poll came round. The automatic path
+         * through ClosedBidRoundController has always announced; this one never did.
+         *
+         * announce() no-ops on null, so an open-bid switch says nothing.
+         */
+        AfterResponse::run(fn () => SealedRoundChanged::announce($round?->fresh()));
 
         return response()->json([
             'success' => true,
