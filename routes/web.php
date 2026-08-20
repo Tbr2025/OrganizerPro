@@ -1268,6 +1268,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/fixtures/generate-knockouts', [TournamentFixtureController::class, 'generateKnockouts'])->name('fixtures.generate-knockouts');
         Route::post('/fixtures/generate-ipl-playoffs', [TournamentFixtureController::class, 'generateIplPlayoffs'])->name('fixtures.generate-ipl-playoffs');
         Route::delete('/fixtures/group-stage', [TournamentFixtureController::class, 'deleteGroupStage'])->name('fixtures.delete-group');
+        /*
+         * Bulk actions. Literal segments, so they must sit ABOVE the `/fixtures/{match}` routes
+         * below — declared after them, `bulk-delete` binds as a match id and 404s.
+         */
+        Route::delete('/fixtures/bulk-delete', [TournamentFixtureController::class, 'bulkDestroy'])->name('fixtures.bulk-delete');
+        Route::post('/fixtures/bulk-publish', [TournamentFixtureController::class, 'bulkPublish'])->name('fixtures.bulk-publish');
         Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters');
         Route::put('/fixtures/{match}', [TournamentFixtureController::class, 'update'])->name('fixtures.update');
         Route::delete('/fixtures/{match}', [TournamentFixtureController::class, 'destroy'])->name('fixtures.destroy');

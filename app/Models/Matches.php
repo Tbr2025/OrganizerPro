@@ -62,6 +62,7 @@ class Matches extends Model
         'poster_sent_at',
         'is_cancelled',
         'cancellation_reason',
+        'is_published',
     ];
 
     protected $casts = [
@@ -69,7 +70,23 @@ class Matches extends Model
         'poster_sent' => 'boolean',
         'poster_sent_at' => 'datetime',
         'is_cancelled' => 'boolean',
+        'is_published' => 'boolean',
     ];
+
+    /**
+     * Fixtures the public may see.
+     *
+     * A scope rather than a global one: the admin fixtures page has to show the hidden ones —
+     * greyed, so an organizer can see what is still held back — and a global scope would hide
+     * them from the very screen that exists to manage them. Every PUBLIC query applies this.
+     *
+     * `is_cancelled` stays a separate question. A cancelled match is announced as cancelled;
+     * an unpublished one is not announced at all.
+     */
+    public function scopePublished($query)
+    {
+        return $query->where('is_published', true);
+    }
 
     protected static function boot()
     {

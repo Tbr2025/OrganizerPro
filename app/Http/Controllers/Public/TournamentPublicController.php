@@ -28,6 +28,7 @@ class TournamentPublicController extends Controller
         // Get upcoming matches
         $upcomingMatches = $tournament->matches()
             ->with(['teamA', 'teamB', 'ground'])
+            ->published()
             ->where('status', 'upcoming')
             ->where('is_cancelled', false)
             ->orderBy('match_date')
@@ -37,6 +38,7 @@ class TournamentPublicController extends Controller
         // Get recent results
         $recentResults = $tournament->matches()
             ->with(['teamA', 'teamB', 'result', 'winner'])
+            ->published()
             ->where('status', 'completed')
             ->orderByDesc('match_date')
             ->limit(5)
@@ -62,6 +64,8 @@ class TournamentPublicController extends Controller
 
         $query = $tournament->matches()
             ->with(['teamA', 'teamB', 'ground', 'group', 'result'])
+            // An unpublished fixture is not announced at all — see Matches::scopePublished().
+            ->published()
             ->where('is_cancelled', false)
             ->orderBy('match_date')
             ->orderBy('match_number');

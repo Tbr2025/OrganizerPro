@@ -109,21 +109,186 @@
         </div>
     </div>
 
+    {{-- The forms the bulk actions post through. Kept out of the loops so there is exactly one
+         of each on the page: a form per row multiplied by 55 fixtures is 55 chances for the wrong
+         one to be submitted. --}}
+    @can('tournament.edit')
+        <form id="fxBulkDeleteForm" method="POST"
+              action="{{ route('admin.tournaments.fixtures.bulk-delete', $tournament) }}" class="hidden">
+            @csrf
+            @method('DELETE')
+            <span data-ids></span>
+        </form>
+
+        <form id="fxBulkPublishForm" method="POST"
+              action="{{ route('admin.tournaments.fixtures.bulk-publish', $tournament) }}" class="hidden">
+            @csrf
+            <input type="hidden" name="published" value="1">
+            <input type="hidden" name="stage" value="">
+            <input type="hidden" name="group_id" value="">
+            <span data-ids></span>
+        </form>
+
+        {{-- Selection bar. Fixed to the bottom so it stays reachable after scrolling past a pool
+             of 28 — a bar at the top of the list is a bar nobody can see when they need it. --}}
+        <div x-show="selected.length > 0" x-cloak
+             class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-2
+                    rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900
+                    shadow-2xl px-4 py-3">
+            <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
+                <span x-text="selected.length"></span> selected
+            </span>
+            <button type="button" @click="publish(true)"
+                    class="px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600">
+                Enable
+            </button>
+            <button type="button" @click="publish(false)"
+                    class="px-3 py-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-sm font-semibold">
+                Disable
+            </button>
+            <button type="button" @click="askDelete(null, 'the selected fixtures')"
+                    class="px-3 py-1.5 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600">
+                Delete
+            </button>
+            <button type="button" @click="clearSelection()"
+                    class="px-2 py-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                Clear
+            </button>
+        </div>
+
+        {{-- Always confirm, and always say how many. --}}
+        <div x-show="confirm.open" x-cloak class="fixed inset-0 z-50 overflow-y-auto"
+             @keydown.escape.window="confirm.open = false">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="fixed inset-0 bg-black/50" @click="confirm.open = false"></div>
+                <div class="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">
+                        Delete <span x-text="confirm.count"></span>
+                        <span x-text="confirm.count === 1 ? 'fixture' : 'fixtures'"></span>?
+                    </h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" x-show="confirm.scope">
+                        From <span x-text="confirm.scope"></span>.
+                    </p>
+                    <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                        This cannot be undone. Their posters and scorecards go with them.
+                    </p>
+                    {{-- Said before the click, not after: a fixture with a result is skipped by the
+                         server, and finding that out from a success message is a worse experience
+                         than knowing to expect it. --}}
+                    <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Fixtures that already have a result are kept, and listed afterwards.
+                    </p>
+
+                    <div class="mt-6 flex justify-end gap-3">
+                        <button type="button" @click="confirm.open = false"
+                                class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200">
+                            Cancel
+                        </button>
+                        <button type="button" @click="submitDelete()"
+                                class="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600">
+                            Delete <span x-text="confirm.count"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endcan
+
     <!-- Matches by Stage -->
     @if($matches->count() > 0)
-        @foreach($groupedMatches as $stage => $stageMatches)
+        @foreach($sections as $stage => $pools)
+            @php
+                $stageMatches = $groupedMatches[$stage];
+                $stageIds = $stageMatches->pluck('id')->values();
+                $stageHidden = $stageMatches->where('is_published', false)->count();
+            @endphp
             <div class="card overflow-hidden">
-                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3 flex items-center justify-between">
-                    <h3 class="text-white font-bold">{{ ucwords(str_replace('_', ' ', $stage)) }} Stage</h3>
+                {{-- Stage header: the whole stage is a section, so it carries its own controls. --}}
+                <div class="bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3 flex flex-wrap items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer" title="Select all in this stage">
+                        <input type="checkbox" class="rounded border-white/40 bg-white/20 text-indigo-600"
+                               :checked="sectionAllSelected(@js($stageIds))"
+                               @change="toggleSection(@js($stageIds))">
+                        <h3 class="text-white font-bold">{{ ucwords(str_replace('_', ' ', $stage)) }} Stage</h3>
+                    </label>
+
                     <span class="text-white/80 text-sm">{{ $stageMatches->count() }} Matches</span>
+                    @if($stageHidden > 0)
+                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-100">
+                            {{ $stageHidden }} hidden
+                        </span>
+                    @endif
+
+                    @can('tournament.edit')
+                        <span class="ml-auto flex items-center gap-2">
+                            <button type="button" @click="publish(true, { stage: '{{ $stage }}' })"
+                                    class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white/15 text-white hover:bg-white/25">
+                                Enable stage
+                            </button>
+                            <button type="button" @click="publish(false, { stage: '{{ $stage }}' })"
+                                    class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white/15 text-white hover:bg-white/25">
+                                Disable stage
+                            </button>
+                        </span>
+                    @endcan
                 </div>
+
+                @foreach($pools as $poolId => $poolMatches)
+                    @php
+                        $poolIds = $poolMatches->pluck('id')->values();
+                        $poolName = $poolMatches->first()->group->name ?? null;
+                        $poolHidden = $poolMatches->where('is_published', false)->count();
+                    @endphp
+
+                    {{-- A pool inside the stage is a section too. Knockout fixtures have no pool,
+                         so this sub-header is skipped for them rather than showing an empty band. --}}
+                    @if($poolName)
+                        <div class="px-4 py-2 bg-gray-50 dark:bg-gray-800/60 border-b dark:border-gray-700 flex flex-wrap items-center gap-3">
+                            <label class="flex items-center gap-2 cursor-pointer" title="Select all in this pool">
+                                <input type="checkbox" class="rounded border-gray-300 dark:border-gray-600"
+                                       :checked="sectionAllSelected(@js($poolIds))"
+                                       @change="toggleSection(@js($poolIds))">
+                                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200">{{ $poolName }}</span>
+                            </label>
+                            <span class="text-xs text-gray-500">{{ $poolMatches->count() }} fixtures</span>
+                            @if($poolHidden > 0)
+                                <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                    {{ $poolHidden }} hidden
+                                </span>
+                            @endif
+                            @can('tournament.edit')
+                                <span class="ml-auto flex items-center gap-2">
+                                    <button type="button" @click="publish(true, { groupId: {{ $poolId }} })"
+                                            class="text-[11px] font-semibold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300">
+                                        Enable pool
+                                    </button>
+                                    <button type="button" @click="publish(false, { groupId: {{ $poolId }} })"
+                                            class="text-[11px] font-semibold px-2 py-1 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">
+                                        Disable pool
+                                    </button>
+                                </span>
+                            @endcan
+                        </div>
+                    @endif
+
                 <div class="divide-y dark:divide-gray-700">
-                    @foreach($stageMatches as $match)
-                        <div class="p-4 {{ $match->is_cancelled ? 'bg-red-50 dark:bg-red-900/20' : '' }}">
+                    @foreach($poolMatches as $match)
+                        <div class="p-4 {{ $match->is_cancelled ? 'bg-red-50 dark:bg-red-900/20' : '' }} {{ $match->is_published ? '' : 'opacity-60' }}">
                             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                                 {{-- Left: Match info with team logos --}}
                                 <div class="flex items-center gap-4 flex-1 min-w-0">
+                                    {{-- Hidden fixtures stay visible HERE, greyed: this is the screen
+                                         for managing them, so it must show what is being held back. --}}
+                                    <input type="checkbox" class="rounded border-gray-300 dark:border-gray-600 flex-shrink-0"
+                                           value="{{ $match->id }}"
+                                           :checked="isSelected({{ $match->id }})"
+                                           @change="toggle({{ $match->id }})">
                                     <span class="text-gray-400 text-sm font-mono w-8 flex-shrink-0">#{{ $match->match_number }}</span>
+                                    @unless($match->is_published)
+                                        <span class="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300 flex-shrink-0">
+                                            Hidden
+                                        </span>
+                                    @endunless
 
                                     {{-- Team A --}}
                                     <div class="flex items-center gap-2 flex-1 min-w-0">
@@ -230,11 +395,15 @@
                                             </button>
                                         </form>
                                         @if($match->status !== 'completed')
-                                            <form action="{{ route('admin.tournaments.fixtures.destroy', [$tournament, $match]) }}" method="POST" class="inline"
-                                                  onsubmit="return confirm('Delete this match? This cannot be undone.')">
+                                            {{-- Routed through the same modal as the bulk delete, so one fixture
+                                                 and twenty-eight are confirmed the same way and both say what
+                                                 goes. The native confirm() could not name a count. --}}
+                                            <form action="{{ route('admin.tournaments.fixtures.destroy', [$tournament, $match]) }}" method="POST" class="inline">
                                                 @csrf
                                                 @method('DELETE')
-                                                <button type="submit" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="Delete Match">
+                                                <button type="button"
+                                                        @click="askDelete(['{{ $match->id }}'], @js($match->name ?: 'match #' . $match->match_number))"
+                                                        class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="Delete Match">
                                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                                                     </svg>
@@ -247,20 +416,19 @@
                         </div>
                     @endforeach
                 </div>
+                @endforeach
             </div>
         @endforeach
 
         <!-- Delete Group Stage -->
         @if($groupedMatches->has('group'))
             <div class="flex justify-end">
-                <form action="{{ route('admin.tournaments.fixtures.delete-group', $tournament) }}" method="POST" class="inline">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" onclick="return confirm('Delete all group stage fixtures? This cannot be undone.')"
-                            class="px-4 py-2 text-red-500 hover:text-red-700 text-sm">
-                        Delete Group Stage Fixtures
-                    </button>
-                </form>
+                @php $groupStageIds = $groupedMatches['group']->pluck('id')->values(); @endphp
+                <button type="button"
+                        @click="askDelete(@js($groupStageIds), 'the whole group stage')"
+                        class="px-4 py-2 text-red-500 hover:text-red-700 text-sm">
+                    Delete Group Stage Fixtures
+                </button>
             </div>
         @endif
     @else
@@ -534,6 +702,68 @@
 <script>
 function fixtureManager() {
     return {
+        /*
+         * Selection and the delete confirmation.
+         *
+         * `selected` holds match ids as STRINGS, because that is what an <input value> yields and
+         * mixing the two makes `includes()` quietly false — which shows as a checkbox that ticks
+         * but never counts.
+         */
+        selected: [],
+        confirm: { open: false, count: 0, ids: [], scope: '' },
+
+        isSelected(id) { return this.selected.includes(String(id)); },
+
+        toggle(id) {
+            const key = String(id);
+            const i = this.selected.indexOf(key);
+            if (i === -1) { this.selected.push(key); } else { this.selected.splice(i, 1); }
+        },
+
+        /** Select-all for one section: ticks the whole section, or clears it if already whole. */
+        toggleSection(ids) {
+            const keys = ids.map(String);
+            const allOn = keys.every((k) => this.selected.includes(k));
+
+            if (allOn) {
+                this.selected = this.selected.filter((k) => !keys.includes(k));
+            } else {
+                keys.forEach((k) => { if (!this.selected.includes(k)) this.selected.push(k); });
+            }
+        },
+
+        sectionAllSelected(ids) {
+            return ids.length > 0 && ids.map(String).every((k) => this.selected.includes(k));
+        },
+
+        clearSelection() { this.selected = []; },
+
+        /** Always ask first — and say how many, which a browser confirm() cannot. */
+        askDelete(ids, scope) {
+            const list = (ids && ids.length ? ids : this.selected).map(String);
+            if (!list.length) return;
+            this.confirm = { open: true, count: list.length, ids: list, scope: scope || '' };
+        },
+
+        submitDelete() {
+            const form = document.getElementById('fxBulkDeleteForm');
+            form.querySelector('[data-ids]').innerHTML = this.confirm.ids
+                .map((id) => `<input type="hidden" name="ids[]" value="${id}">`).join('');
+            form.submit();
+        },
+
+        /** Publish / hide, by explicit ids or by a whole section. */
+        publish(state, opts = {}) {
+            const form = document.getElementById('fxBulkPublishForm');
+            form.querySelector('[name="published"]').value = state ? 1 : 0;
+            form.querySelector('[name="stage"]').value = opts.stage ?? '';
+            form.querySelector('[name="group_id"]').value = opts.groupId ?? '';
+            form.querySelector('[data-ids]').innerHTML = (opts.stage || opts.groupId)
+                ? ''
+                : this.selected.map((id) => `<input type="hidden" name="ids[]" value="${id}">`).join('');
+            form.submit();
+        },
+
         showAddModal: false,
         showEditModal: false,
         showPosterModal: false,

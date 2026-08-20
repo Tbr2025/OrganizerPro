@@ -50,6 +50,19 @@ class TournamentFixtureController extends Controller
         // Group matches by stage
         $groupedMatches = $matches->groupBy('stage');
 
+        /*
+         * The same fixtures again, nested stage → pool, for the section controls.
+         *
+         * Enable/disable and select-all act on a SECTION, and a section is either a whole stage
+         * or one pool inside it — so the view needs the nesting rather than a flat list it would
+         * have to regroup in Blade. Keyed by pool id, with 0 standing for "no pool", which is
+         * where knockout and playoff fixtures land: they have a stage and no group, and dropping
+         * them would quietly hide half the page's fixtures from its own controls.
+         */
+        $sections = $groupedMatches->map(
+            fn ($stageMatches) => $stageMatches->groupBy(fn ($m) => $m->tournament_group_id ?? 0)
+        );
+
         $grounds = Ground::where(function ($q) use ($tournament) {
             $q->where('organization_id', $tournament->organization_id)
               ->orWhereNull('organization_id');
@@ -61,6 +74,7 @@ class TournamentFixtureController extends Controller
             'tournament' => $tournament,
             'matches' => $matches,
             'groupedMatches' => $groupedMatches,
+            'sections' => $sections,
             'groups' => $tournament->groups,
             'grounds' => $grounds,
             'teams' => $teams,
@@ -412,6 +426,128 @@ class TournamentFixtureController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', __('Failed to delete match: ') . $e->getMessage());
         }
+    }
+
+    /**
+     * Delete several fixtures at once — and refuse the ones that have been played.
+     *
+     * A played fixture is not just a row: deleting it takes its scorecard with it and silently
+     * moves the points table, which nobody watching the bulk action would connect to what they
+     * just did. `destroy()` already refuses a completed match one at a time; this keeps the same
+     * rule and REPORTS what it kept, because a bulk action that quietly does less than asked is
+     * worse than one that explains itself.
+     */
+    public function bulkDestroy(Tournament $tournament, Request $request): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer',
+        ]);
+
+        // Scoped to THIS tournament, not just to the ids given: an id from another tournament
+        // must not be deletable by posting it here.
+        $matches = $tournament->matches()
+            ->whereIn('id', $validated['ids'])
+            ->with('result')
+            ->get();
+
+        if ($matches->isEmpty()) {
+            return redirect()->back()->with('error', __('Those fixtures are not in this tournament.'));
+        }
+
+        // Completed, or holding a result or a winner. Any of the three means somebody played it.
+        [$kept, $deletable] = $matches->partition(
+            fn (Matches $m) => $m->isCompleted() || $m->result !== null || $m->winner_team_id !== null
+        );
+
+        $deleted = 0;
+
+        foreach ($deletable as $match) {
+            try {
+                $this->fixtureService->deleteMatch($match);
+                $deleted++;
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        $message = trans_choice(':count fixture deleted.|:count fixtures deleted.', $deleted, ['count' => $deleted]);
+
+        if ($kept->isNotEmpty()) {
+            // Named, not counted: "3 were kept" leaves an organizer hunting for which three.
+            $names = $kept->take(5)->map(fn (Matches $m) => $m->name ?: '#' . $m->match_number)->implode(', ');
+            $more = $kept->count() > 5 ? __(' and :n more', ['n' => $kept->count() - 5]) : '';
+
+            return redirect()->back()
+                ->with($deleted > 0 ? 'success' : 'error', $message)
+                ->with('kept_fixtures', __(
+                    ':n kept because they have results: :names:more. Delete those individually if you mean to.',
+                    ['n' => $kept->count(), 'names' => $names, 'more' => $more]
+                ));
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Show or hide fixtures on the public site, without deleting anything.
+     *
+     * A schedule is drafted before it is announced. The alternative before this was to mark a
+     * fixture CANCELLED — which spectators read as "called off", a different statement entirely —
+     * or to delete it and lose the work.
+     *
+     * Takes either an explicit list of ids, or a whole section (a stage, a pool, or a pool within
+     * a stage). The section form is not sugar: it is one statement the database applies atomically,
+     * where posting 28 ids can half-succeed.
+     */
+    public function bulkPublish(Tournament $tournament, Request $request): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+
+        $validated = $request->validate([
+            'published' => 'required|boolean',
+            'ids' => 'array',
+            'ids.*' => 'integer',
+            'stage' => 'nullable|string|max:50',
+            'group_id' => 'nullable|integer',
+        ]);
+
+        $query = $tournament->matches();
+        $scoped = false;
+
+        if (! empty($validated['ids'])) {
+            $query->whereIn('id', $validated['ids']);
+            $scoped = true;
+        }
+
+        if (! empty($validated['stage'])) {
+            $query->where('stage', $validated['stage']);
+            $scoped = true;
+        }
+
+        if (! empty($validated['group_id'])) {
+            $query->where('tournament_group_id', $validated['group_id']);
+            $scoped = true;
+        }
+
+        /*
+         * Refuse an unscoped call rather than treating it as "all fixtures".
+         *
+         * With every filter absent this would publish or hide the entire tournament, which is not
+         * a thing any button on the page asks for — so it can only be a bug or a hand-made
+         * request, and both deserve a refusal.
+         */
+        if (! $scoped) {
+            return redirect()->back()->with('error', __('Nothing was selected.'));
+        }
+
+        $changed = $query->update(['is_published' => $validated['published']]);
+
+        return redirect()->back()->with('success', $validated['published']
+            ? trans_choice(':count fixture is now public.|:count fixtures are now public.', $changed, ['count' => $changed])
+            : trans_choice(':count fixture hidden from the public site.|:count fixtures hidden from the public site.', $changed, ['count' => $changed]));
     }
 
     public function generateIplPlayoffs(Tournament $tournament): RedirectResponse

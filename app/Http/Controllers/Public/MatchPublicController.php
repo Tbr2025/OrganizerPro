@@ -30,6 +30,7 @@ class MatchPublicController extends Controller
         // Get other matches in the tournament for navigation
         $otherMatches = $tournament->matches()
             ->with(['teamA', 'teamB'])
+            ->published()
             ->where('id', '!=', $match->id)
             ->where('is_cancelled', false)
             ->orderBy('match_date')
