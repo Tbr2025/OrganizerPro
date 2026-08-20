@@ -11,6 +11,7 @@ use App\Http\Controllers\Backend\AuctionAdminController;
 use App\Http\Controllers\Backend\AuctionAllotmentController;
 use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
+use App\Http\Controllers\Backend\FastAuctionScreenController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
@@ -529,6 +530,20 @@ Route::middleware(['auth'])
 
         // **FIX**: Corrected route to SHOW the bidding page
         Route::get('/live', [AuctionBiddingController::class, 'showBiddingPage'])->name('show');
+
+        /*
+         * Fast Auction — the lean bidding screen, on its own URL beside /live.
+         *
+         * Inside THIS group deliberately. It inherits bare `auth` like everything else here, with
+         * the team scoping done in the method bodies, and — the part that is easy to miss — the
+         * `redirect.team-manager` middleware on the /admin groups already allowlists
+         * `admin/team/auction/*`, so a team manager reaches this without touching that allowlist.
+         * Mounted anywhere else, they would be bounced to their dashboard.
+         *
+         * /live is untouched and stays the fallback.
+         */
+        Route::get('/fast', [FastAuctionScreenController::class, 'teamBidding'])->name('fast');
+        Route::get('/api/fast-snapshot', [FastAuctionScreenController::class, 'teamSnapshot'])->name('fast-snapshot');
 
         // API route for placing a bid
         Route::post('/api/place-bid', [AuctionBiddingController::class, 'placeBid'])->name('api.place-bid');
