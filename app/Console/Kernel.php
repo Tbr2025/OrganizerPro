@@ -29,8 +29,25 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // Schedule the demo database refresh command every 15 minutes in demo mode.
-        $schedule->command('demo:refresh-database')->everyFifteenMinutes();
+        /*
+         * DANGER. This command runs `migrate:fresh --seed --force`. It DROPS EVERY TABLE.
+         *
+         * It is scheduled every fifteen minutes, and the only thing that has ever stopped it
+         * running against the live tournament database is that no crontab exists on the server —
+         * so `schedule:run` has never once fired. The moment anyone installs the obvious
+         * `* * * * * php artisan schedule:run`, this becomes a fifteen-minute timer pointed at
+         * production, held off by a single `.env` line.
+         *
+         * `->when()` here is defence in depth: the command already checks demo mode internally,
+         * but that check lives one refactor away from the destructive call, and the scheduler
+         * should not even invoke it. Now the entry is skipped before the command is constructed.
+         *
+         * Before installing a crontab, read this comment and decide deliberately. If this
+         * deployment is not a demo site, the safest thing is to delete this entry outright.
+         */
+        $schedule->command('demo:refresh-database')
+            ->everyFifteenMinutes()
+            ->when(fn () => (bool) config('app.demo_mode'));
 
         // Tournament scheduled tasks
         // Send match posters daily at 9 AM
