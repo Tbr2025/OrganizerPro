@@ -1,0 +1,19 @@
+/*
+    Fast Auction's own Tailwind entry. Small on purpose, and the `source(none)` is the reason.
+
+    resources/css/app.css pulls in base/sidebar/components/third-party plus flowbite and an
+    `@source '../views'` that scans every Blade file in the project. It comes out at ~391 KB, and a
+    team manager on a venue phone downloaded all of it to render a bidding screen.
+
+    `source(none)` turns OFF Tailwind v4's automatic content detection, which otherwise crawls the
+    whole project from the root — adding `@source` alone does not narrow it, it only adds, and that
+    first attempt produced 269 KB. With detection off, the two directories below are the entire
+    universe of classes this stylesheet knows about.
+
+    Do not add `@import "./app.css"` or a wider `@source` here; either would undo the whole
+    exercise. There is a test asserting the host page stays lean for the same reason.
+*/
+@import "tailwindcss" source(none);
+
+@source "../js/fast-auction";
+@source "../views/fast-auction";
