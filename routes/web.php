@@ -440,8 +440,19 @@ Route::middleware(['auth', 'permission:auction.edit|auction.observe', 'organizer
             ->middleware(['permission:auction.control|auction.edit', 'auction.operator:control'])
             ->name('offline-panel');
 
+        /*
+         * Fast Auction's panel. Observe-or-edit, like the classic panel beside it — deliberately
+         * NOT auction.control, because an auctioneer holding only `auction.observe` must be able
+         * to watch. The write buttons are hidden for them by the ability check in the boot blob,
+         * and the endpoints they post to carry their own guards regardless.
+         */
+        Route::get('/fast-panel', [FastAuctionScreenController::class, 'organizerPanel'])
+            ->name('fast-panel');
+
         Route::prefix('api')->name('api.')->group(function () {
             Route::get('/poll-state', [AuctionOrganizerController::class, 'pollState'])->name('poll-state');
+            // The same state, trimmed for the wire. pollState() is untouched.
+            Route::get('/fast-state', [FastAuctionScreenController::class, 'fastState'])->name('fast-state');
             Route::post('/start', [AuctionOrganizerController::class, 'startAuction'])->name('start')->middleware(['permission:auction.control|auction.edit', 'auction.operator:control']);
             Route::post('/end', [AuctionOrganizerController::class, 'endAuction'])->name('end')->middleware(['permission:auction.control|auction.edit', 'auction.operator:sell']);
             Route::post('/restart', [AuctionOrganizerController::class, 'restartAuction'])->name('restart')->middleware(['permission:auction.control|auction.edit', 'auction.operator:sell']);

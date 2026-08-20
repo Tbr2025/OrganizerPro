@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { get, post } from '../lib/api';
 import { connect } from '../lib/realtime';
+import { moneyFor } from '../lib/money';
 
 const props = defineProps({
     boot: { type: Object, required: true },
@@ -35,16 +36,7 @@ const photo = computed(() =>
     player.value?.image_path ? `/storage/${player.value.image_path}` : null);
 const sealedActive = computed(() => Boolean(sealed.value?.active));
 
-const money = (v) => {
-    if (v === null || v === undefined || v === '') return '—';
-    const unit = props.boot.amountUnit ?? { label: 'Points', prefix: false };
-    const n = Number(v);
-    const figure = n >= 1e7 ? (n / 1e7).toFixed(2).replace(/\.?0+$/, '') + 'Cr'
-        : n >= 1e5 ? (n / 1e5).toFixed(2).replace(/\.?0+$/, '') + 'L'
-        : n.toLocaleString();
-
-    return unit.prefix ? `${unit.label}${figure}` : `${figure} ${unit.label}`;
-};
+const money = moneyFor(props.boot.amountUnit);
 
 /** Refetch the whole screen from the one snapshot endpoint. */
 async function reconcile() {
