@@ -17,10 +17,22 @@ use Illuminate\Support\Facades\Schema;
  *
  * At ~500 rows per auction one screen never noticed. Forty screens on a two-core box did.
  *
- * `status` is left an ENUM. Widening it to varchar is tempting — a previous migration
- * (2026_08_07_000005) already argued against further ENUM MODIFYs and chose string(24) for round
- * state — but MODIFY COLUMN rewrites the whole table, and indexing the ENUM as it stands gets the
- * entire win for none of that risk.
+ * `status` is left an ENUM, and not only to avoid a rewrite. An index on an ENUM indexes its
+ * internal one-byte integer, so this is the most compact index the column can have; widening to
+ * varchar(16) utf8mb4 would make every entry in these composites ~17 bytes for exactly zero query
+ * benefit. The rule worth writing down instead is that new statuses are APPENDED to the end of
+ * the ENUM, never inserted or reordered.
+ *
+ * Four indexes that looked obvious are deliberately absent:
+ *
+ *   - `auction_players (organization_id)` — one value per tenant, so it is nearly cardinality-free
+ *     and its only real effect would be to offer the optimizer a plausible-looking alternative to
+ *     the composites below for precisely the queries they exist to fix. OrganizationScope's
+ *     predicate is better left as a residual filter on rows already narrowed to a handful.
+ *   - `actual_teams (tournament_id, name)` — `ORDER BY name` runs over five to sixteen rows.
+ *   - `auctions (tournament_id)` and `(organization_id, status)` — the table has tens of rows;
+ *     MySQL will scan it faster than it can walk an index, and schema noise on a table someone is
+ *     debugging at nine in the evening has a cost of its own.
  */
 return new class () extends Migration {
     /**
@@ -46,22 +58,41 @@ return new class () extends Migration {
         // The waiting queue and nextPlayer(), which read pool then lot order.
         ['auction_players', ['auction_id', 'auction_pool_id', 'status', 'lot_number'], 'auction_players_auction_pool_status_idx'],
 
-        // Kills the filesort behind `ORDER BY updated_at DESC` on the sold board and the ticker.
+        /*
+         * poolProgress() is the one nothing above can help.
+         *
+         * It issues four `withCount` subqueries per biddable pool, and they correlate on the
+         * `players` relation — `auction_pool_id` — with no `auction_id` in the subquery at all.
+         * So every index that leads with `auction_id`, including the one directly above, is
+         * unusable here. Six pools × four counts is roughly two dozen correlated subqueries on
+         * every organizer poll, which makes this the second most-executed index in the set and
+         * the easiest one to leave out by accident.
+         */
+        ['auction_players', ['auction_pool_id', 'status', 'is_retained'], 'auction_players_pool_status_idx'],
+
+        /*
+         * Kills the filesort behind `ORDER BY updated_at DESC` on the sold board and the ticker.
+         *
+         * `updated_at` and not `sold_at`, deliberately, even though `sold_at` is the better key:
+         * it is immutable, where `updated_at` moves on any later edit and so can reorder a
+         * finished board. But the three call sites all order by `updated_at` today, and changing
+         * their ordering is a behaviour change to screens that are meant to stay untouched. The
+         * cost of the honest choice is that this index is maintained on the bid path, since every
+         * update bumps `updated_at` — one secondary entry on one row per bid. Switching both the
+         * column and the three ORDER BYs together is a follow-up, not a smuggled-in change.
+         */
         ['auction_players', ['auction_id', 'status', 'updated_at'], 'auction_players_auction_status_updated_idx'],
 
-        // OrganizationScope appends this to every query on the table for any non-Superadmin.
-        ['auction_players', ['organization_id'], 'auction_players_organization_idx'],
-
-        // Evaluated on every panel paint by approvedForTournament().
-        ['tournament_registrations', ['tournament_id', 'type', 'status'], 'tournament_regs_tournament_type_status_idx'],
-
-        // Every team list ends `ORDER BY name`, and `name` was unindexed.
-        ['actual_teams', ['tournament_id', 'name'], 'actual_teams_tournament_name_idx'],
-
-        // `auctions` had no secondary index at all — not even on tournament_id, which is how
-        // almost every lookup finds an auction.
-        ['auctions', ['tournament_id'], 'auctions_tournament_idx'],
-        ['auctions', ['organization_id', 'status'], 'auctions_organization_status_idx'],
+        /*
+         * approvedForTournament() correlates on `actual_team_id`, not on `tournament_id`.
+         *
+         * It builds two EXISTS subqueries through the `tournamentRegistrations` relation, so the
+         * correlation column is the foreign key back to actual_teams and the three filters ride
+         * behind it. Leading with `tournament_id` — the obvious-looking choice — leaves MySQL
+         * preferring the existing FK index and filtering rows by hand. Leading with
+         * `actual_team_id` makes both EXISTS index-only probes.
+         */
+        ['tournament_registrations', ['actual_team_id', 'tournament_id', 'type', 'status'], 'tr_team_tournament_type_status_idx'],
     ];
 
     public function up(): void
