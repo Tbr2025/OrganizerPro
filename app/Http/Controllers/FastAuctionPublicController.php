@@ -80,9 +80,31 @@ class FastAuctionPublicController extends Controller
         ]);
     }
 
+    /**
+     * The wall's state, and the one response in this module that a CDN may cache.
+     *
+     * Being session-stripped is only half of what that takes. Laravel answers with
+     * `Cache-Control: no-cache, private` by default, so Cloudflare was reporting every one of
+     * these as DYNAMIC and passing all of them through to origin — the session strip removed the
+     * `Set-Cookie` that would have made caching impossible, and then the default header made it
+     * pointless anyway.
+     *
+     * One second, matching `cachedFeed()`'s own TTL exactly: the payload genuinely is identical
+     * for every viewer for that long, so ten walls in a hall should cost one build, not ten. It is
+     * also the figure the screens are built around — they hold their own clocks between fetches.
+     *
+     * `public` and `s-maxage` are what a shared cache reads; `max-age` keeps a browser from
+     * re-asking within the same second if a burst of nudges arrives together.
+     *
+     * NOTE: Cloudflare will not cache a JSON path on its default settings however correct this
+     * header is — it caches by file extension unless a Cache Rule says otherwise. This makes the
+     * response cacheable; turning that into cache HITS needs a rule for
+     * `/auction/*&#47;fast-wall-snapshot` in the dashboard.
+     */
     public function snapshot(Auction $auction): JsonResponse
     {
-        return response()->json($this->payload($auction));
+        return response()->json($this->payload($auction))
+            ->header('Cache-Control', 'public, max-age=1, s-maxage=1');
     }
 
     /**

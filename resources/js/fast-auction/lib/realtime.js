@@ -17,15 +17,31 @@ const RECONCILE_MS = 15000;
 /** And when it is not — or when a sealed round is live, which push does not fully cover. */
 const RECONCILE_FAST_MS = 2000;
 
-export function connect({ auctionId, onFrame, reconcile, isSealedActive }) {
+export function connect({ auctionId, onFrame, reconcile, isSealedActive, silentWhenHealthy = false }) {
     let timer = null;
     let connected = false;
 
-    const delay = () => (!connected || isSealedActive?.() ? RECONCILE_FAST_MS : RECONCILE_MS);
+    const needsFast = () => !connected || Boolean(isSealedActive?.());
 
+    /*
+     * `silentWhenHealthy` stops the timer entirely while push is up — what the classic wall and
+     * ticker do, and for a good reason: recovery does not need a heartbeat. pusher-js reconnects
+     * on its own, the `connected` binding refetches, and returning to visibility or regaining the
+     * network refetches too. A periodic request adds load to fix a delay the events have already
+     * removed.
+     *
+     * Off by default. The bidding screen and the panel keep their 15-second reconcile because
+     * their classic counterparts do: they carry per-team money and control state, and a screen
+     * that has silently missed a nudge is worse there than one extra request a minute.
+     */
     function schedule() {
         clearTimeout(timer);
-        timer = setTimeout(tick, delay());
+
+        if (silentWhenHealthy && !needsFast()) {
+            return;
+        }
+
+        timer = setTimeout(tick, needsFast() ? RECONCILE_FAST_MS : RECONCILE_MS);
     }
 
     async function tick() {

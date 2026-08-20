@@ -79,6 +79,17 @@ class FastAuctionWallTest extends TestCase
             'the wall snapshot must not start a session: Cloudflare will not cache a response '
             . 'carrying Set-Cookie, and every screen in the hall polls this'
         );
+
+        /*
+         * And it must say it is cacheable. Stripping the session only removes the blocker;
+         * Laravel's default `no-cache, private` made every one of these DYNAMIC at the edge, so
+         * ten walls in a hall meant ten origin builds of an identical payload.
+         */
+        $this->assertStringContainsString(
+            's-maxage=1',
+            (string) $response->headers->get('Cache-Control'),
+            'the wall snapshot should be shared-cacheable for the same one second cachedFeed() holds it'
+        );
     }
 
     #[Test]

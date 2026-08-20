@@ -29,15 +29,15 @@ const sold = computed(() => snap.value.sold ?? []);
 const photo = computed(() =>
     player.value?.image_path ? `/storage/${player.value.image_path}` : null);
 
+/** Initials for the photo placeholder. */
+const initials = computed(() => (player.value?.name ?? '?')
+    .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase());
+
 /*
  * The base price appears only once the room has bid past it — `base > 0 && live > base`, the
  * classic wall's rule. Worth copying rather than inventing: templates place this element close to
  * the live price precisely because it is absent for most of a lot.
  */
-/** Initials for the photo placeholder. */
-const initials = computed(() => (player.value?.name ?? '?')
-    .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase());
-
 const showBase = computed(() => {
     const base = Number(row.value?.base_price || 0);
     const live = Number(price.value || 0);
@@ -120,6 +120,8 @@ onMounted(() => {
     connect({
         auctionId: props.boot.auctionId,
         isSealedActive: () => Boolean(sealed.value?.active),
+        // No heartbeat while push is healthy, exactly as the classic wall behaves.
+        silentWhenHealthy: true,
         reconcile,
         onFrame: (name, e) => {
             if (name === 'bid.raised') applyRaise(e);
