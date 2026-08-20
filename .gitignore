@@ -11,6 +11,25 @@
 .env.local
 .env.production
 .env.backup
+
+# Every env variant, then the template back in. `.env.backup` was listed above and
+# `.env.bak.232443` still slipped through, because a named exception only ever catches the
+# one name somebody thought of. This repository is PUBLIC: an env file committed here is
+# readable by anyone and scraped within minutes.
+.env*
+!.env.example
+
+# Keys, certificates and database dumps. A private key was committed to this repo in its
+# first commit and sat in a public repository until it was found.
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.sql
+*.sql.gz
 .phpunit.result.cache
 Homestead.json
 Homestead.yaml

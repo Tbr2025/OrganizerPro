@@ -196,8 +196,15 @@ $isTeamManagerLayout = auth()->user()?->hasAnyRole(['Team Manager', 'Team Owner'
 
 To take a backup of the live database:
 ```bash
-ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 "mysqldump -u sportz_user -p'Sport#122026' -h 127.0.0.1 sportz_db > /home/ubuntu/sportz_db_backup_\$(date +%Y%m%d_%H%M%S).sql"
+ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 \
+  'cd /var/www/laravel-app && mysqldump -u "$(grep ^DB_USERNAME= .env | cut -d= -f2-)" \
+   -p"$(grep ^DB_PASSWORD= .env | cut -d= -f2-)" -h 127.0.0.1 \
+   "$(grep ^DB_DATABASE= .env | cut -d= -f2-)" > /home/ubuntu/sportz_db_backup_$(date +%Y%m%d_%H%M%S).sql'
 ```
 - **DB:** MySQL, database `sportz_db`, user `sportz_user`
+- **Never write the password in this file.** This repository is PUBLIC, so anything committed
+  here is readable by anyone and is scraped within minutes. The command above reads the
+  credentials out of the server's own `.env` at run time, which is the only copy that should
+  exist. The same goes for API keys, tokens and private keys.
 - Backups stored in `/home/ubuntu/` on the server
 - Use `sudo -u www-data php artisan tinker` for live queries (permission issues with plain `php artisan tinker`)
