@@ -1253,6 +1253,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
          */
         Route::get('/player-history/pdf', [TournamentPlayerHistoryController::class, 'pdf'])->name('player-history.pdf');
         Route::get('/player-history', [TournamentPlayerHistoryController::class, 'index'])->name('player-history.index');
+        // One player's own trail. Numeric-constrained as well as declared last, so `/pdf` above
+        // can never be read as a player id.
+        Route::get('/player-history/{player}/pdf', [TournamentPlayerHistoryController::class, 'showPdf'])
+            ->whereNumber('player')->name('player-history.show-pdf');
+        Route::get('/player-history/{player}', [TournamentPlayerHistoryController::class, 'show'])
+            ->whereNumber('player')->name('player-history.show');
 
         // Template Editor (Superadmin only for CRUD)
         Route::middleware(['role:Superadmin'])->group(function () {

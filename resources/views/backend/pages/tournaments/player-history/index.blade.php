@@ -208,7 +208,15 @@
                                 default => ['bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300', 'Upcoming'],
                             };
                         @endphp
-                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                        {{-- The row opens that player's own trail, carrying the current filters
+                             so Back returns to this list rather than an unfiltered one. The guard
+                             lets the links inside the row (the auction report) still work. --}}
+                        @php
+                            $trail = route('admin.tournaments.player-history.show',
+                                array_merge([$tournament, $row->player_id], request()->query()));
+                        @endphp
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/40 cursor-pointer"
+                            onclick="if(!event.target.closest('a, button, form, select')) window.location='{{ $trail }}'">
                             <td class="px-4 py-3">
                                 <div class="flex items-center gap-2.5 min-w-0">
                                     @if($row->player?->image_path)

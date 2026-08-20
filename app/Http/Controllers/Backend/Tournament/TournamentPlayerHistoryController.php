@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Backend\Tournament;
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
+use App\Models\Player;
 use App\Models\Tournament;
 use App\Services\Auction\PlayerHistoryQuery;
+use App\Services\Auction\PlayerHistoryTimeline;
 use App\Support\LogoDataUri;
 use App\Support\PdfBrowser;
 use Illuminate\Http\Request;
@@ -26,8 +28,10 @@ use Illuminate\View\View;
  */
 class TournamentPlayerHistoryController extends Controller
 {
-    public function __construct(private readonly PlayerHistoryQuery $history)
-    {
+    public function __construct(
+        private readonly PlayerHistoryQuery $history,
+        private readonly PlayerHistoryTimeline $timeline,
+    ) {
     }
 
     public function index(Tournament $tournament, Request $request): View
@@ -128,6 +132,76 @@ class TournamentPlayerHistoryController extends Controller
             ->pdf();
 
         $filename = 'player-history-' . ($tournament->slug ?: $tournament->id)
+            . '-' . $generatedAt->format('Y-m-d') . '.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * One player's whole trail: every bid, every sealed round, every decision, in order.
+     */
+    public function show(Tournament $tournament, Player $player, Request $request): View
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+
+        $sections = $this->timeline->for($tournament, $player);
+
+        return view('backend.pages.tournaments.player-history.show', [
+            'tournament' => $tournament,
+            'player' => $player,
+            'sections' => $sections,
+            'zones' => PlayerHistoryQuery::zones(),
+            // The filters the player was clicked through from, so Back returns to that list
+            // rather than to an unfiltered one.
+            'backQuery' => $request->query(),
+            'breadcrumbs' => [
+                'title' => $player->name,
+                'items' => [
+                    ['label' => $tournament->name, 'url' => route('admin.tournaments.dashboard', $tournament)],
+                    ['label' => __('Player History'), 'url' => route('admin.tournaments.player-history.index', $tournament)],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * The same trail, as a PDF — the document to hand over when a price is questioned.
+     */
+    public function showPdf(Tournament $tournament, Player $player)
+    {
+        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+
+        $sections = $this->timeline->for($tournament, $player);
+
+        // Brand with the auction the player actually went through; with more than one, the most
+        // recent is the one this document is mostly about.
+        $auction = $sections[0]['auction'] ?? null;
+        $generatedAt = now();
+
+        $html = view('pdf.player-timeline', [
+            'tournament' => $tournament,
+            'player' => $player,
+            'auction' => $auction,
+            'sections' => $sections,
+            'zones' => PlayerHistoryQuery::zones(),
+            'times' => $this->history->times($generatedAt),
+            'tournamentLogo' => LogoDataUri::from($tournament->settings?->logo ?: $tournament->logo),
+            'auctionLogo' => $auction ? LogoDataUri::from($auction->auction_logo) : null,
+        ])->render();
+
+        $pdf = PdfBrowser::html($html)
+            ->format('A4')
+            ->showBackground()
+            ->margins(10, 10, 18, 10)
+            ->showBrowserHeaderAndFooter()
+            ->headerHtml('<span></span>')
+            ->footerHtml(view('pdf.partials.player-history-footer')->render())
+            ->pdf();
+
+        $filename = 'player-history-' . \Illuminate\Support\Str::slug($player->name ?: 'player-' . $player->id)
             . '-' . $generatedAt->format('Y-m-d') . '.pdf';
 
         return response($pdf, 200, [

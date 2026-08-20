@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * One row per reversible auction action, holding a snapshot of the state that
@@ -66,17 +67,20 @@ class AuctionActionLog extends Model
         'undone_at' => 'datetime',
     ];
 
-    public function auction()
+    /** @return BelongsTo<Auction, $this> */
+    public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
 
-    public function auctionPlayer()
+    /** @return BelongsTo<AuctionPlayer, $this> */
+    public function auctionPlayer(): BelongsTo
     {
         return $this->belongsTo(AuctionPlayer::class);
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

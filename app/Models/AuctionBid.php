@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuctionBid extends Model
 {
@@ -25,11 +26,13 @@ class AuctionBid extends Model
         'is_void' => 'boolean',
         'voided_at' => 'datetime',
     ];
-    public function auction()
+    /** @return BelongsTo<Auction, $this> */
+    public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
-    public function auctionPlayer()
+    /** @return BelongsTo<AuctionPlayer, $this> */
+    public function auctionPlayer(): BelongsTo
     {
         return $this->belongsTo(AuctionPlayer::class);
     }
@@ -44,12 +47,14 @@ class AuctionBid extends Model
         return $query->where('is_void', false);
     }
 
-    public function team()
+    /** @return BelongsTo<ActualTeam, $this> */
+    public function team(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'team_id');
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
