@@ -78,6 +78,7 @@ class AuctionSaleService
                 'final_price' => $auctionPlayer->final_price,
                 'current_price' => $auctionPlayer->current_price,
                 'current_bid_team_id' => $auctionPlayer->current_bid_team_id,
+                'sold_at' => $auctionPlayer->sold_at,
             ],
             'player' => $player ? [
                 'id' => $player->id,
@@ -124,6 +125,9 @@ class AuctionSaleService
                 'final_price' => $amount,
                 'current_price' => $amount,
                 'current_bid_team_id' => $team->id,
+                // When the sale happened. `updated_at` cannot answer this — any later edit
+                // moves it — and reports need a date that stays put.
+                'sold_at' => now(),
             ]);
 
             $player = $auctionPlayer->player;
@@ -198,6 +202,8 @@ class AuctionSaleService
                 'final_price' => $before['final_price'] ?? null,
                 'current_price' => $before['current_price'] ?? $auctionPlayer->base_price,
                 'current_bid_team_id' => $before['current_bid_team_id'] ?? null,
+                // An undone sale stops claiming a sale time.
+                'sold_at' => $before['sold_at'] ?? null,
             ]);
 
             $playerSnapshot = $snapshot['player'] ?? null;

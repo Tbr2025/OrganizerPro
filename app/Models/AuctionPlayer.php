@@ -4,17 +4,20 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Traits\BelongsToOrganization;
 
 class AuctionPlayer extends Model
 {
     use HasFactory;
     use BelongsToOrganization;
-    protected $fillable = ['auction_id', 'auction_pool_id', 'source_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'closed_bid_round_id'];
+    protected $fillable = ['auction_id', 'auction_pool_id', 'source_pool_id', 'lot_number', 'player_id', 'organization_id', 'team_id', 'base_price', 'starting_price', 'retained_price', 'status', 'is_retained', 'current_price', 'current_bid_team_id', 'sold_to_team_id', 'final_price', 'sold_at', 'closed_bid_round_id'];
     // retained_price/base_price/starting_price were left uncast and came back as raw
     // strings, unlike the two money columns beside them.
-    protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'base_price' => 'decimal:2', 'starting_price' => 'decimal:2', 'retained_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean'];
-    public function auction()
+    protected $casts = ['current_price' => 'decimal:2', 'final_price' => 'decimal:2', 'base_price' => 'decimal:2', 'starting_price' => 'decimal:2', 'retained_price' => 'decimal:2', 'lot_number' => 'integer', 'is_retained' => 'boolean', 'sold_at' => 'datetime'];
+    /** @return BelongsTo<Auction, $this> */
+    public function auction(): BelongsTo
     {
         return $this->belongsTo(Auction::class);
     }
@@ -25,16 +28,18 @@ class AuctionPlayer extends Model
      * Deliberately not eager-loaded anywhere and never included in a broadcast payload:
      * the round's entries carry sealed amounts.
      */
-    public function closedBidRound()
+    /** @return BelongsTo<AuctionClosedBidRound, $this> */
+    public function closedBidRound(): BelongsTo
     {
         return $this->belongsTo(AuctionClosedBidRound::class, 'closed_bid_round_id');
     }
 
-    public function closedBidRounds()
+    public function closedBidRounds(): HasMany
     {
         return $this->hasMany(AuctionClosedBidRound::class);
     }
-    public function pool()
+    /** @return BelongsTo<AuctionPool, $this> */
+    public function pool(): BelongsTo
     {
         return $this->belongsTo(AuctionPool::class, 'auction_pool_id');
     }
@@ -46,7 +51,8 @@ class AuctionPlayer extends Model
      * this answers "where did they come from" — which is what re-auction needs to put them
      * back somewhere biddable. Null for anyone who has never gone unsold.
      */
-    public function sourcePool()
+    /** @return BelongsTo<AuctionPool, $this> */
+    public function sourcePool(): BelongsTo
     {
         return $this->belongsTo(AuctionPool::class, 'source_pool_id');
     }
@@ -60,23 +66,27 @@ class AuctionPlayer extends Model
             ->orderByRaw('auction_players.lot_number IS NULL, auction_players.lot_number')
             ->select('auction_players.*');
     }
-    public function player()
+    /** @return BelongsTo<Player, $this> */
+    public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
     }
-    public function team()
+    /** @return BelongsTo<ActualTeam, $this> */
+    public function team(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'team_id');
     }
-    public function currentBidTeam()
+    /** @return BelongsTo<ActualTeam, $this> */
+    public function currentBidTeam(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'current_bid_team_id');
     }
-    public function soldToTeam()
+    /** @return BelongsTo<ActualTeam, $this> */
+    public function soldToTeam(): BelongsTo
     {
         return $this->belongsTo(ActualTeam::class, 'sold_to_team_id');
     }
-    public function bids()
+    public function bids(): HasMany
     {
         return $this->hasMany(AuctionBid::class, 'auction_player_id', 'id');
     }
@@ -86,7 +96,7 @@ class AuctionPlayer extends Model
      * retracted bids remain in the table flagged void — anything deciding a
      * price, a winner or a spend total must use this, not bids().
      */
-    public function liveBids()
+    public function liveBids(): HasMany
     {
         return $this->hasMany(AuctionBid::class, 'auction_player_id', 'id')
             ->where('is_void', false);

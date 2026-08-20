@@ -264,6 +264,19 @@
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Point Table</p>
         </a>
 
+        {{-- Player History. This grid is the only per-tournament navigation there is — the sidebar
+             cannot carry a tournament-scoped route — so a page not linked from here is a page
+             reachable only by typing its URL. --}}
+        <a href="{{ route('admin.tournaments.player-history.index', $tournament) }}"
+           class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-cyan-500 transition text-center group">
+            <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center group-hover:scale-110 transition">
+                <svg class="w-6 h-6 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <p class="font-semibold text-gray-900 dark:text-white text-sm">Player History</p>
+        </a>
+
         <a href="{{ route('admin.tournaments.manage-teams', $tournament) }}"
            class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-indigo-500 transition text-center group">
             <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center group-hover:scale-110 transition">

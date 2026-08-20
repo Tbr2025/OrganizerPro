@@ -59,6 +59,7 @@ use App\Http\Controllers\Backend\Tournament\TournamentFixtureController;
 use App\Http\Controllers\Backend\Tournament\TournamentTemplateController;
 use App\Http\Controllers\Backend\Tournament\TournamentBannerController;
 use App\Http\Controllers\Backend\Tournament\TournamentCalendarController;
+use App\Http\Controllers\Backend\Tournament\TournamentPlayerHistoryController;
 use App\Http\Controllers\Backend\Tournament\MatchSummaryController;
 use App\Http\Controllers\Backend\Tournament\AwardTemplateController;
 use App\Http\Controllers\Backend\GroundController;
@@ -1243,6 +1244,15 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/point-table/generate-poster', [PointTableController::class, 'generatePoster'])->name('point-table.generate-poster');
         Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
         Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
+
+        /*
+         * Player History — how every player in the competition was acquired, out of which pool,
+         * for how much and when. The PDF route is declared FIRST: a literal segment registered
+         * after a {param} sibling binds as an id and 404s (see the note above the auction pool
+         * routes), and this group will grow one.
+         */
+        Route::get('/player-history/pdf', [TournamentPlayerHistoryController::class, 'pdf'])->name('player-history.pdf');
+        Route::get('/player-history', [TournamentPlayerHistoryController::class, 'index'])->name('player-history.index');
 
         // Template Editor (Superadmin only for CRUD)
         Route::middleware(['role:Superadmin'])->group(function () {

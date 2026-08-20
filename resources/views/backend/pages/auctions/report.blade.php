@@ -25,6 +25,15 @@
                class="btn btn-secondary inline-flex items-center gap-2 print:hidden">
                 <i class="fas fa-file-excel text-emerald-600"></i> Export Excel
             </a>
+            {{-- This page is one auction's bid trail. The way out to the whole competition —
+                 filterable by pool, team, price and date, and exportable as a branded PDF — is the
+                 tournament's player history, arriving here pre-filtered to this auction. --}}
+            @if($auction->tournament_id)
+                <a href="{{ route('admin.tournaments.player-history.index', [$auction->tournament_id, 'auction_id' => $auction->id]) }}"
+                   class="btn btn-secondary inline-flex items-center gap-2 print:hidden">
+                    <i class="fas fa-clock-rotate-left text-cyan-600"></i> Player History
+                </a>
+            @endif
             <button onclick="window.print()" class="btn btn-primary inline-flex items-center gap-2 print:hidden">
                 <i class="fas fa-print"></i> Print Report
             </button>

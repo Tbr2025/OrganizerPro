@@ -867,40 +867,7 @@ class TournamentRegistrationController extends Controller
      */
     protected function logoDataUri(?string $src): ?string
     {
-        if (! $src) {
-            return null;
-        }
-
-        $path = null;
-        if (str_starts_with($src, 'http')) {
-            $urlPath = parse_url($src, PHP_URL_PATH) ?: '';
-            if (str_contains($urlPath, '/storage/')) {
-                $rel = ltrim(substr($urlPath, strpos($urlPath, '/storage/') + strlen('/storage/')), '/');
-                if (\Illuminate\Support\Facades\Storage::disk('public')->exists($rel)) {
-                    $path = \Illuminate\Support\Facades\Storage::disk('public')->path($rel);
-                }
-            } else {
-                $cand = public_path(ltrim($urlPath, '/'));
-                $path = is_file($cand) ? $cand : null;
-            }
-        } elseif (\Illuminate\Support\Facades\Storage::disk('public')->exists($src)) {
-            $path = \Illuminate\Support\Facades\Storage::disk('public')->path($src);
-        } elseif (is_file(public_path($src))) {
-            $path = public_path($src);
-        }
-
-        if (! $path || ! is_file($path)) {
-            return null;
-        }
-
-        $data = @file_get_contents($path);
-        if ($data === false) {
-            return null;
-        }
-
-        $mime = @mime_content_type($path) ?: 'image/png';
-
-        return 'data:' . $mime . ';base64,' . base64_encode($data);
+        return \App\Support\LogoDataUri::from($src);
     }
 
     /**
