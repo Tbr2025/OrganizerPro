@@ -12,6 +12,7 @@ use App\Http\Controllers\Backend\AuctionAllotmentController;
 use App\Http\Controllers\Backend\AuctionPoolController;
 use App\Http\Controllers\Backend\AuctionBiddingController;
 use App\Http\Controllers\Backend\FastAuctionScreenController;
+use App\Http\Controllers\FastAuctionPublicController;
 use App\Http\Controllers\Backend\AuctionTemplateController;
 use App\Http\Controllers\Backend\AuctionController;
 use App\Http\Controllers\Backend\AuctionOrganizerController;
@@ -628,6 +629,16 @@ Route::get('/auction/{auction}/live', [PublicAuctionController::class, 'showPubl
     ->name('public.auction.live');
 Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPublicDisplaySold'])
     ->name('public.auction.sold');
+/*
+ * Fast Auction's wall, beside the classic one at /live, which is untouched.
+ *
+ * The classic wall had already escaped the admin bundle — it is standalone with no @vite — so the
+ * gain here is not bundle size. It is that this ships PRECOMPILED CSS instead of pulling
+ * cdn.tailwindcss.com, which compiles stylesheets in the browser on every load, on the venue PC
+ * driving the projector.
+ */
+Route::get('/auction/{auction}/fast-wall', [FastAuctionPublicController::class, 'wall'])
+    ->name('public.auction.fast-wall');
 Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showResults'])
     ->name('public.auction.results');
 // Transparent 1920x1080 overlay for a streaming mixer (OBS browser source).
@@ -666,6 +677,10 @@ Route::middleware([])->withoutMiddleware([
     // API endpoint for AJAX polling
     Route::get('/auction/{auction}/active-player', [PublicAuctionController::class, 'activePlayer']);
     Route::get('/auction/{auction}/sold-players', [PublicAuctionController::class, 'soldPlayers']);
+    // Same treatment, and for the same three reasons: public, identical for every viewer, and it
+    // must not emit Set-Cookie or Cloudflare will refuse to cache it.
+    Route::get('/auction/{auction}/fast-wall-snapshot', [FastAuctionPublicController::class, 'snapshot'])
+        ->name('public.auction.fast-wall-snapshot');
 });
 
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
