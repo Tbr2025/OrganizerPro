@@ -18,6 +18,8 @@
     .reg-req { color: var(--accent); }
     .reg-hint { color: rgba(255,255,255,0.45); font-size:.75rem; margin-top:.4rem; }
     .reg-err { color:#f87171; font-size:.8rem; margin-top:.4rem; }
+    /* Guidance under a field — used by custom fields with help text set in the builder. */
+    .reg-help { color:#94a3b8; font-size:.75rem; margin-top:.35rem; line-height:1.35; }
     .reg-section { padding:1.5rem; border-radius:1rem; margin-bottom:1.25rem; }
     @media (min-width:640px){ .reg-section{ padding:1.75rem; } }
     .reg-section-head { display:flex; align-items:center; gap:.85rem; margin-bottom:1.4rem; }
@@ -157,6 +159,8 @@
             </a>
         </div>
     </div>
+@include('public.registration.partials.conditional-fields')
+
 @endsection
 
 @if(config('turnstile.site_key') && !app()->environment('local'))

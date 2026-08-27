@@ -13,6 +13,7 @@ use App\Models\TournamentTemplate;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\FixturesPosterService;
 use App\Services\Poster\TemplateRenderService;
+use App\Services\Poster\TemplatePresetService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -243,6 +244,50 @@ class TournamentTemplateController extends Controller
         // Load actual teams for the team filter dropdown (welcome_card)
         $teams = ActualTeam::whereIn('id', $allTeamIds)->orderBy('name')->get();
 
+        /*
+         * The roster the Playing XI picker offers, grouped by team.
+         *
+         * Keyed by the player's TOURNAMENT team (the pivot beats their home team) so a player
+         * turning out for a different side in this tournament appears under the side they
+         * actually play for, matching how the rest of this page resolves teams.
+         *
+         * Captain and keeper are pre-filled because they are recorded: the captain from the
+         * actual_team_users pivot, the keeper from the player's own type. Vice-captain and
+         * debut are not recorded anywhere in this schema, so those stay blank for the
+         * organizer to set on the poster.
+         */
+        $captainUserIds = DB::table('actual_team_users')
+            ->whereIn('actual_team_id', $allTeamIds)
+            ->whereIn('role', ['captain', 'Captain', 'Owner'])
+            ->pluck('user_id')
+            ->all();
+
+        $xiRoster = [];
+        foreach ($players as $p) {
+            $teamId = $tournamentTeamMap[$p->id] ?? $p->actual_team_id;
+            if (! $teamId) {
+                continue;
+            }
+
+            $playerType = strtolower((string) ($p->playerType?->type ?? ''));
+            $badge = '';
+            if ($p->user_id && in_array($p->user_id, $captainUserIds)) {
+                $badge = 'C';
+            } elseif (str_contains($playerType, 'keeper')) {
+                $badge = 'WK';
+            }
+
+            $xiRoster[(string) $teamId][] = [
+                'id' => $p->id,
+                'name' => $p->name,
+                // Raw storage path, not an asset() URL: the renderer resolves it through
+                // extractStoragePath() and a URL only survives that by accident.
+                'image' => $p->image_path,
+                'type' => $p->playerType?->type ?? '',
+                'badge' => $badge,
+            ];
+        }
+
         // Load groups for point table type
         $groups = $tournament->groups;
 
@@ -254,10 +299,21 @@ class TournamentTemplateController extends Controller
 
         $autoWelcome = $tournament->settings?->auto_send_welcome_cards ?? true;
 
+        /*
+         * Every ready-made design, not just this tab's.
+         *
+         * The type tabs switch with history.replaceState() rather than a page load, so a list
+         * filtered here would go stale the moment the organizer changed tab. The view renders
+         * them all tagged with their type and shows the matching ones.
+         */
+        $presets = (new TemplatePresetService())->all();
+
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
+            'presets',
             'templates',
+            'xiRoster',
             'matches',
             'players',
             'teams',
@@ -289,6 +345,15 @@ class TournamentTemplateController extends Controller
         ini_set('memory_limit', '512M');
         $tempFiles = [];
         try {
+            /*
+             * The two upload fields are the only files this endpoint accepts, and it stores what
+             * it is given under a public disk — so they get checked before anything is written.
+             */
+            $request->validate([
+                'player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'featured_player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+            ]);
+
             $templateId = $request->input('template_id');
             $template = TournamentTemplate::findOrFail($templateId);
 
@@ -318,6 +383,7 @@ class TournamentTemplateController extends Controller
                 'batting_runs', 'batting_balls', 'batting_fours', 'batting_sixes',
                 'bowling_overs', 'bowling_runs', 'bowling_maidens', 'bowling_wickets',
                 'playing_team_name', 'playing_team_logo',
+                'featured_player_name', 'featured_player_image', 'featured_player_role',
             ]);
 
             // Add tournament info
@@ -331,6 +397,9 @@ class TournamentTemplateController extends Controller
                 TournamentTemplate::TYPE_MATCH_POSTER,
                 TournamentTemplate::TYPE_MATCH_SUMMARY,
                 TournamentTemplate::TYPE_AWARD_POSTER,
+                // A line-up poster needs the same crests, date and venue. It ignores the score
+                // fields this block also fills, which is cheaper than a second lookup.
+                TournamentTemplate::TYPE_PLAYING_XI,
             ])) {
                 $match = Matches::with(['teamA', 'teamB', 'winner', 'result', 'ground', 'matchAwards.player', 'matchAwards.tournamentAward'])->find($request->input('match_id'));
                 if ($match) {
@@ -457,6 +526,53 @@ class TournamentTemplateController extends Controller
                                 ])->values()->toArray();
                             }
                         }
+                        /*
+                         * Fall back to the CricHeroes "heroes" for the named performers.
+                         *
+                         * best_batsman_* / best_bowler_* are filled above from this tournament's own
+                         * award records. A match imported from CricHeroes has no such records, but its
+                         * scorecard carries `cricheroes_heroes` — so on those matches the performer
+                         * lines on a summary poster came out blank while the data sat one key away.
+                         *
+                         * Fallback only: an award entered here is a decision and always wins over an
+                         * imported guess, so nothing is overwritten.
+                         *
+                         * The bowling figure is the compact "wickets/runs" rather than the
+                         * "O - M - R - W" the award path builds, because CricHeroes does not give
+                         * maidens and printing a 0 there would be inventing a number. The individual
+                         * overs/runs/wickets placeholders are set too, for templates that compose
+                         * their own line.
+                         */
+                        $heroes = is_array($scorecard['cricheroes_heroes'] ?? null) ? $scorecard['cricheroes_heroes'] : [];
+
+                        if (! empty($heroes['best_batter']['name']) && empty($data['best_batsman_name'])) {
+                            $b = $heroes['best_batter'];
+                            $data['best_batsman_name'] = $b['name'];
+                            $data['best_batsman_runs'] = (string) ($b['runs'] ?? '');
+                            $data['best_batsman_balls'] = (string) ($b['balls'] ?? '');
+                            $data['best_batsman_fours'] = (string) ($b['fours'] ?? '');
+                            $data['best_batsman_sixes'] = (string) ($b['sixes'] ?? '');
+                            $data['best_batsman_batting_figures'] = sprintf(
+                                '%s (%s) %sx4 %sx6',
+                                $b['runs'] ?? 0, $b['balls'] ?? 0, $b['fours'] ?? 0, $b['sixes'] ?? 0
+                            );
+                        }
+
+                        if (! empty($heroes['best_bowler']['name']) && empty($data['best_bowler_name'])) {
+                            $w = $heroes['best_bowler'];
+                            $data['best_bowler_name'] = $w['name'];
+                            $data['best_bowler_overs'] = (string) ($w['overs'] ?? '');
+                            $data['best_bowler_wickets'] = (string) ($w['wickets'] ?? '');
+                            $data['best_bowler_bowling_runs'] = (string) ($w['runs'] ?? '');
+                            $data['best_bowler_bowling_figures'] = sprintf(
+                                '%s/%s (%s ov)',
+                                $w['wickets'] ?? 0, $w['runs'] ?? 0, $w['overs'] ?? 0
+                            );
+                        }
+
+                        if (! empty($heroes['player_of_the_match']['name']) && empty($data['man_of_the_match_name'])) {
+                            $data['man_of_the_match_name'] = $heroes['player_of_the_match']['name'];
+                        }
                     }
 
                     // Apply innings-based swap: when viewing innings 2, swap team_a/team_b
@@ -488,6 +604,23 @@ class TournamentTemplateController extends Controller
                         ->store('temp_previews', 'public');
                     $data['player_image'] = $uploadedPath;
                     $tempFiles[] = $uploadedPath;
+
+                    /*
+                     * Respect the organizer's answer about this upload.
+                     *
+                     * The generate page has posted `skip_bg_removal` since the cropper was
+                     * added, but nothing here read it — so the "Remove Background" checkbox
+                     * changed nothing about the poster, and an already-transparent PNG was run
+                     * through removal anyway. Only ever applied to the image they uploaded.
+                     */
+                    if ($request->has('skip_bg_removal') || $request->has('remove_bg')) {
+                        $renderService->overrideBackgroundRemoval(
+                            'player_image',
+                            $request->has('remove_bg')
+                                ? $request->boolean('remove_bg')
+                                : ! $request->boolean('skip_bg_removal')
+                        );
+                    }
                 }
 
                 if (empty($data['player_name'])) {
@@ -549,6 +682,80 @@ class TournamentTemplateController extends Controller
                 }
             }
 
+            /*
+             * Handle playing_xi — turn the picked eleven into the lineup_area region.
+             *
+             * The XI arrives from the generate page as a JSON array rather than being read from
+             * the database, because this schema has nowhere to read it from: there is no lineup
+             * table, and `scorecard_data` only exists once a match has been scored, which is
+             * after the moment this poster is for. The names are real (they come from the team's
+             * roster picker), they are just not persisted.
+             */
+            if ($template->type === TournamentTemplate::TYPE_PLAYING_XI) {
+                $picked = $request->input('lineup_players');
+
+                if (is_string($picked)) {
+                    $picked = json_decode($picked, true) ?: [];
+                }
+
+                $data['lineup_area'] = collect(is_array($picked) ? $picked : [])
+                    ->map(fn ($row, $i) => [
+                        'name' => trim((string) ($row['name'] ?? '')),
+                        // Only the four a line-up graphic actually shows; anything else is noise
+                        // that would render as a chip nobody can read.
+                        'badge' => in_array(strtoupper((string) ($row['badge'] ?? '')), ['C', 'VC', 'WK', 'DEBUT'], true)
+                            ? strtoupper($row['badge'])
+                            : '',
+                        'number' => $i + 1,
+                    ])
+                    ->filter(fn ($row) => $row['name'] !== '')
+                    ->values()
+                    ->all();
+
+                /*
+                 * Whose XI this is, said without the template author having to know whether the
+                 * picked side ended up as A or B — that depends on batting order, which for an
+                 * unplayed match is a default rather than a fact.
+                 */
+                /*
+                 * A cut-out uploaded for this poster only.
+                 *
+                 * Stored under temp_previews and cleaned up with the other temp files: a photo
+                 * chosen for one poster is not a change to the player's profile picture, and
+                 * writing it there would be a surprising side effect of drawing a graphic.
+                 */
+                if ($request->hasFile('featured_player_image_file')) {
+                    $uploadedPath = $request->file('featured_player_image_file')
+                        ->store('temp_previews', 'public');
+                    $data['featured_player_image'] = $uploadedPath;
+                    $tempFiles[] = $uploadedPath;
+                }
+
+                // Checked means cut it out; unchecked means use the photo as it is. Absent means
+                // fall back to the placeholder default, which for a featured player is removal.
+                if ($request->has('remove_bg')) {
+                    $renderService->overrideBackgroundRemoval('featured_player_image', $request->boolean('remove_bg'));
+                }
+
+                $lineupTeamId = (int) $request->input('lineup_team_id');
+
+                if ($lineupTeamId) {
+                    $lineupTeam = ActualTeam::find($lineupTeamId);
+                    $opponent = null;
+
+                    if ($match = Matches::with(['teamA', 'teamB'])->find($request->input('match_id'))) {
+                        $opponent = $match->team_a_id == $lineupTeamId ? $match->teamB : $match->teamA;
+                    }
+
+                    $data['lineup_team_name'] = $lineupTeam?->name ?? '';
+                    $data['lineup_team_short_name'] = $lineupTeam?->short_name ?? $lineupTeam?->name ?? '';
+                    $data['lineup_team_logo'] = $lineupTeam?->team_logo ?? '';
+                    $data['opponent_team_name'] = $opponent?->name ?? '';
+                    $data['opponent_team_short_name'] = $opponent?->short_name ?? $opponent?->name ?? '';
+                    $data['opponent_team_logo'] = $opponent?->team_logo ?? '';
+                }
+            }
+
             // Handle point_table type — build table_data from group entries
             if ($template->type === TournamentTemplate::TYPE_POINT_TABLE && $request->input('group_id')) {
                 $group = $tournament->groups()->find($request->input('group_id'));
@@ -568,6 +775,63 @@ class TournamentTemplateController extends Controller
                     ])->toArray();
                     $data['group_name'] = $group->name;
                     $data['last_updated'] = now()->format('M d, Y H:i');
+                }
+            }
+
+            /*
+             * Per-element overrides from the generate page's Fields panel.
+             *
+             * Keyed by the element's index in layout_json, because that addresses every element
+             * uniquely — a placeholder cannot: a design may place `tournament_name` twice, and a
+             * plain caption typed in the editor has no placeholder at all. Each entry may carry a
+             * new value, a hidden flag, or both.
+             *
+             * Where an element is bound to a placeholder the value goes into $data, so the
+             * renderer's own formatting and image handling still apply. A static text element has
+             * no data key, so its text is rewritten on a COPY of the layout — $template is not
+             * saved here, and must not be: this is one poster, not a template edit.
+             */
+            $elementOverrides = $request->input('element_overrides', []);
+
+            if (is_array($elementOverrides) && $elementOverrides !== []) {
+                $layout = $template->layout_json;
+
+                if (is_array($layout)) {
+                    foreach ($elementOverrides as $index => $override) {
+                        $index = (int) $index;
+
+                        if (! isset($layout[$index]) || ! is_array($override)) {
+                            continue;
+                        }
+
+                        $placeholder = $layout[$index]['placeholder'] ?? null;
+
+                        // Visibility is a layout choice, allowed on anything — including the
+                        // locked fields below, and on images and shapes that have no value.
+                        if (filter_var($override['hidden'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                            $layout[$index]['hidden'] = true;
+                        }
+
+                        if (! array_key_exists('value', $override)) {
+                            continue;
+                        }
+
+                        $value = is_scalar($override['value']) ? (string) $override['value'] : '';
+
+                        // A score is read off the match, never typed. See
+                        // TournamentTemplate::lockedPlaceholders().
+                        if (TournamentTemplate::isLockedPlaceholder($placeholder)) {
+                            continue;
+                        }
+
+                        if ($placeholder) {
+                            $data[$placeholder] = $value;
+                        } else {
+                            $layout[$index]['text'] = $value;
+                        }
+                    }
+
+                    $template->layout_json = $layout;
                 }
             }
 
@@ -609,6 +873,8 @@ class TournamentTemplateController extends Controller
                         TournamentTemplate::TYPE_POINT_TABLE =>
                             ($data['group_name'] ?? 'Points Table'),
                         TournamentTemplate::TYPE_FIXTURES_POSTER => 'Fixtures',
+                        TournamentTemplate::TYPE_PLAYING_XI =>
+                            ($data['lineup_team_name'] ?? 'XI') . ' XI v ' . ($data['opponent_team_name'] ?? 'Opponent'),
                         default => ucwords(str_replace('_', ' ', $template->type)),
                     };
 
@@ -776,6 +1042,30 @@ class TournamentTemplateController extends Controller
             'defaultCanvasWidth',
             'defaultCanvasHeight'
         ));
+    }
+
+    /**
+     * Create a template from a ready-made design.
+     *
+     * Applying a preset is just a create, so it lives beside store() and under the same
+     * Superadmin gate. It never becomes the default template — see TemplatePresetService::apply().
+     */
+    public function applyPreset(Tournament $tournament, Request $request)
+    {
+        $service = new TemplatePresetService();
+
+        $validated = $request->validate([
+            'preset' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys($service->all()))],
+        ]);
+
+        $template = $service->apply($tournament, $validated['preset']);
+
+        return redirect()
+            ->route('admin.tournaments.templates.generate', [
+                'tournament' => $tournament->id,
+                'type' => $template->type,
+            ])
+            ->with('success', "\"{$template->name}\" was added. Open the editor to change any of it.");
     }
 
     /**
@@ -964,15 +1254,35 @@ class TournamentTemplateController extends Controller
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
 
-        // Delete file
+        /*
+         * Only delete the background if this template is the last one using it.
+         *
+         * duplicate() copies the background_image PATH rather than the file, so a copy and its
+         * original point at the same image. Deleting the copy then deleted the picture out from
+         * under the original, which kept its path and started rendering on a blank canvas —
+         * silently, because a missing background just falls back to a flat colour.
+         */
         if ($template->background_image) {
-            Storage::disk('public')->delete($template->background_image);
+            $stillInUse = TournamentTemplate::where('background_image', $template->background_image)
+                ->where('id', '!=', $template->id)
+                ->exists();
+
+            if (! $stillInUse) {
+                Storage::disk('public')->delete($template->background_image);
+            }
         }
 
         $template->delete();
 
+        /*
+         * Back to wherever the delete was pressed, not always the template list.
+         *
+         * The generate page manages templates inline now, and being thrown to the index after
+         * removing one loses the match, side and XI the organizer had already picked. From the
+         * index itself back() is the index, so nothing changes there.
+         */
         return redirect()
-            ->route('admin.tournaments.templates.index', $tournament)
+            ->back(fallback: route('admin.tournaments.templates.index', $tournament))
             ->with('success', 'Template deleted successfully.');
     }
 
@@ -1129,6 +1439,15 @@ class TournamentTemplateController extends Controller
             'year' => now()->year,
             'group_name' => 'Group A',
             'last_updated' => now()->format('M d, Y H:i'),
+            'lineup_team_name' => 'Team Alpha',
+            'lineup_team_short_name' => 'ALP',
+            'lineup_team_logo' => '[Team Logo]',
+            'opponent_team_name' => 'Team Beta',
+            'opponent_team_short_name' => 'BET',
+            'opponent_team_logo' => '[Team Logo]',
+            'featured_player_name' => 'John Doe',
+            'featured_player_role' => 'All Rounder',
+            'featured_player_image' => '[Player Image]',
             default => "[$placeholder]",
         };
     }

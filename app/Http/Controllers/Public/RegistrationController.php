@@ -194,43 +194,17 @@ class RegistrationController extends Controller
             $rules['consent_name'] = 'required|string|max:150';
         }
 
-        // Custom (admin-defined) fields — validation rules by type.
+        // Custom (admin-defined) fields — rules come from the field's own definition.
         $customFields = $tournament->customFields()->where('visible', true)->where('form', 'player')->get();
-        foreach ($customFields as $cf) {
-            $key = 'custom_fields.' . $cf->id;
-            if ($cf->type === 'checkbox') {
-                $rules[$key] = $cf->required ? 'accepted' : 'nullable';
-                continue;
-            }
-            $parts = [$cf->required ? 'required' : 'nullable'];
-            if ($cf->type === 'number') {
-                $parts[] = 'numeric';
-            } elseif ($cf->type === 'date') {
-                $parts[] = 'date';
-            } elseif ($cf->type === 'dropdown' && ! empty($cf->options)) {
-                $parts[] = 'in:' . implode(',', $cf->options);
-            } else {
-                $parts[] = 'string';
-                $parts[] = 'max:1000';
-            }
-            $rules[$key] = implode('|', $parts);
-        }
+        $customAnswers = $this->customFieldAnswers($request, $customFields);
+        $rules = array_merge($rules, $this->customFieldRules($customFields, $customAnswers));
 
         $validated = $request->validate($rules, [
             'processed_image_path.required' => 'Please upload a player photo.',
         ]);
 
         // Collect custom field answers keyed by cf_<id> for storage/verification.
-        $customValues = [];
-        foreach ($customFields as $cf) {
-            $val = $cf->type === 'checkbox'
-                ? ($request->boolean('custom_fields.' . $cf->id) ? '1' : '0')
-                : $request->input('custom_fields.' . $cf->id);
-            if ($val !== null && $val !== '') {
-                $customValues['cf_' . $cf->id] = $val;
-            }
-        }
-        $validated['custom_field_values'] = $customValues;
+        $validated['custom_field_values'] = $this->collectCustomFieldValues($request, $customFields, $customAnswers, $tournament);
 
         // Resolve "Other" size selections to the custom value
         if (($validated['tshirt_size'] ?? null) === 'Other' && ! empty($validated['tshirt_size_custom'])) {
@@ -339,27 +313,10 @@ class RegistrationController extends Controller
             $rules['consent_name'] = 'required|string|max:150';
         }
 
-        // Custom (admin-defined) team fields — validation rules by type.
+        // Custom (admin-defined) team fields — rules come from the field's own definition.
         $customFields = $tournament->customFields()->where('visible', true)->where('form', 'team')->get();
-        foreach ($customFields as $cf) {
-            $key = 'custom_fields.' . $cf->id;
-            if ($cf->type === 'checkbox') {
-                $rules[$key] = $cf->required ? 'accepted' : 'nullable';
-                continue;
-            }
-            $parts = [$cf->required ? 'required' : 'nullable'];
-            if ($cf->type === 'number') {
-                $parts[] = 'numeric';
-            } elseif ($cf->type === 'date') {
-                $parts[] = 'date';
-            } elseif ($cf->type === 'dropdown' && ! empty($cf->options)) {
-                $parts[] = 'in:' . implode(',', $cf->options);
-            } else {
-                $parts[] = 'string';
-                $parts[] = 'max:1000';
-            }
-            $rules[$key] = implode('|', $parts);
-        }
+        $customAnswers = $this->customFieldAnswers($request, $customFields);
+        $rules = array_merge($rules, $this->customFieldRules($customFields, $customAnswers));
 
         $validated = $request->validate($rules);
 
@@ -391,16 +348,7 @@ class RegistrationController extends Controller
         }
 
         // Collect custom field answers keyed by cf_<id>.
-        $customValues = [];
-        foreach ($customFields as $cf) {
-            $val = $cf->type === 'checkbox'
-                ? ($request->boolean('custom_fields.' . $cf->id) ? '1' : '0')
-                : $request->input('custom_fields.' . $cf->id);
-            if ($val !== null && $val !== '') {
-                $customValues['cf_' . $cf->id] = $val;
-            }
-        }
-        $validated['custom_field_values'] = $customValues;
+        $validated['custom_field_values'] = $this->collectCustomFieldValues($request, $customFields, $customAnswers, $tournament);
 
         try {
             $registration = $this->registrationService->registerTeam($tournament, $validated);
@@ -425,5 +373,138 @@ class RegistrationController extends Controller
             'type' => $type,
             'settings' => $tournament->settings,
         ]);
+    }
+
+    /*
+     * ---------------------------------------------------------------------
+     * Custom (admin-defined) registration fields
+     *
+     * Shared by both the player and the team form, which had the same block
+     * copied into each and so drifted apart every time a type was added.
+     * ---------------------------------------------------------------------
+     */
+
+    /**
+     * The answers so far, in the shape conditions are written against.
+     *
+     * Read from the RAW request, before validation, because a field's conditions decide whether
+     * it is validated at all. Keyed by custom field id AND by core input name, so a condition can
+     * key off either "Playing Role" (a custom field) or `jersey_name` (a built-in one).
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\TournamentCustomField>  $customFields
+     * @return array<string, mixed>
+     */
+    protected function customFieldAnswers(Request $request, $customFields): array
+    {
+        // Core inputs first, so a custom field id can never be shadowed by one of them.
+        $answers = $request->except(['custom_fields', '_token', 'password', 'password_confirmation']);
+
+        foreach ($customFields as $cf) {
+            $key = 'custom_fields.' . $cf->id;
+
+            // A file has no readable value; for conditions it is simply present or absent.
+            $answers[(string) $cf->id] = $cf->isFile()
+                ? ($request->hasFile($key) ? 'uploaded' : '')
+                : $request->input($key);
+        }
+
+        return $answers;
+    }
+
+    /**
+     * Validation rules for the custom fields that are actually being asked.
+     *
+     * A field hidden by its own conditions contributes NO rules — otherwise a required question
+     * the registrant was never shown would reject the form with an error pointing at a field that
+     * is not on screen. Layout-only types (heading, divider) contribute nothing either.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\TournamentCustomField>  $customFields
+     * @param  array<string, mixed>  $answers
+     * @return array<string, mixed>
+     */
+    protected function customFieldRules($customFields, array $answers): array
+    {
+        $rules = [];
+
+        foreach ($customFields as $cf) {
+            if ($cf->isLayoutOnly() || ! $cf->isVisibleGiven($answers)) {
+                continue;
+            }
+
+            $fieldRules = $cf->validationRules();
+
+            if ($fieldRules === []) {
+                continue;
+            }
+
+            $rules['custom_fields.' . $cf->id] = $fieldRules;
+
+            // For a multi-choice field the rules above describe the LIST; each chosen value must
+            // also be one of the options on offer.
+            if ($cf->isMultiValue() && ! empty($cf->options)) {
+                $rules['custom_fields.' . $cf->id . '.*'] = ['string', \Illuminate\Validation\Rule::in($cf->options)];
+            }
+        }
+
+        return $rules;
+    }
+
+    /**
+     * The answers to store, keyed cf_<id>.
+     *
+     * A hidden field stores nothing: if the question was not asked, an answer left over from an
+     * earlier attempt (or posted by hand) must not be recorded as though it had been.
+     *
+     * @param  \Illuminate\Support\Collection<int, \App\Models\TournamentCustomField>  $customFields
+     * @param  array<string, mixed>  $answers
+     * @return array<string, mixed>
+     */
+    protected function collectCustomFieldValues(Request $request, $customFields, array $answers, Tournament $tournament): array
+    {
+        $values = [];
+
+        foreach ($customFields as $cf) {
+            if ($cf->isLayoutOnly() || ! $cf->isVisibleGiven($answers)) {
+                continue;
+            }
+
+            $key = 'custom_fields.' . $cf->id;
+
+            if ($cf->isFile()) {
+                if ($request->hasFile($key)) {
+                    // Kept out of the image folders: this is a document (certificate, ID proof),
+                    // not a player photo, and nothing downstream should treat it as one.
+                    $values['cf_' . $cf->id] = $request->file($key)
+                        ->store('registration_files/' . $tournament->id, 'public');
+                }
+                continue;
+            }
+
+            if ($cf->type === 'checkbox') {
+                $values['cf_' . $cf->id] = $request->boolean($key) ? '1' : '0';
+                continue;
+            }
+
+            $val = $request->input($key);
+
+            if ($cf->isMultiValue()) {
+                $val = array_values(array_filter(
+                    is_array($val) ? $val : [],
+                    fn ($v) => $v !== null && $v !== ''
+                ));
+
+                if ($val !== []) {
+                    $values['cf_' . $cf->id] = $val;
+                }
+
+                continue;
+            }
+
+            if ($val !== null && $val !== '') {
+                $values['cf_' . $cf->id] = $val;
+            }
+        }
+
+        return $values;
     }
 }

@@ -59,6 +59,20 @@ class TournamentTemplate extends Model
     public const TYPE_AUCTION_POSTER = 'auction_poster';
     public const TYPE_AUCTION_POSTER_PORTRAIT = 'auction_poster_portrait';
 
+    /**
+     * The pre-match line-up poster: eleven names, both crests, one featured player.
+     *
+     * Its own type rather than a match_poster variant, because the eleven names are not a
+     * placeholder — they are a repeating region whose height depends on how many names it holds,
+     * the way `fixture_area` is. A match_poster has no such region, and giving it one would mean
+     * every match_poster layout carried a list it never draws.
+     *
+     * The XI is chosen per poster from the team's roster; nothing persists it. There is no
+     * lineup table in this schema, so an XI cannot be read back — a poster is the only place
+     * this selection has ever existed.
+     */
+    public const TYPE_PLAYING_XI = 'playing_xi';
+
     public const TYPES = [
         self::TYPE_WELCOME_CARD,
         self::TYPE_RETAINED_WELCOME_CARD,
@@ -71,6 +85,7 @@ class TournamentTemplate extends Model
         self::TYPE_FIXTURES_POSTER,
         self::TYPE_AUCTION_POSTER,
         self::TYPE_AUCTION_POSTER_PORTRAIT,
+        self::TYPE_PLAYING_XI,
     ];
 
     /**
@@ -108,7 +123,45 @@ class TournamentTemplate extends Model
             'best_bowler_image',
             'winner_logo',
             'qr_code',
+            'featured_player_image',
         ];
+    }
+
+    /**
+     * Placeholders whose value is a fact, not a caption.
+     *
+     * The generate page lets an organizer retype any field on a poster, which is what makes one
+     * template serve an academic league and a weekend tournament. These are the exception: they
+     * are read straight off the match record, and a poster whose score disagrees with the
+     * scorecard it came from is worse than no poster. Hiding them is still allowed — that is a
+     * layout choice; only editing the value is refused.
+     *
+     * @return list<string>
+     */
+    public static function lockedPlaceholders(): array
+    {
+        return [
+            // Totals, and every way the design might spell them
+            'team_a_score', 'team_b_score',
+            'team_a_score_wickets', 'team_b_score_wickets',
+            'team_a_score_overs', 'team_b_score_overs',
+            'team_a_runs', 'team_b_runs',
+            'team_a_wickets', 'team_b_wickets',
+            'team_a_overs', 'team_b_overs',
+            // The outcome
+            'result_summary', 'win_margin', 'winner_name',
+            // Who played. A team's name is its identity in the fixture list and the point table.
+            'team_a_name', 'team_b_name',
+            'team_a_short_name', 'team_b_short_name',
+            'lineup_team_name', 'lineup_team_short_name',
+            'opponent_team_name', 'opponent_team_short_name',
+        ];
+    }
+
+    /** Is this placeholder read-only at generate time? See lockedPlaceholders(). */
+    public static function isLockedPlaceholder(?string $placeholder): bool
+    {
+        return $placeholder !== null && in_array($placeholder, self::lockedPlaceholders(), true);
     }
 
     /** Is this placeholder's value a file path? See imagePlaceholders(). */
@@ -374,6 +427,44 @@ class TournamentTemplate extends Model
                 'tournament_name',
                 'tournament_logo',
             ],
+            self::TYPE_PLAYING_XI => [
+                // The event
+                'tournament_name',
+                'tournament_logo',
+                // The two sides. Both crests appear even though only one XI is listed —
+                // a line-up poster is always "our XI against them".
+                'team_a_name',
+                'team_a_short_name',
+                'team_a_logo',
+                'team_b_name',
+                'team_b_short_name',
+                'team_b_logo',
+                // Whose XI this is. Resolved from the picked side, so a layout can caption
+                // the list without the designer having to know which side is A.
+                'lineup_team_name',
+                'lineup_team_short_name',
+                'lineup_team_logo',
+                'opponent_team_name',
+                'opponent_team_short_name',
+                'opponent_team_logo',
+                // Match info
+                'match_date',
+                'match_time',
+                'venue',
+                'ground_name',
+                'match_stage',
+                'match_number',
+                // The cut-out player the poster is built around, and the captions for them.
+                'featured_player_name',
+                'featured_player_image',
+                'featured_player_role',
+                /*
+                 * The eleven. A repeating region, not a text placeholder: the renderer draws
+                 * one row per selected player and sizes itself to the count, exactly as
+                 * `fixture_area` does. Dropping it as text would print a JSON blob.
+                 */
+                'lineup_area',
+            ],
             default => [],
         };
     }
@@ -492,6 +583,7 @@ class TournamentTemplate extends Model
             self::TYPE_FIXTURES_POSTER => 'Fixtures Poster',
             self::TYPE_AUCTION_POSTER => 'Auction Poster (Horizontal)',
             self::TYPE_AUCTION_POSTER_PORTRAIT => 'Auction Poster (Vertical)',
+            self::TYPE_PLAYING_XI => 'Playing XI',
             default => ucfirst(str_replace('_', ' ', $type)),
         };
     }

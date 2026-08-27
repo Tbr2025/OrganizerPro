@@ -661,6 +661,18 @@
                     </div>
                     @endif
 
+                    @if($type === 'playing_xi')
+                    <div class="sidebar-section">
+                        <div class="sidebar-section-title">Line-up</div>
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addLineupArea()">
+                            <div class="icon" style="background: linear-gradient(135deg, #2563eb, #1e3a8a);">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h10"/></svg>
+                            </div>
+                            <div class="info"><div class="name">Playing XI List</div><div class="type">Lineup Area</div></div>
+                        </div>
+                    </div>
+                    @endif
+
                     @if($type === 'fixtures_poster')
                     <div class="sidebar-section">
                         <div class="sidebar-section-title">Fixture Area</div>
@@ -1205,6 +1217,78 @@
             </div>
 
             {{-- Fixture Area Properties --}}
+            <div id="lineupPropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Line-up Type</div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Name Size</label>
+                            <input type="number" id="propLnFontSize" class="prop-input" min="10" max="90" value="34"
+                                   onchange="editor.updateLineupConfig('fontSize', parseInt(this.value) || 34)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Row Height</label>
+                            <input type="number" id="propLnRowHeight" class="prop-input" min="16" max="140" value="50"
+                                   onchange="editor.updateLineupConfig('rowHeight', parseInt(this.value) || 50)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Name Color</label>
+                            <input type="color" id="propLnTextColor" class="color-preview" value="#14306b"
+                                   onchange="editor.updateLineupConfig('textColor', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Badge Color</label>
+                            <input type="color" id="propLnBadgeBg" class="color-preview" value="#ff4d00"
+                                   onchange="editor.updateLineupConfig('badgeBg', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Badge Text</label>
+                            <input type="color" id="propLnBadgeTextColor" class="color-preview" value="#ffffff"
+                                   onchange="editor.updateLineupConfig('badgeTextColor', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Columns</label>
+                            <select id="propLnColumns" class="prop-input" onchange="editor.updateLineupConfig('columns', parseInt(this.value) || 1)">
+                                <option value="1">One</option>
+                                <option value="2">Two</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Align</label>
+                            <select id="propLnTextAlign" class="prop-input" onchange="editor.updateLineupConfig('textAlign', this.value)">
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Max Rows</label>
+                            <input type="number" id="propLnMaxRows" class="prop-input" min="1" max="20" value="11"
+                                   onchange="editor.updateLineupConfig('maxRows', parseInt(this.value) || 11)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label" style="display:flex;align-items:center;gap:6px;">
+                                <input type="checkbox" id="propLnShowNumbers" onchange="editor.updateLineupConfig('showNumbers', this.checked)">
+                                Numbers
+                            </label>
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label" style="display:flex;align-items:center;gap:6px;">
+                                <input type="checkbox" id="propLnUppercase" onchange="editor.updateLineupConfig('uppercase', this.checked)">
+                                UPPERCASE
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div id="fixturePropertiesPanel" class="hidden">
                 <div class="prop-section">
                     <div class="prop-section-title">Design Layout</div>
@@ -2170,6 +2254,61 @@ const editor = {
         document.getElementById('propScTransparentBg').checked = cfg.transparentBg || false;
     },
 
+    /*
+     * The eleven as one region.
+     *
+     * A group with a dashed border and sample names, the same shape as addFixtureArea: the real
+     * rows are drawn server-side by TemplateRenderService::renderLineupArea(), so what the editor
+     * needs to show is where the block sits and how big it is, not the actual XI.
+     */
+    addLineupArea(x, y) {
+        const w = 520, h = 560;
+        x = x ?? this.canvasWidth / 2;
+        y = y ?? this.canvasHeight / 2;
+
+        const border = new fabric.Rect({
+            width: w, height: h,
+            fill: 'rgba(37,99,235,0.10)',
+            stroke: '#2563eb', strokeWidth: 2, strokeDashArray: [8, 4],
+            rx: 6, ry: 6, originX: 'center', originY: 'center',
+        });
+        const title = new fabric.Text('PLAYING XI', {
+            fontSize: 14, fill: '#2563eb',
+            fontFamily: 'Arial', fontWeight: '700',
+            originX: 'center', originY: 'center', top: -h / 2 + 18,
+        });
+        const sample = new fabric.Text(
+            'Shubman Gill  C\nKL Rahul  VC\nYashasvi Jaiswal\nDevdutt Padikkal\nRishabh Pant  WK\nRavindra Jadeja\nDhruv Jurel\nSaransh Jain  DEBUT\nManav Suthar\nMohd. Siraj\nPrasidh Krishna',
+            { fontSize: 13, fill: '#64748b', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 14, lineHeight: 1.5 }
+        );
+
+        const group = new fabric.Group([border, title, sample], {
+            left: x, top: y, originX: 'center', originY: 'center',
+        });
+        group.elementType = 'lineupArea';
+        group.placeholder = 'lineup_area';
+        group.lineupConfig = {
+            maxRows: 11,
+            fontSize: 34,
+            rowHeight: 50,
+            textColor: '#14306b',
+            badgeBg: '#ff4d00',
+            badgeTextColor: '#ffffff',
+            numberColor: '#ff4d00',
+            showNumbers: false,
+            uppercase: false,
+            textAlign: 'left',
+            columns: 1,
+            fontFamily: 'Montserrat',
+            fontWeight: '700',
+        };
+        this.canvas.add(group);
+        this.canvas.setActiveObject(group);
+        this.canvas.renderAll();
+        this.saveState?.();
+        this.refreshLayers?.();
+    },
+
     addFixtureArea(x, y) {
         x = x || this.canvasWidth / 2;
         y = y || this.canvasHeight / 2;
@@ -2219,6 +2358,21 @@ const editor = {
         };
         this.canvas.add(group);
         this.canvas.setActiveObject(group);
+        this.saveHistory();
+    },
+
+    updateLineupConfig(key, value) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'lineupArea') return;
+        obj.lineupConfig = obj.lineupConfig || {};
+        obj.lineupConfig[key] = value;
+        // Tint the region to match, so the canvas still reads as the thing being edited.
+        if (key === 'textColor' && typeof value === 'string' && value.startsWith('#')) {
+            const r = parseInt(value.slice(1,3),16), g = parseInt(value.slice(3,5),16), b = parseInt(value.slice(5,7),16);
+            obj.item(0).set('fill', `rgba(${r},${g},${b},0.10)`);
+            obj.item(0).set('stroke', value);
+            this.canvas.renderAll();
+        }
         this.saveHistory();
     },
 
@@ -2420,12 +2574,30 @@ const editor = {
         const isTable = obj.elementType === 'tableArea';
         const isScorecard = obj.elementType === 'scorecardTable';
         const isFixture = obj.elementType === 'fixtureArea';
+        const isLineup = obj.elementType === 'lineupArea';
         document.getElementById('iconPropertiesPanel').classList.toggle('hidden', !isIcon);
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
         document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
         document.getElementById('scorecardPropertiesPanel').classList.toggle('hidden', !isScorecard);
         document.getElementById('fixturePropertiesPanel').classList.toggle('hidden', !isFixture);
+        document.getElementById('lineupPropertiesPanel').classList.toggle('hidden', !isLineup);
+
+        if (isLineup) {
+            const c = obj.lineupConfig || {};
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+            const check = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+            set('propLnFontSize', c.fontSize ?? 34);
+            set('propLnRowHeight', c.rowHeight ?? 50);
+            set('propLnTextColor', this.colorToHex(c.textColor ?? '#14306b'));
+            set('propLnBadgeBg', this.colorToHex(c.badgeBg ?? '#ff4d00'));
+            set('propLnBadgeTextColor', this.colorToHex(c.badgeTextColor ?? '#ffffff'));
+            set('propLnColumns', String(c.columns ?? 1));
+            set('propLnTextAlign', c.textAlign ?? 'left');
+            set('propLnMaxRows', c.maxRows ?? 11);
+            check('propLnShowNumbers', c.showNumbers);
+            check('propLnUppercase', c.uppercase);
+        }
 
         if (isIcon) {
             const iconColor = obj.iconType === 'svg' ? (obj.iconColor || '#ffffff') : (obj.fill || '#ffffff');
@@ -3458,6 +3630,21 @@ const editor = {
                 scGroup.scorecardConfig = scCfg;
                 scGroup._layoutIndex = layoutIndex;
                 this.canvas.add(scGroup);
+            } else if (item.type === 'lineupArea') {
+                const lnCfg = item.lineupConfig || {};
+                const lw = item.width || 520, lh = item.height || 560;
+                const lnBorder = new fabric.Rect({ width: lw, height: lh, fill: 'rgba(37,99,235,0.10)', stroke: '#2563eb', strokeWidth: 2, strokeDashArray: [8, 4], rx: 6, ry: 6, originX: 'center', originY: 'center' });
+                const lnTitle = new fabric.Text('PLAYING XI', { fontSize: 14, fill: '#2563eb', fontFamily: 'Arial', fontWeight: '700', originX: 'center', originY: 'center', top: -lh/2 + 18 });
+                const lnSample = new fabric.Text('Shubman Gill  C\nKL Rahul  VC\nYashasvi Jaiswal\nDevdutt Padikkal\nRishabh Pant  WK\nRavindra Jadeja\nDhruv Jurel\nSaransh Jain  DEBUT\nManav Suthar\nMohd. Siraj\nPrasidh Krishna', { fontSize: 13, fill: '#64748b', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 14, lineHeight: 1.5 });
+                const lnGroup = new fabric.Group([lnBorder, lnTitle, lnSample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
+                lnGroup.elementType = 'lineupArea';
+                lnGroup.placeholder = 'lineup_area';
+                lnGroup.lineupConfig = lnCfg;
+                lnGroup._layoutIndex = layoutIndex;
+                if (item.layerName) lnGroup.layerName = item.layerName;
+                if (item.hidden) lnGroup.visible = false;
+                if (item.locked) { lnGroup.selectable = false; lnGroup.evented = false; lnGroup.locked = true; }
+                this.canvas.add(lnGroup);
             } else if (item.type === 'fixtureArea') {
                 const fxCfg = item.fixtureConfig || {};
                 const fw = item.width || 900, fh = item.height || 500;
@@ -3580,6 +3767,8 @@ const editor = {
                 return { ...base, type: 'scorecardTable', scorecardConfig: obj.scorecardConfig || {}, width: (obj.width || 400) * (obj.scaleX || 1), height: (obj.height || 180) * (obj.scaleY || 1) };
             } else if (obj.elementType === 'fixtureArea') {
                 return { ...base, type: 'fixtureArea', fixtureConfig: obj.fixtureConfig || {}, width: (obj.width || 900) * (obj.scaleX || 1), height: (obj.height || 500) * (obj.scaleY || 1) };
+            } else if (obj.elementType === 'lineupArea') {
+                return { ...base, type: 'lineupArea', lineupConfig: obj.lineupConfig || {}, width: (obj.width || 520) * (obj.scaleX || 1), height: (obj.height || 560) * (obj.scaleY || 1) };
             }
             return base;
         });

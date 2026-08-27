@@ -12,8 +12,38 @@ class TemplateRenderService extends PosterGeneratorService
     protected bool $skipBlanks = false;
     protected int $renderScale = 1;
 
+    /**
+     * Per-placeholder answers to "cut this image out?", set by the caller for THIS render.
+     *
+     * Background removal was decided entirely by placeholder name, which is right for a stored
+     * player photo and wrong for an upload: the organizer can see the picture they just chose
+     * and knows whether it needs cutting out, but had no way to say so — the generate page's
+     * "Remove Background" checkbox was posted and then ignored. Keyed by placeholder rather
+     * than global so overriding a player cut-out cannot start cutting the holes out of a team
+     * crest, which is what a single flag would do.
+     *
+     * @var array<string, bool>
+     */
+    protected array $backgroundRemovalOverrides = [];
+
     /** Memoized font registry for resolving installed fonts to TTF files. */
     protected ?\App\Services\Fonts\FontService $fontService = null;
+
+    /**
+     * Decide background removal for one placeholder, overriding the name-based default.
+     *
+     * `null` clears the override and hands the decision back to shouldRemoveBackground().
+     */
+    public function overrideBackgroundRemoval(string $placeholder, ?bool $remove): static
+    {
+        if ($remove === null) {
+            unset($this->backgroundRemovalOverrides[$placeholder]);
+        } else {
+            $this->backgroundRemovalOverrides[$placeholder] = $remove;
+        }
+
+        return $this;
+    }
 
     /**
      * Generate poster from template model (required by abstract)
@@ -113,6 +143,22 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         }
 
+        /*
+         * A static label can be tied to a placeholder, and disappears with it.
+         *
+         * `skipBlanks` drops placeholder elements whose value is empty, but a hand-typed label
+         * beside one has no placeholder of its own and drew regardless — so a summary poster for
+         * a match with no result printed a bare "OVERS" next to nothing. Only honoured while
+         * skipping blanks, so the editor still shows the label when laying the design out.
+         */
+        $dependsOn = $element['dependsOn'] ?? null;
+        if ($this->skipBlanks && is_string($dependsOn) && $dependsOn !== '') {
+            $dependency = $data[$dependsOn] ?? null;
+            if ($dependency === null || $dependency === '' || (is_array($dependency) && $dependency === [])) {
+                return;
+            }
+        }
+
         $placeholder = $element['placeholder'] ?? '';
         $type = $element['type'] ?? 'text';
 
@@ -129,6 +175,9 @@ class TemplateRenderService extends PosterGeneratorService
             return;
         } elseif ($type === 'fixtureArea' || ($placeholder === 'fixture_area' && is_array($data['fixture_area'] ?? null))) {
             $this->renderFixtureArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
+            return;
+        } elseif ($type === 'lineupArea' || $placeholder === 'lineup_area') {
+            $this->renderLineupArea($canvas, $element, $data, $canvasWidth, $canvasHeight);
             return;
         }
 
@@ -1851,6 +1900,11 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function shouldRemoveBackground(string $placeholder): bool
     {
+        // An explicit choice for this placeholder wins over the list below.
+        if (array_key_exists($placeholder, $this->backgroundRemovalOverrides)) {
+            return $this->backgroundRemovalOverrides[$placeholder];
+        }
+
         $bgRemovalPlaceholders = [
             'player_image',
             'player_photo',
@@ -1861,6 +1915,7 @@ class TemplateRenderService extends PosterGeneratorService
             'best_batsman_image',
             'best_bowler_image',
             'award_player_image',
+            'featured_player_image',
         ];
 
         return in_array($placeholder, $bgRemovalPlaceholders);
@@ -2125,6 +2180,10 @@ class TemplateRenderService extends PosterGeneratorService
                 $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleFixtureData();
                 continue;
             }
+            if ($placeholder === 'lineup_area') {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleLineupData();
+                continue;
+            }
             $data[$placeholder] = $customData[$placeholder] ?? $this->getDisplayValue($placeholder);
         }
 
@@ -2180,6 +2239,209 @@ class TemplateRenderService extends PosterGeneratorService
             ['team_a' => 'Royal Strikers', 'team_b' => 'Mountrich CC', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 18, 2026', 'time' => '06:00 PM', 'venue' => 'Sports Ground', 'match_number' => '4'],
             ['team_a' => 'Canadian CC', 'team_b' => 'Royal Strikers', 'team_a_logo' => '', 'team_b_logo' => '', 'date' => 'Jun 19, 2026', 'time' => '06:00 PM', 'venue' => 'City Stadium', 'match_number' => '5'],
         ];
+    }
+
+    /**
+     * Eleven names for the editor to lay out against, so an empty XI still shows its shape.
+     *
+     * Badges are the ones a scorecard actually carries — `scorecard_data` writes "(c)" and
+     * "(wk)" into the player's own name string, and those are the two a line-up has to be able
+     * to show. VC and DEBUT have no source in this schema; they are picked by hand on the
+     * generate page, which is why they are in the sample.
+     */
+    protected function getSampleLineupData(): array
+    {
+        return [
+            ['name' => 'Shubman Gill', 'badge' => 'C', 'number' => 1],
+            ['name' => 'KL Rahul', 'badge' => 'VC', 'number' => 2],
+            ['name' => 'Yashasvi Jaiswal', 'badge' => '', 'number' => 3],
+            ['name' => 'Devdutt Padikkal', 'badge' => '', 'number' => 4],
+            ['name' => 'Rishabh Pant', 'badge' => 'WK', 'number' => 5],
+            ['name' => 'Ravindra Jadeja', 'badge' => '', 'number' => 6],
+            ['name' => 'Dhruv Jurel', 'badge' => '', 'number' => 7],
+            ['name' => 'Saransh Jain', 'badge' => 'DEBUT', 'number' => 8],
+            ['name' => 'Manav Suthar', 'badge' => '', 'number' => 9],
+            ['name' => 'Mohd. Siraj', 'badge' => '', 'number' => 10],
+            ['name' => 'Prasidh Krishna', 'badge' => '', 'number' => 11],
+        ];
+    }
+
+    /**
+     * Draw the XI as a list of names, each with an optional role chip.
+     *
+     * Sized like renderFixtureRows: `x`/`y` are percentages, and an element that carries an
+     * explicit width/height is treated as centred on that point (what the drag editor saves),
+     * while one without is treated as top-anchored. Getting this wrong moves every row.
+     *
+     * The name is shrunk to fit the column MINUS the chip it has to sit beside, so a long name
+     * next to a DEBUT badge stays on its row instead of running under it.
+     */
+    protected function renderLineupArea(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
+    {
+        $config = $element['lineupConfig'] ?? [];
+
+        $players = $data['lineup_area'] ?? [];
+        if (is_string($players)) {
+            $players = json_decode($players, true) ?: [];
+        }
+        if (!is_array($players)) {
+            $players = [];
+        }
+
+        $scale = $this->renderScale;
+
+        $maxRows      = (int) ($config['maxRows'] ?? 11);
+        $fontSize     = (int) (($config['fontSize'] ?? 34) * $scale);
+        $rowHeight    = (int) (($config['rowHeight'] ?? 52) * $scale);
+        $textColor    = $config['textColor'] ?? '#1a3a6b';
+        $badgeBg      = $config['badgeBg'] ?? '#ff4d00';
+        $badgeColor   = $config['badgeTextColor'] ?? '#ffffff';
+        $numberColor  = $config['numberColor'] ?? $badgeBg;
+        $showNumbers  = !empty($config['showNumbers']);
+        $uppercase    = !empty($config['uppercase']);
+        $textAlign    = $config['textAlign'] ?? 'left';
+        $columns      = max(1, min(2, (int) ($config['columns'] ?? 1)));
+        $fontFamily   = $config['fontFamily'] ?? 'Montserrat';
+        $nameFont     = $this->getFontFile($config['fontWeight'] ?? '700', 'normal', $fontFamily);
+        $badgeFont    = $this->getFontFile('700', 'normal', $fontFamily);
+
+        // Area box, matching renderFixtureRows' two anchoring modes.
+        $hasExplicitSize = isset($element['width']) && isset($element['height']);
+        $defaultWidth = (int) ($canvasWidth * 0.55 / $scale);
+        $areaWidth = (int) (($element['width'] ?? $defaultWidth) * $scale);
+
+        if ($hasExplicitSize) {
+            $areaHeight = (int) ($element['height'] * $scale);
+            $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
+            $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaX = (int) ($centerX - $areaWidth / 2);
+            $areaY = (int) ($centerY - $areaHeight / 2);
+        } else {
+            $areaX = (int) ((($element['x'] ?? 50) / 100 * $canvasWidth) - $areaWidth / 2);
+            $areaY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
+            $areaHeight = $canvasHeight - $areaY;
+        }
+
+        $rows = array_slice(array_values($players), 0, $maxRows);
+
+        if (empty($rows)) {
+            // The editor needs to see the region even before an XI is picked.
+            $this->drawPlaceholderBox($canvas, $areaX, $areaY, $areaWidth, max($rowHeight * 4, 120), 'Playing XI');
+            return;
+        }
+
+        $perColumn = (int) ceil(count($rows) / $columns);
+        $columnWidth = $columns > 1
+            ? (int) (($areaWidth - (int) (24 * $scale)) / $columns)
+            : $areaWidth;
+
+        $badgeH        = (int) ($fontSize * 0.92);
+        $badgePadX     = (int) ($fontSize * 0.30);
+        $badgeGap      = (int) ($fontSize * 0.34);
+        $badgeFontSize = (int) ($fontSize * 0.52);
+        $numberWidth   = $showNumbers ? (int) ($fontSize * 1.5) : 0;
+
+        foreach ($rows as $i => $row) {
+            $name = trim((string) ($row['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $badge = strtoupper(trim((string) ($row['badge'] ?? '')));
+            if ($uppercase) {
+                $name = mb_strtoupper($name, 'UTF-8');
+            }
+
+            $col = $columns > 1 ? intdiv($i, $perColumn) : 0;
+            $rowInCol = $columns > 1 ? $i % $perColumn : $i;
+
+            $colX = $areaX + $col * ($columnWidth + (int) (24 * $scale));
+            $baselineY = $areaY + $rowInCol * $rowHeight + (int) ($fontSize * 0.85);
+
+            // Stop rather than overflow the region the designer drew.
+            if ($baselineY > $areaY + $areaHeight + $rowHeight) {
+                break;
+            }
+
+            $badgeW = 0;
+            if ($badge !== '') {
+                $badgeW = $this->measureTextWidth($badge, $badgeFont, $badgeFontSize) + $badgePadX * 2;
+            }
+
+            // Reserve the chip's room before deciding how big the name may be.
+            $nameBudget = $columnWidth - $numberWidth - ($badgeW > 0 ? $badgeW + $badgeGap : 0);
+            $nameSize = $this->shrinkFontToWidth($name, $nameFont, $fontSize, max(1, $nameBudget));
+            $nameWidth = $this->measureTextWidth($name, $nameFont, $nameSize);
+
+            $blockWidth = $numberWidth + $nameWidth + ($badgeW > 0 ? $badgeGap + $badgeW : 0);
+
+            $startX = match ($textAlign) {
+                'center' => $colX + (int) (($columnWidth - $blockWidth) / 2),
+                'right'  => $colX + $columnWidth - $blockWidth,
+                default  => $colX,
+            };
+
+            $cursorX = $startX;
+
+            if ($showNumbers) {
+                $this->addText(
+                    $canvas,
+                    (string) ($row['number'] ?? ($i + 1)),
+                    $cursorX,
+                    $baselineY,
+                    (int) ($fontSize * 0.72),
+                    $numberColor,
+                    $badgeFont,
+                    'left'
+                );
+                $cursorX += $numberWidth;
+            }
+
+            $this->addText($canvas, $name, $cursorX, $baselineY, $nameSize, $textColor, $nameFont, 'left');
+            $cursorX += $nameWidth;
+
+            if ($badge !== '') {
+                $chipX = $cursorX + $badgeGap;
+                $chipY = $baselineY - (int) ($badgeH * 0.78);
+                // renderRoundedRect() keys its radii tl/tr/br/bl and parseColor()s $solidFill
+                // itself — handing it a positional list squares the corners, and handing it an
+                // already-allocated colour int makes it fall back to white on white.
+                $radius = (int) ($badgeH * 0.24);
+                $this->renderRoundedRect(
+                    $canvas,
+                    $chipX,
+                    $chipY,
+                    $badgeW,
+                    $badgeH,
+                    ['tl' => $radius, 'tr' => $radius, 'br' => $radius, 'bl' => $radius],
+                    null,
+                    $badgeBg
+                );
+                $this->addText(
+                    $canvas,
+                    $badge,
+                    $chipX + (int) ($badgeW / 2),
+                    $chipY + (int) ($badgeH * 0.70),
+                    $badgeFontSize,
+                    $badgeColor,
+                    $badgeFont,
+                    'center'
+                );
+            }
+        }
+    }
+
+    /** Rendered width of a string, in pixels, at a given size. 0 when the font is missing. */
+    protected function measureTextWidth(string $text, string $fontFile, int $fontSize): int
+    {
+        if ($text === '' || $fontSize <= 0) {
+            return 0;
+        }
+        $fontPath = $this->fontPathFor($fontFile);
+        if (!$fontPath) {
+            return 0;
+        }
+        $bbox = @imagettfbbox($fontSize, 0, $fontPath, $text);
+        return $bbox ? (int) abs($bbox[2] - $bbox[0]) : 0;
     }
 
     /**

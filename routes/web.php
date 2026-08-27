@@ -1218,6 +1218,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/settings/custom-fields', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'store'])->name('settings.custom-fields.store');
         Route::put('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'update'])->name('settings.custom-fields.update');
         Route::delete('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'destroy'])->name('settings.custom-fields.destroy');
+        Route::post('/settings/custom-fields/{customField}/toggle', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'toggle'])->name('settings.custom-fields.toggle');
         Route::post('/settings/generate-flyer', [TournamentSettingsController::class, 'generateFlyer'])->name('settings.generate-flyer');
         Route::put('/settings/status', [TournamentSettingsController::class, 'updateStatus'])->name('settings.status');
 
@@ -1311,6 +1312,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::middleware(['role:Superadmin'])->group(function () {
             Route::get('/templates/create', [TournamentTemplateController::class, 'create'])->name('templates.create');
             Route::post('/templates', [TournamentTemplateController::class, 'store'])->name('templates.store');
+            Route::post('/templates/apply-preset', [TournamentTemplateController::class, 'applyPreset'])->name('templates.apply-preset');
             Route::put('/templates/{template}', [TournamentTemplateController::class, 'update'])->name('templates.update');
             Route::delete('/templates/{template}', [TournamentTemplateController::class, 'destroy'])->name('templates.destroy');
             Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');

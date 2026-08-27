@@ -468,10 +468,14 @@
 
                             {{-- Custom fields for this section --}}
                             @foreach($sectionCustom as $cf)
+                @continue($cf->isLayoutOnly())
                                 @php
                                     $cfKey = 'cf_' . $cf->id;
-                                    $cfVal = $customValues[$cfKey] ?? null;
-                                    if ($cf->type === 'checkbox') { $cfVal = ($cfVal === '1' || $cfVal === 1) ? 'Yes' : (($cfVal === '0' || $cfVal === 0) ? 'No' : null); }
+                                    $cfRaw = $customValues[$cfKey] ?? null;
+                                    // One formatter for every type: a multi-choice answer is a
+                                    // LIST, and echoing an array throws in PHP 8.
+                                    $cfVal = $cf->displayValue($cfRaw);
+                                    $cfFileUrl = $cf->fileUrl($cfRaw);
                                     $cfEmpty = ($cfVal === null || $cfVal === '');
                                     $cfVerified = in_array($cfKey, $verifiedFields, true);
                                 @endphp
@@ -491,6 +495,12 @@
                                     </div>
                                     @if($cfEmpty)
                                         <p class="mt-1 text-sm italic text-gray-400 dark:text-gray-500">Not provided</p>
+                                    @elseif($cfFileUrl)
+                                        <a href="{{ $cfFileUrl }}" target="_blank" rel="noopener"
+                                           class="mt-1 inline-flex items-center gap-1 text-sm text-indigo-600 hover:underline break-all">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                            {{ $cfVal }}
+                                        </a>
                                     @else
                                         <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ $cfVal }}</p>
                                     @endif

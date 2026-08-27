@@ -608,6 +608,11 @@
                         }
                     }
                 }">
+                    @php
+                        // Hoisted: the custom-field strips under each form need this, and they sit
+                        // above the old Custom Fields block that used to compute it.
+                        $allCustomFields = $tournament->customFields;
+                    @endphp
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Registration Form Fields</h3>
                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Drag <span class="font-mono">⠿</span> to reorder sections and fields. Edit each <strong>section title</strong> and field <strong>label</strong>, and toggle visible / required.</p>
 
@@ -670,9 +675,12 @@
                         </div>
                         @endforeach
                     </div>
+
+                    @include('backend.pages.tournaments.settings.partials.custom-field-strip', ['form' => 'player'])
                 </div>
 
                 {{-- Team Registration Form Fields Configuration --}}
+
                 <div class="border-b border-gray-200 dark:border-gray-700 pb-6" x-data="{
                     teamFields: @js($teamFieldConfig),
                     teamSections: @js($teamSectionLabels),
@@ -743,6 +751,8 @@
                         </div>
                         @endforeach
                     </div>
+
+                    @include('backend.pages.tournaments.settings.partials.custom-field-strip', ['form' => 'team'])
 
                     {{-- SortableJS-powered reordering for the form builder --}}
                     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
@@ -1001,18 +1011,31 @@
                 $playerSections = array_keys(\App\Helpers\PlayerFormConfig::fieldGroups());
                 $teamSections = array_keys(\App\Helpers\TeamFormConfig::fieldGroups());
                 $customFields = $tournament->customFields;
+                $allCustomFields = $customFields;   // condition targets, read by the rules partial
                 $cfTypes = \App\Models\TournamentCustomField::TYPES;
             @endphp
-            <div class="mt-8 rounded-md border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-5 sm:p-6">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">Custom Fields</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Add your own registration fields (they appear in the chosen section on the public form). Standard fields above are not affected.</p>
+            {{-- Custom field editors.
 
-                {{-- Existing custom fields --}}
-                @if($customFields->count())
-                    <div class="space-y-3 mb-6">
-                        @foreach($customFields as $cf)
+                 These are dialogs, not a section of the page: the list lives under each form's
+                 field groups (see partials/custom-field-strip), which is where an organizer is
+                 already looking when they decide they need another question. Being fixed
+                 overlays, it does not matter where in the document they are rendered. --}}
+            <div class="cf-modal-host">
+                @foreach($customFields as $cf)
+                    <div id="cf-modal-{{ $cf->id }}" class="cf-modal fixed inset-0 z-[60] hidden items-center justify-center p-4" role="dialog" aria-modal="true">
+                        <div class="absolute inset-0 bg-black/50" data-cf-close></div>
+                        <div class="relative w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-lg bg-white dark:bg-gray-900 shadow-xl p-5">
+                            <div class="flex items-start justify-between mb-4">
+                                <div>
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Edit “{{ $cf->label }}”</h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ ucfirst($cf->form) }} form · {{ $cf->section }}</p>
+                                </div>
+                                <button type="button" data-cf-close class="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Close">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
                             <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.update', [$tournament, $cf]) }}"
-                                  class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border border-gray-100 dark:border-gray-800 rounded-lg p-3">
+                                  class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                                 @csrf @method('PUT')
                                 <div class="md:col-span-2">
                                     <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
@@ -1052,6 +1075,8 @@
                                     <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="required" value="1" {{ $cf->required ? 'checked' : '' }} class="rounded border-gray-300"> Req</label>
                                     <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="visible" value="1" {{ $cf->visible ? 'checked' : '' }} class="rounded border-gray-300"> Show</label>
                                 </div>
+                                @include('backend.pages.tournaments.settings.partials.custom-field-rules', ['cf' => $cf, 'allCustomFields' => $allCustomFields])
+
                                 <div class="md:col-span-12 flex gap-2">
                                     <button type="submit" class="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Save</button>
                                     <button type="submit" formaction="{{ route('admin.tournaments.settings.custom-fields.destroy', [$tournament, $cf]) }}" formmethod="POST"
@@ -1059,24 +1084,32 @@
                                             class="px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 text-red-600 hover:bg-red-50">Delete</button>
                                 </div>
                             </form>
-                        @endforeach
+                        </div>
                     </div>
-                @endif
+                @endforeach
 
-                {{-- Add new custom field --}}
+                {{-- Add new. One dialog per form, so the strip's button can preselect which form
+                     the field belongs to and the organizer never picks it twice. --}}
+                @foreach(['player', 'team'] as $cfFormKey)
+                <div id="cf-modal-new-{{ $cfFormKey }}" class="cf-modal fixed inset-0 z-[60] hidden items-center justify-center p-4" role="dialog" aria-modal="true">
+                    <div class="absolute inset-0 bg-black/50" data-cf-close></div>
+                    <div class="relative w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-lg bg-white dark:bg-gray-900 shadow-xl p-5">
+                        <div class="flex items-start justify-between mb-4">
+                            <div>
+                                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Add a custom {{ $cfFormKey }} field</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">It appears in the section you choose, on the public form and in the admin player record.</p>
+                            </div>
+                            <button type="button" data-cf-close class="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Close">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
                 <form method="POST" action="{{ route('admin.tournaments.settings.custom-fields.store', $tournament) }}"
-                      class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end border-t border-gray-200 dark:border-gray-700 pt-4">
+                      class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                     @csrf
+                    <input type="hidden" name="form" value="{{ $cfFormKey }}">
                     <div class="md:col-span-2">
                         <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Label</label>
                         <input type="text" name="label" required placeholder="e.g. T-shirt brand" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Form</label>
-                        <select name="form" class="w-full text-sm rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                            <option value="player">Player</option>
-                            <option value="team">Team</option>
-                        </select>
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-[11px] uppercase tracking-wider text-gray-400 mb-1">Type</label>
@@ -1099,10 +1132,135 @@
                         <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="required" value="1" class="rounded border-gray-300"> Req</label>
                         <label class="flex items-center gap-1 text-xs text-gray-500"><input type="checkbox" name="visible" value="1" checked class="rounded border-gray-300"> Show</label>
                     </div>
+                    @include('backend.pages.tournaments.settings.partials.custom-field-rules', ['cf' => null, 'allCustomFields' => $allCustomFields])
+
                     <div class="md:col-span-12">
                         <button type="submit" class="px-4 py-2 text-sm font-medium rounded-md bg-green-600 text-white hover:bg-green-700">+ Add Custom Field</button>
                     </div>
                 </form>
+                    </div>
+                </div>
+                @endforeach
+
+                {{-- Custom field dialogs. Opened from the strips under each form's field groups. --}}
+                <script>
+                (function () {
+                    function close(modal) {
+                        modal.classList.add('hidden');
+                        modal.classList.remove('flex');
+                        if (!document.querySelector('.cf-modal.flex')) document.body.style.overflow = '';
+                    }
+
+                    function open(id) {
+                        var modal = document.getElementById('cf-modal-' + id);
+                        if (!modal) return;
+                        modal.classList.remove('hidden');
+                        modal.classList.add('flex');
+                        // Stop the page scrolling behind the dialog.
+                        document.body.style.overflow = 'hidden';
+                        var first = modal.querySelector('input:not([type=hidden]), select, textarea');
+                        if (first) first.focus();
+                    }
+
+                    document.addEventListener('click', function (e) {
+                        var opener = e.target.closest('[data-cf-open]');
+                        if (opener) {
+                            e.preventDefault();
+                            open(opener.getAttribute('data-cf-open'));
+                            return;
+                        }
+                        var closer = e.target.closest('[data-cf-close]');
+                        if (closer) {
+                            e.preventDefault();
+                            close(closer.closest('.cf-modal'));
+                        }
+                    });
+
+                    document.addEventListener('keydown', function (e) {
+                        if (e.key !== 'Escape') return;
+                        var openModal = document.querySelector('.cf-modal.flex');
+                        if (openModal) close(openModal);
+                    });
+
+                    /* A dialog whose form was rejected must come back open, or the organizer sees
+                       the page reload with their input gone and no error in sight. */
+                    @if($errors->any() && old('label'))
+                        var reopen = @js(old('form') ? 'new-' . old('form') : null);
+                        if (reopen) open(reopen);
+                    @endif
+                })();
+                </script>
+
+                {{-- Builder behaviour for the Rules & conditions panels. --}}
+                <script>
+                (function () {
+                    /* Show only the validation boxes that apply to the chosen type. Every box stays
+                       in the DOM so a rule already saved is never silently dropped by a re-render;
+                       it is only hidden, and the server ignores empty boxes. */
+                    function syncRules(panel, type) {
+                        panel.querySelectorAll('[data-rule-for]').forEach(function (box) {
+                            var applies = box.getAttribute('data-rule-for').split(',').indexOf(type) !== -1;
+                            box.style.display = applies ? '' : 'none';
+                        });
+                    }
+
+                    function panelFor(form) { return form.querySelector('.cf-rules'); }
+
+                    document.querySelectorAll('form').forEach(function (form) {
+                        var panel = panelFor(form);
+                        var typeSelect = form.querySelector('select[name="type"]');
+                        if (!panel || !typeSelect) return;
+
+                        syncRules(panel, typeSelect.value);
+                        typeSelect.addEventListener('change', function () { syncRules(panel, typeSelect.value); });
+
+                        // Pattern presets just fill the box; the saved value is always the pattern.
+                        var preset = panel.querySelector('.cf-pattern-preset');
+                        var patternInput = panel.querySelector('.cf-pattern-input');
+                        if (preset && patternInput) {
+                            preset.addEventListener('change', function () {
+                                if (preset.value) patternInput.value = preset.value;
+                            });
+                        }
+
+                        var list = panel.querySelector('.cf-conditions');
+                        var tpl = panel.querySelector('.cf-condition-template');
+                        var addBtn = panel.querySelector('.cf-add-condition');
+
+                        /* Rows are renamed from scratch after every add or remove: the server reads
+                           conditions[] by index, and deleting the middle row of three would
+                           otherwise leave a gap that arrives as a sparse array. */
+                        function renumber() {
+                            list.querySelectorAll('.cf-condition').forEach(function (row, i) {
+                                row.querySelectorAll('[name], [data-name]').forEach(function (input) {
+                                    var key = input.getAttribute('data-name')
+                                        || (input.getAttribute('name') || '').replace(/^conditions\[\d+\]\[(.+)\]$/, '$1');
+                                    if (!key) return;
+                                    input.setAttribute('name', 'conditions[' + i + '][' + key + ']');
+                                    input.removeAttribute('data-name');
+                                });
+                            });
+                        }
+
+                        if (addBtn && tpl && list) {
+                            addBtn.addEventListener('click', function () {
+                                list.appendChild(tpl.content.cloneNode(true));
+                                renumber();
+                            });
+                        }
+
+                        if (list) {
+                            list.addEventListener('click', function (e) {
+                                var btn = e.target.closest('.cf-remove-condition');
+                                if (!btn) return;
+                                btn.closest('.cf-condition').remove();
+                                renumber();
+                            });
+                        }
+                    });
+                })();
+                </script>
+
             </div>
         </div>
     </div>

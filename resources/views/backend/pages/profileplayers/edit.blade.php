@@ -91,10 +91,21 @@
                                                 @include('backend.pages.profileplayers.partials.field', ['key' => $key, 'locked' => $locked])
                                             @endforeach
                                             @foreach($sectionCustom as $cf)
-                                                @php $cfv = $customValues['cf_' . $cf->id] ?? null; if ($cf->type === 'checkbox') { $cfv = ($cfv === '1') ? 'Yes' : (($cfv === '0') ? 'No' : $cfv); } @endphp
+                                                @continue($cf->isLayoutOnly())
+                                                @php
+                                                    $cfRaw = $customValues['cf_' . $cf->id] ?? null;
+                                                    // Shared formatter — the multi-choice types
+                                                    // store a list, and echoing an array throws.
+                                                    $cfv = $cf->displayValue($cfRaw);
+                                                    $cfUrl = $cf->fileUrl($cfRaw);
+                                                @endphp
                                                 <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3">
                                                     <h4 class="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">{{ $cf->label }} <span class="text-[9px] text-indigo-400">custom</span></h4>
-                                                    <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ ($cfv === null || $cfv === '') ? '—' : $cfv }}</p>
+                                                    @if($cfUrl)
+                                                        <a href="{{ $cfUrl }}" target="_blank" rel="noopener" class="mt-1 inline-block text-sm text-indigo-600 hover:underline break-all">{{ $cfv }}</a>
+                                                    @else
+                                                        <p class="mt-1 text-sm text-gray-900 dark:text-white break-words">{{ ($cfv === null || $cfv === '') ? '—' : $cfv }}</p>
+                                                    @endif
                                                 </div>
                                             @endforeach
                                         </div>

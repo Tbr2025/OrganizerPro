@@ -31,7 +31,7 @@
 
     {{-- Poster Type Selection - Horizontal Pill Tabs --}}
     <div class="mb-6" x-data="{ type: '{{ request('type', 'match_poster') }}' }">
-        <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div class="flex flex-wrap items-center gap-2 pb-2">
             <button type="button" @click="type = 'match_poster'; updateType('match_poster')"
                     :class="type === 'match_poster' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-cyan-300'"
                     class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
@@ -86,6 +86,12 @@
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
                 Champions
             </button>
+            <button type="button" @click="type = 'playing_xi'; updateType('playing_xi')"
+                    :class="type === 'playing_xi' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/25' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-blue-300'"
+                    class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-200 flex-shrink-0">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                Playing XI
+            </button>
         </div>
     </div>
 
@@ -129,7 +135,7 @@
         <div class="lg:col-span-3 space-y-5">
 
             {{-- Data Selection Based on Type --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+            <div id="selectDataCard" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5{{ request('type') === 'playing_xi' ? ' hidden' : '' }}">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center text-sm">
                     <span class="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/50 text-purple-600 flex items-center justify-center mr-2.5 text-xs font-bold">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6M12 9v6"/></svg>
@@ -726,6 +732,203 @@
                 </div>
             </div>
 
+            {{-- Playing XI: pick a match, pick a side, name the eleven.
+
+                 The XI is chosen here and nowhere else. There is no lineup table in this
+                 schema, so nothing persists this selection between posters — the roster the
+                 slots offer is the team's approved players for THIS tournament, which is real
+                 data, but which eleven of them play is a judgement only the organizer has. --}}
+            <div id="playingXiSelection" class="hidden space-y-5" x-data="playingXiPanel()" x-init="init()">
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
+                    <h3 class="font-semibold text-gray-900 dark:text-white flex items-center text-sm">
+                        <span class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center mr-2.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </span>
+                        Match &amp; Side
+                    </h3>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Match</label>
+                        <select id="xiMatchSelect" x-model="matchId" @change="onMatchChange()"
+                                class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <option value="">-- Select a match --</option>
+                            @foreach($matches as $m)
+                                <option value="{{ $m->id }}"
+                                        data-team-a-id="{{ $m->team_a_id }}"
+                                        data-team-a-name="{{ $m->teamA?->name ?? 'TBD' }}"
+                                        data-team-b-id="{{ $m->team_b_id }}"
+                                        data-team-b-name="{{ $m->teamB?->name ?? 'TBD' }}">
+                                    {{ $m->match_number ? '#' . $m->match_number . ' — ' : '' }}{{ $m->teamA?->name ?? 'TBD' }} vs {{ $m->teamB?->name ?? 'TBD' }}{{ $m->match_date ? ' (' . $m->match_date->format('M d') . ')' : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div x-show="matchId">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Whose XI?</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <template x-for="side in sides" :key="side.id">
+                                <button type="button" @click="selectSide(side.id)"
+                                        :class="String(lineupTeamId) === String(side.id)
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'"
+                                        class="px-3 py-2.5 rounded-lg text-sm font-medium border transition truncate"
+                                        x-text="side.name"></button>
+                            </template>
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2" x-show="lineupTeamId && rosterCount() === 0">
+                            No approved players are assigned to this team for this tournament, so the slots below are empty. You can still type names straight onto the template in the editor.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4" x-show="lineupTeamId">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-gray-900 dark:text-white flex items-center text-sm">
+                            <span class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center mr-2.5 text-xs font-bold">XI</span>
+                            The Eleven
+                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400" x-text="'(' + filledCount() + ' named)'"></span>
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <button type="button" @click="fillFromRoster()"
+                                    class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100">
+                                Fill from roster
+                            </button>
+                            <button type="button" @click="clearSlots()"
+                                    class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        {{-- One datalist for all eleven rows: the roster is the same list every
+                             time, and eleven copies of it is eleven times the markup. --}}
+                        <datalist id="xiRosterNames">
+                            <template x-for="p in roster()" :key="'d' + p.id">
+                                <option :value="p.name"></option>
+                            </template>
+                        </datalist>
+
+                        <template x-for="(slot, i) in slots" :key="i">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 shrink-0 text-xs font-semibold text-gray-400 tabular-nums" x-text="(i + 1) + '.'"></span>
+                                {{-- Type or pick. A dropdown could only ever offer the squad, so a
+                                     guest, a late signing or anyone not yet in the system could not
+                                     be put on the poster at all. --}}
+                                <input type="text" list="xiRosterNames"
+                                       x-model="slot.name" @change="onSlotPlayer(i)"
+                                       :placeholder="'Player ' + (i + 1) + ' — pick or type a name'"
+                                       class="flex-1 min-w-0 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                <select x-model="slot.badge"
+                                        class="w-24 shrink-0 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                                    <option value="">--</option>
+                                    <option value="C">C</option>
+                                    <option value="VC">VC</option>
+                                    <option value="WK">WK</option>
+                                    <option value="DEBUT">DEBUT</option>
+                                </select>
+                            </div>
+                        </template>
+                    </div>
+
+                </div>
+
+                {{-- Featured player — its OWN card, with no x-show.
+
+                     This block used to sit inside "The Eleven" above, which is gated on a side
+                     having been picked, so the file input did not exist on screen until a match
+                     AND a team had been chosen — and the upload looked like a missing feature.
+                     A photo file has no relationship to which side is playing; only the roster
+                     dropdown does, and that says so itself when no side is set yet. --}}
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-3">
+                    <h3 class="font-semibold text-gray-900 dark:text-white flex items-center text-sm">
+                        <span class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center mr-2.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        </span>
+                        Featured player
+                        <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">— the cut-out on the right of the poster</span>
+                    </h3>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Choose from the squad</label>
+                        <select x-model="featuredId" @change="onFeaturedPick()" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <option value="">-- none --</option>
+                            <template x-for="p in roster()" :key="'f' + p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <p class="text-[11px] text-gray-400 mt-1.5" x-show="!lineupTeamId">
+                            Pick a match and side above to choose from the squad — or just type a name and upload a photo below.
+                        </p>
+                    </div>
+
+                    {{-- A name for the cut-out, typed rather than picked.
+
+                         Choosing from the squad fills this in, but an uploaded photo of someone
+                         not in the roster had no way to be captioned at all — the dropdown was
+                         the only source of featured_player_name. --}}
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                            Name on the poster <span class="text-gray-400 font-normal">— overrides the pick above</span>
+                        </label>
+                        <input type="text" list="xiRosterNames" x-model="featuredName"
+                               placeholder="e.g. Rohit Sharma"
+                               class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                    </div>
+
+                        {{-- Upload a photo for this poster only. It goes to temp_previews and is
+                             cleaned up after rendering — choosing a picture for one graphic is
+                             not a change to the player's profile. --}}
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                                Or upload a photo <span class="text-gray-400 font-normal">— overrides the selection above</span>
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input type="file" id="xiPlayerImageUpload" accept="image/jpeg,image/png,image/webp"
+                                       @change="onFeaturedFile($event)"
+                                       class="flex-1 min-w-0 text-xs text-gray-600 dark:text-gray-300
+                                              file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                                              file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700
+                                              hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300">
+                                <button type="button" x-show="featuredFileName" @click="clearFeaturedFile()"
+                                        class="shrink-0 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">
+                                    Clear
+                                </button>
+                            </div>
+
+                            <div x-show="featuredPreview" class="mt-3 flex items-start gap-3">
+                                {{-- Checkerboard behind the preview, so a transparent PNG is
+                                     visibly transparent and the choice below is obvious. --}}
+                                <div class="w-24 h-24 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden shrink-0"
+                                     style="background-image:linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%),linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%);background-size:12px 12px;background-position:0 0,6px 6px;">
+                                    <img :src="featuredPreview" alt="Featured player" class="w-full h-full object-contain">
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="featuredFileName"></p>
+                                    <label class="flex items-center gap-2 cursor-pointer mt-2">
+                                        <input type="checkbox" x-model="removeFeaturedBg"
+                                               class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Remove background</span>
+                                    </label>
+                                    <p class="text-[11px] text-gray-400 mt-1" x-show="featuredIsTransparent">
+                                        This PNG is already transparent — removal is not needed.
+                                    </p>
+                                    <p class="text-[11px] text-gray-400 mt-1" x-show="!removeFeaturedBg && !featuredIsTransparent">
+                                        The photo will be used exactly as uploaded.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                </div>
+
+                {{-- Alpine state has to reach buildData(), which is plain JS outside this
+                     component, so the collected XI is mirrored into a hidden input. It lives at
+                     the panel root, not inside a card: x-show only sets display:none so a nested
+                     one is still readable today, but an x-if there would break every generate. --}}
+                <input type="hidden" id="xiPayload" :value="payload()">
+            </div>
+
             {{-- Template Selection --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center text-sm">
@@ -733,6 +936,24 @@
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
                     </span>
                     Choose Template
+                    @role('Superadmin')
+                    {{-- Managing templates from here, rather than sending the organizer to the
+                         template list and back: leaving this page loses the match, side and XI
+                         they have already picked. --}}
+                    <span class="ml-auto flex items-center gap-1.5">
+                        <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => $type]) }}"
+                           id="newTemplateLink" target="_blank"
+                           class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            New
+                        </a>
+                        <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
+                           class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                            Manage all
+                        </a>
+                    </span>
+                    @endrole
                 </h3>
 
                 <div id="templatesList" class="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -761,12 +982,40 @@
                                 </div>
                             </label>
                             @role('Superadmin')
-                            <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
-                               target="_blank"
-                               class="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 backdrop-blur text-white opacity-0 group-hover:opacity-100 hover:bg-black/70 shadow-sm transition-all z-10"
-                               title="Edit Template">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            </a>
+                            {{-- Sibling of the label, not inside it, so pressing an action never
+                                 also selects the template underneath. --}}
+                            <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
+                                <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
+                                   target="_blank" title="Edit template"
+                                   class="p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </a>
+                                <form action="{{ route('admin.tournaments.templates.duplicate', [$tournament, $template]) }}" method="POST" class="inline">
+                                    @csrf
+                                    <button type="submit" title="Duplicate — opens the copy in the editor"
+                                            class="p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                    </button>
+                                </form>
+                                @if(!$template->is_default)
+                                    <form action="{{ route('admin.tournaments.templates.set-default', [$tournament, $template]) }}" method="POST" class="inline">
+                                        @csrf
+                                        <button type="submit" title="Make this the default for {{ \App\Models\TournamentTemplate::getTypeDisplay($template->type) }}"
+                                                class="p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                                        </button>
+                                    </form>
+                                @endif
+                                <form action="{{ route('admin.tournaments.templates.destroy', [$tournament, $template]) }}" method="POST" class="inline"
+                                      onsubmit="return confirm('Delete the template &quot;{{ $template->name }}&quot;? This cannot be undone.')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" title="Delete template"
+                                            class="p-1.5 rounded-lg bg-red-600/80 backdrop-blur text-white hover:bg-red-600 shadow-sm transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                    </button>
+                                </form>
+                            </div>
                             @endrole
                         </div>
                     @empty
@@ -782,19 +1031,78 @@
                 </div>
             </div>
 
+            {{-- Ready-made designs.
+
+                 Applying one creates an ordinary template from an authored layout, so the
+                 organizer gets a poster that already looks like something instead of an empty
+                 canvas. It is never made the default — see TemplatePresetService::apply(). --}}
+            @role('Superadmin')
+            @if(!empty($presets))
+                <div id="presetSection" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
+                        <span class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 flex items-center justify-center mr-2.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                        </span>
+                        Start from a ready-made design
+                    </h3>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4 ml-9">Adds a new template you can then edit like any other.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        @foreach($presets as $preset)
+                            <div class="preset-card {{ $preset['type'] === $type ? '' : 'hidden' }}" data-preset-type="{{ $preset['type'] }}">
+                                <form method="POST" action="{{ route('admin.tournaments.templates.apply-preset', $tournament) }}">
+                                    @csrf
+                                    <input type="hidden" name="preset" value="{{ $preset['key'] }}">
+                                    <button type="submit"
+                                            class="w-full text-left border-2 border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-emerald-400 hover:shadow-md transition-all group">
+                                        <div class="flex items-start gap-3">
+                                            <span class="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-white font-bold text-xs"
+                                                  style="background: {{ $preset['accent'] }}">
+                                                {{ $preset['canvas_width'] }}<span class="opacity-60">×</span>
+                                            </span>
+                                            <div class="min-w-0">
+                                                <p class="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600 transition">
+                                                    {{ $preset['name'] }}
+                                                </p>
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
+                                                    {{ $preset['description'] }}
+                                                </p>
+                                                <p class="text-[11px] text-gray-400 mt-1.5">
+                                                    {{ $preset['canvas_width'] }} × {{ $preset['canvas_height'] }} · {{ count($preset['layout']) }} elements
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </form>
+                            </div>
+                        @endforeach
+                        <p id="presetEmpty" class="col-span-full text-sm text-gray-500 dark:text-gray-400 hidden">
+                            No ready-made design for this poster type yet.
+                        </p>
+                    </div>
+                </div>
+            @endif
+            @endrole
+
             {{-- Field Visibility Toggles --}}
             <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center text-sm cursor-pointer" onclick="document.getElementById('togglesBody').classList.toggle('hidden'); this.querySelector('.chevron-icon').classList.toggle('rotate-180')">
                     <span class="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 flex items-center justify-center mr-2.5 text-xs font-bold">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     </span>
-                    Field Visibility
-                    <span class="ml-auto text-xs text-gray-400 font-normal mr-2">Toggle fields on/off</span>
+                    Fields
+                    <span class="ml-auto text-xs text-gray-400 font-normal mr-2">Edit text &amp; show/hide</span>
                     <svg class="w-4 h-4 text-gray-400 transition-transform chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </h3>
-                <div id="togglesBody" class="grid grid-cols-2 gap-x-4 gap-y-1.5 max-h-[250px] overflow-y-auto">
-                    {{-- Populated by JS --}}
+                <div id="togglesBody" class="space-y-1.5 max-h-[420px] overflow-y-auto pr-1">
+                    {{-- Populated by JS from the selected template's own layout --}}
                 </div>
+                <p class="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    Edits apply to this poster only — the template is unchanged. Scores, overs, the
+                    result and team names are read from the match and cannot be retyped, but can still
+                    be hidden. To add a new field, place it once in the template editor; it will appear
+                    here every time.
+                </p>
             </div>
         </div>
 
@@ -1239,6 +1547,203 @@ let currentType = '{{ request('type', 'match_poster') }}';
 let generatedImageUrl = null;
 let savedDownloadUrl = null;
 
+/*
+ * The Playing XI panel.
+ *
+ * The roster is emitted per team from the same $players collection the rest of this page uses,
+ * keyed by the player's tournament team (the pivot wins over their home team) so a player on
+ * loan appears under the side they actually play for here.
+ */
+const XI_ROSTER = @json($xiRoster ?? []);
+
+function playingXiPanel() {
+    return {
+        matchId: '',
+        lineupTeamId: '',
+        sides: [],
+        slots: [],
+        featuredId: '',
+        featuredName: '',
+        featuredPreview: '',
+        featuredFileName: '',
+        featuredIsTransparent: false,
+        // Cutting a player out is the usual intent for this design, so it starts on — but the
+        // answer is the organizer's, and it is now actually sent and honoured.
+        removeFeaturedBg: true,
+
+        init() {
+            this.clearSlots();
+        },
+
+        roster() {
+            return XI_ROSTER[this.lineupTeamId] || [];
+        },
+
+        /* Selecting a squad member fills the caption for you; anything typed afterwards wins. */
+        onFeaturedPick() {
+            const p = this.roster().find(r => String(r.id) === String(this.featuredId));
+            this.featuredName = p ? p.name : '';
+        },
+
+        rosterCount() {
+            return this.roster().length;
+        },
+
+        onMatchChange() {
+            const opt = document.getElementById('xiMatchSelect')?.selectedOptions?.[0];
+            if (!opt || !opt.value) {
+                this.sides = [];
+                this.lineupTeamId = '';
+                return;
+            }
+            this.sides = [
+                { id: opt.dataset.teamAId || '', name: opt.dataset.teamAName || 'Team A' },
+                { id: opt.dataset.teamBId || '', name: opt.dataset.teamBName || 'Team B' },
+            ].filter(s => s.id);
+            // Changing the match invalidates whoever was picked from the previous one.
+            this.lineupTeamId = '';
+            this.clearSlots();
+            this.featuredId = '';
+        },
+
+        selectSide(id) {
+            if (String(this.lineupTeamId) === String(id)) return;
+            this.lineupTeamId = id;
+            this.clearSlots();
+            this.featuredId = '';
+            this.featuredName = '';
+            this.clearFeaturedFile();
+        },
+
+        clearSlots() {
+            this.slots = Array.from({ length: 11 }, () => ({ name: '', badge: '' }));
+        },
+
+        /*
+         * Take the first eleven of the roster, and carry over the captain and keeper the roster
+         * already knows about rather than making the organizer re-tick them. Nothing in this
+         * schema records a vice-captain or a debut, so those stay for them to set.
+         */
+        fillFromRoster() {
+            const roster = this.roster();
+            this.slots = Array.from({ length: 11 }, (_, i) => {
+                const p = roster[i];
+                if (!p) return { name: '', badge: '' };
+                return { name: p.name, badge: p.badge || '' };
+            });
+        },
+
+        onSlotPlayer(i) {
+            const slot = this.slots[i];
+            slot.name = (slot.name || '').trim();
+            if (!slot.name) {
+                slot.badge = '';
+                return;
+            }
+            // The same name twice is nearly always a mis-click, and renders as a duplicate row.
+            const key = slot.name.toLowerCase();
+            this.slots.forEach((other, j) => {
+                if (j !== i && (other.name || '').trim().toLowerCase() === key) {
+                    other.name = '';
+                    other.badge = '';
+                }
+            });
+            // Carry over a badge the roster already knows (captain, keeper) when the typed name
+            // matches a squad member. A name typed freehand simply has none.
+            const p = this.roster().find(r => (r.name || '').toLowerCase() === key);
+            if (p && p.badge && !slot.badge) slot.badge = p.badge;
+        },
+
+        filledCount() {
+            return this.slots.filter(s => (s.name || '').trim()).length;
+        },
+
+        /*
+         * Preview the chosen file, and look at whether it already has transparency.
+         *
+         * A PNG exported with an alpha channel needs no removal, and running it through removal
+         * anyway is slow and can eat the edges of the subject — so the checkbox is unticked for
+         * one automatically, while staying the organizer's to change.
+         */
+        onFeaturedFile(event) {
+            const file = event.target.files?.[0];
+            if (!file) {
+                this.clearFeaturedFile();
+                return;
+            }
+
+            this.featuredFileName = file.name;
+            this.featuredIsTransparent = false;
+            this.removeFeaturedBg = true;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.featuredPreview = e.target.result;
+                this.detectTransparency(e.target.result);
+            };
+            reader.readAsDataURL(file);
+        },
+
+        detectTransparency(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    // Sample a small copy: reading every pixel of a phone photo is pointless
+                    // work when any alpha at all is the answer we need.
+                    const w = Math.min(img.width, 160);
+                    const h = Math.max(1, Math.round(img.height * (w / img.width)));
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const px = ctx.getImageData(0, 0, w, h).data;
+                    for (let i = 3; i < px.length; i += 4) {
+                        if (px[i] < 250) {
+                            this.featuredIsTransparent = true;
+                            this.removeFeaturedBg = false;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    // A tainted or oversized canvas is not a reason to block the poster.
+                }
+            };
+            img.src = dataUrl;
+        },
+
+        clearFeaturedFile() {
+            const input = document.getElementById('xiPlayerImageUpload');
+            if (input) input.value = '';
+            this.featuredPreview = '';
+            this.featuredFileName = '';
+            this.featuredIsTransparent = false;
+            this.removeFeaturedBg = true;
+        },
+
+        payload() {
+            const roster = this.roster();
+            const byId = (id) => roster.find(r => String(r.id) === String(id));
+
+            const players = this.slots
+                .map(s => ({ name: (s.name || '').trim(), badge: s.badge || '' }))
+                .filter(p => p.name);
+
+            const featured = this.featuredId ? byId(this.featuredId) : null;
+
+            return JSON.stringify({
+                match_id: this.matchId || '',
+                lineup_team_id: this.lineupTeamId || '',
+                players: players,
+                featured_player_name: (this.featuredName || '').trim() || (featured ? featured.name : ''),
+                featured_player_image: featured ? (featured.image || '') : '',
+                featured_player_role: featured ? (featured.type || '') : '',
+                remove_bg: this.removeFeaturedBg ? '1' : '0',
+                has_featured_file: this.featuredFileName ? '1' : '0',
+            });
+        },
+    };
+}
+
 function updateType(type) {
     currentType = type;
 
@@ -1253,6 +1758,28 @@ function updateType(type) {
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
     document.getElementById('fixturesSelection').classList.toggle('hidden', type !== 'fixtures_poster');
+    document.getElementById('playingXiSelection').classList.toggle('hidden', type !== 'playing_xi');
+
+    // Playing XI carries its own "Match & Side" and "The Eleven" cards, so every child of the
+    // generic Select Data card is hidden for it — leaving an empty titled box on the page.
+    const selectDataCard = document.getElementById('selectDataCard');
+    if (selectDataCard) selectDataCard.classList.toggle('hidden', type === 'playing_xi');
+
+    // Presets are all rendered up front (the tabs do not reload the page), so show the ones
+    // belonging to this type and say so when there are none.
+    // The New-template link has to follow the active tab, which changes without a page load.
+    const newLink = document.getElementById('newTemplateLink');
+    if (newLink) newLink.href = `{{ route('admin.tournaments.templates.create', $tournament) }}?type=${type}`;
+
+    const presetCards = document.querySelectorAll('.preset-card');
+    let presetShown = 0;
+    presetCards.forEach(card => {
+        const match = card.dataset.presetType === type;
+        card.classList.toggle('hidden', !match);
+        if (match) presetShown++;
+    });
+    const presetEmpty = document.getElementById('presetEmpty');
+    if (presetEmpty) presetEmpty.classList.toggle('hidden', presetShown > 0 || presetCards.length === 0);
 
     // Show/hide innings selector
     showInningsSelector();
@@ -1265,6 +1792,50 @@ function updateType(type) {
 
     // Load templates for this type
     loadTemplates(type);
+}
+
+/*
+ * The management bar drawn on each template card.
+ *
+ * It exists twice by necessity: Blade paints the first render, and this repaints the list on
+ * every tab switch. Adding an action to only one of them makes it silently vanish the moment
+ * the organizer changes poster type, so the two must stay in step.
+ */
+function templateActions(t, editBaseUrl) {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
+    const btn = 'p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition';
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const name = esc(t.name);
+
+    const setDefault = t.is_default ? '' : `
+        <form action="${editBaseUrl}/${t.id}/set-default" method="POST" class="inline">
+            <input type="hidden" name="_token" value="${csrf}">
+            <button type="submit" title="Make this the default" class="${btn}">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.196-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+            </button>
+        </form>`;
+
+    return `
+        <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
+            <a href="${editBaseUrl}/${t.id}/edit" target="_blank" title="Edit template" class="${btn}">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            </a>
+            <form action="${editBaseUrl}/${t.id}/duplicate" method="POST" class="inline">
+                <input type="hidden" name="_token" value="${csrf}">
+                <button type="submit" title="Duplicate — opens the copy in the editor" class="${btn}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                </button>
+            </form>
+            ${setDefault}
+            <form action="${editBaseUrl}/${t.id}" method="POST" class="inline"
+                  onsubmit="return confirm('Delete the template &quot;${name}&quot;? This cannot be undone.')">
+                <input type="hidden" name="_token" value="${csrf}">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit" title="Delete template" class="p-1.5 rounded-lg bg-red-600/80 backdrop-blur text-white hover:bg-red-600 shadow-sm transition">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+            </form>
+        </div>`;
 }
 
 function loadTemplates(type) {
@@ -1290,9 +1861,7 @@ function loadTemplates(type) {
                                 </div>
                             </div>
                         </label>
-                        ${isSuperadmin ? `<a href="${editBaseUrl}/${t.id}/edit" target="_blank" class="absolute top-2 right-2 p-1.5 rounded-lg bg-black/50 backdrop-blur text-white opacity-0 group-hover:opacity-100 hover:bg-black/70 shadow-sm transition-all z-10" title="Edit Template">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        </a>` : ''}
+                        ${isSuperadmin ? templateActions(t, editBaseUrl) : ''}
                     </div>
                 `).join('');
                 // Show first template's background as preview
@@ -1536,6 +2105,24 @@ function getSelectedData() {
     } else if (currentType === 'fixtures_poster') {
         data.fixture_count = document.getElementById('fixtureCountValue')?.value || '5';
         data.fixture_layout = document.getElementById('fixtureLayoutValue')?.value || 'row';
+    } else if (currentType === 'playing_xi') {
+        // The panel is an Alpine component; it mirrors its collected state into #xiPayload
+        // so this plain-JS collector does not have to reach into Alpine's scope.
+        let xi = {};
+        try {
+            xi = JSON.parse(document.getElementById('xiPayload')?.value || '{}');
+        } catch (e) {
+            xi = {};
+        }
+        if (xi.match_id) data.match_id = xi.match_id;
+        if (xi.lineup_team_id) data.lineup_team_id = xi.lineup_team_id;
+        if (xi.players) data.lineup_players = JSON.stringify(xi.players);
+        if (xi.featured_player_name) data.featured_player_name = xi.featured_player_name;
+        if (xi.featured_player_image) data.featured_player_image = xi.featured_player_image;
+        if (xi.featured_player_role) data.featured_player_role = xi.featured_player_role;
+        // Always sent, including '0' — absent would mean "use the placeholder default", which
+        // is not the same as the organizer unticking the box.
+        data.remove_bg = xi.remove_bg ?? '1';
     }
 
     // Get selected template
@@ -1577,6 +2164,19 @@ const fieldLabels = {
     'playing_team_name': 'Playing Team', 'playing_team_logo': 'Playing Team Logo',
 };
 
+/*
+ * The Fields panel: one row per element in the selected template.
+ *
+ * Built from the template's own layout rather than from the type's placeholder list, because
+ * what matters is what THIS design actually draws — a type offers dozens of placeholders and a
+ * given poster places six of them. Elements are addressed by their index in layout_json: a
+ * placeholder cannot address them uniquely (a design may print `tournament_name` twice, and a
+ * caption typed in the editor has no placeholder at all).
+ */
+const LOCKED_FIELDS = @json(\App\Models\TournamentTemplate::lockedPlaceholders());
+
+let elementOverrides = {};
+
 function buildFieldToggles() {
     const section = document.getElementById('fieldTogglesSection');
     const container = document.getElementById('togglesBody');
@@ -1587,31 +2187,102 @@ function buildFieldToggles() {
         return;
     }
 
-    // Fetch template layout to get used placeholders
     fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}/${templateInput.value}/edit?ajax_layout=1`)
         .then(r => r.json())
         .then(result => {
-            const usedFields = (result.layout || []).map(el => el.placeholder).filter(Boolean);
-            if (usedFields.length === 0) {
+            const layout = result.layout || [];
+            const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+            hiddenFields = [];
+            elementOverrides = {};
+
+            const rows = layout.map((el, i) => {
+                const placeholder = el.placeholder || '';
+                const type = el.type || 'text';
+
+                // Shapes and decoration are not fields; they would only add noise to the list.
+                if (!placeholder && type !== 'text' && type !== 'icon') return '';
+
+                const locked = placeholder && LOCKED_FIELDS.includes(placeholder);
+                const label = el.layerName
+                    || fieldLabels[placeholder]
+                    || (placeholder ? placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '')
+                    || (el.text ? `“${String(el.text).slice(0, 28)}”` : `Element ${i + 1}`);
+
+                // A value box only where typing one means something. An image placeholder is set
+                // by the pickers above, and a locked field is shown as locked rather than hidden
+                // away, so it is obvious WHY it cannot be typed.
+                const editable = type === 'text' && !locked;
+                const isImage = type === 'image' || type === 'uploadedImage';
+                const region = ['lineupArea', 'fixtureArea', 'tableArea', 'scorecardTable'].includes(type);
+
+                let control;
+                if (editable) {
+                    control = `<input type="text" data-el-value="${i}" oninput="setElementValue(${i}, this.value)"
+                                      placeholder="${esc(el.text || placeholder || 'Custom text')}"
+                                      class="flex-1 min-w-0 rounded-lg border-gray-200 dark:border-gray-600 dark:bg-gray-700 text-xs py-1.5">`;
+                } else if (locked) {
+                    control = `<span class="flex-1 min-w-0 flex items-center gap-1 text-[11px] text-gray-400 italic">
+                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                            from the match record
+                        </span>`;
+                } else {
+                    control = `<span class="flex-1 min-w-0 text-[11px] text-gray-400 italic">${isImage ? 'set above' : (region ? 'built from your selection' : 'not editable')}</span>`;
+                }
+
+                return `<div class="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <label class="flex items-center gap-1.5 w-[44%] min-w-0 cursor-pointer" title="${esc(placeholder || label)}">
+                            <input type="checkbox" checked data-field="${esc(placeholder)}" data-el="${i}"
+                                   onchange="toggleElement(${i}, '${esc(placeholder)}', this.checked)"
+                                   class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500 shrink-0">
+                            <span class="text-xs text-gray-700 dark:text-gray-300 truncate">${esc(label)}</span>
+                        </label>
+                        ${control}
+                    </div>`;
+            }).filter(Boolean).join('');
+
+            if (!rows) {
                 section.classList.add('hidden');
                 return;
             }
 
-            hiddenFields = [];
-            container.innerHTML = usedFields.map(field => {
-                const label = fieldLabels[field] || field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                return `<label class="flex items-center gap-2 py-1 px-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer">
-                    <input type="checkbox" checked data-field="${field}" onchange="toggleField('${field}', this.checked)"
-                           class="rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
-                    <span class="text-xs text-gray-700 dark:text-gray-300 truncate">${label}</span>
-                </label>`;
-            }).join('');
-
+            container.innerHTML = rows;
             section.classList.remove('hidden');
         })
         .catch(() => {
             section.classList.add('hidden');
         });
+}
+
+/** Record a typed value for one element. Empty clears the override rather than blanking it. */
+function setElementValue(index, value) {
+    elementOverrides[index] = elementOverrides[index] || {};
+    if (value === '') {
+        delete elementOverrides[index].value;
+        if (Object.keys(elementOverrides[index]).length === 0) delete elementOverrides[index];
+    } else {
+        elementOverrides[index].value = value;
+    }
+}
+
+/**
+ * Show/hide one element.
+ *
+ * Hiding is recorded against the ELEMENT, which is what actually stops it being drawn — the
+ * older placeholder-based hidden_fields is kept in step alongside it so nothing that already
+ * relied on it changes behaviour.
+ */
+function toggleElement(index, placeholder, checked) {
+    elementOverrides[index] = elementOverrides[index] || {};
+
+    if (checked) {
+        delete elementOverrides[index].hidden;
+        if (Object.keys(elementOverrides[index]).length === 0) delete elementOverrides[index];
+    } else {
+        elementOverrides[index].hidden = true;
+    }
+
+    if (placeholder) toggleField(placeholder, checked);
 }
 
 function toggleField(field, checked) {
@@ -1722,26 +2393,49 @@ function generatePreview(saveMode = false) {
         data.hidden_fields = hiddenFields;
     }
 
+    // Per-element edits and visibility from the Fields panel.
+    if (Object.keys(elementOverrides).length > 0) {
+        data.element_overrides = elementOverrides;
+    }
+
     // Create abort controller with 3 minute timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 180000);
 
-    // Build request body — use FormData if custom image uploaded, else JSON
-    const customImageFile = document.getElementById('awardPlayerImageUpload')?.files?.[0];
+    /*
+     * Build request body — FormData when a file is attached, else JSON.
+     *
+     * Which input holds the file depends on the poster type, so this is a lookup rather than
+     * the single hard-coded award-poster check it used to be: a Playing XI upload went into the
+     * JSON branch, where a File silently serializes to {} and never reached the server.
+     */
+    const UPLOAD_FIELDS = {
+        award_poster: { input: 'awardPlayerImageUpload', field: 'player_image_file' },
+        playing_xi: { input: 'xiPlayerImageUpload', field: 'featured_player_image_file' },
+    };
+    const uploadSpec = UPLOAD_FIELDS[currentType];
+    const customImageFile = uploadSpec ? document.getElementById(uploadSpec.input)?.files?.[0] : null;
     let fetchOptions = {};
 
-    if (customImageFile && currentType === 'award_poster') {
+    if (customImageFile && uploadSpec) {
         const formData = new FormData();
         for (const [key, value] of Object.entries(data)) {
             if (key !== '_hasCustomPlayerImage' && value !== null && value !== undefined) {
                 if (key === 'hidden_fields' && Array.isArray(value)) {
                     value.forEach((f, i) => formData.append(`hidden_fields[${i}]`, f));
+                } else if (key === 'element_overrides' && value && typeof value === 'object') {
+                    // FormData stringifies values, so a nested map has to be flattened into
+                    // element_overrides[3][value] style keys or it arrives as "[object Object]".
+                    Object.entries(value).forEach(([idx, o]) => {
+                        if (o.value !== undefined) formData.append(`element_overrides[${idx}][value]`, o.value);
+                        if (o.hidden !== undefined) formData.append(`element_overrides[${idx}][hidden]`, o.hidden ? '1' : '0');
+                    });
                 } else {
                     formData.append(key, value);
                 }
             }
         }
-        formData.append('player_image_file', customImageFile);
+        formData.append(uploadSpec.field, customImageFile);
         fetchOptions = {
             method: 'POST',
             headers: {
