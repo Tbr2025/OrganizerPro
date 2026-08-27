@@ -192,6 +192,35 @@ $isTeamManagerLayout = auth()->user()?->hasAnyRole(['Team Manager', 'Team Owner'
 - The `player_actual_team_tournament` pivot has unique constraint only on `(player_id, tournament_id)` — same player+team can appear across tournaments
 - When running bulk verification queries on live, always scope to `status = 'approved'` only and use per-tournament field lists from `PlayerFormConfig::getFormLayout()`
 
+## NEVER edit or delete live data
+
+**Live is read-only. Always. No exceptions without an explicit, specific instruction.**
+
+The live database and the live filesystem are the production record of real tournaments. On
+the server, only ever:
+
+- `SELECT` / `mysqldump` (read), never `INSERT` / `UPDATE` / `DELETE` / `DROP` / `TRUNCATE`
+  and never a migration
+- `cat` / `ls` / `find` / `rsync` **from** the server, never `rm`, `mv`, `chmod`, or a write
+  into `storage/`, `public/`, or `.env`
+
+Rules that follow from this:
+
+- **Pull, never push.** Copying live → local is fine. Copying local → live is not, and
+  neither is "fixing" a live row by hand.
+- **Prefer not to write temp files on the server.** Stream a dump over ssh stdout into a
+  local file rather than writing a `.sql` into `/home/ubuntu`. (The documented backup command
+  below deliberately does write to `/home/ubuntu` — that is a sanctioned backup, not a temp
+  file, and it still never modifies existing data.)
+- **`--single-transaction`, never `--lock-tables`.** A lock on live is an outage.
+- **Deleting locally is still dangerous.** Local directories hold the developer's own dev
+  data alongside anything pulled from live. Before `rm -rf` on any local path that has been
+  rsynced into, diff it against the live listing and delete only the pulled copies — a blind
+  delete destroys local-only work that exists nowhere else.
+- If a task seems to require changing live, stop and ask first.
+
+Deploys are the one sanctioned write path, and only via the documented command above.
+
 ## Database Backup
 
 To take a backup of the live database:
