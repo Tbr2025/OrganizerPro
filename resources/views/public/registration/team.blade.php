@@ -48,7 +48,11 @@
 @section('content')
     @php
         $theme = ($settings ?? null) ? $settings->registrationTheme() : (new \App\Models\TournamentSetting())->registrationTheme();
-        $layout = \App\Helpers\TeamFormConfig::getFormLayout($settings ?? null, true);
+        /* See the player form: a section keeps its place when it holds an enabled custom field. */
+        $cfSections = $tournament->customFields
+            ->where('visible', true)->where('form', 'team')
+            ->pluck('section')->unique()->values()->all();
+        $layout = \App\Helpers\TeamFormConfig::getFormLayout($settings ?? null, true, $cfSections);
         $sectionMeta = [
             'Team Information'     => ['icon' => 'fa-shield-alt',    'sub' => 'Tell us about your team'],
             'Team Manager Details' => ['icon' => 'fa-user-tie',      'sub' => 'Primary contact for the team'],

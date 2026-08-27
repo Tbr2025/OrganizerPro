@@ -112,7 +112,13 @@
 @section('content')
     @php
         $theme = ($settings ?? null) ? $settings->registrationTheme() : (new \App\Models\TournamentSetting())->registrationTheme();
-        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($settings ?? null, true);
+        /* Sections holding an enabled custom field survive even if every standard field in them
+           is hidden — without this, a question added to an otherwise-hidden section never
+           reaches the form. */
+        $cfSections = $tournament->customFields
+            ->where('visible', true)->where('form', 'player')
+            ->pluck('section')->unique()->values()->all();
+        $layout = \App\Helpers\PlayerFormConfig::getFormLayout($settings ?? null, true, $cfSections);
         // Icon + subtitle keyed by the default section key (survives title renames).
         $sectionMeta = [
             'Basic Information'       => ['icon' => 'fa-id-card',        'sub' => 'Who you are and how to reach you'],

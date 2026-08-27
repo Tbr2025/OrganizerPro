@@ -112,7 +112,12 @@ class TeamFormConfig
      *
      * @return array<int, array{key:string,title:string,fields:array<int,string>}>
      */
-    public static function getFormLayout(?TournamentSetting $settings, bool $visibleOnly = false): array
+    /**
+     * @param  list<string>  $keepSections  Section keys to keep even when every standard field in
+     *                                      them is hidden — used for sections that hold custom
+     *                                      fields, which this helper knows nothing about.
+     */
+    public static function getFormLayout(?TournamentSetting $settings, bool $visibleOnly = false, array $keepSections = []): array
     {
         $groups = self::fieldGroups();
         $titles = self::getSectionLabels($settings);
@@ -135,7 +140,13 @@ class TeamFormConfig
 
             if ($visibleOnly) {
                 $fields = array_values(array_filter($fields, fn ($k) => $fieldConfig[$k]['visible'] ?? true));
-                if (empty($fields)) {
+
+                /*
+                 * Keep a section whose standard fields are all hidden IF a custom field lives in
+                 * it — otherwise an organizer's own question silently disappears from the form.
+                 * See PlayerFormConfig::getFormLayout() for the full note.
+                 */
+                if (empty($fields) && ! in_array($sectionKey, $keepSections, true)) {
                     continue;
                 }
             }

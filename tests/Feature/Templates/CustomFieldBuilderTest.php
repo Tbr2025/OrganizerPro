@@ -190,6 +190,48 @@ class CustomFieldBuilderTest extends TestCase
     }
 
     #[Test]
+    public function a_custom_field_survives_a_section_whose_standard_fields_are_all_hidden(): void
+    {
+        $org = $this->makeOrganization();
+        $tournament = $this->makeTournament($org, 'open');
+        $settings = $tournament->settings()->create([]);
+
+        // Hide every standard field in one section — a normal thing to do with a section a
+        // tournament does not need, like visa details for a local league.
+        $section = 'Visa & Employment';
+        $config = [];
+        foreach (\App\Helpers\PlayerFormConfig::fieldGroups()[$section] as $key) {
+            $config[$key] = ['visible' => false];
+        }
+        $settings->update(['registration_form_fields' => $config]);
+
+        /*
+         * getFormLayout() drops a section with no visible fields, which is right until an
+         * organizer puts their OWN question in it: the section never reached the form, so the
+         * template's "does this section have custom fields" check never ran, and the field
+         * appeared nowhere while still looking enabled in the builder.
+         */
+        $withoutKeep = \App\Helpers\PlayerFormConfig::getFormLayout($settings->fresh(), true);
+        $this->assertNotContains($section, array_column($withoutKeep, 'key'));
+
+        $withKeep = \App\Helpers\PlayerFormConfig::getFormLayout($settings->fresh(), true, [$section]);
+        $keys = array_column($withKeep, 'key');
+        $this->assertContains($section, $keys, 'A section holding a custom field must survive.');
+
+        // It is kept as an empty shell for the custom field to sit in — the hidden standard
+        // fields must not come back with it.
+        $kept = collect($withKeep)->firstWhere('key', $section);
+        $this->assertSame([], $kept['fields']);
+
+        // Unrelated empty sections are still dropped, so nothing else gains a blank heading.
+        $this->assertSame(
+            count($withoutKeep) + 1,
+            count($withKeep),
+            'Only the named section should be added back.'
+        );
+    }
+
+    #[Test]
     public function layout_only_types_collect_and_validate_nothing(): void
     {
         foreach (['heading', 'divider'] as $type) {

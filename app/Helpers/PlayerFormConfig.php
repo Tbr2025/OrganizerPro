@@ -136,7 +136,12 @@ class PlayerFormConfig
      *
      * @return array<int, array{key:string,title:string,fields:array<int,string>}>
      */
-    public static function getFormLayout(?TournamentSetting $settings, bool $visibleOnly = false): array
+    /**
+     * @param  list<string>  $keepSections  Section keys to keep even when every standard field in
+     *                                      them is hidden — used for sections that hold custom
+     *                                      fields, which this helper knows nothing about.
+     */
+    public static function getFormLayout(?TournamentSetting $settings, bool $visibleOnly = false, array $keepSections = []): array
     {
         $groups = self::fieldGroups();
         $titles = self::getSectionLabels($settings);
@@ -160,9 +165,17 @@ class PlayerFormConfig
 
             if ($visibleOnly) {
                 $fields = array_values(array_filter($fields, fn ($k) => $fieldConfig[$k]['visible'] ?? true));
-                // Skip a section entirely when none of its fields are visible
-                // (e.g. the whole group was hidden in settings).
-                if (empty($fields)) {
+                /*
+                 * Skip a section entirely when none of its fields are visible (e.g. the whole
+                 * group was hidden in settings) — UNLESS a custom field lives in it.
+                 *
+                 * An organizer who hides every standard field in a section and then adds their
+                 * own question to it had that question silently disappear: the section never
+                 * reached the form, so the template's "does this section have custom fields"
+                 * check never got the chance to run. The field looked enabled in the builder and
+                 * appeared nowhere, with nothing to explain why.
+                 */
+                if (empty($fields) && ! in_array($sectionKey, $keepSections, true)) {
                     continue;
                 }
             }
