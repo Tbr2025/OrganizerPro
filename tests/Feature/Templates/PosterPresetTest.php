@@ -87,6 +87,40 @@ class PosterPresetTest extends TestCase
     }
 
     #[Test]
+    public function there_is_a_twelve_variant_and_it_does_not_disturb_the_eleven(): void
+    {
+        $service = new TemplatePresetService();
+
+        $eleven = $service->find('playing_xi_classic');
+        $twelve = $service->find('playing_12_classic');
+
+        $this->assertNotNull($twelve, 'A named 12th / impact player needs its own design.');
+        $this->assertSame(TournamentTemplate::TYPE_PLAYING_XI, $twelve['type']);
+        $this->assertSame('Playing 12', $twelve['name']);
+
+        $rowsOf = fn (array $preset) => collect($preset['layout'])
+            ->firstWhere('type', 'lineupArea')['lineupConfig'];
+
+        $e = $rowsOf($eleven);
+        $t = $rowsOf($twelve);
+
+        $this->assertSame(11, $e['maxRows']);
+        $this->assertSame(12, $t['maxRows'], 'The twelfth name must not be silently dropped.');
+
+        /*
+         * Twelve rows at the eleven-row metrics would run into the footer, so the rows tighten.
+         * Asserting the direction rather than the exact numbers: the point is that the extra name
+         * was given room, not which pixel values achieved it.
+         */
+        $this->assertLessThan($e['rowHeight'], $t['rowHeight']);
+        $this->assertLessThanOrEqual($e['fontSize'], $t['fontSize']);
+
+        // And the eleven-name design is untouched by the twelve existing.
+        $this->assertSame(50, $e['rowHeight']);
+        $this->assertSame(34, $e['fontSize']);
+    }
+
+    #[Test]
     public function the_eleven_is_one_region_the_editor_can_save_again(): void
     {
         $preset = (new TemplatePresetService())->find('playing_xi_classic');

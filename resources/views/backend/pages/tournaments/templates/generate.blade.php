@@ -786,10 +786,20 @@
                     <div class="flex items-center justify-between">
                         <h3 class="font-semibold text-gray-900 dark:text-white flex items-center text-sm">
                             <span class="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 flex items-center justify-center mr-2.5 text-xs font-bold">XI</span>
-                            The Eleven
-                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400" x-text="'(' + filledCount() + ' named)'"></span>
+                            <span x-text="slotCount === 12 ? 'The Twelve' : 'The Eleven'"></span>
+                            <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400" x-text="'(' + filledCount() + ' of ' + slotCount + ' named)'"></span>
                         </h3>
                         <div class="flex items-center gap-2">
+                            <span class="inline-flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600">
+                                <template x-for="n in [11, 12]" :key="n">
+                                    <button type="button" @click="setSlotCount(n)"
+                                            :class="slotCount === n
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50'"
+                                            class="px-2.5 py-1.5 text-xs font-semibold transition"
+                                            x-text="n"></button>
+                                </template>
+                            </span>
                             <button type="button" @click="fillFromRoster()"
                                     class="text-xs font-medium px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100">
                                 Fill from roster
@@ -1604,6 +1614,9 @@ function playingXiPanel() {
         matchId: '',
         lineupTeamId: '',
         sides: [],
+        // 11 or 12 — a named 12th / impact player is ordinary now, and the Playing 12 design
+        // expects the extra row. The template's own maxRows still decides what it draws.
+        slotCount: 11,
         slots: [],
         featuredId: '',
         featuredName: '',
@@ -1659,7 +1672,15 @@ function playingXiPanel() {
         },
 
         clearSlots() {
-            this.slots = Array.from({ length: 11 }, () => ({ name: '', badge: '' }));
+            this.slots = Array.from({ length: this.slotCount }, () => ({ name: '', badge: '' }));
+        },
+
+        /* Changing the size keeps whatever has already been typed. */
+        setSlotCount(n) {
+            const kept = this.slots.slice(0, n);
+            while (kept.length < n) kept.push({ name: '', badge: '' });
+            this.slotCount = n;
+            this.slots = kept;
         },
 
         /*
@@ -1669,7 +1690,7 @@ function playingXiPanel() {
          */
         fillFromRoster() {
             const roster = this.roster();
-            this.slots = Array.from({ length: 11 }, (_, i) => {
+            this.slots = Array.from({ length: this.slotCount }, (_, i) => {
                 const p = roster[i];
                 if (!p) return { name: '', badge: '' };
                 return { name: p.name, badge: p.badge || '' };

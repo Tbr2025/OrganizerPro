@@ -31,7 +31,8 @@ class TemplatePresetService
     {
         $presets = [
             $this->stumpsScoreUpdate(),
-            $this->playingXi(),
+            $this->playingLineup(11),
+            $this->playingLineup(12),
         ];
 
         return collect($presets)->keyBy('key')->all();
@@ -308,16 +309,33 @@ class TemplatePresetService
      * The eleven are a `lineupArea` element, not eleven text elements, so the list stays one
      * thing to move and re-colour and does not need re-drawing when a side names ten or twelve.
      */
-    protected function playingXi(): array
+    /**
+     * The line-up poster, for a side of $count.
+     *
+     * One layout serving both eleven and twelve rather than two near-identical copies: a squad
+     * of 12 is the same poster with one more name on it, and the impact-player rule means both
+     * are ordinary. Only the wordmark and the row metrics differ — twelve names in the same
+     * column need slightly tighter rows to stay clear of the footer.
+     */
+    protected function playingLineup(int $count = 11): array
     {
         $ink = '#14306b';
         $accent = '#ff4d00';
+        $isTwelve = $count === 12;
+
+        // 12 rows at the eleven-row metrics would run into the footer, so tighten a little.
+        $rowHeight = $isTwelve ? 46 : 50;
+        $nameSize = $isTwelve ? 32 : 34;
+        $areaHeight = $isTwelve ? 580 : 560;
+        $areaY = $isTwelve ? 63.5 : 64;
 
         return [
-            'key' => 'playing_xi_classic',
+            'key' => $isTwelve ? 'playing_12_classic' : 'playing_xi_classic',
             'type' => TournamentTemplate::TYPE_PLAYING_XI,
-            'name' => 'Playing XI',
-            'description' => 'Big "Playing XI" wordmark, both crests, the eleven names down the left with C / VC / WK / DEBUT chips, and a cut-out player on the right.',
+            'name' => $isTwelve ? 'Playing 12' : 'Playing XI',
+            'description' => $isTwelve
+                ? 'The Playing XI design with a twelfth name — for an impact player or a named 12th. Both crests, C / VC / WK / DEBUT chips, cut-out player on the right.'
+                : 'Big "Playing XI" wordmark, both crests, the eleven names down the left with C / VC / WK / DEBUT chips, and a cut-out player on the right.',
             'canvas_width' => 1080,
             'canvas_height' => 1080,
             'accent' => $accent,
@@ -354,10 +372,12 @@ class TemplatePresetService
                     'zIndex' => 1,
                 ]),
                 $this->text([
-                    'layerName' => 'Wordmark "XI"',
-                    'text' => 'XI',
-                    'x' => 63, 'y' => 13.5,
-                    'width' => 320, 'fontSize' => 190,
+                    'layerName' => $isTwelve ? 'Wordmark "12"' : 'Wordmark "XI"',
+                    'text' => $isTwelve ? '12' : 'XI',
+                    // "12" is a hair wider than "XI" at the same size, so it starts marginally
+                    // further left to keep the same optical gap after "Playing".
+                    'x' => $isTwelve ? 64 : 63, 'y' => 13.5,
+                    'width' => 320, 'fontSize' => $isTwelve ? 175 : 190,
                     'color' => $accent, 'fontWeight' => '800',
                     'textAlign' => 'left',
                     'zIndex' => 2,
@@ -391,13 +411,13 @@ class TemplatePresetService
                     'type' => 'lineupArea',
                     'placeholder' => 'lineup_area',
                     'layerName' => 'The XI',
-                    'x' => 30, 'y' => 64,
-                    'width' => 520, 'height' => 560,
+                    'x' => 30, 'y' => $areaY,
+                    'width' => 520, 'height' => $areaHeight,
                     'zIndex' => 6,
                     'lineupConfig' => [
-                        'maxRows' => 11,
-                        'fontSize' => 34,
-                        'rowHeight' => 50,
+                        'maxRows' => $count,
+                        'fontSize' => $nameSize,
+                        'rowHeight' => $rowHeight,
                         'textColor' => $ink,
                         'badgeBg' => $accent,
                         'badgeTextColor' => '#ffffff',

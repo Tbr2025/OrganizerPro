@@ -32,20 +32,22 @@
 
             <div class="flex items-center justify-between mb-3">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-white">
-                    {{ __('The eleven') }}
+                    {{ __('The playing squad') }}
                     <span class="text-xs font-normal text-gray-500 dark:text-gray-400">— {{ __('pick from your squad of') }} {{ $squad->count() }}</span>
                 </h2>
                 <span class="text-xs text-gray-400">{{ __('Order is the order they appear on posters') }}</span>
             </div>
 
             <div class="space-y-2">
-                @for($i = 0; $i < 11; $i++)
+                {{-- Twelve rows, not eleven: a named 12th or impact player is ordinary, and empty
+                     rows are dropped on save, so a side naming eleven just leaves the last blank. --}}
+                @for($i = 0; $i < 12; $i++)
                     @php $row = $lineup[$i] ?? null; @endphp
                     <div class="flex items-center gap-2">
-                        <span class="w-6 shrink-0 text-xs font-semibold text-gray-400 tabular-nums">{{ $i + 1 }}.</span>
+                        <span class="w-6 shrink-0 text-xs font-semibold {{ $i === 11 ? 'text-gray-300 dark:text-gray-600' : 'text-gray-400' }} tabular-nums">{{ $i + 1 }}.</span>
                         <select name="players[{{ $i }}][player_id]"
                                 class="flex-1 min-w-0 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
-                            <option value="">— {{ __('empty') }} —</option>
+                            <option value="">— {{ $i === 11 ? __('12th player (optional)') : __('empty') }} —</option>
                             @foreach($squad as $p)
                                 <option value="{{ $p->id }}" @selected($row && $row->player_id === $p->id)>{{ $p->name }}</option>
                             @endforeach
@@ -62,7 +64,7 @@
             </div>
 
             <p class="text-xs text-gray-400 mt-4">
-                {{ __('Saving replaces the whole list. Leave every row empty to clear the XI.') }}
+                {{ __('Saving replaces the whole list. Leave a row empty to skip it — name eleven or twelve as you need.') }}
             </p>
 
             <div class="mt-4 flex gap-2">
