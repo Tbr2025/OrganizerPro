@@ -225,15 +225,31 @@
                                                             label="Edit" />
                                                     @endif
                                                 @endcan
-                                                @php
-                                                    $teamManagerUser = $team->users->first(fn($u) => in_array($u->pivot->role, ['Owner', 'Manager', 'Team Manager']));
-                                                @endphp
-                                                @if ($teamManagerUser)
-                                                    <x-buttons.action-item
-                                                        :href="route('admin.users.login-as', $teamManagerUser->id)"
-                                                        icon="lucide:log-in"
-                                                        label="Login as Team" />
-                                                @endif
+                                                {{-- Log in as this team.
+
+                                                     The target is chosen by ActualTeam::loginAsUser(), which prefers an
+                                                     account holding the Team Owner / Team Manager role — that is what
+                                                     decides whether they land on the team dashboard at all. This used to
+                                                     match on the PIVOT role only ('Owner'/'Manager'/'Team Manager'),
+                                                     which is true for a handful of teams because almost every pivot row
+                                                     is 'Player' or 'captain' — so the option was invisible on nearly
+                                                     every team and read as a missing feature. --}}
+                                                @php $teamLoginUser = $team->loginAsUser(); @endphp
+                                                @can('user.login_as')
+                                                    @if ($teamLoginUser)
+                                                        <x-buttons.action-item
+                                                            :href="route('admin.users.login-as', $teamLoginUser->id)"
+                                                            icon="lucide:log-in"
+                                                            :label="__('Login as Team')" />
+                                                    @elseif (in_array($team->id, $editableTeamIds))
+                                                        {{-- Say why rather than showing nothing: this team has no account
+                                                             that can reach the team dashboard, and the fix is one click away. --}}
+                                                        <x-buttons.action-item
+                                                            :href="route('admin.actual-teams.edit', $team) . '#team-managers'"
+                                                            icon="lucide:user-plus"
+                                                            :label="__('No team login — add one')" />
+                                                    @endif
+                                                @endcan
                                                 @can('actual-team.delete')
                                                     <form method="POST" action="{{ route('admin.auctions.clear', $team) }}"
                                                         onsubmit="return confirm('Are you sure you want to clear all auction data for this team? This cannot be undone.')">

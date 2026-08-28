@@ -292,6 +292,45 @@ class ActualTeam extends Model
             ->with('player'); // eager load Player details
     }
 
+    /**
+     * The account an admin should be dropped into when they "log in as" this team.
+     *
+     * Not simply "a user on the team": logging in as a Player lands on the player dashboard, so
+     * the only useful target is somebody who can actually reach the Team Manager dashboard.
+     *
+     * The list page previously picked by PIVOT role, matching 'Owner', 'Manager' or
+     * 'Team Manager' exactly — which on live is true for 9 of 121 teams, because almost every
+     * pivot row is 'Player' (446) or 'captain' (53). So the option was invisible on nearly every
+     * team and looked like a missing feature.
+     *
+     * Order of preference: the account's real (Spatie) role first, since that is what decides
+     * which dashboard they land on; then the legacy pivot roles, so teams set up the old way
+     * still work.
+     */
+    public function loginAsUser(): ?User
+    {
+        $users = $this->relationLoaded('users') ? $this->users : $this->users()->get();
+
+        if ($users->isEmpty()) {
+            return null;
+        }
+
+        foreach (['Team Owner', 'Team Manager'] as $role) {
+            $match = $users->first(fn ($u) => $u->hasRole($role));
+
+            if ($match) {
+                return $match;
+            }
+        }
+
+        // Set up before the roles existed, or by hand.
+        return $users->first(function ($u) {
+            $pivotRole = strtolower((string) ($u->pivot->role ?? ''));
+
+            return in_array($pivotRole, ['owner', 'manager', 'team manager'], true);
+        });
+    }
+
     public function users()
     {
         // This tells Eloquent:
