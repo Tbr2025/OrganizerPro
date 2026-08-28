@@ -226,10 +226,16 @@ Deploys are the one sanctioned write path, and only via the documented command a
 To take a backup of the live database:
 ```bash
 ssh -i ~/Desktop/key/"LightsailDefaultKey-ap-south-1 (1).pem" ubuntu@13.232.249.159 \
-  'cd /var/www/laravel-app && mysqldump -u "$(grep ^DB_USERNAME= .env | cut -d= -f2-)" \
-   -p"$(grep ^DB_PASSWORD= .env | cut -d= -f2-)" -h 127.0.0.1 \
-   "$(grep ^DB_DATABASE= .env | cut -d= -f2-)" > /home/ubuntu/sportz_db_backup_$(date +%Y%m%d_%H%M%S).sql'
+  'cd /var/www/laravel-app && getenv() { grep -m1 "^$1=" .env | cut -d= -f2- | sed -e "s/^['"'"'\"]//" -e "s/['"'"'\"]$//"; } && \
+   mysqldump -u "$(getenv DB_USERNAME)" -p"$(getenv DB_PASSWORD)" -h 127.0.0.1 \
+   --single-transaction --quick --no-tablespaces \
+   "$(getenv DB_DATABASE)" | gzip > /home/ubuntu/sportz_db_backup_$(date +%Y%m%d_%H%M%S).sql.gz'
 ```
+
+**The quote-stripping matters.** The live `.env` wraps `DB_PASSWORD` in single quotes, so a plain
+`cut -d= -f2-` hands mysqldump the quotes as part of the password and it fails with
+`ERROR 1045 Access denied`. The `getenv` helper above strips them. `--single-transaction` keeps
+the dump from locking tables on a live database.
 - **DB:** MySQL, database `sportz_db`, user `sportz_user`
 - **Never write the password in this file.** This repository is PUBLIC, so anything committed
   here is readable by anyone and is scraped within minutes. The command above reads the
