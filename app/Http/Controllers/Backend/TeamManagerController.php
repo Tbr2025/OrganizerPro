@@ -136,6 +136,120 @@ class TeamManagerController extends Controller
     }
 
     /**
+     * Name the XI for one match.
+     *
+     * A manager may only touch a lineup for a team they are actually on, and only for a match
+     * that team is playing in — both checked against their OWN teams rather than against anything
+     * the request supplies, so neither can be talked into editing someone else's side.
+     */
+    public function editLineup(\App\Models\Matches $match)
+    {
+        [$team, $redirect] = $this->teamForMatch($match);
+
+        if ($redirect) {
+            return $redirect;
+        }
+
+        return view('backend.pages.team-manager.lineup', [
+            'match' => $match->load(['teamA', 'teamB', 'tournament']),
+            'team' => $team,
+            'squad' => $this->squadForLineup($team),
+            'lineup' => $match->lineupFor($team),
+            'roles' => \App\Models\MatchLineup::ROLES,
+            'breadcrumbs' => ['title' => __('Playing XI')],
+        ]);
+    }
+
+    public function saveLineup(Request $request, \App\Models\Matches $match)
+    {
+        [$team, $redirect] = $this->teamForMatch($match);
+
+        if ($redirect) {
+            return $redirect;
+        }
+
+        $validated = $request->validate([
+            'players' => 'nullable|array|max:15',
+            'players.*.player_id' => 'nullable|integer',
+            'players.*.role' => 'nullable|string|max:8',
+        ]);
+
+        // Only players actually in this team's squad may be named — a posted id from another
+        // team is dropped rather than rejected, because the rest of the XI is still valid.
+        $squadIds = $this->squadForLineup($team)->pluck('id')->all();
+
+        $rows = collect($validated['players'] ?? [])
+            ->filter(fn ($row) => ! empty($row['player_id']) && in_array((int) $row['player_id'], $squadIds, true))
+            ->unique(fn ($row) => (int) $row['player_id'])
+            ->values();
+
+        \DB::transaction(function () use ($rows, $match, $team) {
+            // Replace wholesale: the submitted list IS the XI, and a diff would leave a player
+            // named after the manager removed them.
+            \App\Models\MatchLineup::where('match_id', $match->id)
+                ->where('actual_team_id', $team->id)
+                ->delete();
+
+            foreach ($rows as $i => $row) {
+                \App\Models\MatchLineup::create([
+                    'match_id' => $match->id,
+                    'actual_team_id' => $team->id,
+                    'player_id' => (int) $row['player_id'],
+                    'batting_order' => $i + 1,
+                    'role' => \App\Models\MatchLineup::normaliseRole($row['role'] ?? null),
+                    'created_by' => Auth::id(),
+                ]);
+            }
+        });
+
+        return redirect()
+            ->route('team-manager.matches.lineup', $match)
+            ->with('success', $rows->isEmpty()
+                ? __('Playing XI cleared.')
+                : __(':count players named for this match.', ['count' => $rows->count()]));
+    }
+
+    /**
+     * The manager's team for this match, or a redirect explaining why not.
+     *
+     * @return array{0: ?ActualTeam, 1: ?\Illuminate\Http\RedirectResponse}
+     */
+    private function teamForMatch(\App\Models\Matches $match): array
+    {
+        $user = Auth::user();
+        $teams = $user->actualTeams()->get();
+
+        // Their team in THIS match — not selectedTeam(), which is whatever they last looked at
+        // and may not be playing today.
+        $team = $teams->firstWhere('id', $match->team_a_id)
+            ?? $teams->firstWhere('id', $match->team_b_id);
+
+        if (! $team) {
+            return [null, redirect()->route('team-manager.dashboard')
+                ->with('error', __('You can only set the line-up for your own team, in a match it is playing.'))];
+        }
+
+        return [$team, null];
+    }
+
+    /** The players this team may pick from — the same roster the squad page shows. */
+    private function squadForLineup(ActualTeam $team)
+    {
+        return Player::withoutOrganizationScope()
+            ->whereExists(function ($q) use ($team) {
+                $q->select(\DB::raw(1))
+                  ->from('player_actual_team_tournament')
+                  ->whereColumn('player_actual_team_tournament.player_id', 'players.id')
+                  ->where('player_actual_team_tournament.actual_team_id', $team->id);
+            })
+            ->select('players.*')
+            // The pivot has no unique key on (player, team), so a player can appear twice.
+            ->groupBy('players.id')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Team Manager Dashboard - Shows their team, players, and upcoming auctions
      */
     public function dashboard(Request $request)
@@ -218,11 +332,28 @@ class TeamManagerController extends Controller
             $teamTournamentIds = $teamTournamentIds->push($team->tournament_id)->unique();
         }
         $upcomingAuctions = collect();
+
+        /*
+         * Every auction this team belongs to, whatever state it is in.
+         *
+         * The dashboard's figures used to come from the "upcoming" list alone, so the moment an
+         * auction was marked completed the team's whole summary collapsed to zeros: a squad of
+         * twenty bought players, and 0 Auctions / 0 Total Budget / 0 Spent underneath it. What
+         * was spent at an auction does not stop being true when the auction ends.
+         *
+         * The upcoming list is still its own thing — it answers "what is coming up", which a
+         * finished auction should not appear in.
+         */
+        $teamAuctions = collect();
+
         if ($teamTournamentIds->isNotEmpty()) {
-            $upcomingAuctions = Auction::whereIn('tournament_id', $teamTournamentIds)
-                ->whereIn('status', ['scheduled', 'running', 'paused'])
+            $teamAuctions = Auction::whereIn('tournament_id', $teamTournamentIds)
                 ->with('tournament')
                 ->get();
+
+            $upcomingAuctions = $teamAuctions
+                ->whereIn('status', ['scheduled', 'running', 'paused'])
+                ->values();
         }
 
         // Get available players that can be added to the team
@@ -235,9 +366,10 @@ class TeamManagerController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Calculate budget info for active auctions
+        // Budget info for every auction the team is in — including finished ones, whose figures
+        // are the team's final spend.
         $auctionBudgets = [];
-        foreach ($upcomingAuctions as $auction) {
+        foreach ($teamAuctions as $auction) {
             // One canonical implementation, the same one the sell-side checks use. This
             // block previously summed players.retained_value instead of
             // auction_players.retained_price and ignored per-team budget allocations, so
@@ -274,6 +406,7 @@ class TeamManagerController extends Controller
             'team',
             'teamPlayers',
             'upcomingAuctions',
+            'teamAuctions',
             'availablePlayers',
             'auctionBudgets',
             'teamMembers',

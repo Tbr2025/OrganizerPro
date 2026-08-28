@@ -352,6 +352,9 @@ class TournamentTemplateController extends Controller
             $request->validate([
                 'player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
                 'featured_player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'sponsor_logo_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'sponsor_logo_2_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'sponsor_logo_3_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
             ]);
 
             $templateId = $request->input('template_id');
@@ -698,6 +701,26 @@ class TournamentTemplateController extends Controller
                     $picked = json_decode($picked, true) ?: [];
                 }
 
+                /*
+                 * Fall back to the XI the team actually named for this match.
+                 *
+                 * When this poster was built there was nowhere to read a line-up from, so the
+                 * organizer retyped eleven names for every render. Now that a manager can name
+                 * the side (match_lineups), use it — but only when the page sent nothing, so
+                 * typing names by hand still overrides a saved XI rather than fighting it.
+                 */
+                if (empty($picked) && $request->filled('match_id') && $request->filled('lineup_team_id')) {
+                    $saved = Matches::find($request->input('match_id'))
+                        ?->lineupFor((int) $request->input('lineup_team_id'));
+
+                    if ($saved && $saved->isNotEmpty()) {
+                        $picked = $saved->map(fn ($row) => [
+                            'name' => $row->player?->name ?? '',
+                            'badge' => $row->role ?? '',
+                        ])->all();
+                    }
+                }
+
                 $data['lineup_area'] = collect(is_array($picked) ? $picked : [])
                     ->map(fn ($row, $i) => [
                         'name' => trim((string) ($row['name'] ?? '')),
@@ -832,6 +855,24 @@ class TournamentTemplateController extends Controller
                     }
 
                     $template->layout_json = $layout;
+                }
+            }
+
+            /*
+             * Sponsor / partner logos, uploaded for this poster.
+             *
+             * Every template type offers these slots (TournamentTemplate::sponsorPlaceholders()),
+             * so unlike the player images this is not inside a per-type block. Stored under
+             * temp_previews and cleaned up with the rest: a logo chosen for one poster is not a
+             * change to the tournament.
+             */
+            foreach (TournamentTemplate::sponsorPlaceholders() as $sponsorKey) {
+                $fileKey = $sponsorKey . '_file';
+
+                if ($request->hasFile($fileKey)) {
+                    $uploadedPath = $request->file($fileKey)->store('temp_previews', 'public');
+                    $data[$sponsorKey] = $uploadedPath;
+                    $tempFiles[] = $uploadedPath;
                 }
             }
 
@@ -1250,6 +1291,79 @@ class TournamentTemplateController extends Controller
     /**
      * Delete a template
      */
+    /**
+     * Set or replace a template's background photo, without opening the drag editor.
+     *
+     * The photo is COVER-CROPPED to the template's canvas before it is stored, because
+     * TemplateRenderService resizes a background with a single imagecopyresampled() from the
+     * whole source to the whole canvas — i.e. it stretches. A landscape match photo dropped
+     * straight onto a 1080x1080 poster comes out squashed, which looks like a broken renderer
+     * rather than a cropping decision nobody made.
+     */
+    public function updateBackground(Tournament $tournament, TournamentTemplate $template, Request $request)
+    {
+        abort_if($template->tournament_id !== $tournament->id, 404);
+
+        $request->validate([
+            'background_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',
+        ]);
+
+        $width = (int) ($template->canvas_width ?: 1080);
+        $height = (int) ($template->canvas_height ?: 1080);
+
+        $source = $request->file('background_image');
+        $image = match (strtolower($source->getClientOriginalExtension() ?: $source->guessExtension())) {
+            'png' => @imagecreatefrompng($source->getRealPath()),
+            'webp' => @imagecreatefromwebp($source->getRealPath()),
+            default => @imagecreatefromjpeg($source->getRealPath()),
+        };
+
+        if (! $image) {
+            return back()->with('error', __('That image could not be read.'));
+        }
+
+        $srcW = imagesx($image);
+        $srcH = imagesy($image);
+        $scale = max($width / $srcW, $height / $srcH);
+        $scaledW = (int) round($srcW * $scale);
+        $scaledH = (int) round($srcH * $scale);
+
+        $scaled = imagecreatetruecolor($scaledW, $scaledH);
+        imagecopyresampled($scaled, $image, 0, 0, 0, 0, $scaledW, $scaledH, $srcW, $srcH);
+
+        $canvas = imagecreatetruecolor($width, $height);
+        imagecopy($canvas, $scaled, 0, 0, (int) (($scaledW - $width) / 2), (int) (($scaledH - $height) / 2), $width, $height);
+
+        ob_start();
+        imagejpeg($canvas, null, 90);
+        $bytes = ob_get_clean();
+
+        imagedestroy($image);
+        imagedestroy($scaled);
+        imagedestroy($canvas);
+
+        $path = 'tournament_templates/' . $tournament->id . '/bg_' . uniqid() . '.jpg';
+        Storage::disk('public')->put($path, $bytes);
+
+        /*
+         * Replace the old file only when nothing else points at it — duplicating a template
+         * copies the path, and templates can be pointed at one shared image deliberately.
+         * Same guard as destroy().
+         */
+        $previous = $template->background_image;
+        $template->update(['background_image' => $path]);
+
+        if ($previous && $previous !== $path) {
+            $stillInUse = TournamentTemplate::where('background_image', $previous)->exists();
+
+            if (! $stillInUse) {
+                Storage::disk('public')->delete($previous);
+            }
+        }
+
+        return back()->with('success', __('Background updated for ":name".', ['name' => $template->name]));
+    }
+
     public function destroy(Tournament $tournament, TournamentTemplate $template)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);

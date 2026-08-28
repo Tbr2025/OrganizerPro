@@ -929,6 +929,36 @@
                 <input type="hidden" id="xiPayload" :value="payload()">
             </div>
 
+            {{-- Sponsors / partners. Offered on every poster type, because a partner logo is
+                 not specific to one design. The slots only appear on the finished poster if the
+                 template places them — see TournamentTemplate::sponsorPlaceholders(). --}}
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
+                    <span class="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 text-amber-600 flex items-center justify-center mr-2.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                    </span>
+                    Sponsor logos
+                    <span class="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">— optional, this poster only</span>
+                </h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 ml-9">
+                    Position them in the template editor as <span class="font-mono">sponsor_logo</span>,
+                    <span class="font-mono">sponsor_logo_2</span> and <span class="font-mono">sponsor_logo_3</span>.
+                    A transparent PNG sits best on a photo.
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    @foreach(['sponsor_logo' => 'Sponsor 1', 'sponsor_logo_2' => 'Sponsor 2', 'sponsor_logo_3' => 'Sponsor 3'] as $slot => $slotLabel)
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ $slotLabel }}</label>
+                            <input type="file" id="{{ $slot }}Upload" accept="image/jpeg,image/png,image/webp"
+                                   class="w-full text-xs text-gray-600 dark:text-gray-300
+                                          file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                                          file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700
+                                          hover:file:bg-amber-100 dark:file:bg-amber-900/30 dark:file:text-amber-300">
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
             {{-- Template Selection --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-4 flex items-center text-sm">
@@ -1006,6 +1036,19 @@
                                         </button>
                                     </form>
                                 @endif
+                                {{-- Set the photo behind the design without opening the editor.
+                                     It is cover-cropped to the canvas server-side, because the
+                                     renderer stretches a background to fit. --}}
+                                <form action="{{ route('admin.tournaments.templates.update-background', [$tournament, $template]) }}"
+                                      method="POST" enctype="multipart/form-data" class="inline">
+                                    @csrf
+                                    <label title="Set background photo"
+                                           class="cursor-pointer inline-flex p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp"
+                                               class="hidden" onchange="this.form.submit()">
+                                    </label>
+                                </form>
                                 <form action="{{ route('admin.tournaments.templates.destroy', [$tournament, $template]) }}" method="POST" class="inline"
                                       onsubmit="return confirm('Delete the template &quot;{{ $template->name }}&quot;? This cannot be undone.')">
                                     @csrf
@@ -1827,6 +1870,13 @@ function templateActions(t, editBaseUrl) {
                 </button>
             </form>
             ${setDefault}
+            <form action="${editBaseUrl}/${t.id}/update-background" method="POST" enctype="multipart/form-data" class="inline">
+                <input type="hidden" name="_token" value="${csrf}">
+                <label title="Set background photo" class="cursor-pointer inline-flex ${btn}">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="this.form.submit()">
+                </label>
+            </form>
             <form action="${editBaseUrl}/${t.id}" method="POST" class="inline"
                   onsubmit="return confirm('Delete the template &quot;${name}&quot;? This cannot be undone.')">
                 <input type="hidden" name="_token" value="${csrf}">
@@ -2413,11 +2463,22 @@ function generatePreview(saveMode = false) {
         award_poster: { input: 'awardPlayerImageUpload', field: 'player_image_file' },
         playing_xi: { input: 'xiPlayerImageUpload', field: 'featured_player_image_file' },
     };
-    const uploadSpec = UPLOAD_FIELDS[currentType];
-    const customImageFile = uploadSpec ? document.getElementById(uploadSpec.input)?.files?.[0] : null;
+
+    // Type-specific upload (a player cut-out), plus the sponsor slots every type offers.
+    const uploadSpecs = [];
+    const typeSpec = UPLOAD_FIELDS[currentType];
+    if (typeSpec) uploadSpecs.push(typeSpec);
+    ['sponsor_logo', 'sponsor_logo_2', 'sponsor_logo_3'].forEach(slot => {
+        uploadSpecs.push({ input: slot + 'Upload', field: slot + '_file' });
+    });
+
+    const attachments = uploadSpecs
+        .map(spec => ({ spec, file: document.getElementById(spec.input)?.files?.[0] }))
+        .filter(a => a.file);
+
     let fetchOptions = {};
 
-    if (customImageFile && uploadSpec) {
+    if (attachments.length) {
         const formData = new FormData();
         for (const [key, value] of Object.entries(data)) {
             if (key !== '_hasCustomPlayerImage' && value !== null && value !== undefined) {
@@ -2435,7 +2496,7 @@ function generatePreview(saveMode = false) {
                 }
             }
         }
-        formData.append(uploadSpec.field, customImageFile);
+        attachments.forEach(a => formData.append(a.spec.field, a.file));
         fetchOptions = {
             method: 'POST',
             headers: {

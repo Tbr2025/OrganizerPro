@@ -215,12 +215,27 @@
                             </td>
 
                             <td class="px-5 py-3.5 text-right">
+                                {{-- Gated on the permission, not on a role name, so this menu cannot
+                                     drift away from what MatchesController actually enforces. A Team
+                                     Manager holds match.view and nothing else, and reaches this page
+                                     on purpose — RedirectTeamManager allowlists it so their Matches
+                                     menu works. They get to look, and to name their XI. --}}
                                 <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
                                     <x-buttons.action-item :href="route('admin.matches.show', $match)" icon="lucide:eye" :label="__('View')" />
+                                    {{-- The one thing a team manager may change about a match.
+                                         The controller checks they are actually on a side in it. --}}
+                                    <x-buttons.action-item :href="route('team-manager.matches.lineup', $match)" icon="lucide:users" :label="__('Playing Squad')" />
+                                    @can('match.edit')
                                     <x-buttons.action-item :href="route('admin.matches.edit', $match)" icon="lucide:pencil" :label="__('Edit')" />
+                                    @endcan
+                                    @can('match.result')
                                     <x-buttons.action-item :href="route('admin.matches.summary.edit', $match)" icon="lucide:file-text" :label="__('Summary')" />
+                                    @endcan
+                                    @can('match.edit')
                                     <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=match_poster&match_id=' . $match->id" icon="lucide:image" :label="__('Match Poster')" />
                                     <x-buttons.action-item :href="route('admin.tournaments.templates.generate', $match->tournament) . '?type=award_poster&match_id=' . $match->id" icon="lucide:star" :label="__('Award Poster')" />
+                                    @endcan
+                                    @can('match.edit')
                                     @if(!$match->is_cancelled && $match->status !== 'live')
                                         <form action="{{ route('admin.matches.goLive', $match) }}" method="POST" class="inline">
                                             @csrf
@@ -251,6 +266,7 @@
                                             </div>
                                         </div>
                                     @endif
+                                    @endcan
                                     @can('match.delete')
                                         <div x-data="{ delOpen: false }">
                                             <button @click="delOpen = true" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-left text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">

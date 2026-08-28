@@ -615,6 +615,13 @@ Route::middleware(['auth'])
         Route::get('/players/{player}', [TeamManagerController::class, 'showPlayer'])->name('players.show');
         Route::get('/players', [TeamManagerController::class, 'players'])->name('players');
         Route::get('/squad', [TeamManagerController::class, 'squad'])->name('squad');
+
+        /*
+         * Naming the XI for a match. Lives here, not under /admin/matches, because it is the one
+         * thing about a match a manager may change — and only for their own team.
+         */
+        Route::get('/matches/{match}/lineup', [TeamManagerController::class, 'editLineup'])->name('matches.lineup');
+        Route::post('/matches/{match}/lineup', [TeamManagerController::class, 'saveLineup'])->name('matches.lineup.save');
         Route::get('/other-teams', [TeamManagerController::class, 'otherTeams'])->name('other-teams');
         Route::get('/other-teams/{otherTeam}', [TeamManagerController::class, 'otherTeamPlayers'])->name('other-teams.players');
         Route::get('/wishlist', [TeamManagerController::class, 'wishlist'])->name('wishlist');
@@ -1326,6 +1333,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/upload-overlay', [TournamentTemplateController::class, 'uploadOverlay'])->name('templates.upload-overlay');
             Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
+            Route::post('/templates/{template}/update-background', [TournamentTemplateController::class, 'updateBackground'])->name('templates.update-background');
         });
 
         // Template listing, viewing, generate & download (Superadmin & Admin)

@@ -124,6 +124,9 @@ class TournamentTemplate extends Model
             'winner_logo',
             'qr_code',
             'featured_player_image',
+            'sponsor_logo',
+            'sponsor_logo_2',
+            'sponsor_logo_3',
         ];
     }
 
@@ -175,7 +178,7 @@ class TournamentTemplate extends Model
      */
     public static function getDefaultPlaceholders(string $type): array
     {
-        return match ($type) {
+        $placeholders = match ($type) {
             self::TYPE_WELCOME_CARD, self::TYPE_RETAINED_WELCOME_CARD => [
                 'player_name',
                 'jersey_name',
@@ -467,6 +470,31 @@ class TournamentTemplate extends Model
             ],
             default => [],
         };
+
+        /*
+         * Sponsor slots belong to every design, so they are appended here rather than repeated
+         * in each arm above — a type added later gets them without anyone remembering to.
+         *
+         * Deliberately not tied to a database column: `actual_teams.sponsor_logo` exists but is
+         * set on almost no team, and a sponsor on a poster is usually the event's partner rather
+         * than a club's. These are filled by uploading an image when the poster is generated.
+         */
+        return $placeholders === []
+            ? []
+            : array_values(array_unique(array_merge($placeholders, self::sponsorPlaceholders())));
+    }
+
+    /**
+     * The sponsor/partner image slots offered on every template type.
+     *
+     * Three because a poster usually carries a row of partner logos, and a designer can simply
+     * leave the ones they do not need out of the layout.
+     *
+     * @return list<string>
+     */
+    public static function sponsorPlaceholders(): array
+    {
+        return ['sponsor_logo', 'sponsor_logo_2', 'sponsor_logo_3'];
     }
 
     /**

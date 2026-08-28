@@ -190,7 +190,7 @@
                     <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                 </div>
                 <div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $upcomingAuctions->count() }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ ($teamAuctions ?? $upcomingAuctions)->count() }}</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Auctions</p>
                 </div>
             </div>

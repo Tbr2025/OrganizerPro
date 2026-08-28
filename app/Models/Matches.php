@@ -11,6 +11,30 @@ use Illuminate\Support\Str;
 class Matches extends Model
 {
     /** Organizers explicitly assigned to this match. */
+    /** Every player named for this match, both sides. See MatchLineup. */
+    public function lineups()
+    {
+        return $this->hasMany(\App\Models\MatchLineup::class, 'match_id');
+    }
+
+    /**
+     * The XI one side named, in the order it was arranged.
+     *
+     * Returns an empty collection when nobody has named one — a match with no line-up is the
+     * normal state, not an error, and callers should treat it as "not decided yet".
+     */
+    public function lineupFor(int|\App\Models\ActualTeam $team)
+    {
+        $teamId = $team instanceof \App\Models\ActualTeam ? $team->id : $team;
+
+        return $this->lineups()
+            ->where('actual_team_id', $teamId)
+            ->with('player')
+            ->orderBy('batting_order')
+            ->orderBy('id')
+            ->get();
+    }
+
     public function organizers()
     {
         return $this->morphToMany(\App\Models\User::class, 'assignable', 'organizer_assignments')->withTimestamps();
