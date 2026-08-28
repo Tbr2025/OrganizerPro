@@ -7,7 +7,6 @@ use App\Mail\NewPlayerAddedMail;
 use App\Mail\TeamManagerCredentialsMail;
 use App\Models\ActualTeam;
 use App\Models\Auction;
-use App\Models\AuctionPlayer;
 use App\Models\Organization;
 use App\Models\Player;
 use App\Models\Role;
@@ -138,6 +137,35 @@ class ActualTeamController extends Controller
         $auctions = Auction::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
         $tournamentSettings = \App\Models\TournamentSetting::whereIn('tournament_id', $tournamentIds)->get()->keyBy('tournament_id');
 
+        /*
+         * Purse state for every team on this page, batched one auction at a time.
+         *
+         * Grouped rather than asked per team because the same auction serves many of them, and
+         * teamPurseStates() answers for a whole list in a couple of queries.
+         */
+        $teamsByTournament = [];
+
+        foreach ($actualTeams as $team) {
+            $auctionTournament = collect([$team->tournament])
+                ->filter()
+                ->merge($team->tournaments)
+                ->unique('id')
+                ->first(fn ($t) => $t->isAuction());
+
+            if ($auctionTournament && isset($auctions[$auctionTournament->id])) {
+                $teamsByTournament[$auctionTournament->id][] = $team->id;
+            }
+        }
+
+        $purseStates = [];
+        $pools = app(\App\Services\Auction\AuctionPoolService::class);
+
+        foreach ($teamsByTournament as $tournamentId => $teamIds) {
+            // A team in two auctions keeps the first answer; the page shows one budget column,
+            // so there is only room for one anyway.
+            $purseStates += $pools->teamPurseStates($auctions[$tournamentId], $teamIds);
+        }
+
         foreach ($actualTeams as $team) {
             // Candidate tournaments for this team: primary first, then pivot links.
             $teamTournaments = collect([$team->tournament])
@@ -176,34 +204,42 @@ class ActualTeamController extends Controller
                 ? (float) $auction->max_budget_per_team
                 : null;
 
-            // Auction spend = winning price of players sold to this team. `auction_bids`
-            // is a log of every bid placed, so summing it over-counts badly; the rest of
-            // the auction module reads `auction_players.final_price` and so do we.
-            $soldQuery = AuctionPlayer::where('sold_to_team_id', $team->id)
-                ->where('status', 'sold');
+            /*
+             * Spend and squad size come from the auction's own rows, via the same service the
+             * sell-side checks use — never from `players.player_mode` / `players.retained_value`.
+             *
+             * Reading those two double-counted every bought player. Winning a player in the room
+             * ALSO flags them `player_mode = retained` with a `retained_value`, so a squad of 20
+             * (16 bought + 4 kept) was counted as 16 sold + 20 retained = 36, and 100M of bids
+             * plus 20M of retained_value = 120M against a 100M budget — a team that had spent its
+             * purse exactly showed as 20M over it, in red, on the teams list.
+             *
+             * teamPurseStates() reads sold rows by `sold_to_team_id` and retained rows by
+             * `team_id` out of `auction_players`, which are distinct rows, so nothing is counted
+             * twice. It also honours per-team budget allocations, which this block ignored.
+             */
+            $state = $purseStates[$team->id] ?? null;
 
-            if ($auction) {
-                $soldQuery->where('auction_id', $auction->id);
+            if (! $state) {
+                $teamBudgets[$team->id] = [
+                    'is_auction' => true,
+                    'user_count' => 0,
+                    'squad_max' => $squadMax,
+                    'spent_raw' => 0.0,
+                    'max_budget_raw' => $maxBudget,
+                ];
+
+                continue;
             }
-
-            $soldCount = (clone $soldQuery)->count();
-            $auctionSpent = (float) (clone $soldQuery)->sum('final_price');
-
-            // Retained players count against the same budget.
-            $retainedQuery = Player::where('actual_team_id', $team->id)
-                ->where('player_mode', 'retained');
-
-            $retainedCount = (clone $retainedQuery)->count();
-            $retainedSpent = (float) (clone $retainedQuery)->sum('retained_value');
-
-            $totalSpent = $auctionSpent + $retainedSpent;
 
             $teamBudgets[$team->id] = [
                 'is_auction' => true,
-                'user_count' => $soldCount + $retainedCount,
+                'user_count' => (int) $state['slots_filled'],
                 'squad_max' => $squadMax,
-                'spent_raw' => $totalSpent,
-                'max_budget_raw' => $maxBudget,
+                'spent_raw' => (float) $state['spent'],
+                // The service knows about per-team allocations; the auction-wide cap is the
+                // fallback it already applied, so prefer its answer.
+                'max_budget_raw' => $state['allocated'] > 0 ? (float) $state['allocated'] : $maxBudget,
             ];
         }
 
