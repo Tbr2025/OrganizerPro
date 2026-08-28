@@ -37,7 +37,22 @@ class ActualTeamBudgetPanelTest extends TestCase
         app(\App\Services\Auction\AuctionPoolService::class)->syncRetainedPlayers($auction);
 
         $admin = $this->makeAuctionOperator($org, ['auction.edit', 'auction.view', 'actual-team.edit']);
-        $admin->assignRole(\App\Models\Role::firstOrCreate(['name' => 'Admin', 'guard_name' => 'web']));
+        /*
+         * The role has to carry its permissions, not just its name. The seeder does not run in
+         * tests, so a bare Role::firstOrCreate('Admin') is a hollow shell — and now that
+         * ActualTeamController actually checks `team.view`/`team.edit` (it previously checked
+         * nothing at all, which let team managers delete teams), a nameless-but-powerless Admin
+         * is correctly refused.
+         */
+        $adminRole = \App\Models\Role::firstOrCreate(['name' => 'Admin', 'guard_name' => 'web']);
+        foreach (['team.view', 'team.edit', 'team.delete'] as $permission) {
+            $adminRole->givePermissionTo(\Spatie\Permission\Models\Permission::firstOrCreate(
+                ['name' => $permission, 'guard_name' => 'web'],
+                ['group_name' => 'team']
+            ));
+        }
+        $admin->assignRole($adminRole);
+        $admin = $admin->fresh();
 
         $this->actingAs($admin)
             ->get(route('admin.actual-teams.edit', $team))

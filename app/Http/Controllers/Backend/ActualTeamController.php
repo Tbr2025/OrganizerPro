@@ -30,6 +30,43 @@ use App\Services\Auction\SquadAcquisitionService;
 
 class ActualTeamController extends Controller
 {
+    /**
+     * Who may read a team, and who may change one.
+     *
+     * This controller had authorization on `update` and nowhere else — eleven other mutating
+     * methods, including `destroy`, `createTeamManager` and `resetTeamManagerPassword`, ran for
+     * anyone who could reach the URL. Team managers reach it: RedirectTeamManager allowlists
+     * `admin/actual-teams*` so their own team pages work, and EnsureOrganizerCanAccess returns
+     * early for anyone who is not an Organizer. So being able to LOAD a team page was, in
+     * practice, permission to delete any team and to reset any team member's password.
+     *
+     * Reachable is not the same as permitted. The permissions already existed and were already
+     * assigned correctly, so only the checks were missing.
+     *
+     * Note the family: this controller's own inline checks use `actual-team.*` (see show() and
+     * update()), NOT `team.*` — those are a separate set belonging to the legacy Team model.
+     * Getting that wrong locks the wrong people out in both directions: Team Manager and Team
+     * Owner DO hold `actual-team.view`, because viewing their own team page is the point of
+     * their account, and they hold no `team.*` at all. Read stays open to them; every mutation
+     * needs `actual-team.edit`, which they do not have.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:actual-team.view')->only([
+            'index', 'show', 'getTeamManagers', 'searchOrgUsers',
+        ]);
+
+        $this->middleware('permission:actual-team.edit')->only([
+            'create', 'store', 'edit', 'update',
+            'addMember', 'removeMember',
+            'addPlayer', 'updatePlayer', 'removePlayer', 'toggleApprove',
+            'createTeamManager', 'assignTeamManager',
+            'resetTeamManagerPassword', 'resendTeamManagerCredentials',
+        ]);
+
+        $this->middleware('permission:actual-team.delete')->only(['destroy']);
+    }
+
     public function index()
     {
         $user = Auth::user();
@@ -1142,6 +1179,17 @@ class ActualTeamController extends Controller
 
     /**
      * Reset password for a team manager
+     */
+    /**
+     * Reset a team member's password and hand the new one back to the caller.
+     *
+     * The response deliberately carries the plaintext password: the admin screen shows it once so
+     * it can be passed to the manager ("Save these credentials. The password cannot be retrieved
+     * later."), and removing it would break that. What was missing was not secrecy but
+     * AUTHORIZATION — this ran for anyone who could reach the URL, which included every team
+     * manager on the platform, letting them set any team member's password to a value of their
+     * choosing and read it back. The `team.edit` gate in __construct() is what makes returning it
+     * safe: you are being shown a password you were entitled to set.
      */
     public function resetTeamManagerPassword(Request $request, ActualTeam $actualTeam, User $user)
     {

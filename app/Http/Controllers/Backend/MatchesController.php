@@ -16,6 +16,31 @@ use Illuminate\View\View; // ✅ Correct import
 
 class MatchesController extends Controller
 {
+    /**
+     * Anything that changes a match needs `match.edit`; looking at one needs `match.view`.
+     *
+     * This controller had no authorization of any kind. Team managers reach it deliberately —
+     * `RedirectTeamManager` allowlists `admin/matches*` so the Matches item in their menu works —
+     * and the route group only checks that they are logged in. So a manager could POST go-live or
+     * cancel, or open the edit form, simply by knowing the URL. Hiding the buttons in the view is
+     * not access control; this is.
+     *
+     * The permissions already existed and were already assigned correctly: a Team Manager holds
+     * `match.view` and nothing else in the `match` group. Only the check was missing.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:match.view')->only([
+            'index', 'show', 'liveTicker', 'liveTickerIndex', 'getState', 'downloadAllPosters',
+        ]);
+
+        $this->middleware('permission:match.edit')->only([
+            'create', 'store', 'edit', 'update', 'destroy', 'bulkDelete', 'reorder',
+            'goLive', 'cancelMatch', 'saveToss', 'switchInnings',
+            'editOvers', 'updateOvers', 'addAppreciation', 'generatePoster',
+        ]);
+    }
+
     public function index(Request $request): View
     {
         $user = auth()->user();

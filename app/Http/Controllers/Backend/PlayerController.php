@@ -42,6 +42,26 @@ use App\Services\Auction\SquadAcquisitionService;
 
 class PlayerController extends Controller
 {
+    /**
+     * The methods that were reaching player records without checking anything.
+     *
+     * Most of this controller already calls checkAuthorization() — store, edit, update, destroy,
+     * export, retain and unretain all do. These did not, and `admin/players*` is on
+     * RedirectTeamManager's
+     * allowlist, so a team manager could reach them: `saveImage` in particular takes a
+     * `player_id` straight off the request and overwrites that player's image, for any player on
+     * the platform.
+     *
+     * `player.create` rather than `player.edit` for the CSV import, because team managers hold
+     * `player.create` and adding players is something they legitimately do — gating it harder
+     * would remove a working flow rather than close a hole.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:player.edit')->only(['editor', 'saveImage']);
+        $this->middleware('permission:player.create')->only(['importCsv', 'downloadSampleCsv']);
+    }
+
     use HasActionLogTrait;
 
     // public function index(): View

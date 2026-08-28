@@ -25,6 +25,14 @@ class RedirectTeamManager
              * registration, the matches their menu offers, and the live bidding page — plus
              * switch-back, so an admin who has impersonated somebody is never trapped inside it.
              */
+            /*
+             * REACHABLE IS NOT PERMITTED. This list decides which URLs a team manager is not
+             * bounced away from; it says nothing about what they may DO once there. Assuming
+             * otherwise is what left MatchesController, ActualTeamController and two
+             * PlayerController methods running unguarded for anyone on this list — up to and
+             * including resetting another club owner's password. Every controller behind these
+             * paths must check permissions for itself.
+             */
             $allowed = $request->is('admin/team-manager*')
                 || $request->is('admin/actual-teams*')
                 || $request->is('admin/players*')
