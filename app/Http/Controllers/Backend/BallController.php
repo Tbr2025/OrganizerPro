@@ -14,6 +14,20 @@ use Illuminate\Support\Facades\Validator;
 
 class BallController extends Controller
 {
+    /**
+     * Who may look at a match, and who may change what it says happened.
+     *
+     * This controller had no authorization of any kind, and `admin/matches*` is on
+     * RedirectTeamManager's allowlist, so team managers could reach every method by URL.
+     * Ball-by-ball scoring is the Scorer's job, so it needs `match.edit` — which Scorers hold and
+     * team managers do not. Reads stay on `match.view` so a manager can still follow the match.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:match.view')->only(['index', 'summary', 'lastBall']);
+        $this->middleware('permission:match.edit')->only(['create', 'store', 'ajaxStore', 'destroy']);
+    }
+
     public function index()
     {
         //

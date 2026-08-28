@@ -37,6 +37,18 @@ class MatchSummaryController extends Controller
         $this->notificationService = $notificationService;
         $this->playerStatisticService = $playerStatisticService;
         $this->pointTableService = $pointTableService;
+
+        /*
+         * Recording a match summary changes the record of what happened, so it needs the same
+         * permission as editing the match itself — `match.edit`, matching MatchResultController.
+         *
+         * This controller had no authorization of any kind, and `admin/matches*` is on
+         * RedirectTeamManager's allowlist so team managers reach it: a manager could record a
+         * result, assign awards and send the summary out for a match their team was playing in.
+         * They hold `match.view` and nothing else; Scorers hold `match.edit`, so scoring is
+         * unaffected.
+         */
+        $this->middleware('permission:match.edit');
     }
 
     /**

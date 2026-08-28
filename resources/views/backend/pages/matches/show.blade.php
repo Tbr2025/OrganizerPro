@@ -86,8 +86,8 @@
                                 </svg>
                             </button>
                         </div>
-                    @else
-                        <!-- Toss Not Set - Show Button -->
+                    @elsecan('match.edit')
+                        <!-- Toss Not Set - Show Button. Setting the toss changes the match. -->
                         <button id="toss-btn" onclick="showTossSelector()"
                                 class="inline-flex items-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-full transition">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -383,6 +383,7 @@
         </div>
 
         <!-- Quick Scoring Buttons -->
+        @can('match.edit')
         <div class="card rounded-2xl overflow-hidden">
             <div class="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
                 <h3 class="text-white font-bold text-lg flex items-center">
@@ -447,12 +448,14 @@
                             </svg>
                             View Summary & Poster
                         </a>
+                        @can('match.edit')
                         <a href="{{ route('admin.matches.result.edit', $match) }}" class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
                             </svg>
                             Edit Result
                         </a>
+                        @endcan
                     </div>
                 </div>
                 @endif
@@ -627,6 +630,7 @@
                 </div>
             </div>
         </div>
+        @endcan
 
         <!-- Over-by-Over Summary -->
         <div class="card rounded-2xl overflow-hidden">
@@ -705,6 +709,14 @@
         <div class="card rounded-2xl p-6">
             <h3 class="font-bold text-lg mb-4">Actions</h3>
             <div class="space-y-2">
+        {{-- Only someone who may change the match is offered the controls that change it.
+
+             Team managers reach this page deliberately: they hold match.view and
+             RedirectTeamManager allowlists admin/matches*. They were being shown Record Final
+             Result, Match Summary, Edit Match, Set Toss and the whole scoring panel. The
+             controllers refuse them now; this stops offering them. Scorers hold match.edit, so
+             their tools are untouched. --}}
+                @can('match.edit')
                 <a href="{{ route('admin.matches.result.edit', $match) }}"
                    class="w-full flex items-center justify-center px-4 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -742,6 +754,7 @@
                     </svg>
                     Edit Match
                 </a>
+                @endcan
                 @if($match->slug)
                 <a href="{{ route('public.match.show', $match) }}" target="_blank"
                    class="w-full flex items-center justify-center px-4 py-3 bg-teal-500 hover:bg-teal-600 text-white font-semibold rounded-xl transition">
@@ -751,6 +764,7 @@
                     View Public Fixture
                 </a>
                 @endif
+                @can('match.edit')
                 {{-- Poster Template Selector --}}
                 <div class="border border-gray-200 dark:border-gray-700 rounded-xl p-3 space-y-2">
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Generate Poster</label>
@@ -802,6 +816,7 @@
                         Generate & Download
                     </button>
                 </div>
+                @endcan
             </div>
         </div>
 

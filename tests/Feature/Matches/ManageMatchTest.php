@@ -24,9 +24,20 @@ class ManageMatchTest extends TestCase
     private function admin(): User
     {
         $user = User::factory()->create();
-        $user->assignRole(Role::findOrCreate('Superadmin', 'web'));
 
-        return $user;
+        /*
+         * The role needs its permissions, not just its name: the seeder does not run in tests, so
+         * Role::findOrCreate('Superadmin') is a hollow shell. Now that MatchSummaryController
+         * checks `match.edit` (it previously checked nothing, which let team managers record
+         * results), a powerless Superadmin is correctly refused.
+         */
+        $role = Role::findOrCreate('Superadmin', 'web');
+        $role->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('match.edit', 'web'));
+        $role->givePermissionTo(\Spatie\Permission\Models\Permission::findOrCreate('match.view', 'web'));
+
+        $user->assignRole($role);
+
+        return $user->fresh();
     }
 
     private function makeMatch(): Matches

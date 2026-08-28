@@ -12,6 +12,20 @@ use Illuminate\Http\Request;
 class ScorecardController extends Controller
 {
     /**
+     * Who may look at a match, and who may change what it says happened.
+     *
+     * This controller had no authorization of any kind, and `admin/matches*` is on
+     * RedirectTeamManager's allowlist, so team managers could reach every method by URL.
+     * Reading a scorecard is `match.view`; writing one changes the record of the match and needs
+     * `match.edit`, the same permission MatchResultController requires.
+     */
+    public function __construct()
+    {
+        $this->middleware('permission:match.view')->only(['index', 'show']);
+        $this->middleware('permission:match.edit')->only(['create', 'store', 'edit', 'update', 'destroy']);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index()
