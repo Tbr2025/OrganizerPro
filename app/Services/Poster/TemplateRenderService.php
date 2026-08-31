@@ -26,6 +26,19 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected array $backgroundRemovalOverrides = [];
 
+    /**
+     * Per-placeholder brightness/contrast settings, set by the caller for THIS render.
+     *
+     * Keyed by placeholder name. Each entry is ['brightness' => int, 'contrast' => int]
+     * using GD convention: negative contrast = more contrast, positive brightness = brighter.
+     * When absent the default (+6 brightness, -14 contrast) applies to images that undergo
+     * bg removal. Images without bg removal get NO enhancement unless an explicit override
+     * is set here — so the feature is opt-in for non-person images.
+     *
+     * @var array<string, array{brightness: int, contrast: int}>
+     */
+    protected array $imageAdjustmentOverrides = [];
+
     /** Memoized font registry for resolving installed fonts to TTF files. */
     protected ?\App\Services\Fonts\FontService $fontService = null;
 
@@ -40,6 +53,26 @@ class TemplateRenderService extends PosterGeneratorService
             unset($this->backgroundRemovalOverrides[$placeholder]);
         } else {
             $this->backgroundRemovalOverrides[$placeholder] = $remove;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set brightness/contrast for one placeholder, overriding the default.
+     *
+     * null clears the override. Both values use GD convention:
+     * brightness: -255..+255 (positive = brighter), contrast: -100..+100 (negative = MORE contrast).
+     */
+    public function overrideImageAdjustment(string $placeholder, ?array $adjustment): static
+    {
+        if ($adjustment === null) {
+            unset($this->imageAdjustmentOverrides[$placeholder]);
+        } else {
+            $this->imageAdjustmentOverrides[$placeholder] = [
+                'brightness' => max(-50, min(50, (int) ($adjustment['brightness'] ?? 6))),
+                'contrast'   => max(-50, min(50, (int) ($adjustment['contrast'] ?? -14))),
+            ];
         }
 
         return $this;
@@ -742,10 +775,18 @@ class TemplateRenderService extends PosterGeneratorService
             }
         }
 
-        // Only remove background from player/captain photos, not logos
+        // Per-placeholder image adjustment (brightness/contrast)
         $placeholder = $element['placeholder'] ?? '';
+        $adjustment = $this->imageAdjustmentOverrides[$placeholder] ?? null;
+        $brightness = $adjustment['brightness'] ?? 6;
+        $contrast   = $adjustment['contrast'] ?? -14;
+
         if ($this->shouldRemoveBackground($placeholder)) {
-            $storagePath = $this->getBackgroundRemovedImage($storagePath);
+            // BG removal always chains enhancement (the cut-out needs it).
+            $storagePath = $this->getBackgroundRemovedImage($storagePath, $brightness, $contrast);
+        } elseif ($adjustment !== null && ($brightness !== 0 || $contrast !== 0)) {
+            // No BG removal, but caller explicitly set adjustment values.
+            $storagePath = $this->enhancePlayerImage($storagePath, $brightness, $contrast);
         }
 
         // Load source image to get actual dimensions for aspect ratio
@@ -1924,14 +1965,14 @@ class TemplateRenderService extends PosterGeneratorService
     /**
      * Get background-removed version of an image, with caching
      */
-    protected function getBackgroundRemovedImage(string $storagePath): string
+    protected function getBackgroundRemovedImage(string $storagePath, int $brightness = 6, int $contrast = -14): string
     {
         $bgService = new ImageBackgroundRemovalService();
         $noBgPath = $bgService->removeBackgroundNonDestructive($storagePath);
 
         // Player cut-outs tend to look flat/low-contrast after background removal
         // and scaling, so give them a mild auto-enhance (contrast + brightness).
-        return $this->enhancePlayerImage($noBgPath ?? $storagePath);
+        return $this->enhancePlayerImage($noBgPath ?? $storagePath, $brightness, $contrast);
     }
 
     /**
@@ -1940,16 +1981,22 @@ class TemplateRenderService extends PosterGeneratorService
      * public disk keyed by source path + mtime. Falls back to the original path
      * on any failure so rendering never breaks.
      */
-    protected function enhancePlayerImage(string $storagePath): string
+    protected function enhancePlayerImage(string $storagePath, int $brightness = 6, int $contrast = -14): string
     {
         try {
+            // No-op shortcut: both zero means "no enhancement".
+            if ($brightness === 0 && $contrast === 0) {
+                return $storagePath;
+            }
+
             if (!Storage::disk('public')->exists($storagePath)) {
                 return $storagePath;
             }
 
             $fullSource = Storage::disk('public')->path($storagePath);
             $cacheDir = 'poster-cache/enhanced';
-            $cachePath = $cacheDir . '/' . md5($storagePath . '|' . @filemtime($fullSource)) . '.png';
+            // Include brightness/contrast in cache key so different settings produce different files.
+            $cachePath = $cacheDir . '/' . md5($storagePath . '|' . @filemtime($fullSource) . "|b{$brightness}c{$contrast}") . '.png';
 
             if (Storage::disk('public')->exists($cachePath)) {
                 return $cachePath;
@@ -1965,9 +2012,12 @@ class TemplateRenderService extends PosterGeneratorService
             imagesavealpha($img, true);
 
             // In GD a NEGATIVE contrast value increases contrast.
-            imagefilter($img, IMG_FILTER_CONTRAST, -14);
-            // Small brightness lift to stop the contrast boost crushing shadows.
-            imagefilter($img, IMG_FILTER_BRIGHTNESS, 6);
+            if ($contrast !== 0) {
+                imagefilter($img, IMG_FILTER_CONTRAST, $contrast);
+            }
+            if ($brightness !== 0) {
+                imagefilter($img, IMG_FILTER_BRIGHTNESS, $brightness);
+            }
 
             Storage::disk('public')->makeDirectory($cacheDir);
             $tmp = tempnam(sys_get_temp_dir(), 'enh') . '.png';

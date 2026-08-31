@@ -296,6 +296,55 @@
                                 </div>
                             </div>
                         </div>
+
+                        {{-- Award Player Photo Uploads --}}
+                        <div x-data="matchSummaryImages()" class="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Award Player Photos
+                                <span class="text-xs font-normal text-gray-400 ml-1">— upload to override database photos</span>
+                            </label>
+
+                            @foreach(['motm' => 'Man of the Match', 'best_batsman' => 'Best Batsman', 'best_bowler' => 'Best Bowler'] as $slotKey => $slotLabel)
+                            <div class="p-3 rounded-lg bg-gray-50 dark:bg-gray-750 border border-gray-200 dark:border-gray-700">
+                                <div class="flex items-start gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ $slotLabel }}</label>
+                                        <input type="file" id="{{ $slotKey }}ImageUpload" accept="image/jpeg,image/png,image/webp"
+                                               @change="onFileChange('{{ $slotKey }}', $event)"
+                                               class="w-full text-xs text-gray-600 dark:text-gray-300
+                                                      file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
+                                                      file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700
+                                                      hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300">
+                                    </div>
+                                    <template x-if="previews.{{ $slotKey }}">
+                                        <div class="flex items-start gap-2 shrink-0">
+                                            <div class="w-14 h-14 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
+                                                 style="background-image:linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%),linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%);background-size:10px 10px;background-position:0 0,5px 5px;">
+                                                <img :src="previews.{{ $slotKey }}" class="w-full h-full object-contain">
+                                            </div>
+                                            <div>
+                                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                                    <input type="checkbox" x-model="removeBg.{{ $slotKey }}" class="rounded border-gray-300 text-blue-600 w-3.5 h-3.5">
+                                                    <span class="text-[11px] text-gray-600 dark:text-gray-400">Remove BG</span>
+                                                </label>
+                                                <button type="button" @click="clearFile('{{ $slotKey }}')" class="text-[11px] text-gray-400 hover:text-red-500 mt-1 block">Clear</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+
+                                {{-- Image adjustment sliders for this upload --}}
+                                <div x-show="previews.{{ $slotKey }}" x-collapse>
+                                    @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => $slotKey === 'motm' ? 'man_of_the_match_image' : ($slotKey === 'best_batsman' ? 'best_batsman_image' : 'best_bowler_image')])
+                                </div>
+                            </div>
+                            @endforeach
+
+                            {{-- Hidden inputs for adjustment data --}}
+                            <input type="hidden" id="adj_man_of_the_match_image" value="">
+                            <input type="hidden" id="adj_best_batsman_image" value="">
+                            <input type="hidden" id="adj_best_bowler_image" value="">
+                        </div>
                     </div>
                 </div>
 
@@ -579,6 +628,12 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+
+                        {{-- Image adjustment for award poster player image --}}
+                        <div x-show="croppedPreview" x-collapse class="mt-3">
+                            @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'player_image'])
+                            <input type="hidden" id="adj_player_image" value="">
                         </div>
 
                         {{-- Manual Stats Input (shown after award selected) --}}
@@ -928,6 +983,12 @@
                                         The photo will be used exactly as uploaded.
                                     </p>
                                 </div>
+                            </div>
+
+                            {{-- Image adjustment for featured player --}}
+                            <div x-show="featuredPreview" x-collapse class="mt-3">
+                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'featured_player_image'])
+                                <input type="hidden" id="adj_featured_player_image" value="">
                             </div>
                         </div>
                 </div>
@@ -1351,6 +1412,92 @@
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script>
+// ─── Image adjustment presets (brightness/contrast) ────────────────────────
+const IMAGE_ADJUSTMENT_BUILTIN = [
+    { name: 'Default',        brightness: 6,   displayContrast: 14 },
+    { name: 'Low Light Fix',  brightness: 20,  displayContrast: 10 },
+    { name: 'High Light Fix', brightness: -15, displayContrast: 5 },
+    { name: 'High Contrast',  brightness: 0,   displayContrast: 30 },
+    { name: 'Soft',           brightness: 10,  displayContrast: -5 },
+    { name: 'No Enhancement', brightness: 0,   displayContrast: 0 },
+];
+
+function imageAdjustment(placeholderName) {
+    return {
+        placeholderName,
+        brightness: 6,
+        displayContrast: 14,
+        selectedPreset: 'Default',
+
+        get gdContrast() { return -this.displayContrast; },
+
+        get allPresets() {
+            return [...IMAGE_ADJUSTMENT_BUILTIN, ...this._loadCustom()];
+        },
+
+        applyPreset() {
+            const p = this.allPresets.find(x => x.name === this.selectedPreset);
+            if (p) { this.brightness = p.brightness; this.displayContrast = p.displayContrast; }
+        },
+
+        syncHidden() {
+            const el = document.getElementById('adj_' + this.placeholderName);
+            if (el) el.value = JSON.stringify({ brightness: this.brightness, contrast: this.gdContrast });
+        },
+
+        _loadCustom() {
+            try { return JSON.parse(localStorage.getItem('poster_image_presets') || '[]'); }
+            catch { return []; }
+        },
+
+        saveCustomPreset() {
+            const name = prompt('Preset name:');
+            if (!name?.trim()) return;
+            if (IMAGE_ADJUSTMENT_BUILTIN.some(p => p.name === name.trim())) {
+                alert('Cannot overwrite a built-in preset.'); return;
+            }
+            const customs = this._loadCustom();
+            const entry = { name: name.trim(), brightness: this.brightness, displayContrast: this.displayContrast };
+            const idx = customs.findIndex(p => p.name === name.trim());
+            if (idx >= 0) customs[idx] = entry; else customs.push(entry);
+            localStorage.setItem('poster_image_presets', JSON.stringify(customs));
+            this.selectedPreset = name.trim();
+        },
+
+        deleteCustomPreset(presetName) {
+            const customs = this._loadCustom().filter(p => p.name !== presetName);
+            localStorage.setItem('poster_image_presets', JSON.stringify(customs));
+            this.selectedPreset = '';
+        },
+
+        isCustomPreset(name) { return !IMAGE_ADJUSTMENT_BUILTIN.some(p => p.name === name); },
+    };
+}
+
+// ─── Match summary award image uploads ─────────────────────────────────────
+function matchSummaryImages() {
+    return {
+        previews: { motm: '', best_batsman: '', best_bowler: '' },
+        removeBg: { motm: true, best_batsman: true, best_bowler: true },
+
+        onFileChange(key, event) {
+            const file = event.target.files?.[0];
+            if (!file) { this.clearFile(key); return; }
+            this.removeBg[key] = true;
+            const reader = new FileReader();
+            reader.onload = (e) => { this.previews[key] = e.target.result; };
+            reader.readAsDataURL(file);
+        },
+
+        clearFile(key) {
+            const input = document.getElementById(key + 'ImageUpload');
+            if (input) input.value = '';
+            this.previews[key] = '';
+            this.removeBg[key] = true;
+        },
+    };
+}
+
 // Cropped image blob for award poster
 let awardCroppedBlob = null;
 
@@ -2054,6 +2201,21 @@ function getSelectedData() {
                 if (bowlOvers) {
                     data.bowling_figures = `${bowlOvers} - ${bowlMaidens || '0'} - ${bowlRuns || '0'} - ${bowlWickets || '0'}`;
                 }
+
+                // Match summary bg removal + image adjustment overrides
+                const msImgEl = document.querySelector('[x-data*="matchSummaryImages"]');
+                if (msImgEl?._x_dataStack?.[0]) {
+                    const ms = msImgEl._x_dataStack[0];
+                    data.remove_bg_motm = ms.removeBg.motm ? '1' : '0';
+                    data.remove_bg_best_batsman = ms.removeBg.best_batsman ? '1' : '0';
+                    data.remove_bg_best_bowler = ms.removeBg.best_bowler ? '1' : '0';
+                }
+                // Image adjustments from hidden inputs
+                data.image_adjustments = data.image_adjustments || {};
+                ['man_of_the_match_image', 'best_batsman_image', 'best_bowler_image'].forEach(ph => {
+                    const raw = document.getElementById('adj_' + ph)?.value;
+                    if (raw) { try { data.image_adjustments[ph] = JSON.parse(raw); } catch {} }
+                });
             }
         }
     } else if (currentType === 'welcome_card') {
@@ -2115,6 +2277,14 @@ function getSelectedData() {
             const cropperEl = document.getElementById('awardPlayerOverride');
             if (cropperEl && cropperEl._x_dataStack && cropperEl._x_dataStack[0]) {
                 data.skip_bg_removal = cropperEl._x_dataStack[0].skipBgRemoval ? '1' : '0';
+            }
+            // Image adjustment for award poster player image
+            const adjRaw = document.getElementById('adj_player_image')?.value;
+            if (adjRaw) {
+                try {
+                    data.image_adjustments = data.image_adjustments || {};
+                    data.image_adjustments['player_image'] = JSON.parse(adjRaw);
+                } catch {}
             }
         }
 
@@ -2194,6 +2364,15 @@ function getSelectedData() {
         // Always sent, including '0' — absent would mean "use the placeholder default", which
         // is not the same as the organizer unticking the box.
         data.remove_bg = xi.remove_bg ?? '1';
+
+        // Image adjustment for featured player
+        const adjXi = document.getElementById('adj_featured_player_image')?.value;
+        if (adjXi) {
+            try {
+                data.image_adjustments = data.image_adjustments || {};
+                data.image_adjustments['featured_player_image'] = JSON.parse(adjXi);
+            } catch {}
+        }
     }
 
     // Get selected template
@@ -2481,14 +2660,19 @@ function generatePreview(saveMode = false) {
      * JSON branch, where a File silently serializes to {} and never reached the server.
      */
     const UPLOAD_FIELDS = {
-        award_poster: { input: 'awardPlayerImageUpload', field: 'player_image_file' },
-        playing_xi: { input: 'xiPlayerImageUpload', field: 'featured_player_image_file' },
+        award_poster: [{ input: 'awardPlayerImageUpload', field: 'player_image_file' }],
+        playing_xi: [{ input: 'xiPlayerImageUpload', field: 'featured_player_image_file' }],
+        match_summary: [
+            { input: 'motmImageUpload', field: 'man_of_the_match_image_file' },
+            { input: 'best_batsmanImageUpload', field: 'best_batsman_image_file' },
+            { input: 'best_bowlerImageUpload', field: 'best_bowler_image_file' },
+        ],
     };
 
-    // Type-specific upload (a player cut-out), plus the sponsor slots every type offers.
+    // Type-specific uploads, plus the sponsor slots every type offers.
     const uploadSpecs = [];
     const typeSpec = UPLOAD_FIELDS[currentType];
-    if (typeSpec) uploadSpecs.push(typeSpec);
+    if (typeSpec) uploadSpecs.push(...typeSpec);
     ['sponsor_logo', 'sponsor_logo_2', 'sponsor_logo_3'].forEach(slot => {
         uploadSpecs.push({ input: slot + 'Upload', field: slot + '_file' });
     });
@@ -2511,6 +2695,11 @@ function generatePreview(saveMode = false) {
                     Object.entries(value).forEach(([idx, o]) => {
                         if (o.value !== undefined) formData.append(`element_overrides[${idx}][value]`, o.value);
                         if (o.hidden !== undefined) formData.append(`element_overrides[${idx}][hidden]`, o.hidden ? '1' : '0');
+                    });
+                } else if (key === 'image_adjustments' && value && typeof value === 'object') {
+                    Object.entries(value).forEach(([ph, adj]) => {
+                        if (adj.brightness !== undefined) formData.append(`image_adjustments[${ph}][brightness]`, adj.brightness);
+                        if (adj.contrast !== undefined) formData.append(`image_adjustments[${ph}][contrast]`, adj.contrast);
                     });
                 } else {
                     formData.append(key, value);

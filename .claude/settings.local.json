@@ -281,7 +281,24 @@
       "Bash(awk -v n=488 'NR<=n && /public function [a-zA-Z]+\\\\\\(/ {m=$0; ln=NR} NR==n {print \"line 488 is in: \" m \" \\(line \" ln \"\\)\"}' app/Http/Controllers/Backend/AuctionOrganizerController.php)",
       "Bash(./vendor/bin/pint --dirty)",
       "Bash(python3 -c ' *)",
-      "Bash(npx vite *)"
+      "Bash(npx vite *)",
+      "Bash(grep -rn -e \"->accept\\(\" -e \"->decline\\(\" -e \"->submit\\(\" -e \"->reinstate\\(\" app/)",
+      "Bash(git fetch *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(perl -0pi -e \"s/\\\\@click=\\\\\"sealedCommand\\\\\\('start'\\\\\\)\\\\\"/\\\\@click=\\\\\"sealedStart\\(\\)\\\\\"/g\" resources/views/backend/pages/auction/offline-panel.blade.php)",
+      "Bash(grep -rn \"'adjust', { direction\" resources/views/backend/pages/auction/)",
+      "Bash(awk 'NR>=1150 && NR<=1175 && /public function/' app/Http/Controllers/Backend/AuctionAdminController.php)",
+      "Bash(awk -F: '$1<1187')",
+      "Bash(perl -0pi -e \"s/\\\\@click=\\\\\"sealedCommand\\\\\\('lot'\\\\\\)\\\\\"/\\\\@click=\\\\\"sealedDrawLot\\(\\)\\\\\"/g\" resources/views/backend/pages/auction/offline-panel.blade.php)",
+      "Bash(node -e ' *)",
+      "Bash(node --check /tmp/ticker_chunk.js)",
+      "Bash(node --check /tmp/fetch_chunk.js)",
+      "Bash(grep -n '\\\\$teams = ' -A25 app/Http/Controllers/PublicAuctionController.php)",
+      "Bash(grep -n \"player_image\\\\|brightness\\\\|contrast\\\\|adjustment\\\\|filter\" /Users/navasfazil/OrganizerPro/app/Services/Poster/*.php | head -50)",
+      "Bash(claude doctor 2>&1)",
+      "Bash(grep -l \"match_poster\\\\|TYPE_MATCH_POSTER\" /Users/navasfazil/OrganizerPro/database/seeders/*.php)",
+      "Bash(grep -n \"class TournamentTemplate\" /Users/navasfazil/OrganizerPro/app/Models/*.php)"
     ]
   }
 }

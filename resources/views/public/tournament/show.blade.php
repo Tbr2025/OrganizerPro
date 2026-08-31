@@ -166,7 +166,7 @@
         $regActuallyOpen = $playerOpen || $teamOpen;
         $isLive = in_array($tournament->status, ['active', 'ongoing']) || ($tournament->status === 'registration' && !$regActuallyOpen);
         $totalMatches = $tournament->matches()->where('is_cancelled', false)->count();
-        $completedMatches = $tournament->matches()->where('status', 'completed')->count();
+        $completedMatches = $tournament->matches()->where('status', 'completed')->whereHas('result')->count();
         $teamCount = \App\Models\ActualTeam::forTournament($tournament->id)->count();
 
         // Determine the most relevant non-open status for badge display

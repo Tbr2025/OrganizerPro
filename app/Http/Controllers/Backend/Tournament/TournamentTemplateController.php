@@ -352,9 +352,15 @@ class TournamentTemplateController extends Controller
             $request->validate([
                 'player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
                 'featured_player_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'man_of_the_match_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'best_batsman_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'best_bowler_image_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
                 'sponsor_logo_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
                 'sponsor_logo_2_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
                 'sponsor_logo_3_file' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:8192',
+                'image_adjustments' => 'nullable|array',
+                'image_adjustments.*.brightness' => 'nullable|integer|min:-50|max:50',
+                'image_adjustments.*.contrast' => 'nullable|integer|min:-50|max:50',
             ]);
 
             $templateId = $request->input('template_id');
@@ -420,6 +426,8 @@ class TournamentTemplateController extends Controller
                         'team_b_short_name' => $secondTeam?->short_name ?? $secondTeam?->name,
                         'team_a_logo' => $firstTeam?->team_logo,
                         'team_b_logo' => $secondTeam?->team_logo,
+                        'team_a_sponsor_logo' => $firstTeam?->sponsor_logo,
+                        'team_b_sponsor_logo' => $secondTeam?->sponsor_logo,
                         'match_date' => $match->match_date?->format('M d, Y'),
                         'match_date_day' => $match->match_date?->format('d'),
                         'match_date_month' => $match->match_date ? strtoupper($match->match_date->format('M')) : null,
@@ -638,6 +646,36 @@ class TournamentTemplateController extends Controller
                 }
             }
 
+            // Match Summary: handle uploaded award player images, overriding DB-sourced images.
+            if ($template->type === TournamentTemplate::TYPE_MATCH_SUMMARY) {
+                $summaryImageFields = [
+                    'man_of_the_match_image_file' => 'man_of_the_match_image',
+                    'best_batsman_image_file'     => 'best_batsman_image',
+                    'best_bowler_image_file'      => 'best_bowler_image',
+                ];
+
+                foreach ($summaryImageFields as $fileKey => $dataKey) {
+                    if ($request->hasFile($fileKey)) {
+                        $uploadedPath = $request->file($fileKey)->store('temp_previews', 'public');
+                        $data[$dataKey] = $uploadedPath;
+                        $tempFiles[] = $uploadedPath;
+                    }
+                }
+
+                // Per-image bg removal overrides
+                $summaryBgOverrides = [
+                    'man_of_the_match_image' => 'remove_bg_motm',
+                    'best_batsman_image'     => 'remove_bg_best_batsman',
+                    'best_bowler_image'      => 'remove_bg_best_bowler',
+                ];
+
+                foreach ($summaryBgOverrides as $placeholder => $requestKey) {
+                    if ($request->has($requestKey)) {
+                        $renderService->overrideBackgroundRemoval($placeholder, $request->boolean($requestKey));
+                    }
+                }
+            }
+
             // Handle fixtures_poster type — build fixture_area from upcoming matches
             if ($template->type === TournamentTemplate::TYPE_FIXTURES_POSTER) {
                 $fixtureCount = (int) $request->input('fixture_count', 5);
@@ -773,9 +811,11 @@ class TournamentTemplateController extends Controller
                     $data['lineup_team_name'] = $lineupTeam?->name ?? '';
                     $data['lineup_team_short_name'] = $lineupTeam?->short_name ?? $lineupTeam?->name ?? '';
                     $data['lineup_team_logo'] = $lineupTeam?->team_logo ?? '';
+                    $data['lineup_team_sponsor_logo'] = $lineupTeam?->sponsor_logo ?? '';
                     $data['opponent_team_name'] = $opponent?->name ?? '';
                     $data['opponent_team_short_name'] = $opponent?->short_name ?? $opponent?->name ?? '';
                     $data['opponent_team_logo'] = $opponent?->team_logo ?? '';
+                    $data['opponent_team_sponsor_logo'] = $opponent?->sponsor_logo ?? '';
                 }
             }
 
@@ -873,6 +913,18 @@ class TournamentTemplateController extends Controller
                     $uploadedPath = $request->file($fileKey)->store('temp_previews', 'public');
                     $data[$sponsorKey] = $uploadedPath;
                     $tempFiles[] = $uploadedPath;
+                }
+            }
+
+            // Per-placeholder image adjustments (brightness/contrast).
+            // Applies to all poster types — the generate page sends these for any
+            // image that has the adjustment sliders visible.
+            $imageAdjustments = $request->input('image_adjustments', []);
+            if (is_array($imageAdjustments)) {
+                foreach ($imageAdjustments as $placeholder => $values) {
+                    if (is_array($values)) {
+                        $renderService->overrideImageAdjustment($placeholder, $values);
+                    }
                 }
             }
 

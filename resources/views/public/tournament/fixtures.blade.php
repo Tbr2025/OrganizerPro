@@ -140,9 +140,9 @@
                 </div>
                 <div class="flex items-center gap-3">
                     @php
-                        $completedCount = $matches->where('status', 'completed')->count();
+                        $completedCount = $matches->filter(fn ($m) => $m->status === 'completed' && $m->result)->count();
                         $liveCount = $matches->where('status', 'live')->count();
-                        $upcomingCount = $matches->whereNotIn('status', ['completed', 'live'])->count();
+                        $upcomingCount = $matches->count() - $completedCount - $liveCount;
                     @endphp
                     @if($liveCount > 0)
                         <span class="stat-chip inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-red-400 border border-red-500/30">

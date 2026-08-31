@@ -305,11 +305,11 @@
 
                 {{-- Batting Table --}}
                 <div class="overflow-x-auto">
-                    <table class="w-full">
+                    <table class="w-full min-w-[600px]">
                         <thead>
                             <tr class="table-header text-xs uppercase tracking-wider text-gray-400">
-                                <th class="px-6 py-4 text-left font-semibold">Batter</th>
-                                <th class="px-4 py-4 text-left font-semibold">Dismissal</th>
+                                <th class="px-4 sm:px-6 py-4 text-left font-semibold">Batter</th>
+                                <th class="px-3 sm:px-4 py-4 text-left font-semibold">Dismissal</th>
                                 <th class="px-4 py-4 text-center font-semibold">R</th>
                                 <th class="px-4 py-4 text-center font-semibold">B</th>
                                 <th class="px-4 py-4 text-center font-semibold">4s</th>
@@ -384,10 +384,10 @@
                         </h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full min-w-[500px]">
                             <thead>
                                 <tr class="table-header text-xs uppercase tracking-wider text-gray-400">
-                                    <th class="px-6 py-3 text-left font-semibold">Bowler</th>
+                                    <th class="px-4 sm:px-6 py-3 text-left font-semibold">Bowler</th>
                                     <th class="px-4 py-3 text-center font-semibold">O</th>
                                     <th class="px-4 py-3 text-center font-semibold">M</th>
                                     <th class="px-4 py-3 text-center font-semibold">R</th>
@@ -451,11 +451,11 @@
 
                 {{-- Batting Table --}}
                 <div class="overflow-x-auto">
-                    <table class="w-full">
+                    <table class="w-full min-w-[600px]">
                         <thead>
                             <tr class="table-header text-xs uppercase tracking-wider text-gray-400">
-                                <th class="px-6 py-4 text-left font-semibold">Batter</th>
-                                <th class="px-4 py-4 text-left font-semibold">Dismissal</th>
+                                <th class="px-4 sm:px-6 py-4 text-left font-semibold">Batter</th>
+                                <th class="px-3 sm:px-4 py-4 text-left font-semibold">Dismissal</th>
                                 <th class="px-4 py-4 text-center font-semibold">R</th>
                                 <th class="px-4 py-4 text-center font-semibold">B</th>
                                 <th class="px-4 py-4 text-center font-semibold">4s</th>
@@ -530,10 +530,10 @@
                         </h3>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full">
+                        <table class="w-full min-w-[500px]">
                             <thead>
                                 <tr class="table-header text-xs uppercase tracking-wider text-gray-400">
-                                    <th class="px-6 py-3 text-left font-semibold">Bowler</th>
+                                    <th class="px-4 sm:px-6 py-3 text-left font-semibold">Bowler</th>
                                     <th class="px-4 py-3 text-center font-semibold">O</th>
                                     <th class="px-4 py-3 text-center font-semibold">M</th>
                                     <th class="px-4 py-3 text-center font-semibold">R</th>

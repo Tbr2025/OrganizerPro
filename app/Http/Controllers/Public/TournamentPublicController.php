@@ -35,11 +35,14 @@ class TournamentPublicController extends Controller
             ->limit(5)
             ->get();
 
-        // Get recent results
+        // Get recent results — only matches with an actual result record.
+        // A match can end up with status = 'completed' before a result is saved
+        // (e.g. manual status change), and showing it without scores is confusing.
         $recentResults = $tournament->matches()
             ->with(['teamA', 'teamB', 'result', 'winner'])
             ->published()
             ->where('status', 'completed')
+            ->whereHas('result')
             ->orderByDesc('match_date')
             ->limit(5)
             ->get();
