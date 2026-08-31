@@ -43,17 +43,56 @@ class PointTableService
     }
 
     /**
-     * Update point table after a match result is entered
+     * Update point table after a match result is entered.
+     *
+     * Always does a full recalculation so that re-saving or editing a result
+     * never double-counts matches.
      */
     public function updateFromMatchResult(Matches $match): void
     {
-        if (!$match->result) {
-            return;
+        $this->recalculatePointTable($match->tournament);
+    }
+
+    /**
+     * Recalculate entire point table from scratch
+     */
+    public function recalculatePointTable(Tournament $tournament): void
+    {
+        // Reset all entries
+        $tournament->pointTableEntries()->delete();
+
+        // Re-initialize
+        $this->initializePointTable($tournament);
+
+        // Process all completed group-stage matches with results
+        $matches = $tournament->matches()
+            ->with('result')
+            ->where('status', 'completed')
+            ->where('is_cancelled', false)
+            ->get();
+
+        $settings = $tournament->settings;
+
+        foreach ($matches as $match) {
+            if ($match->result && $match->isGroupStage()) {
+                $this->applyMatchResult($match, $settings);
+            }
         }
 
+        // Update all positions
+        foreach ($tournament->groups as $group) {
+            $this->updatePositions($tournament, $group->id);
+        }
+    }
+
+    /**
+     * Apply a single match result to the point table entries (incremental).
+     * Only called from recalculatePointTable to avoid double-counting.
+     */
+    private function applyMatchResult(Matches $match, $settings): void
+    {
         $result = $match->result;
         $tournament = $match->tournament;
-        $settings = $tournament->settings;
 
         $teamAEntry = $this->getOrCreateEntry($tournament, $match->tournament_group_id, $match->team_a_id);
         $teamBEntry = $this->getOrCreateEntry($tournament, $match->tournament_group_id, $match->team_b_id);
@@ -101,39 +140,6 @@ class PointTableService
 
         $teamAEntry->save();
         $teamBEntry->save();
-
-        // Update positions
-        $this->updatePositions($tournament, $match->tournament_group_id);
-    }
-
-    /**
-     * Recalculate entire point table from scratch
-     */
-    public function recalculatePointTable(Tournament $tournament): void
-    {
-        // Reset all entries
-        $tournament->pointTableEntries()->delete();
-
-        // Re-initialize
-        $this->initializePointTable($tournament);
-
-        // Process all completed matches
-        $matches = $tournament->matches()
-            ->with('result')
-            ->where('status', 'completed')
-            ->where('is_cancelled', false)
-            ->get();
-
-        foreach ($matches as $match) {
-            if ($match->result) {
-                $this->updateFromMatchResult($match);
-            }
-        }
-
-        // Update all positions
-        foreach ($tournament->groups as $group) {
-            $this->updatePositions($tournament, $group->id);
-        }
     }
 
     /**
