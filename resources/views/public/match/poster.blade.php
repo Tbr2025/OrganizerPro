@@ -21,113 +21,103 @@
                      class="w-full rounded-xl shadow-2xl border border-gray-700">
             </div>
         @else
-            {{-- HTML fallback poster --}}
-            <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl overflow-hidden border border-gray-700 shadow-2xl">
-                {{-- Tournament Header --}}
-                <div class="bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4 text-center">
-                    <h1 class="text-2xl font-bold text-gray-900">{{ $tournament->name }}</h1>
-                </div>
+            {{-- Match poster (HTML) --}}
+            <div class="poster-card relative rounded-2xl overflow-hidden shadow-2xl" style="aspect-ratio:1/1; background: linear-gradient(160deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);">
+                {{-- Background pattern --}}
+                <div class="absolute inset-0 opacity-[0.04]" style="background-image:radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size:24px 24px;"></div>
+                {{-- Accent glow behind VS --}}
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20" style="background:var(--accent);"></div>
 
-                {{-- Match Info --}}
-                <div class="p-8">
-                    {{-- Match Number & Stage --}}
-                    <div class="text-center mb-6">
-                        @if($match->stage && $match->stage !== 'group')
-                            <span class="bg-yellow-500 text-gray-900 px-4 py-1 rounded-full text-sm font-bold uppercase">
-                                {{ ucwords(str_replace('_', ' ', $match->stage)) }}
-                            </span>
-                        @elseif($match->match_number)
-                            <span class="text-gray-400">Match #{{ $match->match_number }}</span>
-                        @endif
-                    </div>
-
-                    {{-- Teams --}}
-                    <div class="flex items-center justify-between mb-8">
-                        {{-- Team A --}}
-                        <div class="text-center flex-1">
-                            @if($match->teamA?->team_logo)
-                                <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}"
-                                     class="h-28 w-28 object-contain mx-auto mb-4 drop-shadow-lg">
-                            @else
-                                <div class="h-28 w-28 bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                                    <span class="text-3xl font-bold">{{ substr($match->teamA?->display_name ?? 'TBA', 0, 3) }}</span>
-                                </div>
+                <div class="relative flex flex-col h-full p-6 sm:p-8">
+                    {{-- Top: Tournament branding + match badge --}}
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            @if($tournament->settings?->logo)
+                                <img src="{{ Storage::url($tournament->settings->logo) }}" alt="" class="h-10 w-10 object-contain rounded-lg">
                             @endif
-                            <h2 class="text-2xl font-bold text-white">{{ $match->teamA?->name ?? 'TBA' }}</h2>
-                            @if($match->teamA?->short_name)
-                                <p class="text-gray-400">({{ $match->teamA->short_name }})</p>
-                            @endif
-                        </div>
-
-                        {{-- VS --}}
-                        <div class="px-6">
-                            <div class="w-16 h-16 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg">
-                                <span class="text-xl font-bold text-gray-900">VS</span>
-                            </div>
-                        </div>
-
-                        {{-- Team B --}}
-                        <div class="text-center flex-1">
-                            @if($match->teamB?->team_logo)
-                                <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}"
-                                     class="h-28 w-28 object-contain mx-auto mb-4 drop-shadow-lg">
-                            @else
-                                <div class="h-28 w-28 bg-gray-700 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg">
-                                    <span class="text-3xl font-bold">{{ substr($match->teamB?->display_name ?? 'TBA', 0, 3) }}</span>
-                                </div>
-                            @endif
-                            <h2 class="text-2xl font-bold text-white">{{ $match->teamB?->name ?? 'TBA' }}</h2>
-                            @if($match->teamB?->short_name)
-                                <p class="text-gray-400">({{ $match->teamB->short_name }})</p>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- Match Details --}}
-                    <div class="bg-gray-800/50 rounded-xl p-6 space-y-4">
-                        {{-- Date & Time --}}
-                        <div class="flex items-center justify-center gap-6 text-center">
                             <div>
-                                <p class="text-gray-400 text-sm">Date</p>
-                                <p class="text-xl font-bold text-yellow-400">
-                                    {{ $match->match_date->format('l') }}
-                                </p>
-                                <p class="text-lg text-white">
-                                    {{ $match->match_date->format('F d, Y') }}
-                                </p>
-                            </div>
-                            @if($match->start_time)
-                                <div class="border-l border-gray-700 pl-6">
-                                    <p class="text-gray-400 text-sm">Time</p>
-                                    <p class="text-xl font-bold text-white">
-                                        {{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}
-                                    </p>
-                                </div>
-                            @endif
-                        </div>
-
-                        {{-- Venue --}}
-                        @if($match->ground)
-                            <div class="text-center pt-4 border-t border-gray-700">
-                                <p class="text-gray-400 text-sm">Venue</p>
-                                <p class="text-lg font-semibold text-white">{{ $match->ground->name }}</p>
-                                @if($match->ground->address)
-                                    <p class="text-sm text-gray-400">{{ $match->ground->address }}</p>
+                                <p class="text-sm font-bold text-white leading-tight">{{ $tournament->name }}</p>
+                                @if($tournament->settings?->overs_per_match)
+                                    <p class="text-[11px] text-gray-400">{{ $tournament->settings->overs_per_match }} Overs</p>
                                 @endif
                             </div>
+                        </div>
+                        @if($match->match_number || ($match->stage && $match->stage !== 'group'))
+                            <span class="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border"
+                                  style="color:var(--accent); border-color:rgba(var(--accent-rgb),0.3); background:rgba(var(--accent-rgb),0.1);">
+                                @if($match->stage && $match->stage !== 'group')
+                                    {{ ucwords(str_replace('_', ' ', $match->stage)) }}
+                                @else
+                                    Match {{ $match->match_number }}
+                                @endif
+                            </span>
                         @endif
                     </div>
-                </div>
 
-                {{-- Footer --}}
-                <div class="bg-gray-900 px-6 py-3 text-center">
-                    <p class="text-gray-500 text-sm">
-                        @if($tournament->settings?->overs_per_match)
-                            {{ $tournament->settings->overs_per_match }} Overs Match
-                        @else
-                            {{ $tournament->name }}
-                        @endif
-                    </p>
+                    {{-- Center: Teams vs Teams (grows to fill) --}}
+                    <div class="flex-1 flex items-center justify-center">
+                        <div class="flex items-center gap-4 sm:gap-8 w-full max-w-lg">
+                            {{-- Team A --}}
+                            <div class="flex-1 text-center">
+                                @if($match->teamA?->team_logo)
+                                    <img src="{{ Storage::url($match->teamA->team_logo) }}" alt="{{ $match->teamA->name }}"
+                                         class="w-24 h-24 sm:w-32 sm:h-32 object-contain mx-auto mb-3 drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                                @else
+                                    <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-3 flex items-center justify-center border-2 border-white/10"
+                                         style="background:rgba(var(--accent-rgb),0.15);">
+                                        <span class="text-3xl sm:text-4xl font-black" style="color:var(--accent);">{{ strtoupper(substr($match->teamA?->short_name ?? $match->teamA?->name ?? 'TBA', 0, 3)) }}</span>
+                                    </div>
+                                @endif
+                                <h2 class="text-lg sm:text-xl font-extrabold text-white leading-tight">{{ $match->teamA?->short_name ?? $match->teamA?->name ?? 'TBA' }}</h2>
+                            </div>
+
+                            {{-- VS --}}
+                            <div class="shrink-0">
+                                <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center shadow-lg"
+                                     style="background:linear-gradient(135deg, var(--accent), var(--accent-dark)); box-shadow:0 0 30px rgba(var(--accent-rgb),0.3);">
+                                    <span class="text-lg sm:text-xl font-black text-gray-900">VS</span>
+                                </div>
+                            </div>
+
+                            {{-- Team B --}}
+                            <div class="flex-1 text-center">
+                                @if($match->teamB?->team_logo)
+                                    <img src="{{ Storage::url($match->teamB->team_logo) }}" alt="{{ $match->teamB->name }}"
+                                         class="w-24 h-24 sm:w-32 sm:h-32 object-contain mx-auto mb-3 drop-shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+                                @else
+                                    <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-3 flex items-center justify-center border-2 border-white/10"
+                                         style="background:rgba(var(--accent-rgb),0.15);">
+                                        <span class="text-3xl sm:text-4xl font-black" style="color:var(--accent);">{{ strtoupper(substr($match->teamB?->short_name ?? $match->teamB?->name ?? 'TBA', 0, 3)) }}</span>
+                                    </div>
+                                @endif
+                                <h2 class="text-lg sm:text-xl font-extrabold text-white leading-tight">{{ $match->teamB?->short_name ?? $match->teamB?->name ?? 'TBA' }}</h2>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Bottom: Match details --}}
+                    <div class="rounded-xl p-4 sm:p-5 mt-4" style="background:rgba(0,0,0,0.3); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.06);">
+                        <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-center">
+                            <div>
+                                <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Date</p>
+                                <p class="text-sm font-bold" style="color:var(--accent);">{{ $match->match_date->format('D, M d Y') }}</p>
+                            </div>
+                            @if($match->start_time)
+                                <div class="w-px h-8 bg-white/10 hidden sm:block"></div>
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Time</p>
+                                    <p class="text-sm font-bold text-white">{{ \Carbon\Carbon::parse($match->start_time)->format('h:i A') }}</p>
+                                </div>
+                            @endif
+                            @if($match->ground)
+                                <div class="w-px h-8 bg-white/10 hidden sm:block"></div>
+                                <div>
+                                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Venue</p>
+                                    <p class="text-sm font-bold text-white">{{ $match->ground->name }}</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
                 </div>
             </div>
         @endif

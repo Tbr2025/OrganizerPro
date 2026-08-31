@@ -4,9 +4,6 @@ namespace App\Http\Controllers\Public;
 
 use App\Http\Controllers\Controller;
 use App\Models\Matches;
-use App\Models\TournamentTemplate;
-use App\Services\Poster\EnhancedMatchPosterService;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class MatchPublicController extends Controller
@@ -59,30 +56,9 @@ class MatchPublicController extends Controller
             'ground',
         ]);
 
-        $tournament = $match->tournament;
-
-        /*
-         * Auto-generate the poster from the tournament's default template when no
-         * pre-generated image exists. The result is saved on the match record so
-         * subsequent views serve the cached file without re-rendering.
-         */
-        if (! $match->poster_image || ! Storage::disk('public')->exists($match->poster_image)) {
-            $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
-
-            if ($template && $template->background_image && Storage::disk('public')->exists($template->background_image)) {
-                try {
-                    $service = new EnhancedMatchPosterService();
-                    $service->generateFromTemplate($match, $template);
-                    $match->refresh();
-                } catch (\Throwable $e) {
-                    report($e);
-                }
-            }
-        }
-
         return view('public.match.poster', [
             'match' => $match,
-            'tournament' => $tournament,
+            'tournament' => $match->tournament,
         ]);
     }
 
