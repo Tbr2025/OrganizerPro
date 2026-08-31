@@ -215,7 +215,7 @@ class PointTableService
             $query->where('tournament_group_id', $groupId);
         }
 
-        return $query->orderBy('position')->get();
+        return $query->ranked()->get();
     }
 
     /**
