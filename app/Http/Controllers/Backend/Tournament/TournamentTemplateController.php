@@ -1024,6 +1024,43 @@ class TournamentTemplateController extends Controller
     }
 
     /**
+     * Set a generated poster as a match's public poster image
+     */
+    public function setMatchPoster(Tournament $tournament, GeneratedPoster $poster, Request $request)
+    {
+        abort_if($poster->tournament_id !== $tournament->id, 404);
+
+        $request->validate(['match_id' => 'required|exists:matches,id']);
+
+        $match = Matches::where('id', $request->match_id)
+            ->where('tournament_id', $tournament->id)
+            ->firstOrFail();
+
+        // Copy the generated poster to match_posters directory so it persists independently
+        $ext = pathinfo($poster->image_path, PATHINFO_EXTENSION) ?: 'png';
+        $filename = 'match-poster-' . $match->id . '-' . now()->format('YmdHis') . '.' . $ext;
+        $destPath = 'match_posters/' . $filename;
+
+        if (Storage::disk('public')->exists($poster->image_path)) {
+            Storage::disk('public')->copy($poster->image_path, $destPath);
+        } else {
+            return response()->json(['success' => false, 'error' => 'Poster image file not found.'], 404);
+        }
+
+        // Delete old poster image if it exists
+        if ($match->poster_image && Storage::disk('public')->exists($match->poster_image)) {
+            Storage::disk('public')->delete($match->poster_image);
+        }
+
+        $match->update(['poster_image' => $destPath]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Poster set for ' . ($match->teamA?->short_name ?? 'TBA') . ' vs ' . ($match->teamB?->short_name ?? 'TBA'),
+        ]);
+    }
+
+    /**
      * Get match awards for award poster generation (AJAX)
      */
     public function getMatchAwards(Tournament $tournament, Matches $match)

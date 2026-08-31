@@ -1369,6 +1369,11 @@
                                 <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                                 Download
                             </a>
+                            @if($poster->type === 'match_poster')
+                                <button onclick="_setAsMatchPoster({{ $poster->id }}, this)" class="px-2 py-1 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 rounded-lg text-[10px] font-semibold hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition" title="Set as public match poster">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+                                </button>
+                            @endif
                             <button @click="deletePoster({{ $poster->id }}, $el)" class="px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-lg text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                             </button>
@@ -1670,6 +1675,49 @@ function _deletePosterById(id, el) {
     .catch(err => console.error('Delete failed:', err));
 }
 
+function _setAsMatchPoster(posterId, btn) {
+    const matchSelect = document.getElementById('matchSelect');
+    const matchId = matchSelect?.value;
+    if (!matchId) {
+        alert('Please select a match first');
+        return;
+    }
+    const matchName = matchSelect.options[matchSelect.selectedIndex]?.text?.trim() || 'this match';
+    if (!confirm(`Set this poster as the public poster for ${matchName}?`)) return;
+
+    const origHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>';
+
+    fetch(`{{ url('admin/tournaments/' . $tournament->id) }}/generated-posters/${posterId}/set-match-poster`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ match_id: matchId }),
+    })
+    .then(r => r.json())
+    .then(result => {
+        btn.disabled = false;
+        if (result.success) {
+            btn.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+            setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+            alert(result.message || 'Poster set successfully!');
+        } else {
+            btn.innerHTML = origHtml;
+            alert(result.error || 'Failed to set poster');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+        console.error('Set match poster failed:', err);
+        alert('Failed to set poster: ' + err.message);
+    });
+}
+
 function _viewPoster(url, label) {
     const galleryEl = document.querySelector('[x-data]');
     // Find the posterGallery Alpine instance
@@ -1725,6 +1773,9 @@ function addPosterToGallery(data) {
                     <svg class="w-3 h-3 inline mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
                     Download
                 </a>
+                ${data.poster_type === 'match_poster' ? `<button onclick="_setAsMatchPoster(${data.poster_id}, this)" class="px-2 py-1 bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 rounded-lg text-[10px] font-semibold hover:bg-cyan-100 dark:hover:bg-cyan-900/50 transition" title="Set as public match poster">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/></svg>
+                </button>` : ''}
                 <button onclick="_deletePosterById(${data.poster_id}, this)" class="px-2 py-1 bg-red-50 dark:bg-red-900/30 text-red-500 rounded-lg text-[10px] font-semibold hover:bg-red-100 dark:hover:bg-red-900/50 transition">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>

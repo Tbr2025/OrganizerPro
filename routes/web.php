@@ -1349,6 +1349,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
             Route::post('/templates/toggle-auto-welcome', [TournamentTemplateController::class, 'toggleAutoWelcome'])->name('templates.toggle-auto-welcome');
             Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
+            Route::post('/generated-posters/{poster}/set-match-poster', [TournamentTemplateController::class, 'setMatchPoster'])->name('generated-posters.set-match-poster');
         });
 
         // Banners / Ads
