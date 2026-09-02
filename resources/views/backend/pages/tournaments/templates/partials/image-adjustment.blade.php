@@ -1,6 +1,10 @@
 {{--
-    Reusable image adjustment component (brightness/contrast + presets).
-    Used on award_poster, playing_xi, and match_summary generate panels.
+    Reusable per-image controls: brightness/contrast (+ presets) and mirroring.
+    Used on match_poster, award_poster, playing_xi and match_summary generate panels.
+
+    The mirror toggles carry their own hidden input (flip_<placeholder>), which
+    collectData() picks up generically — so including this partial anywhere is
+    enough to make flipping work for that placeholder.
 
     @param string $placeholder  The image placeholder name (e.g. 'player_image', 'featured_player_image')
 --}}
@@ -46,4 +50,29 @@
             </button>
         </template>
     </div>
+
+    {{-- Mirroring: turns a player shot facing one way to face the other side --}}
+    <div class="mt-2.5 pt-2.5 border-t border-gray-200 dark:border-gray-700">
+        <span class="block text-[11px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1.5">Orientation</span>
+        <div class="flex items-center gap-1.5">
+            <button type="button" @click="flipH = !flipH; syncHidden()"
+                    :class="flipH
+                        ? 'bg-cyan-500 text-white border-cyan-500'
+                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-cyan-400'"
+                    class="flex-1 inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border text-[11px] font-medium transition"
+                    title="Mirror left-to-right">
+                <i class="fas fa-arrows-alt-h text-[11px]"></i> Mirror
+            </button>
+            <button type="button" @click="flipV = !flipV; syncHidden()"
+                    :class="flipV
+                        ? 'bg-cyan-500 text-white border-cyan-500'
+                        : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-cyan-400'"
+                    class="inline-flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md border text-[11px] font-medium transition"
+                    title="Flip top-to-bottom">
+                <i class="fas fa-arrows-alt-v text-[11px]"></i>
+            </button>
+        </div>
+    </div>
+
+    <input type="hidden" id="flip_{{ $placeholder }}" value="">
 </div>

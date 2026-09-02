@@ -39,6 +39,19 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected array $imageAdjustmentOverrides = [];
 
+    /**
+     * Per-placeholder mirroring, set by the caller for THIS render.
+     *
+     * Head-to-head posters put one player on each side, but team artwork is
+     * usually shot facing the same way — so the right-hand player ends up
+     * facing off the edge of the poster. Keyed by placeholder so mirroring the
+     * away captain cannot also mirror a sponsor logo (which would reverse its
+     * lettering). Each entry is ['horizontal' => bool, 'vertical' => bool].
+     *
+     * @var array<string, array{horizontal: bool, vertical: bool}>
+     */
+    protected array $imageFlipOverrides = [];
+
     /** Memoized font registry for resolving installed fonts to TTF files. */
     protected ?\App\Services\Fonts\FontService $fontService = null;
 
@@ -72,6 +85,28 @@ class TemplateRenderService extends PosterGeneratorService
             $this->imageAdjustmentOverrides[$placeholder] = [
                 'brightness' => max(-50, min(50, (int) ($adjustment['brightness'] ?? 6))),
                 'contrast'   => max(-50, min(50, (int) ($adjustment['contrast'] ?? -14))),
+            ];
+        }
+
+        return $this;
+    }
+
+    /**
+     * Mirror one placeholder's image for this render.
+     *
+     * `null` (or both axes false) clears the override.
+     */
+    public function overrideImageFlip(string $placeholder, ?array $flip): static
+    {
+        $horizontal = (bool) ($flip['horizontal'] ?? false);
+        $vertical = (bool) ($flip['vertical'] ?? false);
+
+        if ($flip === null || (! $horizontal && ! $vertical)) {
+            unset($this->imageFlipOverrides[$placeholder]);
+        } else {
+            $this->imageFlipOverrides[$placeholder] = [
+                'horizontal' => $horizontal,
+                'vertical' => $vertical,
             ];
         }
 
@@ -789,6 +824,13 @@ class TemplateRenderService extends PosterGeneratorService
             $storagePath = $this->enhancePlayerImage($storagePath, $brightness, $contrast);
         }
 
+        // Mirroring runs last, on whatever the cut-out/enhance chain produced, so
+        // it mirrors the pixels that actually get drawn — flipping first would
+        // leave the enhance cache keyed on an un-mirrored path.
+        if (isset($this->imageFlipOverrides[$placeholder])) {
+            $storagePath = $this->flipImage($storagePath, $this->imageFlipOverrides[$placeholder]);
+        }
+
         // Load source image to get actual dimensions for aspect ratio
         $srcImage = $this->loadBackground($storagePath);
         if (!$srcImage) {
@@ -815,6 +857,13 @@ class TemplateRenderService extends PosterGeneratorService
         $drawX = (int) ($x - $drawWidth / 2);
         $drawY = (int) ($y - $drawHeight / 2);
 
+        // Photographs lose perceived detail on the way down to poster size; flat
+        // graphics (crests, sponsor logos) get halos from the same treatment, so
+        // only person placeholders are sharpened. Keyed off the placeholder name
+        // rather than shouldRemoveBackground(), so switching the cut-out off for
+        // an already-transparent upload does not also switch sharpening off.
+        $sharpen = $this->isPersonPlaceholder($placeholder);
+
         if ($opacity < 100) {
             // Render with opacity using temp canvas approach
             $this->renderImageWithOpacity($canvas, $storagePath, $drawX, $drawY, $drawWidth, $drawHeight, $opacity, $borderRadius >= 50 ? $x : null, $borderRadius >= 50 ? $y : null);
@@ -822,7 +871,63 @@ class TemplateRenderService extends PosterGeneratorService
             $diameter = min($drawWidth, $drawHeight);
             $this->addCircularImage($canvas, $storagePath, $x, $y, $diameter);
         } else {
-            $this->addImage($canvas, $storagePath, $drawX, $drawY, $drawWidth, $drawHeight);
+            $this->addImage($canvas, $storagePath, $drawX, $drawY, $drawWidth, $drawHeight, $sharpen);
+        }
+    }
+
+    /**
+     * Return a mirrored copy of an image, cached on the public disk.
+     *
+     * Cached by source path + mtime + axes so repeated generations of the same
+     * poster do not re-flip, and so editing the source photo busts the cache.
+     * Falls back to the original path on any failure — a poster that renders
+     * un-mirrored is far better than one that fails to render.
+     */
+    protected function flipImage(string $storagePath, array $flip): string
+    {
+        try {
+            $horizontal = (bool) ($flip['horizontal'] ?? false);
+            $vertical = (bool) ($flip['vertical'] ?? false);
+
+            if (! $horizontal && ! $vertical) {
+                return $storagePath;
+            }
+
+            if (! Storage::disk('public')->exists($storagePath)) {
+                return $storagePath;
+            }
+
+            $fullSource = Storage::disk('public')->path($storagePath);
+            $cacheDir = 'poster-cache/flipped';
+            $key = md5($storagePath . '|' . @filemtime($fullSource) . '|h' . (int) $horizontal . 'v' . (int) $vertical);
+            $cachePath = $cacheDir . '/' . $key . '.png';
+
+            if (Storage::disk('public')->exists($cachePath)) {
+                return $cachePath;
+            }
+
+            $img = $this->loadBackground($storagePath);
+            if (! $img) {
+                return $storagePath;
+            }
+
+            imagealphablending($img, false);
+            imagesavealpha($img, true);
+            app(\App\Services\PlayerImageService::class)->flip($img, $horizontal, $vertical);
+
+            Storage::disk('public')->makeDirectory($cacheDir);
+            $tmp = tempnam(sys_get_temp_dir(), 'flip') . '.png';
+            imagepng($img, $tmp);
+            imagedestroy($img);
+
+            Storage::disk('public')->put($cachePath, file_get_contents($tmp));
+            @unlink($tmp);
+
+            return $cachePath;
+        } catch (\Throwable $e) {
+            \Log::warning('Player image flip failed: ' . $e->getMessage());
+
+            return $storagePath;
         }
     }
 
@@ -837,13 +942,8 @@ class TemplateRenderService extends PosterGeneratorService
         $srcWidth = imagesx($srcImage);
         $srcHeight = imagesy($srcImage);
 
-        // Create resized image
-        $resized = imagecreatetruecolor($width, $height);
-        imagealphablending($resized, false);
-        imagesavealpha($resized, true);
+        $resized = app(\App\Services\PlayerImageService::class)->downscale($srcImage, $width, $height);
         $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
-        imagefill($resized, 0, 0, $transparent);
-        imagecopyresampled($resized, $srcImage, 0, 0, 0, 0, $width, $height, $srcWidth, $srcHeight);
         imagedestroy($srcImage);
 
         // Apply circular mask if needed
@@ -1946,7 +2046,20 @@ class TemplateRenderService extends PosterGeneratorService
             return $this->backgroundRemovalOverrides[$placeholder];
         }
 
-        $bgRemovalPlaceholders = [
+        return $this->isPersonPlaceholder($placeholder);
+    }
+
+    /**
+     * Whether a placeholder holds a photograph of a person.
+     *
+     * Drives two separate decisions — background cut-out and sharpening — which
+     * is why it is not folded into shouldRemoveBackground(): the organizer can
+     * turn the cut-out off for a photo that is already transparent, and that
+     * must not also turn off sharpening.
+     */
+    protected function isPersonPlaceholder(string $placeholder): bool
+    {
+        return in_array($placeholder, [
             'player_image',
             'player_photo',
             'team_a_captain_image',
@@ -1957,9 +2070,7 @@ class TemplateRenderService extends PosterGeneratorService
             'best_bowler_image',
             'award_player_image',
             'featured_player_image',
-        ];
-
-        return in_array($placeholder, $bgRemovalPlaceholders);
+        ], true);
     }
 
     /**

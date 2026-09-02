@@ -883,6 +883,16 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/players/remove-background', [PlayerController::class, 'removeBackground'])->name('players.removeBackground');
 
     /*
+     * Quick photo replacement, outside the player edit form.
+     * Registered before Route::resource('players') so "{player}/photo" is not
+     * swallowed by the resource's own patterns.
+     */
+    Route::post('/players/{player}/photo', [PlayerImageProcessController::class, 'replacePlayerPhoto'])
+        ->name('players.replace-photo');
+    Route::post('/actual-teams/{actualTeam}/captain-photo', [PlayerImageProcessController::class, 'replaceCaptainPhoto'])
+        ->name('actual-teams.replace-captain-photo');
+
+    /*
      * Registered BEFORE the resource, because `Route::resource` gives it
      * `GET /players/{player}` — a pattern that matches the literal segment
      * "export-xlsx" and then 404s on binding a player with that id. That is the

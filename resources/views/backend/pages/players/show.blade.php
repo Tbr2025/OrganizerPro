@@ -411,6 +411,20 @@
                 </div>
                 @endif
 
+                {{-- Replace the photo without going through the edit form, whose
+                     photo field can be hidden by per-tournament form config. --}}
+                @if(!$isTeamManagerView)
+                <div class="mt-4 max-w-md">
+                    <x-player-photo-replace
+                        :save-url="route('admin.players.replace-photo', $player)"
+                        :existing-image="$player->image_path"
+                        mode="player"
+                        label="Replace Player Photo"
+                        hint="Crop, optionally cut out the background, then save. Used on generated posters."
+                    />
+                </div>
+                @endif
+
                 {{-- Dynamic Field Sections (driven by PlayerFormConfig) --}}
                 @foreach($layout as $section)
                     @php

@@ -152,9 +152,38 @@
                             @enderror
                         </div>
 
-                        {{-- Captain Image Upload --}}
+                        {{-- Captain Image Upload — this is the image match posters draw --}}
                         <div>
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain / Featured Player Image</label>
+
+                            @php
+                                // A match poster slot is ~715px on a 1080x1350 canvas, so artwork
+                                // under ~1000px tall gets enlarged at render time and looks soft.
+                                $captainDims = null;
+                                if ($actualTeam->captain_image && Storage::disk('public')->exists($actualTeam->captain_image)) {
+                                    $info = @getimagesize(Storage::disk('public')->path($actualTeam->captain_image));
+                                    if ($info) {
+                                        $captainDims = ['width' => $info[0], 'height' => $info[1]];
+                                    }
+                                }
+                            @endphp
+
+                            @if($captainDims)
+                                <div class="mb-2 flex items-center gap-2 text-[11px]">
+                                    <span class="font-mono px-2 py-0.5 rounded
+                                        {{ $captainDims['height'] < 1000
+                                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                            : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' }}">
+                                        {{ $captainDims['width'] }}&times;{{ $captainDims['height'] }}
+                                    </span>
+                                    @if($captainDims['height'] < 1000)
+                                        <span class="text-amber-700 dark:text-amber-400">
+                                            Too small for a sharp poster — upload at least {{ \App\Services\PlayerImageService::MAX_HEIGHT }}px tall.
+                                        </span>
+                                    @endif
+                                </div>
+                            @endif
+
                             <x-player-image-upload
                                 name="captain_image"
                                 :existingImage="$actualTeam->captain_image"

@@ -11,6 +11,7 @@ use App\Models\PlayerType;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\CustomVerifyEmail;
+use App\Services\PlayerImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -155,42 +156,10 @@ class PublicPlayerController extends Controller
         }
 
         try {
-            // ✅ Resize by width only (425px), maintain aspect ratio
-            $targetWidth = 425;
-
-            // Load source image
-            $sourceImage = imagecreatefrompng($outputPath);
-            list($sourceWidth, $sourceHeight) = getimagesize($outputPath);
-
-            // Calculate height to maintain aspect ratio
-            $aspectRatio = $sourceHeight / $sourceWidth;
-            $targetHeight = intval($targetWidth * $aspectRatio);
-
-            // Create blank canvas
-            $resizedImage = imagecreatetruecolor($targetWidth, $targetHeight);
-            imagealphablending($resizedImage, false);
-            imagesavealpha($resizedImage, true);
-
-            // Resize
-            imagecopyresampled(
-                $resizedImage,
-                $sourceImage,
-                0,
-                0,
-                0,
-                0,
-                $targetWidth,
-                $targetHeight,
-                $sourceWidth,
-                $sourceHeight
-            );
-
-            // Save resized image
-            imagepng($resizedImage, $outputPath);
-
-            // Clean up
-            imagedestroy($resizedImage);
-            imagedestroy($sourceImage);
+            // Cap the cut-out at poster resolution. This used to force every photo
+            // to 425px wide, which the 1080x1350 poster renderer then had to
+            // upscale ~2.5x — the reason generated posters looked soft.
+            app(PlayerImageService::class)->capSize($outputPath);
         } catch (\Throwable $e) {
             Log::error("Resizing failed: " . $e->getMessage());
             return back()->withInput()->withErrors(['image' => 'Image resizing failed.']);

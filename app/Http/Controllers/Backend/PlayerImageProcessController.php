@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\RemoveImageBackground;
+use App\Models\ActualTeam;
+use App\Models\Player;
+use App\Services\PlayerImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -43,9 +46,11 @@ class PlayerImageProcessController extends Controller
         $outputPath = $dir . '/' . $outputFilename;
         file_put_contents($outputPath, $imageData);
 
-        // Enforce 3:4 aspect ratio via center-crop, then resize
+        // Enforce 3:4 aspect ratio via center-crop, then cap at poster resolution.
+        // A full-bleed player slot on a 1080x1350 poster asks for ~1000x1350 of
+        // artwork, so the old 800x1067 ceiling still meant the renderer upscaled.
         $this->enforceAspectRatio($outputPath, 3, 4);
-        $this->resizeImage($outputPath, 800, 1067);
+        app(PlayerImageService::class)->capSize($outputPath);
 
         $relativePath = 'player_images/' . $outputFilename;
 
@@ -64,6 +69,114 @@ class PlayerImageProcessController extends Controller
             'url' => Storage::url($relativePath),
             'bgProcessing' => $needsBgRemoval,
         ]);
+    }
+
+    /**
+     * Replace a player's stored photo with an already-processed upload.
+     *
+     * The cropper posts the file to process() first, which crops, caps it at
+     * poster resolution and queues background removal; this action just points
+     * the player at the result. Split that way so replacing a photo needs no
+     * trip through the full player edit form, whose field visibility is driven
+     * by per-tournament form config and can hide the photo field entirely.
+     *
+     * The superseded file is left on disk on purpose. Nothing guarantees it is
+     * referenced only here — a team's captain_image and a player's image_path
+     * both point into player_images/ and can name the same file — so deleting
+     * it would blank the other record's photo. A stray PNG is the cheaper bug.
+     */
+    public function replacePlayerPhoto(Request $request, Player $player): JsonResponse
+    {
+        $path = $this->validateProcessedPath($request);
+
+        if ($path === null) {
+            return response()->json(['success' => false, 'message' => 'Processed image not found. Please re-upload.'], 422);
+        }
+
+        $previous = $player->image_path;
+        $player->update(['image_path' => $path]);
+
+        $this->forgetPosterCache($previous, $path);
+
+        return response()->json([
+            'success' => true,
+            'path' => $path,
+            'url' => Storage::url($path) . '?t=' . time(),
+        ]);
+    }
+
+    /**
+     * Replace a team's captain / featured-player image the same way.
+     *
+     * This is the image match posters draw, so it is the one organisers most
+     * often need to swap late — after a player changes kit, or when the first
+     * upload turned out too small to render sharply.
+     */
+    public function replaceCaptainPhoto(Request $request, ActualTeam $actualTeam): JsonResponse
+    {
+        $path = $this->validateProcessedPath($request);
+
+        if ($path === null) {
+            return response()->json(['success' => false, 'message' => 'Processed image not found. Please re-upload.'], 422);
+        }
+
+        $previous = $actualTeam->captain_image;
+        $actualTeam->update(['captain_image' => $path]);
+
+        $this->forgetPosterCache($previous, $path);
+
+        return response()->json([
+            'success' => true,
+            'path' => $path,
+            'url' => Storage::url($path) . '?t=' . time(),
+        ]);
+    }
+
+    /**
+     * Confirm the posted path really is a file this controller just wrote.
+     *
+     * Without the prefix check the path is attacker-controlled and would let
+     * any authenticated admin point a player record at an arbitrary file on
+     * the public disk.
+     */
+    private function validateProcessedPath(Request $request): ?string
+    {
+        $validated = $request->validate([
+            'path' => 'required|string|max:500',
+        ]);
+
+        $path = ltrim($validated['path'], '/');
+
+        if (! str_starts_with($path, 'player_images/') || str_contains($path, '..')) {
+            return null;
+        }
+
+        return Storage::disk('public')->exists($path) ? $path : null;
+    }
+
+    /**
+     * Drop cached poster derivatives of an image that is being replaced.
+     *
+     * enhancePlayerImage() and flipImage() key their caches on path + mtime, so
+     * a *new* file gets a new key on its own — but the cut-out written next to
+     * the original ("-nobg.png") is keyed on the path alone and would otherwise
+     * be reused for whatever ends up at that path later.
+     */
+    private function forgetPosterCache(?string $previous, string $current): void
+    {
+        // Re-saving without picking a new file posts the path already stored;
+        // there is nothing stale to drop, and binning a good cut-out would just
+        // make the next poster pay to regenerate it.
+        if (! $previous || $previous === $current) {
+            return;
+        }
+
+        $path = $previous;
+
+        $info = pathinfo($path);
+        $noBg = ($info['dirname'] ?? '.') . '/' . ($info['filename'] ?? '') . '-nobg.png';
+
+        Storage::disk('public')->delete([$noBg, $path . '.done']);
     }
 
     /**
@@ -178,40 +291,4 @@ class PlayerImageProcessController extends Controller
         imagedestroy($croppedImage);
     }
 
-    /**
-     * Resize an image to fit within max dimensions, preserving aspect ratio and transparency.
-     */
-    private function resizeImage(string $path, int $maxWidth, int $maxHeight): void
-    {
-        $sourceImage = imagecreatefrompng($path);
-        if (! $sourceImage) {
-            // Try loading as JPEG
-            $sourceImage = imagecreatefromjpeg($path);
-            if (! $sourceImage) {
-                return;
-            }
-        }
-
-        $origWidth = imagesx($sourceImage);
-        $origHeight = imagesy($sourceImage);
-
-        // Only resize if larger than max
-        if ($origWidth <= $maxWidth && $origHeight <= $maxHeight) {
-            imagedestroy($sourceImage);
-            return;
-        }
-
-        $scale = min($maxWidth / $origWidth, $maxHeight / $origHeight);
-        $newWidth = (int)($origWidth * $scale);
-        $newHeight = (int)($origHeight * $scale);
-
-        $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-        imagealphablending($resizedImage, false);
-        imagesavealpha($resizedImage, true);
-        imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
-        imagepng($resizedImage, $path);
-
-        imagedestroy($sourceImage);
-        imagedestroy($resizedImage);
-    }
 }

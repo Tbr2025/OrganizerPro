@@ -11,6 +11,7 @@ use App\Models\PlayerLocation;
 use App\Models\PlayerType;
 use App\Mail\PlayerJoinRequestMail;
 use App\Notifications\GeneralNotification;
+use App\Services\PlayerImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -138,24 +139,9 @@ class PublicTeamJoinController extends Controller
                 if (File::exists($outputPath)) {
                     File::delete($inputPath);
 
-                    // Resize while preserving transparency
-                    $sourceImage = imagecreatefrompng($outputPath);
-                    $origWidth = imagesx($sourceImage);
-                    $origHeight = imagesy($sourceImage);
-
-                    $targetWidth = 425;
-                    $scale = $targetWidth / $origWidth;
-                    $newWidth = $targetWidth;
-                    $newHeight = (int)($origHeight * $scale);
-
-                    $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-                    imagealphablending($resizedImage, false);
-                    imagesavealpha($resizedImage, true);
-                    imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
-                    imagepng($resizedImage, $outputPath);
-
-                    imagedestroy($sourceImage);
-                    imagedestroy($resizedImage);
+                    // Cap at poster resolution, preserving transparency. The old
+                    // fixed 425px width forced the poster renderer to upscale.
+                    app(PlayerImageService::class)->capSize($outputPath);
 
                     $data['image_path'] = 'player_images/' . $outputFilename;
                 } else {

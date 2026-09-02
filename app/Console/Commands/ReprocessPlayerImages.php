@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Player;
+use App\Services\PlayerImageService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -65,24 +66,8 @@ class ReprocessPlayerImages extends Command
             $output = shell_exec($command);
 
             if (File::exists($outputPath)) {
-                // Resize to 425px width preserving transparency
-                $sourceImage = imagecreatefrompng($outputPath);
-                $origWidth = imagesx($sourceImage);
-                $origHeight = imagesy($sourceImage);
-
-                $targetWidth = 425;
-                $scale = $targetWidth / $origWidth;
-                $newWidth = $targetWidth;
-                $newHeight = (int)($origHeight * $scale);
-
-                $resizedImage = imagecreatetruecolor($newWidth, $newHeight);
-                imagealphablending($resizedImage, false);
-                imagesavealpha($resizedImage, true);
-                imagecopyresampled($resizedImage, $sourceImage, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
-                imagepng($resizedImage, $outputPath);
-
-                imagedestroy($sourceImage);
-                imagedestroy($resizedImage);
+                // Cap at poster resolution, preserving transparency.
+                app(PlayerImageService::class)->capSize($outputPath);
 
                 // Delete old image
                 File::delete($inputPath);

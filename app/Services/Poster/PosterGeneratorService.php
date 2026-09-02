@@ -138,7 +138,8 @@ abstract class PosterGeneratorService
         int $x,
         int $y,
         ?int $width = null,
-        ?int $height = null
+        ?int $height = null,
+        bool $sharpen = false
     ): void {
         $overlayImage = $this->loadBackground($imagePath);
 
@@ -159,20 +160,14 @@ abstract class PosterGeneratorService
             $height = $srcHeight;
         }
 
-        // Create resized image with transparency
-        $resized = imagecreatetruecolor($width, $height);
-        imagealphablending($resized, false);
-        imagesavealpha($resized, true);
-        $transparent = imagecolorallocatealpha($resized, 0, 0, 0, 127);
-        imagefill($resized, 0, 0, $transparent);
+        $width = max(1, (int) $width);
+        $height = max(1, (int) $height);
 
-        imagecopyresampled(
-            $resized,
-            $overlayImage,
-            0, 0, 0, 0,
-            $width, $height,
-            $srcWidth, $srcHeight
-        );
+        $resized = app(\App\Services\PlayerImageService::class)->downscale($overlayImage, $width, $height);
+
+        if ($sharpen) {
+            $this->sharpenImage($resized, $srcWidth, $width);
+        }
 
         // Copy to canvas with alpha blending
         imagealphablending($canvas, true);
@@ -180,6 +175,41 @@ abstract class PosterGeneratorService
 
         imagedestroy($overlayImage);
         imagedestroy($resized);
+    }
+
+    /**
+     * Mild unsharp mask, scaled to how far the image was reduced.
+     *
+     * Any resample softens edges; the more it shrank, the more it softened.
+     * Strength is capped low deliberately — a poster player cut-out with a
+     * visible halo looks worse than a slightly soft one. Skipped entirely when
+     * the image was upscaled, where sharpening only amplifies interpolation
+     * artefacts.
+     */
+    protected function sharpenImage(\GdImage $image, int $sourceWidth, int $targetWidth): void
+    {
+        if ($targetWidth <= 0 || $sourceWidth <= $targetWidth) {
+            return;
+        }
+
+        $reduction = $sourceWidth / $targetWidth;
+        // 1.0x reduction -> no sharpening; 2x or beyond -> full (still gentle) amount.
+        $amount = min(1.0, ($reduction - 1.0) / 1.0) * 0.6;
+
+        if ($amount <= 0.01) {
+            return;
+        }
+
+        $centre = 1.0 + (4.0 * $amount);
+        $side = -$amount;
+        $matrix = [
+            [0.0,   $side,   0.0],
+            [$side, $centre, $side],
+            [0.0,   $side,   0.0],
+        ];
+
+        // imageconvolution ignores alpha, so a cut-out keeps its transparency.
+        @imageconvolution($image, $matrix, 1.0, 0);
     }
 
     /**

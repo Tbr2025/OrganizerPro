@@ -199,6 +199,31 @@
                         </div>
                     </div>
 
+                    {{-- Per-captain image controls. Team artwork is usually shot facing
+                         the same way, so the away captain often needs mirroring to face
+                         into the poster rather than off its edge. --}}
+                    <div id="captainImageOptions" class="hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain Image Options</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <img id="captainOptAPreview" src="" alt="" class="w-8 h-10 rounded object-cover bg-gray-100 dark:bg-gray-700 hidden">
+                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 truncate" id="captainOptALabel">Team A Captain</span>
+                                </div>
+                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'team_a_captain_image'])
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-1.5">
+                                    <img id="captainOptBPreview" src="" alt="" class="w-8 h-10 rounded object-cover bg-gray-100 dark:bg-gray-700 hidden">
+                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 truncate" id="captainOptBLabel">Team B Captain</span>
+                                </div>
+                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'team_b_captain_image'])
+                            </div>
+                        </div>
+                        <input type="hidden" id="adj_team_a_captain_image" value="">
+                        <input type="hidden" id="adj_team_b_captain_image" value="">
+                    </div>
+
                     {{-- Match Summary Stats (shown when match selected for match_summary type) --}}
                     <div id="matchSummaryStats" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                         {{-- Score Summary --}}
@@ -1433,6 +1458,8 @@ function imageAdjustment(placeholderName) {
         brightness: 6,
         displayContrast: 14,
         selectedPreset: 'Default',
+        flipH: false,
+        flipV: false,
 
         get gdContrast() { return -this.displayContrast; },
 
@@ -1448,6 +1475,15 @@ function imageAdjustment(placeholderName) {
         syncHidden() {
             const el = document.getElementById('adj_' + this.placeholderName);
             if (el) el.value = JSON.stringify({ brightness: this.brightness, contrast: this.gdContrast });
+
+            // Only written when something is actually flipped, so collectData()
+            // can treat "has a value" as "this placeholder needs mirroring".
+            const flipEl = document.getElementById('flip_' + this.placeholderName);
+            if (flipEl) {
+                flipEl.value = (this.flipH || this.flipV)
+                    ? JSON.stringify({ horizontal: this.flipH, vertical: this.flipV })
+                    : '';
+            }
         },
 
         _loadCustom() {
@@ -2016,6 +2052,7 @@ function updateType(type) {
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
+    document.getElementById('captainImageOptions')?.classList.add('hidden');
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card' && type !== 'retained_welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
@@ -2208,6 +2245,21 @@ function getSelectedData() {
             data.team_b_captain_image = selected.dataset.teamBCaptainImage;
             data.team_a_captain_name = selected.dataset.teamACaptainName;
             data.team_b_captain_name = selected.dataset.teamBCaptainName;
+
+            // Brightness/contrast from the Captain Image Options panel. Only sent
+            // while that panel is open, so the sliders' resting default does not
+            // silently override the renderer's own default for other poster types.
+            if (!document.getElementById('captainImageOptions')?.classList.contains('hidden')) {
+                ['team_a_captain_image', 'team_b_captain_image'].forEach(ph => {
+                    const raw = document.getElementById('adj_' + ph)?.value;
+                    if (!raw) return;
+                    try {
+                        data.image_adjustments = data.image_adjustments || {};
+                        data.image_adjustments[ph] = JSON.parse(raw);
+                    } catch {}
+                });
+            }
+
             data.match_date = selected.dataset.date;
             data.match_time = selected.dataset.time;
             data.venue = selected.dataset.venue;
@@ -2437,6 +2489,19 @@ function getSelectedData() {
     if (inningsSelect && !document.getElementById('inningsSelector').classList.contains('hidden')) {
         data.innings = inningsSelect.value;
     }
+
+    // Mirroring, collected generically from every image-controls panel on the
+    // page. Panels for other poster types are hidden but still in the DOM, and
+    // syncHidden() leaves the input empty unless a flip is actually toggled on —
+    // so an unflipped or irrelevant placeholder contributes nothing.
+    document.querySelectorAll('input[type="hidden"][id^="flip_"]').forEach(el => {
+        if (!el.value) return;
+        const placeholder = el.id.slice(5);
+        try {
+            data.image_flips = data.image_flips || {};
+            data.image_flips[placeholder] = JSON.parse(el.value);
+        } catch {}
+    });
 
     return data;
 }
@@ -2751,6 +2816,11 @@ function generatePreview(saveMode = false) {
                     Object.entries(value).forEach(([ph, adj]) => {
                         if (adj.brightness !== undefined) formData.append(`image_adjustments[${ph}][brightness]`, adj.brightness);
                         if (adj.contrast !== undefined) formData.append(`image_adjustments[${ph}][contrast]`, adj.contrast);
+                    });
+                } else if (key === 'image_flips' && value && typeof value === 'object') {
+                    Object.entries(value).forEach(([ph, f]) => {
+                        formData.append(`image_flips[${ph}][horizontal]`, f.horizontal ? '1' : '0');
+                        formData.append(`image_flips[${ph}][vertical]`, f.vertical ? '1' : '0');
                     });
                 } else {
                     formData.append(key, value);
@@ -3116,8 +3186,46 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
         statsSection?.classList.add('hidden');
         document.getElementById('scorecardNote')?.classList.add('hidden');
     }
+    syncCaptainImageOptions(this);
     if (this.value) showDataSummary(getSelectedData());
 });
+
+/**
+ * Show the per-captain image controls once a match is picked, labelled with the
+ * real team names so the organiser can tell which panel mirrors which player.
+ */
+function syncCaptainImageOptions(select) {
+    const panel = document.getElementById('captainImageOptions');
+    if (!panel) return;
+
+    const selected = select?.options?.[select.selectedIndex];
+    const show = !!select?.value && ['match_poster', 'match_summary'].includes(currentType);
+    panel.classList.toggle('hidden', !show);
+
+    if (!show || !selected) return;
+
+    const sides = [
+        { key: 'A', team: selected.dataset.teamA, name: selected.dataset.teamACaptainName, img: selected.dataset.teamACaptainImage },
+        { key: 'B', team: selected.dataset.teamB, name: selected.dataset.teamBCaptainName, img: selected.dataset.teamBCaptainImage },
+    ];
+
+    sides.forEach(side => {
+        const labelEl = document.getElementById(`captainOpt${side.key}Label`);
+        if (labelEl) {
+            labelEl.textContent = side.name || side.team || `Team ${side.key} Captain`;
+        }
+        const imgEl = document.getElementById(`captainOpt${side.key}Preview`);
+        if (imgEl) {
+            if (side.img) {
+                imgEl.src = side.img;
+                imgEl.classList.remove('hidden');
+            } else {
+                imgEl.removeAttribute('src');
+                imgEl.classList.add('hidden');
+            }
+        }
+    });
+}
 document.getElementById('playerSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });

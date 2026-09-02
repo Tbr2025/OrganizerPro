@@ -25,10 +25,10 @@
             'guidelines' => [
                 'Portrait orientation recommended',
                 'Plain background preferred (auto-removed)',
-                'Minimum 400x500px',
+                'At least 1200x1600px — smaller photos look soft on posters',
                 'PNG, JPG, WebP — max 6MB',
             ],
-            'minW' => 400, 'minH' => 500, 'maxW' => 1600, 'maxH' => 2000,
+            'minW' => 400, 'minH' => 500, 'maxW' => 2000, 'maxH' => 2667,
         ],
         default => [
             'title' => 'Player Photo',
@@ -38,10 +38,10 @@
             'guidelines' => [
                 'Clear, front-facing photo',
                 'Plain background preferred (auto-removed)',
-                'Minimum 400x533px',
+                'At least 1200x1600px — smaller photos look soft on posters',
                 'PNG or JPG, max 6MB',
             ],
-            'minW' => 400, 'minH' => 533, 'maxW' => 1600, 'maxH' => 2133,
+            'minW' => 400, 'minH' => 533, 'maxW' => 2000, 'maxH' => 2667,
         ],
     };
 @endphp

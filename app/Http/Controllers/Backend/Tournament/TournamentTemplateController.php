@@ -361,6 +361,9 @@ class TournamentTemplateController extends Controller
                 'image_adjustments' => 'nullable|array',
                 'image_adjustments.*.brightness' => 'nullable|integer|min:-50|max:50',
                 'image_adjustments.*.contrast' => 'nullable|integer|min:-50|max:50',
+                'image_flips' => 'nullable|array',
+                'image_flips.*.horizontal' => 'nullable|boolean',
+                'image_flips.*.vertical' => 'nullable|boolean',
             ]);
 
             $templateId = $request->input('template_id');
@@ -924,6 +927,20 @@ class TournamentTemplateController extends Controller
                 foreach ($imageAdjustments as $placeholder => $values) {
                     if (is_array($values)) {
                         $renderService->overrideImageAdjustment($placeholder, $values);
+                    }
+                }
+            }
+
+            // Per-placeholder mirroring, so a head-to-head poster can turn one
+            // player to face the other instead of facing off the poster edge.
+            $imageFlips = $request->input('image_flips', []);
+            if (is_array($imageFlips)) {
+                foreach ($imageFlips as $placeholder => $values) {
+                    if (is_array($values)) {
+                        $renderService->overrideImageFlip($placeholder, [
+                            'horizontal' => filter_var($values['horizontal'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                            'vertical' => filter_var($values['vertical'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        ]);
                     }
                 }
             }
