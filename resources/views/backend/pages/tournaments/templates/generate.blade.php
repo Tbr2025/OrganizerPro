@@ -199,9 +199,30 @@
                         </div>
                     </div>
 
-                    {{-- Per-captain image controls. Team artwork is usually shot facing
-                         the same way, so the away captain often needs mirroring to face
-                         into the poster rather than off its edge. --}}
+                    {{-- Which team takes the left-hand side of the poster.
+                         The fixture decides who is "team A", but the poster often
+                         wants the home side, the higher seed or simply the better
+                         photo on the left. --}}
+                    <div id="teamSwapOption" class="hidden mt-4">
+                        <label class="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/60 cursor-pointer select-none">
+                            <span class="min-w-0">
+                                <span class="block text-sm font-semibold text-gray-800 dark:text-gray-100">Swap sides</span>
+                                <span class="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5" id="teamSwapHint">
+                                    Put the second team on the left instead.
+                                </span>
+                            </span>
+                            <input type="checkbox" id="teamSwapToggle"
+                                   onchange="onTeamSwapChange()"
+                                   class="shrink-0 w-9 h-5 appearance-none rounded-full bg-gray-300 dark:bg-gray-600
+                                          checked:bg-cyan-500 relative cursor-pointer transition-colors
+                                          before:content-[''] before:absolute before:top-0.5 before:left-0.5 before:w-4 before:h-4
+                                          before:rounded-full before:bg-white before:transition-transform
+                                          checked:before:translate-x-4">
+                        </label>
+                    </div>
+
+                    {{-- Per-captain enhancement controls, labelled with the captain
+                         each panel actually affects. --}}
                     <div id="captainImageOptions" class="hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain Image Options</label>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1468,8 +1489,6 @@ function imageAdjustment(placeholderName) {
         brightness: 6,
         displayContrast: 14,
         selectedPreset: 'Default',
-        flipH: false,
-        flipV: false,
 
         get gdContrast() { return -this.displayContrast; },
 
@@ -1485,15 +1504,6 @@ function imageAdjustment(placeholderName) {
         syncHidden() {
             const el = document.getElementById('adj_' + this.placeholderName);
             if (el) el.value = JSON.stringify({ brightness: this.brightness, contrast: this.gdContrast });
-
-            // Only written when something is actually flipped, so collectData()
-            // can treat "has a value" as "this placeholder needs mirroring".
-            const flipEl = document.getElementById('flip_' + this.placeholderName);
-            if (flipEl) {
-                flipEl.value = (this.flipH || this.flipV)
-                    ? JSON.stringify({ horizontal: this.flipH, vertical: this.flipV })
-                    : '';
-            }
 
             // Every control in this panel routes through here, so one call covers
             // the sliders, the preset dropdown and both orientation toggles.
@@ -2067,6 +2077,7 @@ function updateType(type) {
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
     document.getElementById('captainImageOptions')?.classList.add('hidden');
+    document.getElementById('teamSwapOption')?.classList.add('hidden');
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card' && type !== 'retained_welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
     document.getElementById('groupSelection').classList.toggle('hidden', type !== 'point_table');
@@ -2504,10 +2515,9 @@ function getSelectedData() {
         data.innings = inningsSelect.value;
     }
 
-    // Mirroring, collected generically from every image-controls panel on the
-    // page. Panels for other poster types are hidden but still in the DOM, and
-    // syncHidden() leaves the input empty unless a flip is actually toggled on —
-    // so an unflipped or irrelevant placeholder contributes nothing.
+    // Mirroring is collected generically from any panel that offers it. The
+    // Mirror buttons are currently not rendered (see the image-adjustment
+    // partial), so this normally finds nothing and costs one empty query.
     document.querySelectorAll('input[type="hidden"][id^="flip_"]').forEach(el => {
         if (!el.value) return;
         const placeholder = el.id.slice(5);
@@ -2517,7 +2527,94 @@ function getSelectedData() {
         } catch {}
     });
 
+    return applyTeamSwap(data);
+}
+
+/**
+ * Swap which team the template's "A" and "B" slots are filled from.
+ *
+ * Done here rather than by reordering the source data because the templates
+ * hard-code side by placeholder name: team_a_* is the left-hand block, team_b_*
+ * the right. Every pair is swapped generically off the key name, so a field
+ * added to the payload later is swapped too and cannot be forgotten — the
+ * failure mode of a hand-written list is one stray value (a score, a sponsor)
+ * staying on the wrong side of a poster that otherwise looks right.
+ */
+function applyTeamSwap(data) {
+    if (!document.getElementById('teamSwapToggle')?.checked) {
+        return data;
+    }
+
+    const swapPairs = (obj) => {
+        if (!obj) return;
+
+        // Collect the field names from BOTH sides. Iterating only team_a_* keys
+        // would silently leave a b-only field (a score the winning side has and
+        // the other does not) sitting on the wrong half of the poster.
+        const bases = new Set();
+        Object.keys(obj).forEach(key => {
+            if (key.startsWith('team_a_')) bases.add(key.slice('team_a_'.length));
+            else if (key.startsWith('team_b_')) bases.add(key.slice('team_b_'.length));
+        });
+
+        bases.forEach(base => {
+            const aKey = 'team_a_' + base;
+            const bKey = 'team_b_' + base;
+            // Read both before writing either, and only keep keys that existed,
+            // so a one-sided field moves across rather than being duplicated.
+            const hasA = Object.prototype.hasOwnProperty.call(obj, aKey);
+            const hasB = Object.prototype.hasOwnProperty.call(obj, bKey);
+            const aVal = obj[aKey];
+            const bVal = obj[bKey];
+
+            if (hasB) { obj[aKey] = bVal; } else { delete obj[aKey]; }
+            if (hasA) { obj[bKey] = aVal; } else { delete obj[bKey]; }
+        });
+    };
+
+    swapPairs(data);
+    // The enhancement panels are labelled per captain, so their settings have to
+    // follow the player to the other side — otherwise the sliders dialled in for
+    // one face silently start acting on the other.
+    swapPairs(data.image_adjustments);
+    swapPairs(data.image_flips);
+
     return data;
+}
+
+/** Reveal the swap toggle and name the sides, once a match is chosen. */
+function syncTeamSwapOption(select) {
+    const wrap = document.getElementById('teamSwapOption');
+    if (!wrap) return;
+
+    const selected = select?.options?.[select.selectedIndex];
+    const show = !!select?.value && ['match_poster', 'match_summary'].includes(currentType);
+    wrap.classList.toggle('hidden', !show);
+
+    if (!show || !selected) return;
+
+    const teamA = selected.dataset.teamA || 'Team A';
+    const teamB = selected.dataset.teamB || 'Team B';
+    const swapped = document.getElementById('teamSwapToggle')?.checked;
+    const hint = document.getElementById('teamSwapHint');
+
+    if (hint) {
+        hint.textContent = swapped
+            ? `${teamB} on the left, ${teamA} on the right.`
+            : `${teamA} on the left, ${teamB} on the right.`;
+    }
+}
+
+function onTeamSwapChange() {
+    syncTeamSwapOption(document.getElementById('matchSelect'));
+    /*
+     * The enhancement panels are intentionally NOT relabelled. Panel A writes
+     * adj_team_a_captain_image, and applyTeamSwap moves that entry to
+     * team_b_captain_image at the same time as it moves the image itself — so a
+     * panel keeps controlling the captain it is named after, whichever side he
+     * ends up on. Renaming them here would be the bug, not the fix.
+     */
+    schedulePreviewRefresh(150);
 }
 
 // Field visibility toggles
@@ -3264,6 +3361,7 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
         document.getElementById('scorecardNote')?.classList.add('hidden');
     }
     syncCaptainImageOptions(this);
+    syncTeamSwapOption(this);
     if (this.value) showDataSummary(getSelectedData());
 });
 
