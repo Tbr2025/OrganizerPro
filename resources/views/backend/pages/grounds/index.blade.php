@@ -17,6 +17,9 @@
         'google_maps_link' => $g->google_maps_link,
         'is_active' => (bool) $g->is_active,
         'organization_id' => $g->organization_id,
+        'map_embed_url' => $g->map_embed_url,
+        'map_external_url' => $g->map_external_url,
+        'map_label' => trim(collect([$g->address, $g->city])->filter()->implode(', ')) ?: $g->name,
         'image_url' => $g->image && Storage::disk('public')->exists($g->image)
             ? Storage::url($g->image)
             : null,
@@ -170,13 +173,16 @@
 
                     {{-- Actions --}}
                     <div class="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-1">
-                        @if($ground->google_maps_link)
-                            <a href="{{ $ground->google_maps_link }}" target="_blank" rel="noopener noreferrer"
-                               class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
-                                      text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
-                               title="Open in Google Maps">
+                        @if($ground->map_embed_url)
+                            {{-- Opens an inline preview rather than 24 iframes on
+                                 one page — the list stays fast and nobody has to
+                                 leave the admin to check a pin. --}}
+                            <button type="button" @click="openMap({{ $ground->id }})"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                                           text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition"
+                                    title="Preview location on a map">
                                 <i class="fas fa-map-location-dot text-[11px]"></i> Map
-                            </a>
+                            </button>
                         @endif
 
                         <button type="button" @click="openEdit({{ $ground->id }})"
@@ -238,6 +244,48 @@
     @if($grounds->hasPages())
         <div class="mt-8">{{ $grounds->links() }}</div>
     @endif
+
+    {{-- ───────────────────────── Map preview ───────────────────────── --}}
+    <div x-show="mapOpen" x-cloak
+         class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+         x-transition.opacity>
+        <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" @click="closeMap()"></div>
+
+        <div class="relative w-full sm:max-w-2xl bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+             @keydown.escape.window="closeMap()">
+            <div class="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                <div class="min-w-0">
+                    <h3 class="text-sm font-bold text-gray-900 dark:text-white truncate" x-text="mapGround.name"></h3>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400 truncate" x-text="mapGround.map_label"></p>
+                </div>
+                <button type="button" @click="closeMap()"
+                        class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                    <i class="fas fa-xmark"></i>
+                </button>
+            </div>
+
+            {{-- src is bound only while open, so closing stops the frame loading
+                 and reopening another ground cannot show the previous one. --}}
+            <div class="bg-gray-100 dark:bg-gray-900" style="height: min(60vh, 420px);">
+                <template x-if="mapOpen && mapGround.map_embed_url">
+                    <iframe :src="mapGround.map_embed_url"
+                            class="w-full h-full border-0"
+                            loading="lazy"
+                            referrerpolicy="no-referrer-when-downgrade"
+                            allowfullscreen></iframe>
+                </template>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 px-5 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/95">
+                <p class="text-[11px] text-gray-400">Preview only — drag and zoom inside the map.</p>
+                <a :href="mapGround.map_external_url" target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                          text-white bg-blue-600 hover:bg-blue-700 transition">
+                    <i class="fas fa-arrow-up-right-from-square text-[10px]"></i> Open in Google Maps
+                </a>
+            </div>
+        </div>
+    </div>
 
     {{-- ───────────────────────── Add / Edit modal ───────────────────────── --}}
     <div x-show="open" x-cloak
@@ -392,6 +440,8 @@ function groundsPage(config) {
         removeImage: false,
         formAction: '{{ route('admin.grounds.store') }}',
         form: blank(),
+        mapOpen: false,
+        mapGround: { name: '', map_label: '', map_embed_url: '', map_external_url: '' },
 
         init() {
             // admin/grounds/create and .../{id}/edit have no page of their own —
@@ -451,6 +501,18 @@ function groundsPage(config) {
         close() {
             this.open = false;
             this.submitting = false;
+        },
+
+        openMap(id) {
+            const ground = GROUNDS[id];
+            if (!ground?.map_embed_url) return;
+
+            this.mapGround = ground;
+            this.mapOpen = true;
+        },
+
+        closeMap() {
+            this.mapOpen = false;
         },
     };
 }

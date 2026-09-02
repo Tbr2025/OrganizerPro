@@ -262,6 +262,64 @@ class GroundManagementTest extends TestCase
     }
 
     #[Test]
+    public function the_map_preview_prefers_the_pin_over_the_camera_position(): void
+    {
+        $org = Organization::create(['name' => 'Org Map Pin']);
+
+        /*
+         * A Maps place URL states the location twice: `@25.076,54.897` is where
+         * the camera was (zoomed out over the whole emirate here — note the
+         * 119085m) and `!3d25.204!4d55.270` is the pin. Using the camera centres
+         * the preview on the wrong thing entirely.
+         */
+        $ground = Ground::create([
+            'name' => 'Pin Ground',
+            'organization_id' => $org->id,
+            'is_active' => true,
+            'google_maps_link' => 'https://www.google.com/maps/place/Dubai/@25.0762805,54.8978379,119085m/'
+                . 'data=!3m2!1e3!4b1!4m6!3m5!1s0x0:0x0!8m2!3d25.2048493!4d55.2707828!16zL20vMDFmMDhy',
+        ]);
+
+        $this->assertSame('25.2048493,55.2707828', $ground->map_coordinates);
+        $this->assertStringContainsString('25.2048493%2C55.2707828', $ground->map_embed_url);
+        $this->assertStringContainsString('output=embed', $ground->map_embed_url);
+    }
+
+    #[Test]
+    public function a_short_maps_link_falls_back_to_the_typed_address(): void
+    {
+        $org = Organization::create(['name' => 'Org Short Link']);
+
+        // maps.app.goo.gl hides the coordinates behind a redirect.
+        $ground = Ground::create([
+            'name' => 'Arena 1',
+            'address' => 'Rahmaniyah',
+            'city' => 'Sharjah',
+            'organization_id' => $org->id,
+            'is_active' => true,
+            'google_maps_link' => 'https://maps.app.goo.gl/abc123',
+        ]);
+
+        $this->assertNull($ground->map_coordinates);
+        $this->assertSame('Arena 1, Rahmaniyah, Sharjah', $ground->map_query);
+        // The external link still uses what the organizer actually saved.
+        $this->assertSame('https://maps.app.goo.gl/abc123', $ground->map_external_url);
+    }
+
+    #[Test]
+    public function a_ground_with_only_a_name_offers_no_map(): void
+    {
+        $org = Organization::create(['name' => 'Org No Map']);
+
+        // A map of "Ground" alone would point at whatever matches that word.
+        $ground = Ground::create(['name' => 'Ground', 'organization_id' => $org->id, 'is_active' => true]);
+
+        $this->assertNull($ground->map_query);
+        $this->assertNull($ground->map_embed_url);
+        $this->assertNull($ground->map_external_url);
+    }
+
+    #[Test]
     public function editing_can_deactivate_a_ground(): void
     {
         $org = Organization::create(['name' => 'Org 9']);

@@ -70,6 +70,29 @@
         </div>
     </div>
 
+    {{-- Location. Inline here — one iframe on a detail page is cheap, unlike 24
+         of them on the list. --}}
+    @if($ground->map_embed_url)
+        <div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden mb-6">
+            <div class="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
+                <h2 class="text-sm font-bold text-gray-900 dark:text-white">Location</h2>
+                @if($ground->map_external_url)
+                    <a href="{{ $ground->map_external_url }}" target="_blank" rel="noopener noreferrer"
+                       class="inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                        Open in Google Maps <i class="fas fa-arrow-up-right-from-square text-[9px]"></i>
+                    </a>
+                @endif
+            </div>
+            <div class="bg-gray-100 dark:bg-gray-900" style="height: 320px;">
+                <iframe src="{{ $ground->map_embed_url }}"
+                        class="w-full h-full border-0"
+                        loading="lazy"
+                        referrerpolicy="no-referrer-when-downgrade"
+                        allowfullscreen></iframe>
+            </div>
+        </div>
+    @endif
+
     {{-- Upcoming matches --}}
     <div class="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden">
         <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-700">
