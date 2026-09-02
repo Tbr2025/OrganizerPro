@@ -2059,18 +2059,9 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected function isPersonPlaceholder(string $placeholder): bool
     {
-        return in_array($placeholder, [
-            'player_image',
-            'player_photo',
-            'team_a_captain_image',
-            'team_b_captain_image',
-            'captain_image',
-            'man_of_the_match_image',
-            'best_batsman_image',
-            'best_bowler_image',
-            'award_player_image',
-            'featured_player_image',
-        ], true);
+        // The list lives on the model so the generate page's colour-correction
+        // panels and the renderer cannot drift apart.
+        return TournamentTemplate::isPersonImagePlaceholder($placeholder);
     }
 
     /**

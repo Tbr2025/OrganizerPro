@@ -221,29 +221,6 @@
                         </label>
                     </div>
 
-                    {{-- Per-captain enhancement controls, labelled with the captain
-                         each panel actually affects. --}}
-                    <div id="captainImageOptions" class="hidden mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Captain Image Options</label>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <div class="flex items-center gap-2 mb-1.5">
-                                    <img id="captainOptAPreview" src="" alt="" class="w-8 h-10 rounded object-cover bg-gray-100 dark:bg-gray-700 hidden">
-                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 truncate" id="captainOptALabel">Team A Captain</span>
-                                </div>
-                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'team_a_captain_image'])
-                            </div>
-                            <div>
-                                <div class="flex items-center gap-2 mb-1.5">
-                                    <img id="captainOptBPreview" src="" alt="" class="w-8 h-10 rounded object-cover bg-gray-100 dark:bg-gray-700 hidden">
-                                    <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 truncate" id="captainOptBLabel">Team B Captain</span>
-                                </div>
-                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'team_b_captain_image'])
-                            </div>
-                        </div>
-                        <input type="hidden" id="adj_team_a_captain_image" value="">
-                        <input type="hidden" id="adj_team_b_captain_image" value="">
-                    </div>
 
                     {{-- Match Summary Stats (shown when match selected for match_summary type) --}}
                     <div id="matchSummaryStats" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -379,17 +356,9 @@
                                     </template>
                                 </div>
 
-                                {{-- Image adjustment sliders for this upload --}}
-                                <div x-show="previews.{{ $slotKey }}" x-collapse>
-                                    @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => $slotKey === 'motm' ? 'man_of_the_match_image' : ($slotKey === 'best_batsman' ? 'best_batsman_image' : 'best_bowler_image')])
-                                </div>
                             </div>
                             @endforeach
 
-                            {{-- Hidden inputs for adjustment data --}}
-                            <input type="hidden" id="adj_man_of_the_match_image" value="">
-                            <input type="hidden" id="adj_best_batsman_image" value="">
-                            <input type="hidden" id="adj_best_bowler_image" value="">
                         </div>
                     </div>
                 </div>
@@ -676,11 +645,6 @@
                             </div>
                         </div>
 
-                        {{-- Image adjustment for award poster player image --}}
-                        <div x-show="croppedPreview" x-collapse class="mt-3">
-                            @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'player_image'])
-                            <input type="hidden" id="adj_player_image" value="">
-                        </div>
 
                         {{-- Manual Stats Input (shown after award selected) --}}
                         <div id="awardStatsSection" class="hidden space-y-4 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -1031,11 +995,6 @@
                                 </div>
                             </div>
 
-                            {{-- Image adjustment for featured player --}}
-                            <div x-show="featuredPreview" x-collapse class="mt-3">
-                                @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => 'featured_player_image'])
-                                <input type="hidden" id="adj_featured_player_image" value="">
-                            </div>
                         </div>
                 </div>
 
@@ -1188,6 +1147,49 @@
                             @endrole
                         </div>
                     @endforelse
+                </div>
+            </div>
+
+            {{-- ─────────────── Colour correction, every poster type ───────────────
+
+                 Brightness/contrast used to be bolted onto four specific panels
+                 (award player, featured player, the three match-summary awards,
+                 the two captains), which meant a welcome card, champions poster
+                 or flyer had no way to fix a dark photo at all.
+
+                 So it is driven by the TEMPLATE instead of the poster type: one
+                 panel per person image the chosen design actually draws, taken
+                 from its layout. Every type is covered, including types added
+                 later, and no type shows a slider for an image it never renders.
+
+                 All panels are rendered once and shown/hidden, rather than built
+                 on the fly — each carries an Alpine component and a hidden input,
+                 and Alpine only wires up what was present at init. --}}
+            <div id="imageColorSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
+                    <span class="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center mr-2.5">
+                        <i class="fas fa-sliders text-[11px]"></i>
+                    </span>
+                    Photo Colour Correction
+                </h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-4 ml-9">
+                    Brighten or add contrast to the player photos on this poster. Affects this poster only —
+                    the stored photo is untouched.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @foreach(\App\Models\TournamentTemplate::PERSON_IMAGE_PLACEHOLDERS as $personPlaceholder)
+                        <div class="hidden" data-color-placeholder="{{ $personPlaceholder }}">
+                            <div class="flex items-center gap-2 mb-1.5">
+                                <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 truncate"
+                                      data-color-label="{{ $personPlaceholder }}">
+                                    {{ \App\Models\TournamentTemplate::PERSON_IMAGE_LABELS[$personPlaceholder] ?? $personPlaceholder }}
+                                </span>
+                            </div>
+                            @include('backend.pages.tournaments.templates.partials.image-adjustment', ['placeholder' => $personPlaceholder])
+                            <input type="hidden" id="adj_{{ $personPlaceholder }}" value="">
+                        </div>
+                    @endforeach
                 </div>
             </div>
 
@@ -2076,7 +2078,6 @@ function updateType(type) {
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
-    document.getElementById('captainImageOptions')?.classList.add('hidden');
     document.getElementById('teamSwapOption')?.classList.add('hidden');
     document.getElementById('playerSelection').classList.toggle('hidden', type !== 'welcome_card' && type !== 'retained_welcome_card');
     document.getElementById('awardSelection').classList.toggle('hidden', type !== 'award_poster');
@@ -2169,6 +2170,63 @@ function templateActions(t, editBaseUrl) {
         </div>`;
 }
 
+// Which person images each template draws, keyed by template id. Seeded with the
+// server-rendered list and extended by loadTemplates() after a type switch.
+const TEMPLATE_PERSON_IMAGES = @json($templatePersonImages);
+
+const PERSON_IMAGE_LABELS = @json(\App\Models\TournamentTemplate::PERSON_IMAGE_LABELS);
+
+/**
+ * Show a brightness/contrast panel for each person image in the chosen template.
+ *
+ * Panels all exist in the DOM already (Alpine wires them at init), so this only
+ * toggles visibility — and getSelectedData() sends only the visible ones, so a
+ * hidden panel's resting default never overrides the renderer's own for a
+ * placeholder this poster does not draw.
+ */
+function syncImageColorSection() {
+    const section = document.getElementById('imageColorSection');
+    if (!section) return;
+
+    const templateId = document.querySelector('input[name="template_id"]:checked')?.value;
+    const placeholders = TEMPLATE_PERSON_IMAGES[templateId] || [];
+
+    section.querySelectorAll('[data-color-placeholder]').forEach(panel => {
+        panel.classList.toggle('hidden', !placeholders.includes(panel.dataset.colorPlaceholder));
+    });
+
+    // Nothing to correct on a design with no player photo — hide the whole card
+    // rather than leaving an empty heading.
+    section.classList.toggle('hidden', placeholders.length === 0);
+
+    relabelCaptainColorPanels();
+}
+
+/**
+ * Name the two captain panels after the captains they affect.
+ *
+ * Deliberately NOT re-pointed when "Swap sides" is on: applyTeamSwap moves the
+ * adjustment entry across at the same time as the image, so a panel keeps
+ * controlling the captain it is named after, whichever side he ends up on.
+ */
+function relabelCaptainColorPanels() {
+    const select = document.getElementById('matchSelect');
+    const selected = select?.options?.[select.selectedIndex];
+    if (!selected?.value) return;
+
+    const naming = {
+        team_a_captain_image: selected.dataset.teamACaptainName || selected.dataset.teamA,
+        team_b_captain_image: selected.dataset.teamBCaptainName || selected.dataset.teamB,
+    };
+
+    Object.entries(naming).forEach(([placeholder, name]) => {
+        const label = document.querySelector(`[data-color-label="${placeholder}"]`);
+        if (label) {
+            label.textContent = name || PERSON_IMAGE_LABELS[placeholder] || placeholder;
+        }
+    });
+}
+
 function loadTemplates(type) {
     fetch(`{{ url('admin/tournaments/' . $tournament->id . '/templates') }}?type=${type}&ajax=1`)
         .then(response => response.json())
@@ -2195,8 +2253,12 @@ function loadTemplates(type) {
                         ${isSuperadmin ? templateActions(t, editBaseUrl) : ''}
                     </div>
                 `).join('');
+                data.templates.forEach(t => {
+                    TEMPLATE_PERSON_IMAGES[t.id] = t.person_image_placeholders || [];
+                });
+
                 // Show first template's background as preview
-                setTimeout(() => showTemplatePreview(), 50);
+                setTimeout(() => { showTemplatePreview(); syncImageColorSection(); }, 50);
             } else {
                 container.innerHTML = `
                     <div class="col-span-full text-center py-8 text-gray-500">
@@ -2249,6 +2311,7 @@ function showTemplatePreview() {
 document.addEventListener('change', function(e) {
     if (e.target.name === 'template_id') {
         showTemplatePreview();
+        syncImageColorSection();
     }
 });
 
@@ -2270,20 +2333,6 @@ function getSelectedData() {
             data.team_b_captain_image = selected.dataset.teamBCaptainImage;
             data.team_a_captain_name = selected.dataset.teamACaptainName;
             data.team_b_captain_name = selected.dataset.teamBCaptainName;
-
-            // Brightness/contrast from the Captain Image Options panel. Only sent
-            // while that panel is open, so the sliders' resting default does not
-            // silently override the renderer's own default for other poster types.
-            if (!document.getElementById('captainImageOptions')?.classList.contains('hidden')) {
-                ['team_a_captain_image', 'team_b_captain_image'].forEach(ph => {
-                    const raw = document.getElementById('adj_' + ph)?.value;
-                    if (!raw) return;
-                    try {
-                        data.image_adjustments = data.image_adjustments || {};
-                        data.image_adjustments[ph] = JSON.parse(raw);
-                    } catch {}
-                });
-            }
 
             data.match_date = selected.dataset.date;
             data.match_time = selected.dataset.time;
@@ -2338,12 +2387,6 @@ function getSelectedData() {
                     data.remove_bg_best_batsman = ms.removeBg.best_batsman ? '1' : '0';
                     data.remove_bg_best_bowler = ms.removeBg.best_bowler ? '1' : '0';
                 }
-                // Image adjustments from hidden inputs
-                data.image_adjustments = data.image_adjustments || {};
-                ['man_of_the_match_image', 'best_batsman_image', 'best_bowler_image'].forEach(ph => {
-                    const raw = document.getElementById('adj_' + ph)?.value;
-                    if (raw) { try { data.image_adjustments[ph] = JSON.parse(raw); } catch {} }
-                });
             }
         }
     } else if (currentType === 'welcome_card') {
@@ -2405,14 +2448,6 @@ function getSelectedData() {
             const cropperEl = document.getElementById('awardPlayerOverride');
             if (cropperEl && cropperEl._x_dataStack && cropperEl._x_dataStack[0]) {
                 data.skip_bg_removal = cropperEl._x_dataStack[0].skipBgRemoval ? '1' : '0';
-            }
-            // Image adjustment for award poster player image
-            const adjRaw = document.getElementById('adj_player_image')?.value;
-            if (adjRaw) {
-                try {
-                    data.image_adjustments = data.image_adjustments || {};
-                    data.image_adjustments['player_image'] = JSON.parse(adjRaw);
-                } catch {}
             }
         }
 
@@ -2492,15 +2527,6 @@ function getSelectedData() {
         // Always sent, including '0' — absent would mean "use the placeholder default", which
         // is not the same as the organizer unticking the box.
         data.remove_bg = xi.remove_bg ?? '1';
-
-        // Image adjustment for featured player
-        const adjXi = document.getElementById('adj_featured_player_image')?.value;
-        if (adjXi) {
-            try {
-                data.image_adjustments = data.image_adjustments || {};
-                data.image_adjustments['featured_player_image'] = JSON.parse(adjXi);
-            } catch {}
-        }
     }
 
     // Get selected template
@@ -2514,6 +2540,28 @@ function getSelectedData() {
     if (inningsSelect && !document.getElementById('inningsSelector').classList.contains('hidden')) {
         data.innings = inningsSelect.value;
     }
+
+    /*
+     * Colour correction for every person image the chosen template draws.
+     *
+     * Read off the visible panels rather than a per-poster-type list, which is
+     * what limited this to four poster types before. Visibility is the filter
+     * that matters: a hidden panel still holds its default (+6 / -14), and
+     * sending that for a placeholder the design does not draw would pin the
+     * renderer's default in place for images it should leave alone.
+     */
+    document.querySelectorAll('#imageColorSection [data-color-placeholder]').forEach(panel => {
+        if (panel.classList.contains('hidden')) return;
+
+        const placeholder = panel.dataset.colorPlaceholder;
+        const raw = document.getElementById('adj_' + placeholder)?.value;
+        if (!raw) return;
+
+        try {
+            data.image_adjustments = data.image_adjustments || {};
+            data.image_adjustments[placeholder] = JSON.parse(raw);
+        } catch {}
+    });
 
     // Mirroring is collected generically from any panel that offers it. The
     // Mirror buttons are currently not rendered (see the image-adjustment
@@ -3360,47 +3408,11 @@ document.getElementById('matchSelect')?.addEventListener('change', function() {
         statsSection?.classList.add('hidden');
         document.getElementById('scorecardNote')?.classList.add('hidden');
     }
-    syncCaptainImageOptions(this);
     syncTeamSwapOption(this);
+    relabelCaptainColorPanels();
     if (this.value) showDataSummary(getSelectedData());
 });
 
-/**
- * Show the per-captain image controls once a match is picked, labelled with the
- * real team names so the organiser can tell which panel mirrors which player.
- */
-function syncCaptainImageOptions(select) {
-    const panel = document.getElementById('captainImageOptions');
-    if (!panel) return;
-
-    const selected = select?.options?.[select.selectedIndex];
-    const show = !!select?.value && ['match_poster', 'match_summary'].includes(currentType);
-    panel.classList.toggle('hidden', !show);
-
-    if (!show || !selected) return;
-
-    const sides = [
-        { key: 'A', team: selected.dataset.teamA, name: selected.dataset.teamACaptainName, img: selected.dataset.teamACaptainImage },
-        { key: 'B', team: selected.dataset.teamB, name: selected.dataset.teamBCaptainName, img: selected.dataset.teamBCaptainImage },
-    ];
-
-    sides.forEach(side => {
-        const labelEl = document.getElementById(`captainOpt${side.key}Label`);
-        if (labelEl) {
-            labelEl.textContent = side.name || side.team || `Team ${side.key} Captain`;
-        }
-        const imgEl = document.getElementById(`captainOpt${side.key}Preview`);
-        if (imgEl) {
-            if (side.img) {
-                imgEl.src = side.img;
-                imgEl.classList.remove('hidden');
-            } else {
-                imgEl.removeAttribute('src');
-                imgEl.classList.add('hidden');
-            }
-        }
-    });
-}
 document.getElementById('playerSelect')?.addEventListener('change', function() {
     if (this.value) showDataSummary(getSelectedData());
 });
@@ -3506,6 +3518,7 @@ document.getElementById('awardPlayerSearch')?.addEventListener('input', function
 setTimeout(() => {
     buildFieldToggles();
     showTemplatePreview();
+    syncImageColorSection();
 
     // Auto-select match and player from query params (e.g., coming from summary editor)
     const urlParams = new URLSearchParams(window.location.search);

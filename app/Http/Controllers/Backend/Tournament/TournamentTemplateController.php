@@ -62,6 +62,10 @@ class TournamentTemplateController extends Controller
                     'type' => $t->type,
                     'is_default' => $t->is_default,
                     'background_image_url' => $t->background_image_url,
+                    // So the generate page can show colour-correction sliders for
+                    // exactly the person images this design draws, without a
+                    // second round trip when the organizer switches template.
+                    'person_image_placeholders' => $t->personImagePlaceholders(),
                 ]);
 
             return response()->json(['templates' => $templates]);
@@ -308,11 +312,24 @@ class TournamentTemplateController extends Controller
          */
         $presets = (new TemplatePresetService())->all();
 
+        /*
+         * Which person images each template draws, keyed by template id.
+         *
+         * The generate page shows one brightness/contrast panel per person image
+         * in the SELECTED template — so it needs this for every template in the
+         * list up front, the same way loadTemplates() gets it from the ajax
+         * listing after a type switch.
+         */
+        $templatePersonImages = $templates->mapWithKeys(
+            fn ($t) => [$t->id => $t->personImagePlaceholders()]
+        );
+
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
             'presets',
             'templates',
+            'templatePersonImages',
             'xiRoster',
             'matches',
             'players',

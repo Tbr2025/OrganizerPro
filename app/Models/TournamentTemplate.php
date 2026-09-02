@@ -178,6 +178,78 @@ class TournamentTemplate extends Model
     }
 
     /**
+     * Image placeholders that hold a photograph of a person.
+     *
+     * These are the ones the renderer cuts the background out of and colour
+     * corrects, and the ones the generate page offers brightness/contrast for —
+     * a crest or a sponsor logo wants neither. Kept here, on the model, because
+     * both the renderer and the generate UI need the same answer and they used
+     * to each carry their own copy of the list.
+     *
+     * @var list<string>
+     */
+    public const PERSON_IMAGE_PLACEHOLDERS = [
+        'player_image',
+        'player_photo',
+        'team_a_captain_image',
+        'team_b_captain_image',
+        'captain_image',
+        'man_of_the_match_image',
+        'best_batsman_image',
+        'best_bowler_image',
+        'award_player_image',
+        'featured_player_image',
+    ];
+
+    /** Human labels for the person placeholders, for the generate page's panels. */
+    public const PERSON_IMAGE_LABELS = [
+        'player_image' => 'Player Photo',
+        'player_photo' => 'Player Photo',
+        'team_a_captain_image' => 'Team A Captain',
+        'team_b_captain_image' => 'Team B Captain',
+        'captain_image' => 'Captain',
+        'man_of_the_match_image' => 'Man of the Match',
+        'best_batsman_image' => 'Best Batsman',
+        'best_bowler_image' => 'Best Bowler',
+        'award_player_image' => 'Award Player',
+        'featured_player_image' => 'Featured Player',
+    ];
+
+    /** Does this placeholder hold a photograph of a person? */
+    public static function isPersonImagePlaceholder(?string $placeholder): bool
+    {
+        return $placeholder !== null
+            && in_array($placeholder, self::PERSON_IMAGE_PLACEHOLDERS, true);
+    }
+
+    /**
+     * The person placeholders this template's layout actually uses.
+     *
+     * Drives which colour-correction panels the generate page shows, so an
+     * organizer only ever sees sliders for images the chosen design will draw.
+     *
+     * @return list<string>
+     */
+    public function personImagePlaceholders(): array
+    {
+        $found = [];
+
+        foreach ((array) ($this->layout_json ?? []) as $element) {
+            if (! is_array($element)) {
+                continue;
+            }
+
+            $placeholder = $element['placeholder'] ?? null;
+
+            if (self::isPersonImagePlaceholder($placeholder) && ! in_array($placeholder, $found, true)) {
+                $found[] = $placeholder;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
      * Default placeholders for each template type
      */
     public static function getDefaultPlaceholders(string $type): array
