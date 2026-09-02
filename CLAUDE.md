@@ -105,6 +105,37 @@ The word "team" refers to **three different things** in this codebase. Never con
 - Do not assume a "team" in one context is the same model/table as in another
 - Clarify which "team" is meant before making changes
 
+## Poster Image Resolution
+
+Generated posters draw player photos into slots sized against a **1080x1350** canvas —
+a match-poster captain slot is ~715x715. Any stored photo smaller than that gets
+**enlarged** at render time, which is what makes a poster look soft.
+
+Every upload path funnels through `App\Services\PlayerImageService::capSize()`
+(**1200x1600, shrink-only**). Do not reintroduce a per-controller resize: four of them
+had drifted to a fixed **425px width** — and because it was a target rather than a cap,
+it scaled narrow photos *up*, adding blur.
+
+**The usual real cause of a blurry poster is the uploaded artwork, not the code.**
+Team captain images on live measure 594x792–800x1067, so they are already at their
+ceiling. The upload panels show stored dimensions and turn amber under 1000px tall;
+that badge is the diagnostic to check first. Fixing it needs a bigger re-upload via
+**Replace Player Photo** (player page) or the captain upload on the team edit page.
+
+- `PosterGeneratorService::sharpenImage()` recovers sharpness lost to the resample —
+  **person placeholders only** (`isPersonPlaceholder()`); crests and sponsor logos halo.
+- **GD's `imagecopyresampled` already area-averages on downscale.** Pre-halving the
+  image measurably makes banding *worse*. Don't add it back.
+- `renderElement()` reads `x`/`y` as **percentages** of the canvas but `width`/`height`
+  as scaled pixels. Pixel coordinates put the element off-canvas and it renders nothing,
+  silently.
+- **Never delete the old file when replacing a photo.** `actual_teams.captain_image` and
+  `players.image_path` both point into `player_images/` and can name the same file, so
+  deleting blanks the other record. Orphaned PNGs are the cheaper bug.
+- Mirror/flip is per-placeholder at generation time (`overrideImageFlip()`, cached in
+  `poster-cache/flipped`). It reverses baked-in lettering, so it only suits bare
+  cut-outs — current captain artwork has the team name and badge composited in.
+
 ## Email Template System
 
 Customizable email templates with placeholder tokens, per-tournament overrides, and a visual editor.
