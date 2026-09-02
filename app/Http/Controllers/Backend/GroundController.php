@@ -206,9 +206,15 @@ class GroundController extends Controller
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:500',
             'city' => 'nullable|string|max:100',
-            // A bare "maps.app.goo.gl/..." paste is the common case and `url`
-            // rejects it, so accept a scheme-less host too and normalise below.
-            'google_maps_link' => 'nullable|string|max:500',
+            /*
+             * A bare "maps.app.goo.gl/..." paste is the common case and `url`
+             * rejects it, so accept a scheme-less host too and normalise below.
+             *
+             * The cap must match the column, which is now TEXT: this field was
+             * validated at 500 against a varchar(255) and a 257-character Google
+             * Maps place URL got through validation only to 500 on the insert.
+             */
+            'google_maps_link' => 'nullable|string|max:2000',
             'image' => 'nullable|image|mimes:png,jpg,jpeg,webp|max:4096',
             'is_active' => 'boolean',
             /*

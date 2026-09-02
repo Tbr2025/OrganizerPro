@@ -191,6 +191,64 @@ class GroundManagementTest extends TestCase
     }
 
     #[Test]
+    public function a_full_length_google_maps_place_url_saves_intact(): void
+    {
+        $org = Organization::create(['name' => 'Org Long Link']);
+
+        /*
+         * The exact paste that 500'd in production: a Maps "place" URL carrying
+         * coordinates, a data=!3m2!... payload and the entry/g_ep query string.
+         * 257 characters — two past the varchar(255) the column used to be, while
+         * validation allowed 500. It passed validation and then died on the
+         * insert with "Data too long for column 'google_maps_link'".
+         */
+        $link = 'https://www.google.com/maps/place/Dubai+-+United+Arab+Emirates/'
+            . '@25.0762805,54.8978379,119085m/data=!3m2!1e3!4b1!4m6!3m5!'
+            . '1s0x3e5f43496ad9c645:0xbde66e5084295162!8m2!3d25.2048493!4d55.2707828!'
+            . '16zL20vMDFmMDhy?entry=ttu&g_ep=EgoyMDI2MDgzMC4wIKXMDSoASAFQAw%3D%3D';
+
+        $this->assertGreaterThan(255, strlen($link), 'the regression needs a link past the old column width');
+
+        $this->actingAs($this->orgAdmin($org))->post(route('admin.grounds.store'), [
+            'name' => 'test',
+            'address' => 't',
+            'city' => 'te',
+            'google_maps_link' => $link,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('grounds', ['name' => 'test', 'google_maps_link' => $link]);
+    }
+
+    #[Test]
+    public function an_address_longer_than_the_old_column_width_saves(): void
+    {
+        $org = Organization::create(['name' => 'Org Long Address']);
+
+        // address was varchar(255) but validated at max:500 — the same mismatch.
+        $address = str_repeat('Rahmaniyah Sharjah, ', 20); // 400 chars
+
+        $this->actingAs($this->orgAdmin($org))->post(route('admin.grounds.store'), [
+            'name' => 'Long Address Ground',
+            'address' => $address,
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('grounds', ['name' => 'Long Address Ground', 'address' => $address]);
+    }
+
+    #[Test]
+    public function an_absurdly_long_link_is_a_validation_error_not_a_truncation(): void
+    {
+        $org = Organization::create(['name' => 'Org Absurd Link']);
+
+        $this->actingAs($this->orgAdmin($org))->post(route('admin.grounds.store'), [
+            'name' => 'Absurd Ground',
+            'google_maps_link' => 'https://maps.google.com/?q=' . str_repeat('x', 2100),
+        ])->assertSessionHasErrors('google_maps_link');
+
+        $this->assertDatabaseCount('grounds', 0);
+    }
+
+    #[Test]
     public function a_non_http_scheme_in_the_maps_link_is_discarded(): void
     {
         $org = Organization::create(['name' => 'Org 8']);
