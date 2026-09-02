@@ -1254,7 +1254,17 @@
                         <svg class="w-4 h-4 mr-2 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         Preview
                     </h3>
-                    <span id="previewStatus" class="text-xs text-gray-400 font-medium">Ready</span>
+                    <div class="flex items-center gap-3">
+                        {{-- Auto-refresh. Arms itself only after the first render, so the
+                             page never renders before a template and match are chosen. --}}
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none" title="Re-render automatically when you change enhancement or orientation">
+                            <input type="checkbox" id="livePreviewToggle" checked
+                                   onchange="livePreviewEnabled = this.checked; if (this.checked) schedulePreviewRefresh(150);"
+                                   class="w-3.5 h-3.5 rounded border-gray-300 dark:border-gray-600 text-purple-600 focus:ring-purple-500">
+                            <span class="text-[11px] font-medium text-gray-500 dark:text-gray-400">Live</span>
+                        </label>
+                        <span id="previewStatus" class="text-xs text-gray-400 font-medium">Ready</span>
+                    </div>
                 </div>
 
                 {{-- Preview Area --}}
@@ -1484,6 +1494,10 @@ function imageAdjustment(placeholderName) {
                     ? JSON.stringify({ horizontal: this.flipH, vertical: this.flipV })
                     : '';
             }
+
+            // Every control in this panel routes through here, so one call covers
+            // the sliders, the preset dropdown and both orientation toggles.
+            if (typeof schedulePreviewRefresh === 'function') schedulePreviewRefresh();
         },
 
         _loadCustom() {
@@ -2706,27 +2720,55 @@ function showDataSummary(data) {
     }
 }
 
-function generatePreview(saveMode = false) {
+// ─── Live preview ──────────────────────────────────────────────────────────
+// The enhancement sliders and mirror toggles are only judgeable by eye, and
+// re-rendering meant clicking Preview after every nudge. These auto-refresh it.
+//
+// Renders happen on the server (GD, plus a cached rembg cut-out), so a slider
+// drag must not fire one render per pixel: changes are debounced, and a new
+// render aborts an in-flight auto-refresh rather than queueing behind it.
+let livePreviewEnabled = true;   // the "Live" checkbox
+let livePreviewArmed = false;    // set after the first successful render
+let livePreviewTimer = null;
+let livePreviewPending = false;  // a change landed while a manual render was running
+let activePreview = null;        // { controller, live } for the in-flight request
+
+function schedulePreviewRefresh(delay = 600) {
+    if (!livePreviewEnabled || !livePreviewArmed) return;
+
+    clearTimeout(livePreviewTimer);
+    livePreviewTimer = setTimeout(() => {
+        // Never cancel a Preview / Generate & Save the user asked for — wait and
+        // re-fire once it lands, so the last slider position still gets rendered.
+        if (activePreview && !activePreview.live) {
+            livePreviewPending = true;
+            return;
+        }
+        generatePreview(false, true);
+    }, delay);
+}
+
+function generatePreview(saveMode = false, live = false) {
     const data = getSelectedData();
 
-    if (!data.template_id) {
-        alert('Please select a template');
+    // An auto-refresh with incomplete selections is not an error the user needs
+    // told about — they have not asked for anything yet. Bail quietly.
+    const missing =
+        !data.template_id ? 'Please select a template' :
+        (['match_poster', 'match_summary'].includes(currentType) && !data.match_id) ? 'Please select a match' :
+        (currentType === 'welcome_card' && !data.player_id) ? 'Please select a player' :
+        (currentType === 'point_table' && !data.group_id) ? 'Please select a group' :
+        null;
+
+    if (missing) {
+        if (!live) alert(missing);
         return;
     }
 
-    if (['match_poster', 'match_summary'].includes(currentType) && !data.match_id) {
-        alert('Please select a match');
-        return;
-    }
-
-    if (currentType === 'welcome_card' && !data.player_id) {
-        alert('Please select a player');
-        return;
-    }
-
-    if (currentType === 'point_table' && !data.group_id) {
-        alert('Please select a group');
-        return;
+    // Supersede an in-flight auto-refresh; its result is already stale.
+    if (activePreview?.live) {
+        activePreview.controller.abort();
+        activePreview = null;
     }
 
     // Add save flag to data
@@ -2736,21 +2778,27 @@ function generatePreview(saveMode = false) {
     const activeBtn = saveMode ? document.getElementById('generateSaveBtn') : document.getElementById('previewBtn');
     const activeLabel = saveMode ? 'Saving...' : 'Generating...';
 
-    // Show loading
-    document.getElementById('previewPlaceholder').classList.add('hidden');
-    document.getElementById('previewImage').classList.add('hidden');
-    document.getElementById('previewLoading').classList.remove('hidden');
-    document.getElementById('previewStatus').textContent = activeLabel;
-    document.getElementById('previewStatus').className = 'text-xs text-purple-500 font-medium animate-pulse';
-    document.getElementById('previewBtn').disabled = true;
-    document.getElementById('generateSaveBtn').disabled = true;
-    activeBtn.innerHTML = `
-        <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        ${activeLabel}
-    `;
+    if (live) {
+        // Swapping in the big spinner would blank the poster on every nudge and
+        // make the sliders unusable — leave the last render up and say so.
+        document.getElementById('previewStatus').textContent = 'Updating…';
+        document.getElementById('previewStatus').className = 'text-xs text-amber-500 font-medium animate-pulse';
+    } else {
+        document.getElementById('previewPlaceholder').classList.add('hidden');
+        document.getElementById('previewImage').classList.add('hidden');
+        document.getElementById('previewLoading').classList.remove('hidden');
+        document.getElementById('previewStatus').textContent = activeLabel;
+        document.getElementById('previewStatus').className = 'text-xs text-purple-500 font-medium animate-pulse';
+        document.getElementById('previewBtn').disabled = true;
+        document.getElementById('generateSaveBtn').disabled = true;
+        activeBtn.innerHTML = `
+            <svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            ${activeLabel}
+        `;
+    }
 
     showDataSummary(data);
 
@@ -2767,6 +2815,7 @@ function generatePreview(saveMode = false) {
     // Create abort controller with 3 minute timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 180000);
+    activePreview = { controller, live };
 
     /*
      * Build request body — FormData when a file is attached, else JSON.
@@ -2864,8 +2913,10 @@ function generatePreview(saveMode = false) {
         return response.json();
     })
     .then(result => {
-        resetPreviewBtn();
-        document.getElementById('previewLoading').classList.add('hidden');
+        if (!live) {
+            resetPreviewBtn();
+            document.getElementById('previewLoading').classList.add('hidden');
+        }
 
         if (result.success && result.image) {
             document.getElementById('previewImage').src = result.image;
@@ -2880,6 +2931,13 @@ function generatePreview(saveMode = false) {
             if (result.poster_id && result.download_url) {
                 addPosterToGallery(result);
             }
+            // There is now something on screen worth keeping up to date.
+            livePreviewArmed = true;
+        } else if (live) {
+            // Keep the last good poster on screen; the status carries the failure.
+            document.getElementById('previewStatus').textContent = 'Update failed';
+            document.getElementById('previewStatus').className = 'text-xs text-red-500 font-medium';
+            console.error('Live preview error:', result.error);
         } else {
             document.getElementById('previewPlaceholder').classList.remove('hidden');
             document.getElementById('previewStatus').textContent = 'Error';
@@ -2889,12 +2947,21 @@ function generatePreview(saveMode = false) {
     })
     .catch(err => {
         clearTimeout(timeoutId);
-        resetPreviewBtn();
-        document.getElementById('previewLoading').classList.add('hidden');
-        document.getElementById('previewPlaceholder').classList.remove('hidden');
-        document.getElementById('previewStatus').textContent = 'Error';
+
+        // A superseded auto-refresh aborts by design — not a failure to report.
+        if (err.name === 'AbortError' && live) return;
+
+        if (!live) {
+            resetPreviewBtn();
+            document.getElementById('previewLoading').classList.add('hidden');
+            document.getElementById('previewPlaceholder').classList.remove('hidden');
+        }
+        document.getElementById('previewStatus').textContent = live ? 'Update failed' : 'Error';
         document.getElementById('previewStatus').className = 'text-xs text-red-500 font-medium';
         console.error('Generation Error:', err);
+
+        // An auto-refresh must never throw a modal at someone mid-drag.
+        if (live) return;
 
         let errorMsg = 'Failed to generate preview: ';
         if (err.name === 'AbortError') {
@@ -2905,6 +2972,16 @@ function generatePreview(saveMode = false) {
             errorMsg += err.message;
         }
         alert(errorMsg);
+    })
+    .finally(() => {
+        if (activePreview?.controller === controller) {
+            activePreview = null;
+        }
+        // A change that arrived mid-render still needs rendering.
+        if (livePreviewPending) {
+            livePreviewPending = false;
+            schedulePreviewRefresh(150);
+        }
     });
 }
 
