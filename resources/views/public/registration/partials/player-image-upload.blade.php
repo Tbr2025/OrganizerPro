@@ -336,9 +336,10 @@ function publicPlayerImageUpload_{{ $piuId }}() {
         async cropAndProcess() {
             if (!this.cropper) return;
 
+            // Cap only. The minimums that used to sit here made cropper.js
+            // enlarge an undersized crop to reach them, baking in blur that no
+            // later stage can undo.
             const canvas = this.cropper.getCroppedCanvas({
-                minWidth: 400,
-                minHeight: 533,
                 maxWidth: 1600,
                 maxHeight: 2133,
                 imageSmoothingEnabled: true,

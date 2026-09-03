@@ -120,7 +120,10 @@
                 },
                 doCrop() {
                     if (!this.cropper) return;
-                    const canvas = this.cropper.getCroppedCanvas({ width: 800, height: 800, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+                    // Cap at 800, never stretch to it: `width`/`height` are exact
+                    // output dimensions, so a 300px crest was being blown up to
+                    // 800x800 and every poster then drew the blurred version.
+                    const canvas = this.cropper.getCroppedCanvas({ maxWidth: 800, maxHeight: 800, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
                     this.croppedData = canvas.toDataURL('image/png');
                     this.closeModal();
                 },

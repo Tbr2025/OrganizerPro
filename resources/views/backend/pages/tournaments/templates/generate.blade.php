@@ -1568,6 +1568,25 @@ function matchSummaryImages() {
 // Cropped image blob for award poster
 let awardCroppedBlob = null;
 
+/**
+ * Downscaled PNG data URI of a canvas, for on-screen thumbnails.
+ *
+ * The full-resolution canvas is what gets uploaded; this only feeds the small
+ * preview <img> elements, so it is capped hard to keep the DOM light.
+ */
+function thumbDataUrl(canvas, maxEdge) {
+    const scale = Math.min(1, maxEdge / Math.max(canvas.width, canvas.height));
+    if (scale >= 1) return canvas.toDataURL('image/png');
+    const thumb = document.createElement('canvas');
+    thumb.width = Math.max(1, Math.round(canvas.width * scale));
+    thumb.height = Math.max(1, Math.round(canvas.height * scale));
+    const ctx = thumb.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, thumb.width, thumb.height);
+    return thumb.toDataURL('image/png');
+}
+
 function awardImageCropper() {
     return {
         showCropModal: false,
@@ -1656,8 +1675,25 @@ function awardImageCropper() {
 
         applyCrop() {
             if (!this.cropper) return;
-            const canvas = this.cropper.getCroppedCanvas({ maxWidth: 800, maxHeight: 1000, imageSmoothingQuality: 'high' });
-            this.croppedPreview = canvas.toDataURL('image/png');
+            /*
+             * Cap the crop at the same ceiling PlayerImageService uses for stored
+             * player photos, not the old 800x1000. An award-poster player slot is
+             * roughly 900x1200 against a 1080x1350 canvas, so an 800px-wide crop
+             * was handed to the renderer already too small and got ENLARGED —
+             * the crop step was throwing away detail the upload still had.
+             *
+             * No minWidth/minHeight: those make cropper.js scale a small crop UP
+             * to reach them, which adds interpolation blur and no detail.
+             */
+            const canvas = this.cropper.getCroppedCanvas({
+                maxWidth: 1600,
+                maxHeight: 2133,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+            // Thumbnail only — a full-resolution data URI here would be several MB
+            // of base64 held in the DOM purely to fill a 112px-tall <img>.
+            this.croppedPreview = thumbDataUrl(canvas, 320);
             canvas.toBlob((blob) => {
                 awardCroppedBlob = blob;
                 // Create a new File from blob and set it on the hidden input

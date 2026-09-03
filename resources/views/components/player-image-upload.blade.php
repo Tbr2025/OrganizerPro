@@ -427,9 +427,17 @@ function playerImageUpload_{{ $uniqueId }}() {
         async cropAndProcess() {
             if (!this.cropper) return;
 
+            /*
+             * Cap only — no minWidth/minHeight.
+             *
+             * cropper.js treats the minimums as a target and scales a smaller
+             * crop UP to reach them, which is the same "target rather than a cap"
+             * mistake the old 425px server-side resize made: it adds pixels and
+             * interpolation blur without adding detail, and the blur then rides
+             * all the way through to the poster. A small crop should stay small
+             * and be flagged by the dimension badge instead.
+             */
             const canvas = this.cropper.getCroppedCanvas({
-                minWidth: {{ $modeConfig['minW'] }},
-                minHeight: {{ $modeConfig['minH'] }},
                 maxWidth: {{ $modeConfig['maxW'] }},
                 maxHeight: {{ $modeConfig['maxH'] }},
                 imageSmoothingEnabled: true,

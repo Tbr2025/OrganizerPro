@@ -3,7 +3,10 @@
     'existingImage' => null,
     'circular' => true,
     'ratios' => null,
-    'outputSize' => 400,
+    // Ceiling for the longest edge of the cropped logo. 400 was too tight: a
+    // tournament crest occupies 200-400px on a 1080-wide poster, so 400px stored
+    // artwork left the renderer nothing to work with once a slot ran larger.
+    'outputSize' => 800,
 ])
 
 @php
@@ -224,26 +227,28 @@ function logoCropper_{{ $uniqueId }}() {
             if (!this.cropper) return;
 
             const cropData = this.cropper.getData();
-            const outputOpts = { imageSmoothingQuality: 'high' };
             const numeric = this.getNumericRatio();
 
-            if (!isNaN(numeric) && numeric === 1) {
-                outputOpts.width = this.outputSize;
-                outputOpts.height = this.outputSize;
-            } else if (!isNaN(numeric)) {
-                outputOpts.width = this.outputSize;
-                outputOpts.height = Math.round(this.outputSize / numeric);
-            } else {
-                // Free crop — cap the largest side
-                const ratio = cropData.width / cropData.height;
-                if (ratio >= 1) {
-                    outputOpts.width = this.outputSize;
-                    outputOpts.height = Math.round(this.outputSize / ratio);
-                } else {
-                    outputOpts.height = this.outputSize;
-                    outputOpts.width = Math.round(this.outputSize * ratio);
-                }
-            }
+            /*
+             * outputSize is a CEILING, not a target.
+             *
+             * These were `width`/`height`, cropper.js's exact-output options, so
+             * a 150px logo cropped out of a small source was stretched up to the
+             * full outputSize before it ever reached the server — pure
+             * interpolation blur that then rode through onto every poster. Scale
+             * down when the crop is bigger than the ceiling; otherwise leave the
+             * crop at its native pixels and let it be small.
+             */
+            const ratio = !isNaN(numeric) ? numeric : (cropData.width / cropData.height);
+            const longestEdge = ratio >= 1 ? cropData.width : cropData.height;
+            const scale = Math.min(1, this.outputSize / longestEdge);
+
+            const outputOpts = {
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+                maxWidth: Math.max(1, Math.round(cropData.width * scale)),
+                maxHeight: Math.max(1, Math.round(cropData.height * scale)),
+            };
 
             const canvas = this.cropper.getCroppedCanvas(outputOpts);
 

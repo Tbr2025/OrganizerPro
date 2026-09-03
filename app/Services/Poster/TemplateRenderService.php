@@ -3039,7 +3039,49 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
+     * Longest edge of the on-screen preview JPEG.
+     *
+     * Set at 1350 so the standard 1080x1350 poster previews at native size —
+     * the point of the preview is judging the poster, and an organizer who
+     * zooms in should be looking at the real pixels. Only oversized canvases
+     * (the 1920x1080 templates, print sizes) get reduced, and only to a height
+     * the preview <img> can still show sharply.
+     */
+    protected const PREVIEW_MAX_EDGE = 1350;
+
+    /** Quality for the preview JPEG. High enough to be visually lossless at preview size. */
+    protected const PREVIEW_QUALITY = 94;
+
+    /**
+     * Render once, returning BOTH the lossless PNG and a preview data-URI.
+     *
+     * Keeping these separate is the point. renderToBase64() returns a
+     * compressed JPEG, and callers that then persisted that JPEG as the
+     * downloadable poster were shipping a re-encoded, preview-grade image
+     * under a .png filename — the poster the organizer downloaded had been
+     * through a lossy pass it never needed. Anything that saves or sends a
+     * poster must use ['path'], and only what goes on screen uses ['preview'].
+     *
+     * @return array{path: string, preview: string}  $path is on the public disk.
+     */
+    public function renderWithPreview(TournamentTemplate $template, array $data = [], bool $skipBlanks = false): array
+    {
+        $this->prunePreviewRenders();
+
+        $path = $this->renderTemplate($template, $data, true, $skipBlanks);
+
+        return [
+            'path' => $path,
+            'preview' => $this->previewDataUri(Storage::disk('public')->path($path)),
+        ];
+    }
+
+    /**
      * Render template and return as base64 for preview
+     *
+     * Lossy by design — see renderWithPreview() when the result is going to be
+     * saved, downloaded or emailed rather than shown on screen.
+     *
      * @param bool $optimizeForWeb Compress output for faster transfer
      */
     public function renderToBase64(TournamentTemplate $template, array $data = [], bool $optimizeForWeb = true, bool $skipBlanks = false): string
@@ -3047,30 +3089,90 @@ class TemplateRenderService extends PosterGeneratorService
         $path = $this->renderTemplate($template, $data, true, $skipBlanks);
         $fullPath = Storage::disk('public')->path($path);
 
-        if ($optimizeForWeb) {
-            // Load the PNG and convert to optimized JPEG for preview
-            $image = @imagecreatefrompng($fullPath);
-            if ($image) {
-                ob_start();
-                imagejpeg($image, null, 85); // 85% quality JPEG for faster transfer
-                $imageData = ob_get_clean();
-                imagedestroy($image);
-
-                // Clean up preview file
-                Storage::disk('public')->delete($path);
-
-                return 'data:image/jpeg;base64,' . base64_encode($imageData);
-            }
-        }
-
-        // Fallback to PNG if JPEG conversion fails
-        $imageData = file_get_contents($fullPath);
-        $base64 = base64_encode($imageData);
+        $dataUri = $optimizeForWeb
+            ? $this->previewDataUri($fullPath)
+            : 'data:image/png;base64,' . base64_encode((string) file_get_contents($fullPath));
 
         // Clean up preview file
         Storage::disk('public')->delete($path);
 
-        return 'data:image/png;base64,' . $base64;
+        return $dataUri;
+    }
+
+    /**
+     * Build a small, high-quality JPEG data-URI of a rendered poster.
+     *
+     * Falls back to the untouched PNG bytes if the file cannot be decoded, so a
+     * preview never silently comes back blank.
+     */
+    protected function previewDataUri(string $fullPath): string
+    {
+        $image = @imagecreatefrompng($fullPath);
+
+        if (! $image) {
+            return 'data:image/png;base64,' . base64_encode((string) @file_get_contents($fullPath));
+        }
+
+        $srcWidth = imagesx($image);
+        $srcHeight = imagesy($image);
+        $longestEdge = max($srcWidth, $srcHeight);
+
+        if ($longestEdge > static::PREVIEW_MAX_EDGE) {
+            $scale = static::PREVIEW_MAX_EDGE / $longestEdge;
+            $shrunk = app(\App\Services\PlayerImageService::class)->downscale(
+                $image,
+                max(1, (int) round($srcWidth * $scale)),
+                max(1, (int) round($srcHeight * $scale)),
+            );
+            imagedestroy($image);
+            $image = $shrunk;
+        }
+
+        // A rendered poster is opaque, but a template with no background leaves
+        // transparent pixels — JPEG has no alpha and would write those black.
+        // Flatten onto white so a half-built template previews as it looks in
+        // the editor rather than as a black slab.
+        $flat = imagecreatetruecolor(imagesx($image), imagesy($image));
+        imagefilledrectangle($flat, 0, 0, imagesx($image), imagesy($image), imagecolorallocate($flat, 255, 255, 255));
+        imagealphablending($flat, true);
+        imagecopy($flat, $image, 0, 0, 0, 0, imagesx($image), imagesy($image));
+        imagedestroy($image);
+
+        ob_start();
+        imagejpeg($flat, null, static::PREVIEW_QUALITY);
+        $imageData = ob_get_clean();
+        imagedestroy($flat);
+
+        return 'data:image/jpeg;base64,' . base64_encode($imageData);
+    }
+
+    /**
+     * Delete stale preview renders left behind by renderWithPreview().
+     *
+     * renderToBase64() deletes its own file immediately; renderWithPreview()
+     * cannot, because the caller may still hand the PNG to the browser as the
+     * download. So they are swept on the next render instead. Deliberately
+     * narrow: only files in this service's own output directory whose name
+     * carries the '-preview-' marker generateFilename() adds, and only ones
+     * older than an hour — never a saved poster, never anything else.
+     */
+    protected function prunePreviewRenders(int $maxAgeSeconds = 3600): void
+    {
+        try {
+            $disk = Storage::disk('public');
+            $cutoff = time() - $maxAgeSeconds;
+
+            foreach ($disk->files($this->outputDirectory) as $file) {
+                if (! str_contains(basename($file), '-preview-')) {
+                    continue;
+                }
+                if ($disk->lastModified($file) < $cutoff) {
+                    $disk->delete($file);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Preview render prune failed: ' . $e->getMessage());
+        }
     }
 
     /**

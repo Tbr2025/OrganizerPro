@@ -976,7 +976,18 @@ class TournamentTemplateController extends Controller
             // Skip blank placeholders when generating from actual data (not editor preview)
             $hasMatchData = $request->input('match_id') || $request->input('player_id') || $request->input('group_id')
                 || $template->type === TournamentTemplate::TYPE_FIXTURES_POSTER;
-            $base64Image = $renderService->renderToBase64($template, $data, true, (bool) $hasMatchData);
+            /*
+             * Render ONCE, then keep the two outputs apart.
+             *
+             * `preview` is a compressed JPEG sized for the on-screen <img>;
+             * `path` is the untouched PNG the renderer produced. This used to be
+             * a single renderToBase64() call whose JPEG was both shown AND
+             * decoded back out to become the saved poster — so every downloaded
+             * poster was a preview-grade re-encode carrying a .png extension.
+             */
+            $rendered = $renderService->renderWithPreview($template, $data, (bool) $hasMatchData);
+            $base64Image = $rendered['preview'];
+            $renderedPath = $rendered['path'];
 
             // Save poster to storage and database (only when explicitly requested)
             $shouldSave = $request->boolean('save_poster', false);
@@ -986,8 +997,9 @@ class TournamentTemplateController extends Controller
                     $appPrefix = config('settings.app_name') ?: config('app.name');
                     $filename = $appPrefix . '-' . $template->type . '-' . now()->format('YmdHis') . '-' . uniqid() . '.png';
                     $savePath = 'generated_posters/' . $tournament->id . '/' . $filename;
-                    $imageData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $base64Image));
-                    Storage::disk('public')->put($savePath, $imageData);
+                    // Copy, not move: the render also backs the download URL below
+                    // when nothing is saved, and it is swept up by the preview prune.
+                    Storage::disk('public')->put($savePath, Storage::disk('public')->get($renderedPath));
 
                     // Build a descriptive label
                     $label = match($template->type) {
@@ -1026,7 +1038,10 @@ class TournamentTemplateController extends Controller
             return response()->json([
                 'success' => true,
                 'image' => $base64Image,
-                'download_url' => $savedPoster ? asset('storage/' . $savedPoster->image_path) : null,
+                // Always a lossless PNG: the saved poster when there is one,
+                // otherwise the preview render itself. Never the JPEG in `image`
+                // — the Download button must not hand over the on-screen copy.
+                'download_url' => asset('storage/' . ($savedPoster?->image_path ?? $renderedPath)),
                 'poster_id' => $savedPoster?->id,
                 'poster_label' => $savedPoster?->label,
                 'poster_type' => $template->type,
