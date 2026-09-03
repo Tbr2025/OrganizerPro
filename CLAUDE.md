@@ -108,22 +108,46 @@ The word "team" refers to **three different things** in this codebase. Never con
 ## Poster Image Resolution
 
 Generated posters draw player photos into slots sized against a **1080x1350** canvas —
-a match-poster captain slot is ~715x715. Any stored photo smaller than that gets
-**enlarged** at render time, which is what makes a poster look soft.
+a match-poster captain slot is ~715x715, and **award-poster player slots on live run
+1047–1325px**. Any stored photo smaller than that gets **enlarged** at render time,
+which is what makes a poster look soft.
 
 Every upload path funnels through `App\Services\PlayerImageService::capSize()`
-(**1200x1600, shrink-only**). Do not reintroduce a per-controller resize: four of them
+(**1600x2133, shrink-only**). Do not reintroduce a per-controller resize: four of them
 had drifted to a fixed **425px width** — and because it was a target rather than a cap,
 it scaled narrow photos *up*, adding blur.
 
+**"Target, not cap" is the recurring bug in this codebase.** It has now been found and
+fixed in six places. Any output-size number in an upload path must be a ceiling that
+only ever shrinks:
+
+- `LogoProcessingService` hard-resized every logo to **200x200** — shrinking large crests
+  *and* inflating small ones, after which the renderer enlarged the result again for a
+  200–400px slot. Now `MAX_SIZE = 600`, shrink-only.
+- Cropper.js `width`/`height` are **exact output dimensions** and `minWidth`/`minHeight`
+  are a **floor it scales up to reach**. Use `maxWidth`/`maxHeight` only. This bit the
+  admin and public player uploads, the public team-logo field, and `logo-cropper`.
+
 **The usual real cause of a blurry poster is the uploaded artwork, not the code.**
 Team captain images on live measure 594x792–800x1067, so they are already at their
-ceiling. The upload panels show stored dimensions and turn amber under 1000px tall;
-that badge is the diagnostic to check first. Fixing it needs a bigger re-upload via
-**Replace Player Photo** (player page) or the captain upload on the team edit page.
+ceiling — e.g. player 503's photo is **799x1067** drawn into a 1325px slot, a 1.24x
+enlargement no code can undo. The upload panels show stored dimensions and turn amber
+under 1000px tall; that badge is the diagnostic to check first. Fixing it needs a bigger
+re-upload via **Replace Player Photo** (player page) or the captain upload on the team
+edit page.
+
+**A preview is not a deliverable.** `renderToBase64()` re-encodes the poster as a
+compressed JPEG for the browser. `generatePreview()` used to decode those JPEG bytes
+back out and save them as the downloadable poster, so every saved poster was a
+preview-grade re-encode wearing a `.png` extension. Use **`renderWithPreview()`**, which
+returns `['path' => <lossless PNG>, 'preview' => <data URI>]`, and never persist or send
+what came out of the preview side.
 
 - `PosterGeneratorService::sharpenImage()` recovers sharpness lost to the resample —
   **person placeholders only** (`isPersonPlaceholder()`); crests and sponsor logos halo.
+  It also treats **mild enlargements** (up to `MAX_UPSCALE_TO_SHARPEN = 1.6x`) at half
+  strength, because that is the live case: ~800px photos into ~1300px slots. It still
+  bails out beyond 1.6x, where the interpolation is inventing most of the pixels.
 - **GD's `imagecopyresampled` already area-averages on downscale.** Pre-halving the
   image measurably makes banding *worse*. Don't add it back.
 - `renderElement()` reads `x`/`y` as **percentages** of the canvas but `width`/`height`

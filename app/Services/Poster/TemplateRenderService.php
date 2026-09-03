@@ -3047,10 +3047,18 @@ class TemplateRenderService extends PosterGeneratorService
      * (the 1920x1080 templates, print sizes) get reduced, and only to a height
      * the preview <img> can still show sharply.
      */
-    protected const PREVIEW_MAX_EDGE = 1350;
+    protected const PREVIEW_MAX_EDGE = 2200;
 
-    /** Quality for the preview JPEG. High enough to be visually lossless at preview size. */
-    protected const PREVIEW_QUALITY = 94;
+    /**
+     * Quality for the preview JPEG.
+     *
+     * 97, not the usual 85-90 "good enough for web" setting. This preview is
+     * what an organizer judges a player's face on before generating, so the
+     * encode has to be visually lossless rather than merely small — JPEG ringing
+     * around eyes and hairlines at q85 reads as a blurry photo even when the
+     * underlying render is sharp. The download is the untouched PNG regardless.
+     */
+    protected const PREVIEW_QUALITY = 97;
 
     /**
      * Render once, returning BOTH the lossless PNG and a preview data-URI.

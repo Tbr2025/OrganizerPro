@@ -178,23 +178,49 @@ abstract class PosterGeneratorService
     }
 
     /**
-     * Mild unsharp mask, scaled to how far the image was reduced.
+     * How far an image may be ENLARGED and still be worth sharpening.
      *
-     * Any resample softens edges; the more it shrank, the more it softened.
+     * Beyond this the interpolation is inventing most of the pixels and an
+     * unsharp mask just makes the invention obvious.
+     */
+    protected const MAX_UPSCALE_TO_SHARPEN = 1.6;
+
+    /**
+     * Mild unsharp mask, scaled to how far the image was resampled.
+     *
+     * Any resample softens edges. Sharpening a heavy upscale only amplifies
+     * interpolation artefacts, which is why this used to bail out on every
+     * enlargement — but that left the common case unhandled: live player photos
+     * measure ~800x1067 against award-poster slots of 1047-1325px, so the
+     * renderer enlarges by 1.2-1.6x and the face arrived soft with no treatment
+     * at all. A gentle pass over a small upscale cannot restore detail that was
+     * never captured, but it does restore the edge contrast the interpolation
+     * smeared, which is most of what reads as "clear" on a face.
+     *
      * Strength is capped low deliberately — a poster player cut-out with a
-     * visible halo looks worse than a slightly soft one. Skipped entirely when
-     * the image was upscaled, where sharpening only amplifies interpolation
-     * artefacts.
+     * visible halo looks worse than a slightly soft one — and upscales get half
+     * the amount a downscale of the same ratio would.
      */
     protected function sharpenImage(\GdImage $image, int $sourceWidth, int $targetWidth): void
     {
-        if ($targetWidth <= 0 || $sourceWidth <= $targetWidth) {
+        if ($targetWidth <= 0 || $sourceWidth <= 0) {
             return;
         }
 
-        $reduction = $sourceWidth / $targetWidth;
-        // 1.0x reduction -> no sharpening; 2x or beyond -> full (still gentle) amount.
-        $amount = min(1.0, ($reduction - 1.0) / 1.0) * 0.6;
+        if ($sourceWidth >= $targetWidth) {
+            $reduction = $sourceWidth / $targetWidth;
+            // 1.0x reduction -> no sharpening; 2x or beyond -> full (still gentle) amount.
+            $amount = min(1.0, ($reduction - 1.0) / 1.0) * 0.6;
+        } else {
+            $upscale = $targetWidth / $sourceWidth;
+
+            if ($upscale > static::MAX_UPSCALE_TO_SHARPEN) {
+                return;
+            }
+
+            // Half strength, ramping in from 1.0x so a near-native fit is left alone.
+            $amount = min(1.0, ($upscale - 1.0) / (static::MAX_UPSCALE_TO_SHARPEN - 1.0)) * 0.3;
+        }
 
         if ($amount <= 0.01) {
             return;

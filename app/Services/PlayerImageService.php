@@ -16,11 +16,20 @@ use Illuminate\Support\Facades\Log;
  */
 class PlayerImageService
 {
-    /** Widest a stored player photo needs to be for any poster slot. */
-    public const MAX_WIDTH = 1200;
+    /**
+     * Widest a stored player photo needs to be for any poster slot.
+     *
+     * Raised from 1200x1600 to match the ceiling the croppers already allow.
+     * 1200 left almost no headroom: an award-poster player slot is ~900-1000px
+     * wide, so a capped photo was downscaled by barely 1.2x, and a downscale
+     * that small gains little of the detail-per-pixel that makes a face read
+     * as sharp. At 1600 the same slot gets a ~1.7x reduction, which is where
+     * the resample plus sharpenImage() actually looks crisp.
+     */
+    public const MAX_WIDTH = 1600;
 
     /** Tallest a stored player photo needs to be for any poster slot. */
-    public const MAX_HEIGHT = 1600;
+    public const MAX_HEIGHT = 2133;
 
     /**
      * Shrink a PNG/JPEG on disk so it fits within the given box, preserving
