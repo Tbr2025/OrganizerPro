@@ -113,20 +113,17 @@ class BlogGenerationService
         $model = $this->model();
         $endpoint = rtrim($this->settings->baseUrl(), '/') . '/chat/completions';
 
-        $response = Http::withToken((string) $this->settings->apiKey())
-            ->timeout((int) config('services.ai.timeout', 120))
-            ->acceptJson()
-            ->post($endpoint, [
-                'model' => $model,
-                // JSON mode: parsing prose for "the title is..." is guesswork, and a malformed
-                // draft would land in the database as the post body.
-                'response_format' => ['type' => 'json_object'],
-                'temperature' => 0.7,
-                'messages' => [
-                    ['role' => 'system', 'content' => $this->systemPrompt()],
-                    ['role' => 'user', 'content' => $this->userPrompt($match, $report, $tone, $length, $extra)],
-                ],
-            ]);
+        $response = $this->send($endpoint, [
+            'model' => $model,
+            // JSON mode: parsing prose for "the title is..." is guesswork, and a malformed
+            // draft would land in the database as the post body.
+            'response_format' => ['type' => 'json_object'],
+            'temperature' => 0.7,
+            'messages' => [
+                ['role' => 'system', 'content' => $this->systemPrompt()],
+                ['role' => 'user', 'content' => $this->userPrompt($match, $report, $tone, $length, $extra)],
+            ],
+        ]);
 
         if ($response->failed()) {
             // The body can echo request content; log the status and the API's own message only.
@@ -148,6 +145,14 @@ class BlogGenerationService
                 throw new \RuntimeException(sprintf(
                     'The provider returned 404 for %s with no explanation, which usually means the API Base URL is wrong — check it in Settings → AI & Blog.',
                     $endpoint
+                ));
+            }
+
+            if (in_array($response->status(), [429, 503], true)) {
+                throw new \RuntimeException(sprintf(
+                    '%s is busy or rate-limited right now (%s). This is temporary — try again in a minute, or pick a different model.',
+                    $model,
+                    $apiMessage
                 ));
             }
 
@@ -174,6 +179,41 @@ class BlogGenerationService
             'completion_tokens' => $completionTokens,
             'cost_usd' => $this->priceFor($model, $promptTokens, $completionTokens),
         ];
+    }
+
+    /**
+     * Post the request, retrying the answers that mean "not now" rather than "no".
+     *
+     * A free tier answers 503 "experiencing high demand" often enough that a single attempt is
+     * a coin toss — the same model returns 200 a minute later. 429 and the 5xx family are the
+     * same kind of answer. Retrying is safe because none of them processed the request, and
+     * three attempts with a growing pause turns a common annoyance into something the organizer
+     * never sees. Anything else is a real answer and comes straight back.
+     */
+    private function send(string $endpoint, array $payload)
+    {
+        $transient = [429, 500, 502, 503, 504, 529];
+        $attempts = 3;
+        $response = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $response = Http::withToken((string) $this->settings->apiKey())
+                ->timeout((int) config('services.ai.timeout', 120))
+                ->acceptJson()
+                ->post($endpoint, $payload);
+
+            if (! in_array($response->status(), $transient, true)) {
+                return $response;
+            }
+
+            if ($attempt < $attempts) {
+                // 2s, then 4s. Long enough for a demand spike to pass, short enough that the
+                // organizer is still looking at the page.
+                sleep(2 * $attempt);
+            }
+        }
+
+        return $response;
     }
 
     /**

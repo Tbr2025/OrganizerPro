@@ -369,6 +369,53 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
+    public function a_busy_provider_is_retried_rather_than_shown_to_the_organizer(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+
+        /*
+         * A free tier answers 503 "experiencing high demand" often enough that one attempt is a
+         * coin toss — the same model returns 200 a minute later. None of these statuses mean the
+         * request was processed, so retrying is safe and turns a common annoyance into something
+         * nobody sees.
+         */
+        Http::fake(['*' => Http::sequence()
+            ->push(['error' => ['message' => 'high demand']], 503)
+            ->push($this->draftBody())]);
+
+        [$match, $superadmin] = $this->scenario();
+
+        $this->actingAs($superadmin)
+            ->post(route('admin.matches.report.generate', $match))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(1, Post::count());
+    }
+
+    #[Test]
+    public function a_provider_busy_for_every_attempt_says_it_is_temporary(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+        add_setting('ai_model_openai', 'gemini-flash-latest');
+        Http::fake(['*' => Http::response(['error' => ['message' => 'high demand']], 503)]);
+
+        [$match, $superadmin] = $this->scenario();
+
+        $error = $this->actingAs($superadmin)
+            ->post(route('admin.matches.report.generate', $match))
+            ->assertRedirect()
+            ->getSession()->get('error');
+
+        // Distinguishable from a real failure: nothing is wrong with the setup.
+        $this->assertStringContainsString('temporary', $error);
+        $this->assertStringContainsString('gemini-flash-latest', $error);
+        $this->assertSame(0, Post::count());
+    }
+
+    #[Test]
     public function a_404_with_no_body_blames_the_base_url_and_names_the_address(): void
     {
         Storage::fake('local');
