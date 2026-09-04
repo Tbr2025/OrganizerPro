@@ -57,7 +57,14 @@ class BlogGenerationService
      */
     public function priceFor(string $model, int $promptTokens, int $completionTokens): ?float
     {
-        $rates = (array) config('services.ai.pricing.' . $model, []);
+        /*
+         * Indexed, not dot-notated.
+         *
+         * config('services.ai.pricing.' . $model) reads the dots in a model id as nested keys,
+         * so "gemini-2.5-flash" resolved as pricing → gemini-2 → 5-flash and came back null.
+         * Every dotted id — the whole Gemini range and gpt-5.6-* — silently had no price.
+         */
+        $rates = (array) (config('services.ai.pricing', [])[$model] ?? []);
 
         if (! isset($rates['input'], $rates['output'])) {
             return null;
@@ -104,11 +111,12 @@ class BlogGenerationService
         $extra = trim((string) ($options['instructions'] ?? ''));
 
         $model = $this->model();
+        $endpoint = rtrim($this->settings->baseUrl(), '/') . '/chat/completions';
 
         $response = Http::withToken((string) $this->settings->apiKey())
             ->timeout((int) config('services.ai.timeout', 120))
             ->acceptJson()
-            ->post(rtrim($this->settings->baseUrl(), '/') . '/chat/completions', [
+            ->post($endpoint, [
                 'model' => $model,
                 // JSON mode: parsing prose for "the title is..." is guesswork, and a malformed
                 // draft would land in the database as the post body.
@@ -123,9 +131,24 @@ class BlogGenerationService
         if ($response->failed()) {
             // The body can echo request content; log the status and the API's own message only.
             $apiMessage = $response->json('error.message') ?? 'HTTP ' . $response->status();
-            Log::warning('OpenAI blog generation failed', ['status' => $response->status(), 'message' => $apiMessage]);
+            Log::warning('Blog generation failed', ['status' => $response->status(), 'endpoint' => $endpoint, 'model' => $model, 'message' => $apiMessage]);
 
-            throw new \RuntimeException('OpenAI could not generate the post: ' . $apiMessage);
+            /*
+             * Name the URL and the model in the message.
+             *
+             * A bare "HTTP 404" is the least useful thing this can say, and 404 almost always
+             * means the base URL is wrong rather than anything about the request — pasting
+             * Gemini's native /v1beta/models/{model} endpoint instead of its OpenAI-compatible
+             * /v1beta/openai/ one produces exactly that, with no error body to explain it.
+             */
+            if ($response->status() === 404) {
+                throw new \RuntimeException(sprintf(
+                    'The provider returned 404 for %s. That usually means the API Base URL is wrong — check it in Settings → AI & Blog.',
+                    $endpoint
+                ));
+            }
+
+            throw new \RuntimeException(sprintf('Could not generate the post (%s, model %s): %s', $apiMessage, $model, $endpoint));
         }
 
         $decoded = $this->decodeDraft($response->json('choices.0.message.content'));

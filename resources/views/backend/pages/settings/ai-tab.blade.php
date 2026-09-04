@@ -81,13 +81,30 @@
                            class="{{ $inputClass }}">
                 </div>
 
-                <div>
+                <div x-data="{ url: '{{ get_setting('ai_base_url_' . $key) }}' }">
                     <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">{{ __('API Base URL') }}</label>
-                    <input type="text" name="ai_base_url_{{ $key }}" spellcheck="false"
-                           value="{{ get_setting('ai_base_url_' . $key) }}"
+                    <input type="text" name="ai_base_url_{{ $key }}" spellcheck="false" x-model="url"
                            placeholder="{{ $meta['base_url'] ?: 'https://...' }}"
                            class="{{ $inputClass }}">
                     <p class="mt-1 text-[11px] text-gray-400">{{ __('Blank uses') }} <span class="font-mono">{{ $meta['base_url'] ?: __('nothing — required for a custom provider') }}</span></p>
+
+                    {{-- The URL that will actually be called, shown as you type.
+                         A 404 from a wrong base URL carries no error body to explain itself, so
+                         the only way to catch it is to see the assembled address beforehand. --}}
+                    <p class="mt-1 text-[11px] text-gray-500">
+                        {{ __('Will call:') }}
+                        <span class="font-mono" x-text="(url || '{{ $meta['base_url'] }}').replace(/\/+$/, '') + '/chat/completions'"></span>
+                    </p>
+
+                    {{-- Gemini publishes two endpoints and the wrong one looks plausible: the
+                         native /v1beta/models/{model} path is what most of its documentation
+                         shows, and it 404s here because it already names a model. --}}
+                    <p x-show="/\/models\//.test(url) || /generateContent/.test(url)" x-cloak
+                       class="mt-1 text-sm text-red-600">
+                        {{ __('That looks like a native endpoint that already names a model. Use the OpenAI-compatible one:') }}
+                        <button type="button" class="font-mono underline"
+                                @click="url = '{{ $meta['base_url'] }}'">{{ $meta['base_url'] }}</button>
+                    </p>
                 </div>
 
                 <div>

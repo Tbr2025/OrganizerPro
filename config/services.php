@@ -64,8 +64,8 @@ return [
                 'label' => 'Google Gemini',
                 'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai/',
                 'keys_url' => 'https://aistudio.google.com/apikey',
-                'note' => 'Free tier is tightly capped per day, and which models a key may use varies — use Load available models.',
-                'models' => ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash'],
+                'note' => 'Free tier is capped at roughly 20 requests a day and bills nothing. Which models a key may use varies — use Load available models. Flash-Lite is the cheapest if you ever enable billing; avoid Pro.',
+                'models' => ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.8-flash'],
             ],
             'custom' => [
                 'label' => 'Custom (OpenAI-compatible)',
@@ -89,9 +89,22 @@ return [
             'gpt-5.6-sol' => ['input' => 4.00, 'output' => 20.00],
             'llama-3.3-70b-versatile' => ['input' => 0.0, 'output' => 0.0],
             'llama-3.1-8b-instant' => ['input' => 0.0, 'output' => 0.0],
-            'gemini-2.5-flash' => ['input' => 0.0, 'output' => 0.0],
-            'gemini-3.5-flash' => ['input' => 0.0, 'output' => 0.0],
-            'gemini-3.8-flash' => ['input' => 0.0, 'output' => 0.0],
+            /*
+             * Gemini's PAID list prices, not zero.
+             *
+             * Its free tier bills nothing, but showing 0.00 here would quietly become a lie the
+             * moment billing is enabled on the project — and the difference between Flash-Lite
+             * and 3.5 Flash is roughly twentyfold, which is exactly the sort of thing an
+             * estimate exists to warn you about.
+             */
+            'gemini-2.5-flash-lite' => ['input' => 0.10, 'output' => 0.40],
+            'gemini-3.5-flash-lite' => ['input' => 0.30, 'output' => 2.50],
+            'gemini-2.5-flash' => ['input' => 0.30, 'output' => 2.50],
+            'gemini-3.6-flash' => ['input' => 0.75, 'output' => 3.75],
+            'gemini-3.7-flash' => ['input' => 0.75, 'output' => 3.75],
+            'gemini-3.8-flash' => ['input' => 0.75, 'output' => 3.75],
+            'gemini-3.5-flash' => ['input' => 1.50, 'output' => 9.00],
+            'gemini-2.5-pro' => ['input' => 1.25, 'output' => 10.00],
         ],
     ],
 

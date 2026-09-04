@@ -369,6 +369,55 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
+    public function a_404_names_the_url_it_called_and_blames_the_base_url(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+
+        /*
+         * A 404 from a wrong base URL carries no error body, so "HTTP 404" told the organizer
+         * nothing — and the message said "OpenAI" while they were on Gemini. Pasting Gemini's
+         * native /v1beta/models/{model} endpoint instead of its /v1beta/openai/ one lands here
+         * exactly, so the message has to name the address and point at the setting.
+         */
+        add_setting('ai_base_url_openai', 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest');
+        Http::fake(['*' => Http::response('', 404)]);
+
+        [$match, $superadmin] = $this->scenario();
+
+        $error = $this->actingAs($superadmin)
+            ->post(route('admin.matches.report.generate', $match))
+            ->assertRedirect()
+            ->getSession()->get('error');
+
+        $this->assertStringContainsString('/chat/completions', $error);
+        $this->assertStringContainsString('Base URL', $error);
+        $this->assertStringNotContainsString('OpenAI could not', $error, 'The message must not name OpenAI when another provider is in use.');
+    }
+
+    #[Test]
+    public function a_model_id_containing_dots_is_still_priced(): void
+    {
+        $ai = app(BlogGenerationService::class);
+
+        /*
+         * Model ids contain dots, and config('...pricing.' . $id) reads them as nested keys —
+         * "gemini-2.5-flash" resolved as pricing -> gemini-2 -> 5-flash and came back null, so
+         * the entire Gemini range and gpt-5.6-* silently showed "no published price".
+         */
+        foreach (['gemini-2.5-flash', 'gemini-3.8-flash', 'gpt-5.6-luna'] as $dotted) {
+            $this->assertNotNull(
+                $ai->priceFor($dotted, 1_000_000, 1_000_000),
+                "{$dotted} has a price in config but did not resolve."
+            );
+            $this->assertGreaterThan(0, $ai->priceFor($dotted, 1_000_000, 1_000_000));
+        }
+
+        // gemini-2.5-flash is $0.30/1M in and $2.50/1M out.
+        $this->assertEqualsWithDelta(2.80, $ai->priceFor('gemini-2.5-flash', 1_000_000, 1_000_000), 0.000001);
+    }
+
+    #[Test]
     public function the_saved_model_is_the_one_that_gets_called(): void
     {
         Storage::fake('local');
