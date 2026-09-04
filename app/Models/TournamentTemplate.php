@@ -355,11 +355,18 @@ class TournamentTemplate extends Model
                 // Performance Figures
                 'batting_figures',
                 'bowling_figures',
-                // Scorecard Tables
+                // Stats tables — every source MatchStatsTableData can fill. Each is drawn by a
+                // scorecardTable element, not as text; listing them here is what gives the
+                // editor sample rows and the preview real ones.
                 'batting_table_a',
                 'batting_table_b',
                 'bowling_table_a',
                 'bowling_table_b',
+                'top_batting',
+                'top_bowling',
+                'match_summary_table',
+                'fall_of_wickets_a',
+                'fall_of_wickets_b',
             ],
             self::TYPE_AWARD_POSTER => [
                 'tournament_name',

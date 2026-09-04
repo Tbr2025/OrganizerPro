@@ -959,16 +959,24 @@
                             <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                                 Or upload a photo <span class="text-gray-400 font-normal">— overrides the selection above</span>
                             </label>
-                            <div class="flex items-center gap-2">
-                                <input type="file" id="xiPlayerImageUpload" accept="image/jpeg,image/png,image/webp"
-                                       @change="onFeaturedFile($event)"
-                                       class="flex-1 min-w-0 text-xs text-gray-600 dark:text-gray-300
-                                              file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                                              file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700
-                                              hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300">
-                                <button type="button" x-show="featuredFileName" @click="clearFeaturedFile()"
-                                        class="shrink-0 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">
-                                    Clear
+                            {{-- The picker the organizer clicks, and the input the upload is
+                                 actually read from, are two different things: the crop result is
+                                 written into #xiPlayerImageUpload as a File, so what gets sent is
+                                 always the cropped image and never the raw camera roll photo. --}}
+                            <input type="file" x-ref="featuredFileInput" accept="image/jpeg,image/png,image/webp"
+                                   @change="onFeaturedFile($event)" class="hidden">
+                            <input type="file" id="xiPlayerImageUpload" class="hidden">
+
+                            <div class="flex items-center gap-2" x-show="!featuredPreview">
+                                <button type="button" @click="$refs.featuredFileInput.click()"
+                                        @dragover.prevent="featuredDragging = true"
+                                        @dragleave.prevent="featuredDragging = false"
+                                        @drop.prevent="onFeaturedDrop($event)"
+                                        :class="featuredDragging ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'"
+                                        class="flex-1 border-2 border-dashed rounded-xl p-4 text-center transition">
+                                    <svg class="w-6 h-6 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    <p class="text-xs text-gray-500">Drop a photo or click to browse</p>
+                                    <p class="text-[10px] text-gray-400 mt-0.5">Crop &amp; background removal available</p>
                                 </button>
                             </div>
 
@@ -981,6 +989,20 @@
                                 </div>
                                 <div class="min-w-0">
                                     <p class="text-xs text-gray-500 dark:text-gray-400 truncate" x-text="featuredFileName"></p>
+                                    <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                        <button type="button" @click="reopenCrop()"
+                                                class="text-xs font-medium px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100">
+                                            Crop
+                                        </button>
+                                        <button type="button" @click="$refs.featuredFileInput.click()"
+                                                class="text-xs font-medium px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">
+                                            Change
+                                        </button>
+                                        <button type="button" @click="clearFeaturedFile()"
+                                                class="text-xs font-medium px-2.5 py-1 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 hover:bg-red-100">
+                                            Clear
+                                        </button>
+                                    </div>
                                     <label class="flex items-center gap-2 cursor-pointer mt-2">
                                         <input type="checkbox" x-model="removeFeaturedBg"
                                                class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500">
@@ -1002,6 +1024,44 @@
                      component, so the collected XI is mirrored into a hidden input. It lives at
                      the panel root, not inside a card: x-show only sets display:none so a nested
                      one is still readable today, but an x-if there would break every generate. --}}
+                {{-- Crop modal — same shape as the award poster's, so the two uploads behave
+                     identically. Lives at the panel root rather than inside the featured-player
+                     card so its fixed overlay is never clipped by a scrolling ancestor. --}}
+                <div x-show="showCrop" x-cloak x-transition.opacity
+                     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                     @keydown.escape.window="closeCrop()">
+                    <div @click.outside="closeCrop()" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <h4 class="font-semibold text-gray-900 dark:text-white text-sm">Crop Featured Player</h4>
+                            <button type="button" @click="closeCrop()" class="text-gray-400 hover:text-gray-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                        </div>
+
+                        <div class="px-5 pt-3 flex items-center gap-2">
+                            <span class="text-xs text-gray-500 mr-1">Ratio:</span>
+                            <template x-for="r in cropRatios" :key="r.value">
+                                <button type="button" @click="setCropRatio(r.value)"
+                                        :class="activeRatio === r.value ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'"
+                                        class="px-2.5 py-1 rounded-lg text-xs font-semibold transition" x-text="r.label"></button>
+                            </template>
+                        </div>
+
+                        <div class="px-5 py-3">
+                            <div class="bg-gray-900 rounded-lg overflow-hidden" style="max-height: 400px;">
+                                <img x-ref="featuredCropImage" :src="cropSrc" alt="Crop" class="max-w-full" style="display:block; max-height:400px;">
+                            </div>
+                        </div>
+
+                        <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                            <span x-show="featuredIsTransparent" class="text-xs text-green-600">Transparent PNG — no removal needed</span>
+                            <span x-show="!featuredIsTransparent" class="text-xs text-gray-400">Crop tight to the player for the sharpest cut-out</span>
+                            <div class="flex gap-2">
+                                <button type="button" @click="closeCrop()" class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg">Cancel</button>
+                                <button type="button" @click="applyCrop()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">Apply Crop</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <input type="hidden" id="xiPayload" :value="payload()">
             </div>
 
@@ -1919,6 +1979,19 @@ function playingXiPanel() {
         featuredPreview: '',
         featuredFileName: '',
         featuredIsTransparent: false,
+        featuredDragging: false,
+        // Crop state. `cropSrc` keeps the ORIGINAL upload, so "Crop" can be reopened as many
+        // times as the organizer likes without them having to pick the file again.
+        showCrop: false,
+        cropSrc: '',
+        cropper: null,
+        activeRatio: '0.75',
+        cropRatios: [
+            { label: '3:4', value: '0.75' },
+            { label: '4:3', value: '1.333' },
+            { label: '1:1', value: '1' },
+            { label: 'Free', value: 'free' },
+        ],
         // Cutting a player out is the usual intent for this design, so it starts on — but the
         // answer is the organizer's, and it is now actually sent and honoured.
         removeFeaturedBg: true,
@@ -2027,21 +2100,95 @@ function playingXiPanel() {
          */
         onFeaturedFile(event) {
             const file = event.target.files?.[0];
-            if (!file) {
-                this.clearFeaturedFile();
-                return;
-            }
+            if (!file) return;
+            this.loadFeaturedImage(file);
+            // Let the same file be picked again after a Clear — without this the input keeps
+            // its value and the change event never fires a second time.
+            event.target.value = '';
+        },
 
+        onFeaturedDrop(event) {
+            this.featuredDragging = false;
+            const file = event.dataTransfer?.files?.[0];
+            if (file && file.type.startsWith('image/')) this.loadFeaturedImage(file);
+        },
+
+        loadFeaturedImage(file) {
             this.featuredFileName = file.name;
             this.featuredIsTransparent = false;
             this.removeFeaturedBg = true;
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                this.featuredPreview = e.target.result;
+                this.cropSrc = e.target.result;
                 this.detectTransparency(e.target.result);
+                this.showCrop = true;
+                this.$nextTick(() => this.initCropper());
             };
             reader.readAsDataURL(file);
+        },
+
+        /* Re-crop the photo already chosen. */
+        reopenCrop() {
+            if (!this.cropSrc) {
+                this.$refs.featuredFileInput.click();
+                return;
+            }
+            this.showCrop = true;
+            this.$nextTick(() => this.initCropper());
+        },
+
+        initCropper() {
+            if (this.cropper) this.cropper.destroy();
+            const imgEl = this.$refs.featuredCropImage;
+            if (!imgEl) return;
+            this.cropper = new Cropper(imgEl, {
+                viewMode: 1,
+                dragMode: 'move',
+                aspectRatio: this.activeRatio === 'free' ? NaN : parseFloat(this.activeRatio),
+                autoCropArea: 0.9,
+                responsive: true,
+                background: true,
+            });
+        },
+
+        setCropRatio(ratio) {
+            this.activeRatio = ratio;
+            if (this.cropper) {
+                this.cropper.setAspectRatio(ratio === 'free' ? NaN : parseFloat(ratio));
+            }
+        },
+
+        applyCrop() {
+            if (!this.cropper) return;
+            /*
+             * maxWidth/maxHeight only — the same shrink-only ceiling PlayerImageService uses.
+             * cropper.js treats minWidth/minHeight as a floor it scales UP to reach, which would
+             * enlarge a small crop and hand the renderer interpolation instead of detail.
+             */
+            const canvas = this.cropper.getCroppedCanvas({
+                maxWidth: 1600,
+                maxHeight: 2133,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            this.featuredPreview = thumbDataUrl(canvas, 320);
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], 'xi-featured-player.png', { type: 'image/png' }));
+                const carrier = document.getElementById('xiPlayerImageUpload');
+                if (carrier) carrier.files = dt.files;
+            }, 'image/png');
+
+            this.closeCrop();
+        },
+
+        closeCrop() {
+            this.showCrop = false;
+            if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
         },
 
         detectTransparency(dataUrl) {
@@ -2074,6 +2221,9 @@ function playingXiPanel() {
         clearFeaturedFile() {
             const input = document.getElementById('xiPlayerImageUpload');
             if (input) input.value = '';
+            if (this.$refs.featuredFileInput) this.$refs.featuredFileInput.value = '';
+            this.closeCrop();
+            this.cropSrc = '';
             this.featuredPreview = '';
             this.featuredFileName = '';
             this.featuredIsTransparent = false;
@@ -2104,13 +2254,17 @@ function playingXiPanel() {
     };
 }
 
-function updateType(type) {
+/*
+ * Landing on ?type=X has to look exactly like clicking the X tab.
+ *
+ * Every per-type panel under the tabs is revealed by updateType(), and that only ever ran on a
+ * click — so opening the page straight on a type (the link out of the templates list, the URL
+ * this page rewrites on every switch, or a plain refresh) left the panel still carrying its
+ * `hidden` class and the page looked like it had failed to load. Split out of updateType so it
+ * can also run at first paint, without re-fetching the template list Blade has already drawn.
+ */
+function syncTypeSections(type) {
     currentType = type;
-
-    // Update URL so refresh stays on same type
-    const url = new URL(window.location);
-    url.searchParams.set('type', type);
-    window.history.replaceState({}, '', url);
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
@@ -2144,6 +2298,15 @@ function updateType(type) {
 
     // Show/hide innings selector
     showInningsSelector();
+}
+
+function updateType(type) {
+    // Update URL so refresh stays on same type
+    const url = new URL(window.location);
+    url.searchParams.set('type', type);
+    window.history.replaceState({}, '', url);
+
+    syncTypeSections(type);
 
     // Reset innings to 1st
     document.getElementById('inningsSelect').value = '1';
@@ -2154,6 +2317,9 @@ function updateType(type) {
     // Load templates for this type
     loadTemplates(type);
 }
+
+// First paint: the tab is already chosen by the URL, so show what that tab owns.
+document.addEventListener('DOMContentLoaded', () => syncTypeSections(currentType));
 
 /*
  * The management bar drawn on each template card.

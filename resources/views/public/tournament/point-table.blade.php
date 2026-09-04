@@ -242,7 +242,9 @@
                                 @forelse($entries as $index => $entry)
                                     @php
                                         $pos = $entry->position ?? ($index + 1);
-                                        $isQualified = $entry->qualified;
+                                        // Only a fact once the group has no league fixture left to play —
+                                        // before that the flag is just "currently top two".
+                                        $isQualified = $entry->qualified && ($qualificationDecided[$groupName] ?? false);
                                     @endphp
                                     <tr class="{{ $isQualified ? 'qualified-row' : '' }}">
                                         {{-- Position --}}
@@ -316,7 +318,7 @@
 
                     {{-- Legend --}}
                     <div class="px-5 py-3 border-t border-white/5 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-gray-500">
-                        @if($entries->where('qualified', true)->count() > 0)
+                        @if(($qualificationDecided[$groupName] ?? false) && $entries->where('qualified', true)->count() > 0)
                             <span class="flex items-center gap-1.5">
                                 <span class="w-2 h-2 bg-green-500 rounded-sm"></span> Qualified
                             </span>

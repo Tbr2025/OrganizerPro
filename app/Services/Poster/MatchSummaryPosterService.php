@@ -104,41 +104,11 @@ class MatchSummaryPosterService extends PosterGeneratorService
             }
         }
 
-        // Extract scorecard data if available
-        if ($result && $result->scorecard_data) {
-            $scorecard = is_string($result->scorecard_data)
-                ? json_decode($result->scorecard_data, true)
-                : $result->scorecard_data;
-            $innings = $scorecard['innings'] ?? $scorecard;
-
-            if (is_array($innings) && count($innings) >= 2) {
-                // innings[0] = first batting team (team_a in our data), innings[1] = second
-                if (!empty($innings[0]['batting'])) {
-                    $data['batting_table_a'] = collect($innings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
-                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
-                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
-                    ])->values()->toArray();
-                }
-                if (!empty($innings[0]['bowling'])) {
-                    $data['bowling_table_b'] = collect($innings[0]['bowling'])->sort(fn ($x, $y) => (($y['wickets'] ?? 0) <=> ($x['wickets'] ?? 0)) ?: ((float) ($x['economy'] ?? 0) <=> (float) ($y['economy'] ?? 0)))->take(3)->map(fn($b) => [
-                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
-                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
-                    ])->values()->toArray();
-                }
-                if (!empty($innings[1]['batting'])) {
-                    $data['batting_table_b'] = collect($innings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn($b) => [
-                        'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
-                        'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
-                    ])->values()->toArray();
-                }
-                if (!empty($innings[1]['bowling'])) {
-                    $data['bowling_table_a'] = collect($innings[1]['bowling'])->sort(fn ($x, $y) => (($y['wickets'] ?? 0) <=> ($x['wickets'] ?? 0)) ?: ((float) ($x['economy'] ?? 0) <=> (float) ($y['economy'] ?? 0)))->take(3)->map(fn($b) => [
-                        'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
-                        'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
-                    ])->values()->toArray();
-                }
-            }
-        }
+        // Scorecard-backed tables (top order, best spells, innings summary, fall of wickets).
+        // Shared with the preview and the match-page download so all three agree.
+        $data = array_merge($data, MatchStatsTableData::build($match, [
+            'a' => $data['team_a_short_name'], 'b' => $data['team_b_short_name'],
+        ]));
 
         // Render using template
         $filename = TemplateRenderService::posterFilename('summary-' . $match->id);

@@ -685,32 +685,31 @@
                     </div>
                     @endif
                     @if($type === 'match_summary')
+                    {{-- Every table this poster type can draw, each one an ordinary layer with
+                         its own style, colours and columns. --}}
                     <div class="sidebar-section">
-                        <div class="sidebar-section-title">Scorecard Tables</div>
-                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('batting_table_a', 'batting', 'a')">
-                            <div class="icon" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
+                        <div class="sidebar-section-title">Stats Tables</div>
+                        @php
+                            $statsSources = [
+                                ['top_batting', 'Top 3 Batting', 'Both sides ranked', 'linear-gradient(135deg, #f59e0b, #d97706)'],
+                                ['top_bowling', 'Top 3 Bowling', 'Both sides ranked', 'linear-gradient(135deg, #10b981, #059669)'],
+                                ['match_summary_table', 'Match Summary', 'Score, overs, run rate', 'linear-gradient(135deg, #6366f1, #4338ca)'],
+                                ['batting_table_a', 'Team A Batting', 'Top order', 'linear-gradient(135deg, #0ea5e9, #2563eb)'],
+                                ['batting_table_b', 'Team B Batting', 'Top order', 'linear-gradient(135deg, #0ea5e9, #2563eb)'],
+                                ['bowling_table_a', 'Team A Bowling', 'Best spells', 'linear-gradient(135deg, #10b981, #059669)'],
+                                ['bowling_table_b', 'Team B Bowling', 'Best spells', 'linear-gradient(135deg, #10b981, #059669)'],
+                                ['fall_of_wickets_a', 'Team A Fall of Wickets', 'Wicket, score, over', 'linear-gradient(135deg, #ef4444, #b91c1c)'],
+                                ['fall_of_wickets_b', 'Team B Fall of Wickets', 'Wicket, score, over', 'linear-gradient(135deg, #ef4444, #b91c1c)'],
+                            ];
+                        @endphp
+                        @foreach($statsSources as [$sourceKey, $sourceName, $sourceHint, $sourceColor])
+                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addStatsTable('{{ $sourceKey }}')">
+                            <div class="icon" style="background: {{ $sourceColor }};">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
                             </div>
-                            <div class="info"><div class="name">Team A Batting</div><div class="type">Scorecard</div></div>
+                            <div class="info"><div class="name">{{ $sourceName }}</div><div class="type">{{ $sourceHint }}</div></div>
                         </div>
-                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('batting_table_b', 'batting', 'b')">
-                            <div class="icon" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
-                            </div>
-                            <div class="info"><div class="name">Team B Batting</div><div class="type">Scorecard</div></div>
-                        </div>
-                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('bowling_table_a', 'bowling', 'a')">
-                            <div class="icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
-                            </div>
-                            <div class="info"><div class="name">Team A Bowling</div><div class="type">Scorecard</div></div>
-                        </div>
-                        <div class="draggable-item" style="cursor:pointer;" onclick="editor.addScorecardTable('bowling_table_b', 'bowling', 'b')">
-                            <div class="icon" style="background: linear-gradient(135deg, #10b981, #059669);">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18M3 6h18M3 18h18"/></svg>
-                            </div>
-                            <div class="info"><div class="name">Team B Bowling</div><div class="type">Scorecard</div></div>
-                        </div>
+                        @endforeach
                     </div>
                     @endif
 
@@ -1148,18 +1147,70 @@
                 </div>
             </div>
 
-            {{-- Scorecard Table Properties --}}
+            {{-- Stats Table Properties --}}
+            {{-- Still id'd `scorecardPropertiesPanel` because the element type is still
+                 `scorecardTable`: every template already saved carries that type, and renaming
+                 it would orphan them. --}}
             <div id="scorecardPropertiesPanel" class="hidden">
                 <div class="prop-section">
-                    <div class="prop-section-title">Scorecard Colors</div>
+                    <div class="prop-section-title">Table</div>
+                    <div class="prop-group">
+                        <label class="prop-label">Shows</label>
+                        <select id="propScSource" class="prop-input" onchange="editor.updateScorecardConfig('source', this.value)"></select>
+                    </div>
+                    <div class="prop-group" style="margin-top:8px;">
+                        <label class="prop-label">Design</label>
+                        <select id="propScStyle" class="prop-input" onchange="editor.updateScorecardConfig('style', this.value)"></select>
+                    </div>
+                    <div class="prop-group" style="margin-top:8px;">
+                        <label class="prop-label">Heading <span style="opacity:.6">— blank uses the team name</span></label>
+                        {{-- onchange, not oninput: every edit rebuilds the group, which re-selects
+                             it and repaints this panel — on each keystroke that would take the
+                             caret out of the field you are typing in. --}}
+                        <input type="text" id="propScTitle" class="prop-input" placeholder="Auto" onchange="editor.updateScorecardConfig('title', this.value)">
+                    </div>
+                    <div class="prop-input-row" style="margin-top:8px;">
+                        <div class="prop-group">
+                            <label class="prop-label">Heading align</label>
+                            <select id="propScTitleAlign" class="prop-input" onchange="editor.updateScorecardConfig('titleAlign', this.value)">
+                                <option value="left">Left</option>
+                                <option value="center">Center</option>
+                                <option value="right">Right</option>
+                            </select>
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Max rows</label>
+                            <input type="number" id="propScMaxRows" class="prop-input" min="1" max="11" value="3" onchange="editor.updateScorecardConfig('maxRows', parseInt(this.value))">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="prop-section">
+                    <div class="prop-section-title">Columns</div>
+                    {{-- Rebuilt whenever the source changes: a bowling table has no 4s column. --}}
+                    <div id="propScColumns" class="space-y-1"></div>
+                </div>
+
+                <div class="prop-section">
+                    <div class="prop-section-title">Colors</div>
                     <div class="prop-input-row">
                         <div class="prop-group">
                             <label class="prop-label">Header BG</label>
                             <input type="color" id="propScHeaderBg" class="color-preview" value="#1e40af" onchange="editor.updateScorecardConfig('headerBg', this.value)">
                         </div>
                         <div class="prop-group">
+                            <label class="prop-label">Header BG 2</label>
+                            <input type="color" id="propScHeaderBg2" class="color-preview" value="#3b82f6" onchange="editor.updateScorecardConfig('headerBg2', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
                             <label class="prop-label">Header Text</label>
                             <input type="color" id="propScHeaderText" class="color-preview" value="#ffffff" onchange="editor.updateScorecardConfig('headerText', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Accent</label>
+                            <input type="color" id="propScAccentColor" class="color-preview" value="#FFD700" onchange="editor.updateScorecardConfig('accentColor', this.value)">
                         </div>
                     </div>
                     <div class="prop-input-row">
@@ -1174,44 +1225,109 @@
                     </div>
                     <div class="prop-input-row">
                         <div class="prop-group">
-                            <label class="prop-label">Text Color</label>
+                            <label class="prop-label">Text</label>
                             <input type="color" id="propScTextColor" class="color-preview" value="#ffffff" onchange="editor.updateScorecardConfig('textColor', this.value)">
                         </div>
                         <div class="prop-group">
-                            <label class="prop-label">Accent Color</label>
-                            <input type="color" id="propScAccentColor" class="color-preview" value="#FFD700" onchange="editor.updateScorecardConfig('accentColor', this.value)">
+                            <label class="prop-label">Muted Text</label>
+                            <input type="color" id="propScMutedColor" class="color-preview" value="#94a3b8" onchange="editor.updateScorecardConfig('mutedColor', this.value)">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Panel BG</label>
+                            <input type="color" id="propScPanelBg" class="color-preview" value="#0f172a" onchange="editor.updateScorecardConfig('panelBg', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Panel opacity</label>
+                            <input type="number" id="propScPanelOpacity" class="prop-input" min="0" max="100" value="100" onchange="editor.updateScorecardConfig('panelOpacity', parseInt(this.value))">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Border</label>
+                            <input type="color" id="propScBorderColor" class="color-preview" value="#FFD700" onchange="editor.updateScorecardConfig('borderColor', this.value)">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Border width</label>
+                            <input type="number" id="propScBorderWidth" class="prop-input" min="0" max="10" value="0" onchange="editor.updateScorecardConfig('borderWidth', parseInt(this.value))">
                         </div>
                     </div>
                 </div>
+
                 <div class="prop-section">
                     <div class="prop-section-title">Layout</div>
                     <div class="prop-input-row">
                         <div class="prop-group">
                             <label class="prop-label">Font Size</label>
-                            <input type="number" id="propScFontSize" class="prop-input" min="10" max="24" value="14" onchange="editor.updateScorecardConfig('fontSize', parseInt(this.value))">
+                            <input type="number" id="propScFontSize" class="prop-input" min="6" max="48" value="14" onchange="editor.updateScorecardConfig('fontSize', parseInt(this.value))">
                         </div>
                         <div class="prop-group">
                             <label class="prop-label">Row Height</label>
-                            <input type="number" id="propScRowHeight" class="prop-input" min="25" max="60" value="40" onchange="editor.updateScorecardConfig('rowHeight', parseInt(this.value))">
+                            <input type="number" id="propScRowHeight" class="prop-input" min="14" max="120" value="40" onchange="editor.updateScorecardConfig('rowHeight', parseInt(this.value))">
+                        </div>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Heading Height</label>
+                            <input type="number" id="propScHeaderHeight" class="prop-input" min="0" max="120" value="34" onchange="editor.updateScorecardConfig('headerHeight', parseInt(this.value))">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Padding</label>
+                            <input type="number" id="propScPadding" class="prop-input" min="0" max="60" value="12" onchange="editor.updateScorecardConfig('padding', parseInt(this.value))">
                         </div>
                     </div>
                     <div class="prop-group">
-                        <label class="prop-label">Max Rows</label>
-                        <input type="number" id="propScMaxRows" class="prop-input" min="2" max="5" value="3" onchange="editor.updateScorecardConfig('maxRows', parseInt(this.value))">
+                        <label class="prop-label">Corner Radius</label>
+                        <input type="number" id="propScCornerRadius" class="prop-input" min="0" max="60" value="0" onchange="editor.updateScorecardConfig('cornerRadius', parseInt(this.value))">
+                    </div>
+                    <div class="prop-group" style="margin-top:8px;">
+                        <label class="prop-label">Font</label>
+                        <select id="propScFontFamily" class="prop-input" onchange="editor.updateScorecardConfig('fontFamily', this.value)">
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Oswald">Oswald</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="OpenSans">Open Sans</option>
+                            <option value="BebasNeue">Bebas Neue</option>
+                            <option value="Anton">Anton</option>
+                        </select>
                     </div>
                     <div class="prop-group" style="margin-top:8px;">
                         <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propScShowTitle" checked onchange="editor.updateScorecardConfig('showTitle', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show heading</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propScShowColumnHeaders" checked onchange="editor.updateScorecardConfig('showColumnHeaders', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Show column headers</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="propScUppercaseNames" onchange="editor.updateScorecardConfig('uppercaseNames', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                            <span class="prop-label" style="margin:0">Uppercase names</span>
+                        </label>
+                    </div>
+                    <div class="prop-group">
+                        <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="propScTransparentBg" onchange="editor.updateScorecardConfig('transparentBg', this.checked)" class="rounded border-gray-600 bg-gray-700 text-indigo-500">
-                            <span class="prop-label" style="margin:0">Transparent Background</span>
+                            <span class="prop-label" style="margin:0">Text only (no fills)</span>
                         </label>
                     </div>
                 </div>
+
                 <div class="prop-section">
-                    <div class="prop-section-title">Style Presets</div>
+                    <div class="prop-section-title">Colour Presets</div>
                     <div class="grid grid-cols-2 gap-2">
                         <button onclick="editor.applyScorecardPreset('dark')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#0f172a;color:#fff;border-color:#1e40af;">Dark</button>
                         <button onclick="editor.applyScorecardPreset('light')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#f8fafc;color:#334155;border-color:#e2e8f0;">Light</button>
                         <button onclick="editor.applyScorecardPreset('ipl')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#1a0533;color:#fff;border-color:#7c3aed;">IPL</button>
+                        <button onclick="editor.applyScorecardPreset('sunset')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#431407;color:#fed7aa;border-color:#ea580c;">Sunset</button>
+                        <button onclick="editor.applyScorecardPreset('mono')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#111;color:#e5e5e5;border-color:#404040;">Mono</button>
+                        <button onclick="editor.applyScorecardPreset('emerald')" class="prop-btn prop-btn-secondary text-xs justify-center" style="background:#022c22;color:#a7f3d0;border-color:#059669;">Emerald</button>
                     </div>
                 </div>
             </div>
@@ -1649,6 +1765,73 @@ function getExampleText(placeholder) {
     return placeholderExamples[placeholder] || placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+/*
+ * Stats-table definitions, straight from the renderer.
+ *
+ * The canvas preview of a table is drawn here in Fabric and again server-side in GD; if the two
+ * kept separate column lists and style tables they would drift, and the editor would show a
+ * design the poster does not produce. So the columns, the per-source defaults and the styles all
+ * come from TemplateRenderService, and only the sample values below are the editor's own.
+ */
+const STATS_DEFS = @json(\App\Services\Poster\TemplateRenderService::statsTableDefinitions());
+const STATS_COLUMNS = STATS_DEFS.columns;
+const STATS_DEFAULT_COLUMNS = STATS_DEFS.defaultColumns;
+const STATS_STYLES = STATS_DEFS.styles;
+
+const STATS_SOURCES = [
+    { key: 'top_batting',         label: 'Top Batting (both sides)',  kind: 'batting' },
+    { key: 'top_bowling',         label: 'Top Bowling (both sides)',  kind: 'bowling' },
+    { key: 'match_summary_table', label: 'Match Summary',             kind: 'summary' },
+    { key: 'batting_table_a',     label: 'Team A - Batting',          kind: 'batting' },
+    { key: 'batting_table_b',     label: 'Team B - Batting',          kind: 'batting' },
+    { key: 'bowling_table_a',     label: 'Team A - Bowling',          kind: 'bowling' },
+    { key: 'bowling_table_b',     label: 'Team B - Bowling',          kind: 'bowling' },
+    { key: 'fall_of_wickets_a',   label: 'Team A - Fall of Wickets',  kind: 'fow' },
+    { key: 'fall_of_wickets_b',   label: 'Team B - Fall of Wickets',  kind: 'fow' },
+];
+
+const STATS_SAMPLE = {
+    batting: [
+        { name: 'Virat K.', team: 'RCB', runs: 72, balls: 45, fours: 8, sixes: 3, strike_rate: '160.00', how_out: 'c Rahul b Bumrah' },
+        { name: 'Rohit S.', team: 'MI', runs: 56, balls: 38, fours: 6, sixes: 2, strike_rate: '147.37', how_out: 'lbw b Siraj' },
+        { name: 'KL Rahul', team: 'RCB', runs: 41, balls: 30, fours: 4, sixes: 1, strike_rate: '136.67', how_out: 'not out' },
+        { name: 'Shubman G.', team: 'MI', runs: 28, balls: 19, fours: 3, sixes: 1, strike_rate: '147.37', how_out: 'run out' },
+        { name: 'Hardik P.', team: 'MI', runs: 19, balls: 8, fours: 1, sixes: 2, strike_rate: '237.50', how_out: 'b Chahal' },
+    ],
+    bowling: [
+        { name: 'Jasprit B.', team: 'MI', overs: '4.0', maidens: 1, runs: 24, wickets: 3, economy: '6.00', figures: '3/24' },
+        { name: 'Mohammed S.', team: 'RCB', overs: '4.0', maidens: 0, runs: 32, wickets: 2, economy: '8.00', figures: '2/32' },
+        { name: 'Ravindra J.', team: 'MI', overs: '3.0', maidens: 0, runs: 22, wickets: 1, economy: '7.33', figures: '1/22' },
+        { name: 'Yuzvendra C.', team: 'RCB', overs: '4.0', maidens: 0, runs: 38, wickets: 1, economy: '9.50', figures: '1/38' },
+        { name: 'Arshdeep S.', team: 'MI', overs: '2.0', maidens: 0, runs: 19, wickets: 0, economy: '9.50', figures: '0/19' },
+    ],
+    summary: [
+        { team: 'Royal Strikers', score: '185/4', runs: 185, wickets: 4, overs: '20.0', extras: 9, run_rate: '9.25' },
+        { team: 'Thunder Kings', score: '172/8', runs: 172, wickets: 8, overs: '20.0', extras: 13, run_rate: '8.60' },
+    ],
+    fow: [
+        { wicket: 1, name: 'Marquis A.', score: '82/1', runs: 82, over: '6.3' },
+        { wicket: 2, name: 'Ajay S.', score: '89/2', runs: 89, over: '7.4' },
+        { wicket: 3, name: 'Vikesh', score: '137/3', runs: 137, over: '12.2' },
+        { wicket: 4, name: 'Mohamed N.', score: '147/4', runs: 147, over: '14.3' },
+        { wicket: 5, name: 'Danish A.', score: '153/5', runs: 153, over: '15.5' },
+    ],
+};
+
+/* Lighten (positive) or darken (negative) a hex colour by a percentage. */
+function shadeHex(hex, percent) {
+    const clean = String(hex || '#000000').replace('#', '');
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+    const shift = (value) => {
+        const next = Math.round(value + (percent / 100) * (percent > 0 ? 255 - value : value));
+        return Math.max(0, Math.min(255, next));
+    };
+    const r = shift(parseInt(full.slice(0, 2), 16) || 0);
+    const g = shift(parseInt(full.slice(2, 4), 16) || 0);
+    const b = shift(parseInt(full.slice(4, 6), 16) || 0);
+    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
 const editor = {
     canvas: null,
     history: [],
@@ -1733,6 +1916,19 @@ const editor = {
                 if (sx !== 1) o.set('width', Math.max(20, o.width * sx));
                 o.set({ scaleX: 1, scaleY: 1 });
                 if (o.autoSize) this.fitTextToWidth(o);
+            }
+            /*
+             * A resized stats table is re-laid out, not stretched.
+             *
+             * Scaling a Fabric group scales its text with it, so dragging a corner produced
+             * squashed columns on the canvas and correctly proportioned ones on the poster —
+             * the renderer lays the table out from width and height, not from a scale factor.
+             * Rebuilding at the new size makes the canvas agree with the output again.
+             */
+            if (o && o.elementType === 'scorecardTable' && ((o.scaleX || 1) !== 1 || (o.scaleY || 1) !== 1)) {
+                this.rebuildStatsTable(o);
+                this.saveHistory(); this.updateProperties(); this.updateLayers();
+                return;
             }
             this.saveHistory(); this.updateProperties(); this.updateLayers();
         });
@@ -2162,96 +2358,385 @@ const editor = {
         document.getElementById('propTableShowLegend').checked = cfg.showLegend !== false;
     },
 
-    addScorecardTable(placeholder, scorecardType, team, x, y) {
-        x = x || this.canvasWidth / 2;
-        y = y || this.canvasHeight / 2;
-        const isBatting = scorecardType === 'batting';
-        const teamLabel = team === 'a' ? 'TEAM A' : 'TEAM B';
-        const typeLabel = isBatting ? 'BATTING' : 'BOWLING';
-        const w = 400, h = isBatting ? 180 : 160;
+    /*
+     * Stats tables.
+     *
+     * The canvas group is drawn the way TemplateRenderService draws the real thing — panel,
+     * heading bar, column headers, rows of plausible values — because the old dashed box with
+     * courier sample text told the organizer nothing about what the poster would look like, and
+     * the design decisions (which style, which columns) are exactly the ones you cannot judge
+     * from a placeholder. The tables below mirror the PHP constants; changing one means changing
+     * both, and StatsTableLayerTest fails if the renderer stops honouring a saved config.
+     */
 
-        const border = new fabric.Rect({
-            width: w, height: h,
-            fill: 'rgba(30, 64, 175, 0.12)',
-            stroke: isBatting ? '#3b82f6' : '#10b981',
-            strokeWidth: 2, strokeDashArray: [8, 4],
-            rx: 6, ry: 6,
-            originX: 'center', originY: 'center',
-        });
-        const title = new fabric.Text(teamLabel + ' - ' + typeLabel, {
-            fontSize: 14, fill: isBatting ? '#60a5fa' : '#34d399',
-            fontFamily: 'Arial', fontWeight: '700',
-            originX: 'center', originY: 'center', top: -h/2 + 18,
-        });
-        const sampleLines = isBatting
-            ? 'Name          R    B   4s   6s\nVirat K.     72   45    8    3\nRohit S.     56   38    6    2\nKL Rahul     41   30    4    1'
-            : 'Name          O    R    W  Econ\nJasprit B.  4.0   24    3  6.00\nMohd S.     4.0   32    2  8.00\nRavindra J. 3.0   22    1  7.33';
-        const sample = new fabric.Text(sampleLines, {
-            fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New',
-            originX: 'center', originY: 'center', top: 15, lineHeight: 1.5,
-        });
-        const group = new fabric.Group([border, title, sample], {
-            left: x, top: y, originX: 'center', originY: 'center',
-        });
-        group.elementType = 'scorecardTable';
-        group.placeholder = placeholder;
-        group.scorecardConfig = {
-            scorecardType: scorecardType, team: team, maxRows: 3,
-            headerBg: '#1e40af', headerText: '#ffffff',
+    statsSourceLabel(source) {
+        return (STATS_SOURCES.find(s => s.key === source) || {}).label || 'Stats Table';
+    },
+
+    statsKind(source) {
+        return (STATS_SOURCES.find(s => s.key === source) || {}).kind || 'batting';
+    },
+
+    statsColumnsFor(cfg) {
+        const kind = this.statsKind(cfg.source);
+        const available = STATS_COLUMNS[kind] || STATS_COLUMNS.batting;
+        let wanted = Array.isArray(cfg.columns) && cfg.columns.length
+            ? cfg.columns
+            : (STATS_DEFAULT_COLUMNS[cfg.source] || Object.keys(available).slice(0, 5));
+        const picked = wanted.filter(k => available[k]);
+        return (picked.length ? picked : Object.keys(available).slice(0, 3)).map(k => ({ key: k, ...available[k] }));
+    },
+
+    statsDefaultConfig(source) {
+        return {
+            source: source,
+            style: 'classic',
+            maxRows: source === 'match_summary_table' ? 2 : 3,
+            title: '',
+            titleAlign: 'left',
+            showTitle: true,
+            showColumnHeaders: true,
+            uppercaseNames: false,
+            transparentBg: false,
+            columns: (STATS_DEFAULT_COLUMNS[source] || []).slice(),
+            headerBg: '#1e40af', headerBg2: '#3b82f6', headerText: '#ffffff',
             rowBg: '#1e293b', altRowBg: '#334155',
-            textColor: '#ffffff', accentColor: '#FFD700',
-            fontSize: 14, rowHeight: 40,
+            textColor: '#ffffff', mutedColor: '#94a3b8', accentColor: '#FFD700',
+            panelBg: '#0f172a', panelOpacity: 100,
+            borderColor: '#FFD700', borderWidth: 0,
+            fontSize: 14, rowHeight: 40, headerHeight: 34, padding: 12, cornerRadius: 0,
+            fontFamily: 'Montserrat',
+            // Legacy keys, still written so a template saved here opens correctly in any older
+            // build that only understands scorecardType + team.
+            scorecardType: source.startsWith('bowling') || source === 'top_bowling' ? 'bowling' : 'batting',
+            team: source.endsWith('_b') ? 'b' : 'a',
         };
+    },
+
+    /** Build the on-canvas representation of a stats table at a given size. */
+    buildStatsTableGroup(cfg, w, h) {
+        const style = { ...STATS_STYLES.classic, ...(STATS_STYLES[cfg.style] || {}) };
+        const columns = this.statsColumnsFor(cfg);
+        const rows = (STATS_SAMPLE[this.statsKind(cfg.source)] || []).slice(0, Math.max(1, cfg.maxRows || 3));
+        const parts = [];
+
+        const left = -w / 2, top = -h / 2;
+
+        /*
+         * An invisible rect the exact size of the element, added first.
+         *
+         * A Fabric group is only as big as its children, so a table whose rows stop short of
+         * the box — or one drawn with no fills at all — would come out smaller than the design,
+         * and every rebuild would shrink it again. This pins the bounds to the size the renderer
+         * lays out against, and doubles as the hit area for a text-only table.
+         */
+        parts.push(new fabric.Rect({ left, top, width: w, height: h, fill: 'rgba(0,0,0,0)' }));
+
+        const padding = cfg.padding ?? 12;
+        const radius = cfg.cornerRadius ?? style.radius;
+        const transparent = !!cfg.transparentBg;
+
+        const titleH = (cfg.showTitle !== false && style.title !== 'hidden') ? (cfg.headerHeight ?? 34) : 0;
+        const colH = cfg.showColumnHeaders !== false ? Math.round((cfg.rowHeight ?? 40) * 0.7) : 0;
+        let rowH = cfg.rowHeight ?? 40;
+        const available = h - titleH - colH;
+        if (rows.length && available > 0) rowH = Math.min(rowH, available / rows.length);
+        rowH = Math.max(8, rowH);
+
+        // Panel
+        if (!transparent && style.panel) {
+            parts.push(new fabric.Rect({
+                left, top, width: w, height: h, rx: radius, ry: radius,
+                fill: cfg.panelBg || '#0f172a',
+                opacity: (cfg.panelOpacity ?? style.panelOpacity) / 100,
+            }));
+        }
+
+        let y = top;
+
+        // Heading
+        if (titleH > 0) {
+            if (!transparent && style.title !== 'none') {
+                const fill = style.title === 'gradient'
+                    ? new fabric.Gradient({
+                        type: 'linear',
+                        coords: { x1: 0, y1: 0, x2: w, y2: 0 },
+                        colorStops: [
+                            { offset: 0, color: cfg.headerBg || '#1e40af' },
+                            { offset: 1, color: cfg.headerBg2 || '#3b82f6' },
+                        ],
+                    })
+                    : (cfg.headerBg || '#1e40af');
+                parts.push(new fabric.Rect({
+                    left, top: y, width: w, height: titleH, fill,
+                    rx: radius, ry: radius,
+                }));
+                // Square off the bottom of the heading bar so it meets the rows cleanly.
+                if (radius > 0) {
+                    parts.push(new fabric.Rect({ left, top: y + titleH - radius, width: w, height: radius, fill }));
+                }
+            }
+            if (style.accentUnderline && !transparent) {
+                parts.push(new fabric.Rect({ left, top: y + titleH - 2, width: w, height: 2, fill: cfg.accentColor || '#FFD700' }));
+            }
+
+            const align = cfg.titleAlign || 'left';
+            const titleText = (cfg.title || '').trim() || this.statsSourceLabel(cfg.source);
+            parts.push(new fabric.Text(titleText.toUpperCase(), {
+                left: align === 'center' ? 0 : (align === 'right' ? w / 2 - padding : left + padding),
+                top: y + titleH / 2,
+                originX: align === 'center' ? 'center' : (align === 'right' ? 'right' : 'left'),
+                originY: 'center',
+                fontSize: Math.round((cfg.fontSize ?? 14) * 1.1),
+                fontFamily: 'Arial', fontWeight: '700',
+                fill: style.title === 'none' ? (cfg.accentColor || '#FFD700') : (cfg.headerText || '#ffffff'),
+            }));
+            y += titleH;
+        }
+
+        // Column geometry, shares renormalised over the visible columns.
+        const contentX = left + padding;
+        const contentW = w - padding * 2;
+        const totalShare = columns.reduce((sum, c) => sum + c.width, 0) || 1;
+        let cursor = contentX;
+        const laid = columns.map(c => {
+            const cw = contentW * (c.width / totalShare);
+            const anchor = c.align === 'center' ? cursor + cw / 2 : (c.align === 'right' ? cursor + cw : cursor);
+            cursor += cw;
+            return { ...c, x: anchor, w: cw };
+        });
+
+        // Column headers
+        if (colH > 0) {
+            if (!transparent && style.columnHeaderBar) {
+                parts.push(new fabric.Rect({
+                    left, top: y, width: w, height: colH,
+                    fill: shadeHex(cfg.headerBg || '#1e40af', -15),
+                }));
+            }
+            laid.forEach(c => {
+                parts.push(new fabric.Text(c.label, {
+                    left: c.x, top: y + colH / 2,
+                    originX: c.align === 'center' ? 'center' : (c.align === 'right' ? 'right' : 'left'),
+                    originY: 'center',
+                    fontSize: Math.round((cfg.fontSize ?? 14) * 0.82),
+                    fontFamily: 'Arial', fontWeight: '700',
+                    fill: style.columnHeaderBar ? (cfg.headerText || '#ffffff') : (cfg.mutedColor || '#94a3b8'),
+                }));
+            });
+            y += colH;
+        }
+
+        // Rows
+        rows.forEach((row, i) => {
+            if (!transparent && style.rowFill !== 'none') {
+                const fill = style.rowFill === 'solid'
+                    ? (cfg.rowBg || '#1e293b')
+                    : (i % 2 === 0 ? (cfg.rowBg || '#1e293b') : (cfg.altRowBg || '#334155'));
+                parts.push(new fabric.Rect({ left, top: y, width: w, height: rowH, fill }));
+            }
+
+            laid.forEach(c => {
+                let value = c.key === '_rank' ? String(i + 1) : (row[c.key] ?? '');
+                value = String(value === '' ? (c.key === 'name' ? '' : '-') : value);
+                if (c.key === 'name' && cfg.uppercaseNames) value = value.toUpperCase();
+
+                parts.push(new fabric.Text(value, {
+                    left: c.x, top: y + rowH / 2,
+                    originX: c.align === 'center' ? 'center' : (c.align === 'right' ? 'right' : 'left'),
+                    originY: 'center',
+                    fontSize: cfg.fontSize ?? 14,
+                    fontFamily: 'Arial',
+                    fontWeight: c.accent ? '700' : '500',
+                    fill: c.accent ? (cfg.accentColor || '#FFD700') : (cfg.textColor || '#ffffff'),
+                }));
+            });
+
+            if (!transparent && style.dividers !== 'none' && i < rows.length - 1) {
+                parts.push(new fabric.Rect({
+                    left: contentX, top: y + rowH - 1, width: contentW, height: 1,
+                    fill: style.dividers === 'hairline' ? 'rgba(255,255,255,0.14)' : shadeHex(cfg.rowBg || '#1e293b', -25),
+                }));
+            }
+
+            y += rowH;
+        });
+
+        // Border
+        const borderWidth = cfg.borderWidth ?? style.borderWidth;
+        if (!transparent && borderWidth > 0) {
+            parts.push(new fabric.Rect({
+                left, top, width: w, height: h, rx: radius, ry: radius,
+                fill: 'transparent', stroke: cfg.borderColor || '#FFD700', strokeWidth: borderWidth,
+            }));
+        }
+
+        return new fabric.Group(parts, { originX: 'center', originY: 'center' });
+    },
+
+    addStatsTable(source, x, y) {
+        const cfg = this.statsDefaultConfig(source);
+        const w = source === 'match_summary_table' ? 620 : 520;
+        const h = (cfg.headerHeight + Math.round(cfg.rowHeight * 0.7) + cfg.rowHeight * cfg.maxRows);
+
+        const group = this.buildStatsTableGroup(cfg, w, h);
+        group.set({ left: x ?? this.canvasWidth / 2, top: y ?? this.canvasHeight / 2 });
+        group.elementType = 'scorecardTable';
+        group.placeholder = source;
+        group.scorecardConfig = cfg;
+
         this.canvas.add(group);
         this.canvas.setActiveObject(group);
+        this.updateLayers();
         this.saveHistory();
+    },
+
+    /* Redraw a table in place after any config change, keeping size, position and z-order. */
+    rebuildStatsTable(obj) {
+        if (!obj || obj.elementType !== 'scorecardTable') return;
+
+        const centre = obj.getCenterPoint();
+        const w = Math.max(60, (obj.width || 520) * (obj.scaleX || 1));
+        const h = Math.max(40, (obj.height || 180) * (obj.scaleY || 1));
+        const index = this.canvas.getObjects().indexOf(obj);
+
+        const next = this.buildStatsTableGroup(obj.scorecardConfig, w, h);
+        next.set({
+            left: centre.x, top: centre.y,
+            angle: obj.angle || 0,
+            opacity: obj.opacity ?? 1,
+        });
+        next.elementType = 'scorecardTable';
+        next.placeholder = obj.scorecardConfig.source || obj.placeholder;
+        next.scorecardConfig = obj.scorecardConfig;
+        if (obj.layerName) next.layerName = obj.layerName;
+        if (obj.visible === false) next.visible = false;
+        if (obj.locked) { next.locked = true; next.selectable = false; next.evented = false; }
+        next._layoutIndex = obj._layoutIndex;
+
+        this.canvas.remove(obj);
+        this.canvas.add(next);
+        if (index >= 0) this.canvas.moveTo(next, index);
+        if (!next.locked) this.canvas.setActiveObject(next);
+        this.canvas.renderAll();
+        this.updateLayers();
     },
 
     updateScorecardConfig(key, value) {
         const obj = this.canvas.getActiveObject();
         if (!obj || obj.elementType !== 'scorecardTable') return;
+
         obj.scorecardConfig = obj.scorecardConfig || {};
         obj.scorecardConfig[key] = value;
-        if (key === 'headerBg') {
-            const r = parseInt(value.slice(1,3),16), g = parseInt(value.slice(3,5),16), b = parseInt(value.slice(5,7),16);
-            obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
-            obj.item(0).set('stroke', value);
-            this.canvas.renderAll();
+
+        if (key === 'source') {
+            // A different table has different columns; carrying the old selection over would
+            // silently hide every column on the new one.
+            obj.scorecardConfig.columns = (STATS_DEFAULT_COLUMNS[value] || []).slice();
+            obj.scorecardConfig.scorecardType = (value.startsWith('bowling') || value === 'top_bowling') ? 'bowling' : 'batting';
+            obj.scorecardConfig.team = value.endsWith('_b') ? 'b' : 'a';
+            obj.placeholder = value;
         }
+
+        this.rebuildStatsTable(obj);
+        if (key === 'source') this.updateScorecardPropertiesPanel(this.canvas.getActiveObject());
+        this.saveHistory();
+    },
+
+    toggleScorecardColumn(key, on) {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'scorecardTable') return;
+
+        const cfg = obj.scorecardConfig;
+        const order = Object.keys(STATS_COLUMNS[this.statsKind(cfg.source)] || {});
+        const current = new Set(Array.isArray(cfg.columns) && cfg.columns.length
+            ? cfg.columns
+            : (STATS_DEFAULT_COLUMNS[cfg.source] || []));
+
+        if (on) current.add(key); else current.delete(key);
+        // Keep the canonical left-to-right order rather than click order.
+        cfg.columns = order.filter(k => current.has(k));
+
+        this.rebuildStatsTable(obj);
         this.saveHistory();
     },
 
     applyScorecardPreset(preset) {
         const presets = {
-            dark: { headerBg:'#1e40af', headerText:'#ffffff', rowBg:'#1e293b', altRowBg:'#334155', textColor:'#ffffff', accentColor:'#FFD700' },
-            light: { headerBg:'#6366f1', headerText:'#ffffff', rowBg:'#f8fafc', altRowBg:'#f1f5f9', textColor:'#1e293b', accentColor:'#7c3aed' },
-            ipl: { headerBg:'#7c3aed', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d0a4e', textColor:'#e2e8f0', accentColor:'#fbbf24' },
+            dark: { headerBg:'#1e40af', headerBg2:'#3b82f6', headerText:'#ffffff', rowBg:'#1e293b', altRowBg:'#334155', textColor:'#ffffff', mutedColor:'#94a3b8', accentColor:'#FFD700', panelBg:'#0f172a', borderColor:'#1e40af' },
+            light: { headerBg:'#6366f1', headerBg2:'#a5b4fc', headerText:'#ffffff', rowBg:'#f8fafc', altRowBg:'#eef2f7', textColor:'#1e293b', mutedColor:'#64748b', accentColor:'#7c3aed', panelBg:'#ffffff', borderColor:'#e2e8f0' },
+            ipl: { headerBg:'#7c3aed', headerBg2:'#c026d3', headerText:'#ffffff', rowBg:'#1a0533', altRowBg:'#2d0a4e', textColor:'#e2e8f0', mutedColor:'#a78bfa', accentColor:'#fbbf24', panelBg:'#12002b', borderColor:'#7c3aed' },
+            sunset: { headerBg:'#ea580c', headerBg2:'#f59e0b', headerText:'#fff7ed', rowBg:'#431407', altRowBg:'#5c2010', textColor:'#fed7aa', mutedColor:'#fdba74', accentColor:'#fde047', panelBg:'#2b0d04', borderColor:'#ea580c' },
+            mono: { headerBg:'#262626', headerBg2:'#525252', headerText:'#fafafa', rowBg:'#171717', altRowBg:'#232323', textColor:'#e5e5e5', mutedColor:'#a3a3a3', accentColor:'#fafafa', panelBg:'#0a0a0a', borderColor:'#404040' },
+            emerald: { headerBg:'#047857', headerBg2:'#10b981', headerText:'#ecfdf5', rowBg:'#022c22', altRowBg:'#04382c', textColor:'#d1fae5', mutedColor:'#6ee7b7', accentColor:'#facc15', panelBg:'#011a14', borderColor:'#059669' },
         };
-        const cfg = presets[preset];
-        if (!cfg) return;
+        const preset_ = presets[preset];
+        if (!preset_) return;
+
         const obj = this.canvas.getActiveObject();
         if (!obj || obj.elementType !== 'scorecardTable') return;
-        obj.scorecardConfig = { ...obj.scorecardConfig, ...cfg };
-        this.updateScorecardPropertiesPanel(obj);
-        const r = parseInt(cfg.headerBg.slice(1,3),16), g = parseInt(cfg.headerBg.slice(3,5),16), b = parseInt(cfg.headerBg.slice(5,7),16);
-        obj.item(0).set('fill', `rgba(${r},${g},${b},0.12)`);
-        obj.item(0).set('stroke', cfg.headerBg);
-        this.canvas.renderAll();
+
+        obj.scorecardConfig = { ...obj.scorecardConfig, ...preset_ };
+        this.rebuildStatsTable(obj);
+        this.updateScorecardPropertiesPanel(this.canvas.getActiveObject());
         this.saveHistory();
     },
 
     updateScorecardPropertiesPanel(obj) {
+        if (!obj) return;
         const cfg = obj.scorecardConfig || {};
-        document.getElementById('propScHeaderBg').value = cfg.headerBg || '#1e40af';
-        document.getElementById('propScHeaderText').value = cfg.headerText || '#ffffff';
-        document.getElementById('propScRowBg').value = cfg.rowBg || '#1e293b';
-        document.getElementById('propScAltRowBg').value = cfg.altRowBg || '#334155';
-        document.getElementById('propScTextColor').value = cfg.textColor || '#ffffff';
-        document.getElementById('propScAccentColor').value = cfg.accentColor || '#FFD700';
-        document.getElementById('propScFontSize').value = cfg.fontSize || 14;
-        document.getElementById('propScRowHeight').value = cfg.rowHeight || 40;
-        document.getElementById('propScMaxRows').value = cfg.maxRows || 3;
-        document.getElementById('propScTransparentBg').checked = cfg.transparentBg || false;
+        const source = cfg.source || obj.placeholder || 'batting_table_a';
+
+        const sourceSelect = document.getElementById('propScSource');
+        sourceSelect.innerHTML = STATS_SOURCES.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+        sourceSelect.value = source;
+
+        const styleSelect = document.getElementById('propScStyle');
+        styleSelect.innerHTML = Object.keys(STATS_STYLES)
+            .map(k => `<option value="${k}">${k.charAt(0).toUpperCase() + k.slice(1)}</option>`).join('');
+        styleSelect.value = cfg.style || 'classic';
+
+        const available = STATS_COLUMNS[this.statsKind(source)] || STATS_COLUMNS.batting;
+        const active = new Set(Array.isArray(cfg.columns) && cfg.columns.length
+            ? cfg.columns
+            : (STATS_DEFAULT_COLUMNS[source] || []));
+        document.getElementById('propScColumns').innerHTML = Object.entries(available).map(([key, col]) => `
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" ${active.has(key) ? 'checked' : ''}
+                       onchange="editor.toggleScorecardColumn('${key}', this.checked)"
+                       class="rounded border-gray-600 bg-gray-700 text-indigo-500">
+                <span class="prop-label" style="margin:0">${col.label}</span>
+            </label>
+        `).join('');
+
+        const set = (id, value) => { const el = document.getElementById(id); if (el) el.value = value; };
+        const check = (id, value) => { const el = document.getElementById(id); if (el) el.checked = !!value; };
+
+        set('propScTitle', cfg.title || '');
+        set('propScTitleAlign', cfg.titleAlign || 'left');
+        set('propScMaxRows', cfg.maxRows ?? 3);
+        set('propScHeaderBg', cfg.headerBg || '#1e40af');
+        set('propScHeaderBg2', cfg.headerBg2 || '#3b82f6');
+        set('propScHeaderText', cfg.headerText || '#ffffff');
+        set('propScAccentColor', cfg.accentColor || '#FFD700');
+        set('propScRowBg', cfg.rowBg || '#1e293b');
+        set('propScAltRowBg', cfg.altRowBg || '#334155');
+        set('propScTextColor', cfg.textColor || '#ffffff');
+        set('propScMutedColor', cfg.mutedColor || '#94a3b8');
+        set('propScPanelBg', cfg.panelBg || '#0f172a');
+        set('propScPanelOpacity', cfg.panelOpacity ?? 100);
+        set('propScBorderColor', cfg.borderColor || '#FFD700');
+        set('propScBorderWidth', cfg.borderWidth ?? 0);
+        set('propScFontSize', cfg.fontSize ?? 14);
+        set('propScRowHeight', cfg.rowHeight ?? 40);
+        set('propScHeaderHeight', cfg.headerHeight ?? 34);
+        set('propScPadding', cfg.padding ?? 12);
+        set('propScCornerRadius', cfg.cornerRadius ?? 0);
+        set('propScFontFamily', cfg.fontFamily || 'Montserrat');
+        check('propScShowTitle', cfg.showTitle !== false);
+        check('propScShowColumnHeaders', cfg.showColumnHeaders !== false);
+        check('propScUppercaseNames', cfg.uppercaseNames);
+        check('propScTransparentBg', cfg.transparentBg);
     },
 
     /*
@@ -3603,32 +4088,25 @@ const editor = {
                 }
                 this.canvas.add(group);
             } else if (item.type === 'scorecardTable') {
-                const scCfg = item.scorecardConfig || {};
-                const sw = item.width || 400, sh = item.height || 180;
-                const isBat = scCfg.scorecardType === 'batting';
-                const teamLbl = (scCfg.team === 'b') ? 'TEAM B' : 'TEAM A';
-                const typeLbl = isBat ? 'BATTING' : 'BOWLING';
-                const hdrCol = scCfg.headerBg || '#1e40af';
-                const hr = parseInt(hdrCol.slice(1,3),16), hg = parseInt(hdrCol.slice(3,5),16), hb = parseInt(hdrCol.slice(5,7),16);
-                const scBorder = new fabric.Rect({ width: sw, height: sh, fill: `rgba(${hr},${hg},${hb},0.12)`, stroke: hdrCol, strokeWidth: 2, strokeDashArray: [8, 4], rx: 6, ry: 6, originX: 'center', originY: 'center' });
-                const scTitle = new fabric.Text(teamLbl + ' - ' + typeLbl, { fontSize: 14, fill: isBat ? '#60a5fa' : '#34d399', fontFamily: 'Arial', fontWeight: '700', originX: 'center', originY: 'center', top: -sh/2 + 18 });
-                const scSample = isBat
-                    ? new fabric.Text('Name          R    B   4s   6s\nVirat K.     72   45    8    3\nRohit S.     56   38    6    2\nKL Rahul     41   30    4    1', { fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 15, lineHeight: 1.5 })
-                    : new fabric.Text('Name          O    R    W  Econ\nJasprit B.  4.0   24    3  6.00\nMohd S.     4.0   32    2  8.00\nRavindra J. 3.0   22    1  7.33', { fontSize: 11, fill: '#94a3b8', fontFamily: 'Courier New', originX: 'center', originY: 'center', top: 15, lineHeight: 1.5 });
-                const scGroup = new fabric.Group([scBorder, scTitle, scSample], { left: x, top: y, originX: 'center', originY: 'center', angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
-                scGroup.elementType = 'scorecardTable';
-                scGroup.placeholder = item.placeholder || ('batting_table_' + (scCfg.team || 'a'));
-                // Restore team/scorecardType from placeholder if missing in saved config
-                if (!scCfg.team || !scCfg.scorecardType) {
-                    const phMatch = (item.placeholder || '').match(/^(batting|bowling)_table_(a|b)$/);
-                    if (phMatch) {
-                        scCfg.scorecardType = scCfg.scorecardType || phMatch[1];
-                        scCfg.team = scCfg.team || phMatch[2];
-                        scCfg.maxRows = scCfg.maxRows || 3;
-                    }
+                const scCfg = Object.assign({}, item.scorecardConfig || {});
+                // A template saved before sources existed carries scorecardType + team, or only
+                // a placeholder. Resolve it the same way the renderer does, so what opens on the
+                // canvas is what the poster draws.
+                if (!scCfg.source) {
+                    const known = STATS_SOURCES.some(s => s.key === item.placeholder);
+                    scCfg.source = known
+                        ? item.placeholder
+                        : ((scCfg.scorecardType === 'bowling' ? 'bowling_table_' : 'batting_table_') + (scCfg.team === 'b' ? 'b' : 'a'));
                 }
+                const scGroup = this.buildStatsTableGroup(scCfg, item.width || 520, item.height || 180);
+                scGroup.set({ left: x, top: y, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100 });
+                scGroup.elementType = 'scorecardTable';
+                scGroup.placeholder = scCfg.source;
                 scGroup.scorecardConfig = scCfg;
                 scGroup._layoutIndex = layoutIndex;
+                if (item.layerName) scGroup.layerName = item.layerName;
+                if (item.hidden) scGroup.visible = false;
+                if (item.locked) { scGroup.selectable = false; scGroup.evented = false; scGroup.locked = true; }
                 this.canvas.add(scGroup);
             } else if (item.type === 'lineupArea') {
                 const lnCfg = item.lineupConfig || {};

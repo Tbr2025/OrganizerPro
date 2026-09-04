@@ -10,6 +10,7 @@ use App\Models\ActualTeam;
 use App\Models\GeneratedPoster;
 use App\Models\TournamentRegistration;
 use App\Models\TournamentTemplate;
+use App\Services\Poster\MatchStatsTableData;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\FixturesPosterService;
 use App\Services\Poster\TemplateRenderService;
@@ -523,40 +524,19 @@ class TournamentTemplateController extends Controller
                         }
                     }
 
-                    // Extract scorecard data for match_summary type
-                    // Since team_a = first batting team, map directly: innings[0] -> a, innings[1] -> b
+                    // Scorecard-backed tables and named performers, for match_summary only.
+                    // team_a is the side that batted first, so innings[0] -> a, innings[1] -> b.
                     if ($template->type === TournamentTemplate::TYPE_MATCH_SUMMARY && $match->result && $match->result->scorecard_data) {
                         $scorecard = is_string($match->result->scorecard_data)
                             ? json_decode($match->result->scorecard_data, true)
                             : $match->result->scorecard_data;
-                        $scorecardInnings = $scorecard['innings'] ?? $scorecard;
+                        // Every table this poster can draw, in one place — the preview and the
+                        // real render must not disagree about what a table contains.
+                        $data = array_merge($data, MatchStatsTableData::build($match, [
+                            'a' => $data['team_a_short_name'] ?? $data['team_a_name'] ?? null,
+                            'b' => $data['team_b_short_name'] ?? $data['team_b_name'] ?? null,
+                        ]));
 
-                        if (is_array($scorecardInnings) && count($scorecardInnings) >= 2) {
-                            if (! empty($scorecardInnings[0]['batting'])) {
-                                $data['batting_table_a'] = collect($scorecardInnings[0]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
-                                    'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
-                                    'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
-                                ])->values()->toArray();
-                            }
-                            if (! empty($scorecardInnings[0]['bowling'])) {
-                                $data['bowling_table_b'] = collect($scorecardInnings[0]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
-                                    'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
-                                    'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
-                                ])->values()->toArray();
-                            }
-                            if (! empty($scorecardInnings[1]['batting'])) {
-                                $data['batting_table_b'] = collect($scorecardInnings[1]['batting'])->sortByDesc('runs')->take(3)->map(fn ($b) => [
-                                    'name' => $b['name'] ?? '', 'runs' => $b['runs'] ?? 0, 'balls' => $b['balls'] ?? 0,
-                                    'fours' => $b['fours'] ?? 0, 'sixes' => $b['sixes'] ?? 0,
-                                ])->values()->toArray();
-                            }
-                            if (! empty($scorecardInnings[1]['bowling'])) {
-                                $data['bowling_table_a'] = collect($scorecardInnings[1]['bowling'])->sortByDesc('wickets')->sortBy('economy')->take(3)->map(fn ($b) => [
-                                    'name' => $b['name'] ?? '', 'overs' => $b['overs'] ?? '0', 'runs' => $b['runs'] ?? 0,
-                                    'wickets' => $b['wickets'] ?? 0, 'economy' => $b['economy'] ?? '0.00',
-                                ])->values()->toArray();
-                            }
-                        }
                         /*
                          * Fall back to the CricHeroes "heroes" for the named performers.
                          *
@@ -617,6 +597,7 @@ class TournamentTemplateController extends Controller
                             'team_a_overs' => 'team_b_overs',
                             'batting_table_a' => 'batting_table_b',
                             'bowling_table_a' => 'bowling_table_b',
+                            'fall_of_wickets_a' => 'fall_of_wickets_b',
                         ];
                         foreach ($swapKeys as $keyA => $keyB) {
                             $tmp = $data[$keyA] ?? null;

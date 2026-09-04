@@ -1170,8 +1170,30 @@ class MatchesController extends Controller
             }
         }
 
-        // Debug: Log the data being passed
-        \Log::info('Template data for match ' . $match->id, $data);
+        /*
+         * The tables a match-summary template draws.
+         *
+         * These were built in the preview and in MatchSummaryPosterService but never here, so a
+         * summary poster downloaded from the match page rendered every table as "No scorecard
+         * data" while the preview of the same template showed it filled in.
+         *
+         * Keyed to the same left/right order as the placeholders above: on the second innings
+         * view the sides are swapped, and the per-side tables have to follow.
+         */
+        $tables = \App\Services\Poster\MatchStatsTableData::build($match, [
+            'a' => $data['team_a_short_name'], 'b' => $data['team_b_short_name'],
+        ]);
+
+        if ($swapTeams) {
+            foreach ([['batting_table_a', 'batting_table_b'], ['bowling_table_a', 'bowling_table_b'], ['fall_of_wickets_a', 'fall_of_wickets_b']] as [$keyA, $keyB]) {
+                $carry = $tables[$keyA] ?? null;
+                $tables[$keyA] = $tables[$keyB] ?? null;
+                $tables[$keyB] = $carry;
+            }
+            $tables = array_filter($tables, fn ($v) => $v !== null);
+        }
+
+        $data = array_merge($data, $tables);
 
         return $data;
     }

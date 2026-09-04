@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Services\Auction\SquadAcquisitionService;
 use App\Services\Tournament\PointTableService;
+use App\Services\Tournament\ScorecardStatisticsService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -107,9 +108,23 @@ class TournamentPublicController extends Controller
 
         $pointTableByGroups = $this->pointTableService->getPointTableByGroups($tournament);
 
+        /*
+         * Whether a "Qualified" tag is a fact yet, worked out per group — a pool can finish its
+         * league fixtures while another pool still has games to play. Keyed to match
+         * getPointTableByGroups(), which uses the group name (or 'default' when there are none).
+         */
+        $qualificationDecided = $tournament->groups->isEmpty()
+            ? ['default' => $this->pointTableService->qualificationDecided($tournament)]
+            : $tournament->groups
+                ->mapWithKeys(fn ($group) => [
+                    $group->name => $this->pointTableService->qualificationDecided($tournament, $group->id),
+                ])
+                ->all();
+
         return view('public.tournament.point-table', [
             'tournament' => $tournament,
             'pointTableByGroups' => $pointTableByGroups,
+            'qualificationDecided' => $qualificationDecided,
         ]);
     }
 
@@ -121,6 +136,31 @@ class TournamentPublicController extends Controller
         $tournament->load('settings');
 
         $tab = $request->get('tab', 'batting');
+
+        /*
+         * Scorecards win when there are any.
+         *
+         * `player_statistics` is only ever written by PlayerStatisticService, which aggregates
+         * the ball-by-ball `balls` table — and virtually nothing writes that. Every scored match
+         * here arrives as `match_results.scorecard_data`, so the stored table stayed empty and
+         * this page said "No batting statistics available yet" for tournaments with eight
+         * completed matches. Prefer the scorecards; fall through to the stored table for a
+         * tournament that really was scored in-app.
+         */
+        $scorecardStats = app(ScorecardStatisticsService::class);
+
+        if ($scorecardStats->hasScorecards($tournament)) {
+            $boards = $scorecardStats->leaderboards($tournament);
+
+            return view('public.tournament.statistics', [
+                'tournament' => $tournament,
+                'tab' => $tab,
+                'topBatsmen' => $boards['batting'],
+                'topBowlers' => $boards['bowling'],
+                'topSixHitters' => $boards['sixes'],
+                'topFielders' => $boards['fielding'],
+            ]);
+        }
 
         $topBatsmen = $tournament->playerStatistics()
             ->with(['player', 'team'])
@@ -199,6 +239,9 @@ class TournamentPublicController extends Controller
         return view('public.tournament.teams', [
             'tournament' => $tournament,
             'teams' => $teams,
+            // One flag for the whole page: the cards are not grouped, so a per-pool answer has
+            // nowhere to land. Every league fixture in the tournament has to be done.
+            'qualificationDecided' => $this->pointTableService->qualificationDecided($tournament),
         ]);
     }
 }

@@ -153,6 +153,31 @@
                     @endforeach
                 </div>
             </div>
+
+            {{-- Image Layers --}}
+            {{-- The editor has always had this; the create page did not, so a design that needed
+                 a logo, badge or cut-out on top of the background could not be started here at
+                 all — you had to save an empty template first and go find the editor. Uploads go
+                 to the same tournament overlay folder and are saved as ordinary uploadedImage
+                 layout elements, which is exactly what the editor writes. --}}
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="font-semibold text-gray-900 dark:text-white text-sm">Image Layers</h3>
+                    <span class="text-xs text-gray-500">Click to add</span>
+                </div>
+
+                <label class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 text-center hover:border-indigo-400 transition cursor-pointer block">
+                    <input type="file" id="overlayImageInput" accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                           class="hidden" onchange="uploadOverlayImage(this)">
+                    <svg class="w-6 h-6 mx-auto text-gray-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="text-xs text-gray-500">Upload PNG, SVG, JPG</p>
+                </label>
+
+                <p id="overlayUploadStatus" class="text-xs text-gray-400 mt-2 hidden">Uploading…</p>
+                <div id="overlayImagesList" class="mt-2 space-y-1.5"></div>
+            </div>
         </div>
 
         {{-- Center Panel: Canvas --}}
@@ -544,8 +569,14 @@ function handleDrop(e) {
     addElement(placeholder, type, x, y);
 }
 
-function addElement(placeholder, type, x, y) {
-    const id = 'element_' + Date.now();
+/* An uploaded layer behaves like an image placeholder everywhere except that it carries its
+   own file rather than resolving one from match data. */
+function isImageLike(el) {
+    return el && (el.type === 'image' || el.type === 'uploadedImage');
+}
+
+function addElement(placeholder, type, x, y, extra) {
+    const id = 'element_' + Date.now() + '_' + Math.round(Math.random() * 1000);
     zIndexCounter++;
 
     const element = {
@@ -567,10 +598,11 @@ function addElement(placeholder, type, x, y) {
         shadowY: 2,
         rotation: 0,
         opacity: 100,
-        width: type === 'image' ? 100 : 0,
-        height: type === 'image' ? 100 : 0,
+        width: (type === 'image' || type === 'uploadedImage') ? 100 : 0,
+        height: (type === 'image' || type === 'uploadedImage') ? 100 : 0,
         borderRadius: 0,
-        zIndex: zIndexCounter
+        zIndex: zIndexCounter,
+        ...(extra || {})
     };
 
     elements.push(element);
@@ -591,7 +623,16 @@ function renderElement(element) {
     div.style.transform = `translate(-50%, -50%) rotate(${element.rotation}deg)`;
     div.style.opacity = element.opacity / 100;
 
-    if (element.type === 'image') {
+    if (element.type === 'uploadedImage') {
+        div.innerHTML = `
+            <img class="element-content" src="${element.imageUrl}" alt="Layer"
+                 style="width: ${element.width}px; height: ${element.height}px; object-fit: contain; border-radius: ${element.borderRadius}%;">
+            <div class="resize-handle nw"></div>
+            <div class="resize-handle ne"></div>
+            <div class="resize-handle sw"></div>
+            <div class="resize-handle se"></div>
+        `;
+    } else if (element.type === 'image') {
         div.innerHTML = `
             <div class="element-content bg-white/20 border-2 border-dashed border-white/60 rounded flex items-center justify-center"
                  style="width: ${element.width}px; height: ${element.height}px; border-radius: ${element.borderRadius}%;">
@@ -705,7 +746,7 @@ function startResize(e, elementId, handleType) {
         const deltaX = e.clientX - startX;
         const deltaY = e.clientY - startY;
 
-        if (element.type === 'image') {
+        if (isImageLike(element)) {
             if (handleType.includes('e')) element.width = Math.max(40, originalWidth + deltaX);
             if (handleType.includes('w')) element.width = Math.max(40, originalWidth - deltaX);
             if (handleType.includes('s')) element.height = Math.max(40, originalHeight + deltaY);
@@ -763,7 +804,7 @@ function selectElement(elementId) {
     document.getElementById('editingElementName').textContent = element.placeholder.replace(/_/g, ' ');
 
     // Toggle text/image properties
-    if (element.type === 'image') {
+    if (isImageLike(element)) {
         document.getElementById('textProperties').classList.add('hidden');
         document.getElementById('imageProperties').classList.remove('hidden');
         document.getElementById('elementWidth').value = element.width;
@@ -799,7 +840,7 @@ function updateSelectedElement() {
     const div = document.getElementById(selectedElement.id);
     if (!div) return;
 
-    if (selectedElement.type === 'image') {
+    if (isImageLike(selectedElement)) {
         selectedElement.width = parseInt(document.getElementById('elementWidth').value) || 100;
         selectedElement.height = parseInt(document.getElementById('elementHeight').value) || 100;
         selectedElement.borderRadius = parseInt(document.getElementById('elementBorderRadius').value) || 0;
@@ -859,7 +900,7 @@ function setColor(color) {
 }
 
 function setAlignment(align) {
-    if (!selectedElement || selectedElement.type === 'image') return;
+    if (!selectedElement || isImageLike(selectedElement)) return;
     selectedElement.textAlign = align;
     const content = document.getElementById(selectedElement.id)?.querySelector('.element-content');
     if (content) content.style.textAlign = align;
@@ -974,7 +1015,16 @@ function changeCanvasSize() {
 
 function updateLayoutJson() {
     const layoutData = elements.map(el => ({
-        placeholder: el.placeholder,
+        /*
+         * An uploaded layer must go out with NO placeholder.
+         *
+         * On real generation the renderer drops any element whose placeholder resolves to an
+         * empty value — that is what stops unfilled fields printing as boxes. An uploaded layer
+         * carries its own file in `imagePath` and answers to no data key, so leaving the file
+         * name in `placeholder` would look like an unresolved field and the image would silently
+         * never be drawn. The name is kept on the element for the canvas label only.
+         */
+        placeholder: el.type === 'uploadedImage' ? null : el.placeholder,
         type: el.type,
         x: Math.round((el.x / canvas.width) * 100 * 10) / 10,
         y: Math.round((el.y / canvas.height) * 100 * 10) / 10,
@@ -994,13 +1044,91 @@ function updateLayoutJson() {
         width: el.width,
         height: el.height,
         borderRadius: el.borderRadius,
-        zIndex: el.zIndex
+        zIndex: el.zIndex,
+        // Only uploaded layers carry a file of their own; every other element resolves its
+        // image from match data at render time.
+        ...(el.type === 'uploadedImage' ? { imagePath: el.imagePath } : {})
     }));
     document.getElementById('layoutJsonInput').value = JSON.stringify(layoutData);
 }
 
 function updateElementCount() {
     document.getElementById('elementCount').textContent = elements.length;
+}
+
+// ─── Image layers ──────────────────────────────────────────────────────────
+let uploadedOverlays = [];
+
+function uploadOverlayImage(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const status = document.getElementById('overlayUploadStatus');
+    status.textContent = 'Uploading…';
+    status.classList.remove('hidden', 'text-red-500');
+
+    const formData = new FormData();
+    formData.append('overlay_image', file);
+    formData.append('_token', '{{ csrf_token() }}');
+
+    fetch('{{ route("admin.tournaments.templates.upload-overlay", $tournament) }}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+    })
+        .then(r => r.json())
+        .then(data => {
+            if (!data.success) throw new Error(data.message || 'Upload failed');
+            uploadedOverlays.push({ path: data.path, url: data.url, name: file.name });
+            renderOverlayList();
+            status.classList.add('hidden');
+            input.value = '';
+            // Drop it straight onto the canvas — uploading it is the intent to use it.
+            addUploadedImageElement(uploadedOverlays.length - 1);
+        })
+        .catch(err => {
+            status.textContent = 'Upload failed: ' + err.message;
+            status.classList.add('text-red-500');
+        });
+}
+
+function renderOverlayList() {
+    const list = document.getElementById('overlayImagesList');
+    list.innerHTML = uploadedOverlays.map((ov, i) => `
+        <button type="button" onclick="addUploadedImageElement(${i})"
+                class="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition text-left">
+            <img src="${ov.url}" class="w-8 h-8 rounded object-contain bg-white/60 flex-shrink-0" alt="">
+            <span class="flex-1 truncate text-xs text-gray-700 dark:text-gray-300">${ov.name}</span>
+            <svg class="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+        </button>
+    `).join('');
+}
+
+/* Add a copy of an uploaded layer to the canvas, sized to its own aspect ratio. */
+function addUploadedImageElement(index) {
+    const ov = uploadedOverlays[index];
+    if (!ov) return;
+
+    const probe = new Image();
+    probe.onload = () => placeUploaded(ov, probe.naturalWidth, probe.naturalHeight);
+    probe.onerror = () => placeUploaded(ov, 100, 100);
+    probe.src = ov.url;
+}
+
+function placeUploaded(ov, naturalW, naturalH) {
+    // Fit inside a 180px box so a full-size PNG does not land bigger than the canvas.
+    const fit = 180 / Math.max(naturalW, naturalH, 1);
+    const w = Math.max(40, Math.round(naturalW * Math.min(1, fit)));
+    const h = Math.max(40, Math.round(naturalH * Math.min(1, fit)));
+
+    addElement(ov.name, 'uploadedImage', canvas.width / 2, canvas.height / 2, {
+        imagePath: ov.path,
+        imageUrl: ov.url,
+        width: w,
+        height: h,
+    });
 }
 
 // Click outside to deselect
@@ -1119,9 +1247,12 @@ async function showClientPreview() {
     const scale = 2; // Always 2x scale from editor to output
 
     // Preload all images
-    const imageElements = elements.filter(el => el.type === 'image');
+    const imageElements = elements.filter(el => isImageLike(el));
     const imagePromises = imageElements.map(el => {
-        const url = sampleImages[el.placeholder] || `https://ui-avatars.com/api/?name=${el.placeholder.replace(/_/g, '+')}&size=200&background=6366F1&color=fff`;
+        // An uploaded layer already knows its own URL; a placeholder gets sample artwork.
+        const url = el.type === 'uploadedImage'
+            ? el.imageUrl
+            : (sampleImages[el.placeholder] || `https://ui-avatars.com/api/?name=${el.placeholder.replace(/_/g, '+')}&size=200&background=6366F1&color=fff`);
         return preloadImage(url);
     });
 
@@ -1160,7 +1291,7 @@ async function showClientPreview() {
         ctx.rotate((element.rotation || 0) * Math.PI / 180);
         ctx.globalAlpha = (element.opacity || 100) / 100;
 
-        if (element.type === 'image') {
+        if (isImageLike(element)) {
             const w = (element.width || 100) * scale;
             const h = (element.height || 100) * scale;
             const borderRadius = (element.borderRadius || 0) * Math.min(w, h) / 100;

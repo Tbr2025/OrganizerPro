@@ -176,7 +176,7 @@
                                 @endif
 
                                 {{-- Qualified Badge --}}
-                                @if($teamEntry?->qualified)
+                                @if($teamEntry?->qualified && ($qualificationDecided ?? false))
                                     <div class="absolute top-4 right-4">
                                         <span class="qualified-badge text-xs font-semibold px-2 py-1 rounded">
                                             <i class="fas fa-check-circle mr-1"></i>Q

@@ -1363,180 +1363,601 @@ class TemplateRenderService extends PosterGeneratorService
     }
 
     /**
-     * Render scorecard table (batting or bowling) on canvas
+     * Stats tables: the top order, the best spells, the innings summary, the fall of wickets.
+     *
+     * One element type covers all of them. What it shows is `scorecardConfig.source` (a key
+     * MatchStatsTableData produces); how it looks is `scorecardConfig.style` plus per-property
+     * overrides. Every colour, the row height, the visible columns and their order are the
+     * organizer's to set, so a design is not limited to the one table this used to draw.
+     *
+     * Kept under the `scorecardTable` element type on purpose: templates already saved carry
+     * `scorecardType` + `team` and no `source`, and those still resolve to exactly what they
+     * rendered before.
      */
     protected function renderScorecardTable(\GdImage $canvas, array $element, array $data, int $canvasWidth, int $canvasHeight): void
     {
         $config = $element['scorecardConfig'] ?? [];
-        $team = $config['team'] ?? null;
-        $scorecardType = $config['scorecardType'] ?? null;
+        $source = $this->statsTableSource($element, $config);
+        $kind = self::statsTableKind($source);
 
-        // Fallback: extract team/type from placeholder (e.g. 'batting_table_a')
-        if (!$team || !$scorecardType) {
-            $placeholder = $element['placeholder'] ?? '';
-            if (preg_match('/^(batting|bowling)_table_(a|b)$/', $placeholder, $m)) {
-                $scorecardType = $scorecardType ?? $m[1];
-                $team = $team ?? $m[2];
-            }
+        $rows = $data[$source] ?? [];
+        if (is_string($rows)) {
+            $rows = json_decode($rows, true) ?? [];
         }
-        $team = $team ?? 'a';
-        $scorecardType = $scorecardType ?? 'batting';
-        $maxRows = (int) ($config['maxRows'] ?? 3);
-
-        // Determine data key
-        $dataKey = $scorecardType === 'batting'
-            ? ('batting_table_' . $team)
-            : ('bowling_table_' . $team);
-
-        $tableData = $data[$dataKey] ?? [];
-        if (is_string($tableData)) {
-            $tableData = json_decode($tableData, true) ?? [];
+        if (! is_array($rows)) {
+            $rows = [];
         }
 
-        // Style config
-        $transparentBg = !empty($config['transparentBg']);
-        $headerBg = $config['headerBg'] ?? '#1e40af';
-        $headerText = $config['headerText'] ?? '#ffffff';
-        $rowBg = $config['rowBg'] ?? '#1e293b';
-        $altRowBg = $config['altRowBg'] ?? '#334155';
-        $textColor = $config['textColor'] ?? '#ffffff';
-        $accentColor = $config['accentColor'] ?? '#FFD700';
-        $fontSize = (int) (($config['fontSize'] ?? 14) * $this->renderScale);
-        $rowHeight = (int) (($config['rowHeight'] ?? 40) * $this->renderScale);
+        $columns = $this->statsTableColumns($kind, $config, $source);
+        $style = $this->statsTableStyle($config);
 
-        // Calculate element area
-        $areaWidth = (int) (($element['width'] ?? 400) * $this->renderScale);
-        $areaHeight = (int) (($element['height'] ?? 200) * $this->renderScale);
+        // --- geometry --------------------------------------------------------
+        $scale = $this->renderScale;
+        $areaWidth = (int) (($element['width'] ?? 400) * $scale);
+        $areaHeight = (int) (($element['height'] ?? 200) * $scale);
         $centerX = (int) (($element['x'] ?? 50) / 100 * $canvasWidth);
         $centerY = (int) (($element['y'] ?? 50) / 100 * $canvasHeight);
         $areaX = (int) ($centerX - $areaWidth / 2);
         $areaY = (int) ($centerY - $areaHeight / 2);
 
-        // Team name from data
-        $teamNameKey = 'team_' . $team . '_name';
-        $teamName = $data[$teamNameKey] ?? ('Team ' . strtoupper($team));
-        $typeLabel = strtoupper($scorecardType);
-
-        // Header bar height
-        $headerHeight = (int) ($rowHeight * 0.85);
-        $colHeaderHeight = (int) ($rowHeight * 0.75);
-        $headerFont = 'Montserrat-Bold.ttf';
-        $bodyFont = 'Montserrat-Medium.ttf';
-        $headerFontSize = (int) ($fontSize * 1.1);
-        $colFontSize = (int) ($fontSize * 0.85);
-
-        // --- Team header bar ---
-        if (!$transparentBg) {
-            $hdrColor = $this->parseColor($canvas, $headerBg);
-            imagefilledrectangle($canvas, $areaX, $areaY, $areaX + $areaWidth, $areaY + $headerHeight, $hdrColor);
-            // Accent line at bottom of header
-            $accentParsed = $this->parseColor($canvas, $accentColor);
-            imagefilledrectangle($canvas, $areaX, $areaY + $headerHeight - (2 * $this->renderScale), $areaX + $areaWidth, $areaY + $headerHeight, $accentParsed);
-        }
-        // Team name text
-        $this->addText($canvas, strtoupper($teamName) . ' - ' . $typeLabel, $areaX + (int) ($areaWidth * 0.04), $areaY + (int) ($headerHeight * 0.65), $headerFontSize, $headerText, $headerFont, 'left');
-
-        $currentY = $areaY + $headerHeight;
-
-        // --- Column headers ---
-        if (!$transparentBg) {
-            $colHdrColor = $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15));
-            imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $colHeaderHeight, $colHdrColor);
-        }
-
-        if ($scorecardType === 'batting') {
-            $cols = $this->getScorecardBattingColumns($areaX, $areaWidth);
-            $this->addText($canvas, 'Name', $areaX + $cols['name'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'left');
-            $this->addText($canvas, 'R', $areaX + $cols['c1'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, 'B', $areaX + $cols['c2'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, '4s', $areaX + $cols['c3'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, '6s', $areaX + $cols['c4'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-        } else {
-            $cols = $this->getScorecardBowlingColumns($areaX, $areaWidth);
-            $this->addText($canvas, 'Name', $areaX + $cols['name'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'left');
-            $this->addText($canvas, 'O', $areaX + $cols['c1'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, 'R', $areaX + $cols['c2'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, 'W', $areaX + $cols['c3'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-            $this->addText($canvas, 'Econ', $areaX + $cols['c4'], $currentY + (int) ($colHeaderHeight * 0.65), $colFontSize, $headerText, $headerFont, 'center');
-        }
-
-        $currentY += $colHeaderHeight;
-
-        // --- Data rows ---
-        $rows = array_slice($tableData, 0, $maxRows);
-        if (empty($rows)) {
-            // No data placeholder
-            if (!$transparentBg) {
-                $noBg = $this->parseColor($canvas, $rowBg);
-                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $noBg);
-            }
-            $this->addText($canvas, 'No scorecard data', $areaX + (int) ($areaWidth / 2), $currentY + (int) ($rowHeight * 0.6), $fontSize, '#888888', $bodyFont, 'center');
+        if ($areaWidth <= 0 || $areaHeight <= 0) {
             return;
         }
 
+        $fontSize = max(6, (int) (($config['fontSize'] ?? 14) * $scale));
+        $padding = (int) (($config['padding'] ?? 12) * $scale);
+        $radius = (int) (($config['cornerRadius'] ?? $style['radius']) * $scale);
+
+        $maxRows = (int) ($config['maxRows'] ?? 3);
+        $rows = array_slice(array_values($rows), 0, max(1, $maxRows));
+
+        $showTitle = ($config['showTitle'] ?? true) && $style['title'] !== 'hidden';
+        $showColumnHeaders = $config['showColumnHeaders'] ?? true;
+
+        $titleHeight = $showTitle ? (int) (($config['headerHeight'] ?? ($config['rowHeight'] ?? 40) * 0.85) * $scale) : 0;
+        $colHeaderHeight = $showColumnHeaders ? (int) (($config['rowHeight'] ?? 40) * 0.7 * $scale) : 0;
+
+        $rowHeight = (int) (($config['rowHeight'] ?? 40) * $scale);
+        // Never spill past the box the organizer drew: if the rows do not fit, they get shorter.
+        $available = $areaHeight - $titleHeight - $colHeaderHeight;
+        if (count($rows) > 0 && $available > 0) {
+            $rowHeight = min($rowHeight, (int) ($available / count($rows)));
+        }
+        $rowHeight = max(8, $rowHeight);
+
+        // --- colours ---------------------------------------------------------
+        $transparent = ! empty($config['transparentBg']);
+        $headerBg = $config['headerBg'] ?? '#1e40af';
+        // Lightened rather than a fixed second colour, so a gradient bar still ramps when the
+        // organizer only changes the one header colour.
+        $headerBg2 = $config['headerBg2'] ?? $this->darkenColorHex($headerBg, -45);
+        $headerText = $config['headerText'] ?? '#ffffff';
+        $rowBg = $config['rowBg'] ?? '#1e293b';
+        $altRowBg = $config['altRowBg'] ?? '#334155';
+        $textColor = $config['textColor'] ?? '#ffffff';
+        $mutedColor = $config['mutedColor'] ?? $textColor;
+        $accentColor = $config['accentColor'] ?? '#FFD700';
+        // Deliberately darker than rowBg, and the same default the editor uses: a panel the
+        // exact colour of the rows it sits behind is invisible, which reads as a broken style.
+        $panelBg = $config['panelBg'] ?? '#0f172a';
+        $panelOpacity = (int) ($config['panelOpacity'] ?? $style['panelOpacity']);
+        $borderColor = $config['borderColor'] ?? $accentColor;
+        $borderWidth = (int) (($config['borderWidth'] ?? $style['borderWidth']) * $scale);
+
+        $headerFontFamily = $config['fontFamily'] ?? 'Montserrat';
+        $headerFont = $this->getFontFile('700', 'normal', $headerFontFamily);
+        $bodyFont = $this->getFontFile('500', 'normal', $headerFontFamily);
+
+        // --- panel -----------------------------------------------------------
+        if (! $transparent && $style['panel'] && $panelOpacity > 0) {
+            $this->fillRoundedAlpha($canvas, $areaX, $areaY, $areaWidth, $areaHeight, $radius, $panelBg, $panelOpacity);
+        }
+
+        $y = $areaY;
+
+        // --- title bar -------------------------------------------------------
+        if ($showTitle) {
+            if (! $transparent && $style['title'] === 'gradient') {
+                $this->fillRoundedAlpha($canvas, $areaX, $y, $areaWidth, $titleHeight, $radius, $headerBg, 100, [
+                    'topOnly' => true, 'gradientTo' => $headerBg2,
+                ]);
+            } elseif (! $transparent && $style['title'] === 'solid') {
+                $this->fillRoundedAlpha($canvas, $areaX, $y, $areaWidth, $titleHeight, $radius, $headerBg, 100, ['topOnly' => true]);
+            }
+
+            if ($style['accentUnderline'] && ! $transparent) {
+                $lineHeight = max(1, (int) (2 * $scale));
+                imagefilledrectangle(
+                    $canvas,
+                    $areaX,
+                    $y + $titleHeight - $lineHeight,
+                    $areaX + $areaWidth,
+                    $y + $titleHeight,
+                    $this->parseColor($canvas, $accentColor)
+                );
+            }
+
+            $title = trim((string) ($config['title'] ?? '')) !== ''
+                ? $config['title']
+                : $this->statsTableTitle($source, $kind, $data);
+
+            $titleColor = $style['title'] === 'none' ? $accentColor : $headerText;
+            $align = $config['titleAlign'] ?? ($style['title'] === 'none' ? 'left' : 'left');
+            $titleX = match ($align) {
+                'center' => $areaX + (int) ($areaWidth / 2),
+                'right' => $areaX + $areaWidth - $padding,
+                default => $areaX + $padding,
+            };
+
+            $this->addText(
+                $canvas,
+                mb_strtoupper($title),
+                $titleX,
+                $y + (int) ($titleHeight * 0.68),
+                (int) ($fontSize * 1.1),
+                $titleColor,
+                $headerFont,
+                $align
+            );
+
+            $y += $titleHeight;
+        }
+
+        // --- column headers --------------------------------------------------
+        $layout = $this->statsTableLayout($columns, $areaX + $padding, $areaWidth - 2 * $padding);
+
+        if ($showColumnHeaders) {
+            if (! $transparent && $style['columnHeaderBar']) {
+                imagefilledrectangle(
+                    $canvas,
+                    $areaX,
+                    $y,
+                    $areaX + $areaWidth,
+                    $y + $colHeaderHeight,
+                    $this->parseColor($canvas, $this->darkenColorHex($headerBg, 15))
+                );
+            }
+
+            foreach ($layout as $col) {
+                $this->addText(
+                    $canvas,
+                    $col['label'],
+                    $col['x'],
+                    $y + (int) ($colHeaderHeight * 0.7),
+                    (int) ($fontSize * 0.82),
+                    $style['columnHeaderBar'] ? $headerText : $mutedColor,
+                    $headerFont,
+                    $col['align']
+                );
+            }
+
+            $y += $colHeaderHeight;
+        }
+
+        // --- rows ------------------------------------------------------------
+        if (empty($rows)) {
+            $this->addText(
+                $canvas,
+                'No scorecard data',
+                $areaX + (int) ($areaWidth / 2),
+                $y + (int) ($rowHeight * 0.6),
+                $fontSize,
+                $mutedColor,
+                $bodyFont,
+                'center'
+            );
+
+            return;
+        }
+
+        $uppercase = ! empty($config['uppercaseNames']);
+
         foreach ($rows as $index => $row) {
-            if (!$transparentBg) {
-                $bgColor = ($index % 2 === 0) ? $rowBg : $altRowBg;
-                $rowColor = $this->parseColor($canvas, $bgColor);
-                imagefilledrectangle($canvas, $areaX, $currentY, $areaX + $areaWidth, $currentY + $rowHeight, $rowColor);
+            if (! $transparent && $style['rowFill'] !== 'none') {
+                $fill = $style['rowFill'] === 'solid'
+                    ? $rowBg
+                    : (($index % 2 === 0) ? $rowBg : $altRowBg);
+                imagefilledrectangle($canvas, $areaX, $y, $areaX + $areaWidth, $y + $rowHeight, $this->parseColor($canvas, $fill));
             }
 
-            $textY = $currentY + (int) ($rowHeight * 0.62);
+            $textY = $y + (int) ($rowHeight * 0.66);
 
-            if ($scorecardType === 'batting') {
-                $cols = $this->getScorecardBattingColumns($areaX, $areaWidth);
-                $name = mb_substr($row['name'] ?? '', 0, 18);
-                $this->addText($canvas, $name, $areaX + $cols['name'], $textY, $fontSize, $textColor, $bodyFont, 'left');
-                $this->addText($canvas, (string) ($row['runs'] ?? '-'), $areaX + $cols['c1'], $textY, $fontSize, $accentColor, $headerFont, 'center');
-                $this->addText($canvas, (string) ($row['balls'] ?? '-'), $areaX + $cols['c2'], $textY, $fontSize, $textColor, $bodyFont, 'center');
-                $this->addText($canvas, (string) ($row['fours'] ?? '-'), $areaX + $cols['c3'], $textY, $fontSize, $textColor, $bodyFont, 'center');
-                $this->addText($canvas, (string) ($row['sixes'] ?? '-'), $areaX + $cols['c4'], $textY, $fontSize, $textColor, $bodyFont, 'center');
-            } else {
-                $cols = $this->getScorecardBowlingColumns($areaX, $areaWidth);
-                $name = mb_substr($row['name'] ?? '', 0, 18);
-                $this->addText($canvas, $name, $areaX + $cols['name'], $textY, $fontSize, $textColor, $bodyFont, 'left');
-                $this->addText($canvas, (string) ($row['overs'] ?? '-'), $areaX + $cols['c1'], $textY, $fontSize, $textColor, $bodyFont, 'center');
-                $this->addText($canvas, (string) ($row['runs'] ?? '-'), $areaX + $cols['c2'], $textY, $fontSize, $textColor, $bodyFont, 'center');
-                $this->addText($canvas, (string) ($row['wickets'] ?? '-'), $areaX + $cols['c3'], $textY, $fontSize, $accentColor, $headerFont, 'center');
-                $this->addText($canvas, (string) ($row['economy'] ?? '-'), $areaX + $cols['c4'], $textY, $fontSize, $textColor, $bodyFont, 'center');
+            foreach ($layout as $col) {
+                $value = $col['key'] === '_rank'
+                    ? (string) ($index + 1)
+                    : trim((string) ($row[$col['key']] ?? ''));
+
+                if ($value === '') {
+                    $value = $col['key'] === 'name' ? '' : '-';
+                }
+                if ($col['key'] === 'name') {
+                    $value = $this->fitTextToWidth($uppercase ? mb_strtoupper($value) : $value, $bodyFont, $fontSize, $col['width']);
+                }
+
+                $this->addText(
+                    $canvas,
+                    $value,
+                    $col['x'],
+                    $textY,
+                    $fontSize,
+                    $col['accent'] ? $accentColor : $textColor,
+                    $col['accent'] ? $headerFont : $bodyFont,
+                    $col['align']
+                );
             }
 
-            // Subtle divider
-            if (!$transparentBg && $index < count($rows) - 1) {
-                $divider = imagecolorallocatealpha($canvas, 255, 255, 255, 110);
-                imageline($canvas, $areaX + 4, $currentY + $rowHeight - 1, $areaX + $areaWidth - 4, $currentY + $rowHeight - 1, $divider);
+            if (! $transparent && $style['dividers'] !== 'none' && $index < count($rows) - 1) {
+                $divider = $style['dividers'] === 'hairline'
+                    ? imagecolorallocatealpha($canvas, 255, 255, 255, 110)
+                    : $this->parseColor($canvas, $this->darkenColorHex($rowBg, 25));
+                imageline($canvas, $areaX + $padding, $y + $rowHeight - 1, $areaX + $areaWidth - $padding, $y + $rowHeight - 1, $divider);
             }
 
-            $currentY += $rowHeight;
+            $y += $rowHeight;
+        }
+
+        // --- border ----------------------------------------------------------
+        if (! $transparent && $borderWidth > 0) {
+            $this->strokeRoundedRect($canvas, $areaX, $areaY, $areaWidth, $areaHeight, $radius, $borderColor, $borderWidth);
         }
     }
 
     /**
-     * Get column positions for batting scorecard
+     * Which table this element shows.
+     *
+     * `source` is a data key straight out of MatchStatsTableData. Templates saved before that
+     * existed carry `scorecardType` + `team` instead, or nothing but a placeholder — both still
+     * resolve, so no saved design changes what it draws.
      */
-    protected function getScorecardBattingColumns(int $areaX, int $areaWidth): array
+    protected function statsTableSource(array $element, array $config): string
     {
-        return [
-            'name' => (int) ($areaWidth * 0.04),
-            'c1' => (int) ($areaWidth * 0.60),  // R
-            'c2' => (int) ($areaWidth * 0.72),  // B
-            'c3' => (int) ($areaWidth * 0.84),  // 4s
-            'c4' => (int) ($areaWidth * 0.94),  // 6s
-        ];
+        $source = $config['source'] ?? null;
+        if (is_string($source) && in_array($source, \App\Services\Poster\MatchStatsTableData::KEYS, true)) {
+            return $source;
+        }
+
+        $placeholder = (string) ($element['placeholder'] ?? '');
+        if (in_array($placeholder, \App\Services\Poster\MatchStatsTableData::KEYS, true)) {
+            return $placeholder;
+        }
+
+        $type = $config['scorecardType'] ?? null;
+        $team = $config['team'] ?? null;
+
+        if (! $type || ! $team) {
+            if (preg_match('/^(batting|bowling)_table_(a|b)$/', $placeholder, $m)) {
+                $type = $type ?: $m[1];
+                $team = $team ?: $m[2];
+            }
+        }
+
+        return ($type === 'bowling' ? 'bowling_table_' : 'batting_table_') . ($team === 'b' ? 'b' : 'a');
+    }
+
+    /** Which column set a source uses. */
+    protected static function statsTableKind(string $source): string
+    {
+        return match (true) {
+            $source === 'match_summary_table' => 'summary',
+            str_starts_with($source, 'fall_of_wickets') => 'fow',
+            $source === 'top_bowling', str_starts_with($source, 'bowling_table') => 'bowling',
+            default => 'batting',
+        };
     }
 
     /**
-     * Get column positions for bowling scorecard
+     * Every column a kind can show, and the share of the width it asks for.
+     *
+     * Widths are shares, not pixels: whichever subset the organizer turns on is renormalised to
+     * fill the box, so hiding a column widens the rest instead of leaving a gap.
      */
-    protected function getScorecardBowlingColumns(int $areaX, int $areaWidth): array
+    protected const STATS_TABLE_COLUMNS = [
+        'batting' => [
+            '_rank' => ['label' => '#', 'width' => 0.07, 'align' => 'center'],
+            'name' => ['label' => 'Batter', 'width' => 0.40, 'align' => 'left'],
+            'team' => ['label' => 'Team', 'width' => 0.16, 'align' => 'left'],
+            'runs' => ['label' => 'R', 'width' => 0.13, 'align' => 'center', 'accent' => true],
+            'balls' => ['label' => 'B', 'width' => 0.12, 'align' => 'center'],
+            'fours' => ['label' => '4s', 'width' => 0.11, 'align' => 'center'],
+            'sixes' => ['label' => '6s', 'width' => 0.11, 'align' => 'center'],
+            'strike_rate' => ['label' => 'SR', 'width' => 0.16, 'align' => 'center'],
+            'how_out' => ['label' => 'Dismissal', 'width' => 0.40, 'align' => 'left'],
+        ],
+        'bowling' => [
+            '_rank' => ['label' => '#', 'width' => 0.07, 'align' => 'center'],
+            'name' => ['label' => 'Bowler', 'width' => 0.40, 'align' => 'left'],
+            'team' => ['label' => 'Team', 'width' => 0.16, 'align' => 'left'],
+            'overs' => ['label' => 'O', 'width' => 0.12, 'align' => 'center'],
+            'maidens' => ['label' => 'M', 'width' => 0.10, 'align' => 'center'],
+            'runs' => ['label' => 'R', 'width' => 0.12, 'align' => 'center'],
+            'wickets' => ['label' => 'W', 'width' => 0.12, 'align' => 'center', 'accent' => true],
+            'economy' => ['label' => 'Econ', 'width' => 0.16, 'align' => 'center'],
+            'figures' => ['label' => 'Figures', 'width' => 0.18, 'align' => 'center', 'accent' => true],
+        ],
+        'summary' => [
+            'team' => ['label' => 'Team', 'width' => 0.44, 'align' => 'left'],
+            'score' => ['label' => 'Score', 'width' => 0.20, 'align' => 'center', 'accent' => true],
+            'overs' => ['label' => 'Overs', 'width' => 0.18, 'align' => 'center'],
+            'run_rate' => ['label' => 'RR', 'width' => 0.18, 'align' => 'center'],
+            'extras' => ['label' => 'Extras', 'width' => 0.18, 'align' => 'center'],
+        ],
+        'fow' => [
+            'wicket' => ['label' => 'Wkt', 'width' => 0.12, 'align' => 'center'],
+            'name' => ['label' => 'Batter', 'width' => 0.46, 'align' => 'left'],
+            'score' => ['label' => 'Score', 'width' => 0.22, 'align' => 'center', 'accent' => true],
+            'over' => ['label' => 'Over', 'width' => 0.20, 'align' => 'center'],
+        ],
+    ];
+
+    /** The columns shown by default for each source, before the organizer changes them. */
+    protected const STATS_TABLE_DEFAULT_COLUMNS = [
+        'batting_table_a' => ['name', 'runs', 'balls', 'fours', 'sixes'],
+        'batting_table_b' => ['name', 'runs', 'balls', 'fours', 'sixes'],
+        'bowling_table_a' => ['name', 'overs', 'runs', 'wickets', 'economy'],
+        'bowling_table_b' => ['name', 'overs', 'runs', 'wickets', 'economy'],
+        'top_batting' => ['_rank', 'name', 'team', 'runs', 'balls', 'strike_rate'],
+        'top_bowling' => ['_rank', 'name', 'team', 'overs', 'runs', 'wickets'],
+        'match_summary_table' => ['team', 'score', 'overs', 'run_rate'],
+        'fall_of_wickets_a' => ['wicket', 'name', 'score', 'over'],
+        'fall_of_wickets_b' => ['wicket', 'name', 'score', 'over'],
+    ];
+
+    protected function statsTableColumns(string $kind, array $config, string $source): array
     {
+        $available = self::STATS_TABLE_COLUMNS[$kind] ?? self::STATS_TABLE_COLUMNS['batting'];
+        $wanted = $config['columns'] ?? null;
+
+        if (! is_array($wanted) || empty($wanted)) {
+            $wanted = self::STATS_TABLE_DEFAULT_COLUMNS[$source] ?? array_slice(array_keys($available), 1, 5);
+        }
+
+        $columns = [];
+        foreach ($wanted as $key) {
+            if (isset($available[$key])) {
+                $columns[$key] = $available[$key];
+            }
+        }
+
+        // An empty selection would draw nothing at all, which reads as a broken template.
+        return $columns ?: array_intersect_key($available, array_flip(self::STATS_TABLE_DEFAULT_COLUMNS[$source] ?? ['name']));
+    }
+
+    /** Turn column shares into pixel positions inside the content box. */
+    protected function statsTableLayout(array $columns, int $x, int $width): array
+    {
+        $total = array_sum(array_column($columns, 'width')) ?: 1;
+        $layout = [];
+        $cursor = $x;
+
+        foreach ($columns as $key => $col) {
+            $colWidth = (int) ($width * ($col['width'] / $total));
+            $anchor = match ($col['align']) {
+                'center' => $cursor + (int) ($colWidth / 2),
+                'right' => $cursor + $colWidth,
+                default => $cursor,
+            };
+
+            $layout[] = [
+                'key' => $key,
+                'label' => $col['label'],
+                'align' => $col['align'],
+                'accent' => ! empty($col['accent']),
+                'x' => $anchor,
+                'width' => $colWidth,
+            ];
+
+            $cursor += $colWidth;
+        }
+
+        return $layout;
+    }
+
+    /**
+     * How a style draws, before any per-property override.
+     *
+     * Adding a look means adding one row here — the drawing code below reads these keys and
+     * knows nothing about style names.
+     */
+    protected const STATS_TABLE_STYLE_BASE = [
+        'panel' => false, 'panelOpacity' => 100, 'radius' => 0, 'borderWidth' => 0,
+        'title' => 'solid', 'accentUnderline' => true, 'columnHeaderBar' => true,
+        'rowFill' => 'alternate', 'dividers' => 'hairline',
+    ];
+
+    protected const STATS_TABLE_STYLES = [
+        'classic' => [],
+        'minimal' => ['title' => 'none', 'accentUnderline' => false, 'columnHeaderBar' => false, 'rowFill' => 'none', 'dividers' => 'hairline'],
+        'striped' => ['title' => 'none', 'accentUnderline' => false, 'columnHeaderBar' => false, 'rowFill' => 'alternate', 'dividers' => 'none'],
+        'card' => ['panel' => true, 'radius' => 14, 'rowFill' => 'none', 'dividers' => 'hairline', 'columnHeaderBar' => false],
+        'outline' => ['title' => 'none', 'accentUnderline' => false, 'columnHeaderBar' => false, 'rowFill' => 'none', 'dividers' => 'hairline', 'borderWidth' => 2, 'radius' => 10],
+        'gradient' => ['title' => 'gradient', 'radius' => 10, 'columnHeaderBar' => false, 'rowFill' => 'alternate'],
+        'glass' => ['panel' => true, 'panelOpacity' => 55, 'radius' => 16, 'title' => 'none', 'accentUnderline' => false, 'columnHeaderBar' => false, 'rowFill' => 'none', 'dividers' => 'hairline'],
+    ];
+
+    protected function statsTableStyle(array $config): array
+    {
+        return array_merge(
+            self::STATS_TABLE_STYLE_BASE,
+            self::STATS_TABLE_STYLES[$config['style'] ?? 'classic'] ?? []
+        );
+    }
+
+    /**
+     * The column catalogue, the per-source defaults and the style table, for the editor.
+     *
+     * The Fabric editor draws its own preview of a stats table, and the only way that preview
+     * stays honest is if it reads the same definitions the renderer does rather than a second
+     * copy that drifts.
+     */
+    public static function statsTableDefinitions(): array
+    {
+        $styles = [];
+        foreach (self::STATS_TABLE_STYLES as $name => $overrides) {
+            $styles[$name] = array_merge(self::STATS_TABLE_STYLE_BASE, $overrides);
+        }
+
         return [
-            'name' => (int) ($areaWidth * 0.04),
-            'c1' => (int) ($areaWidth * 0.55),  // O
-            'c2' => (int) ($areaWidth * 0.66),  // R
-            'c3' => (int) ($areaWidth * 0.77),  // W
-            'c4' => (int) ($areaWidth * 0.90),  // Econ
+            'columns' => self::STATS_TABLE_COLUMNS,
+            'defaultColumns' => self::STATS_TABLE_DEFAULT_COLUMNS,
+            'styles' => $styles,
         ];
+    }
+
+    /** The heading when the organizer has not typed one. */
+    protected function statsTableTitle(string $source, string $kind, array $data): string
+    {
+        $team = fn (string $side) => (string) ($data['team_' . $side . '_name'] ?? ('Team ' . strtoupper($side)));
+
+        return match ($source) {
+            'top_batting' => 'Top Batting',
+            'top_bowling' => 'Top Bowling',
+            'match_summary_table' => 'Match Summary',
+            'fall_of_wickets_a' => $team('a') . ' - Fall of Wickets',
+            'fall_of_wickets_b' => $team('b') . ' - Fall of Wickets',
+            default => $team(str_ends_with($source, '_b') ? 'b' : 'a') . ' - ' . ($kind === 'bowling' ? 'Bowling' : 'Batting'),
+        };
+    }
+
+    /** Trim a name to what actually fits its column, rather than to a guessed character count. */
+    protected function fitTextToWidth(string $text, string $fontFile, int $fontSize, int $maxWidth): string
+    {
+        if ($text === '' || $maxWidth <= 0) {
+            return $text;
+        }
+
+        if ($this->measureTextWidth($text, $fontFile, $fontSize) <= $maxWidth) {
+            return $text;
+        }
+
+        $length = mb_strlen($text);
+        while ($length > 1) {
+            $length--;
+            $candidate = rtrim(mb_substr($text, 0, $length)) . '.';
+            if ($this->measureTextWidth($candidate, $fontFile, $fontSize) <= $maxWidth) {
+                return $candidate;
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * A filled rectangle that can be translucent, rounded, and rounded on the top corners only.
+     *
+     * GD has no such primitive: an alpha colour drawn twice over the same pixel darkens it, so
+     * the shape is composed once in an off-screen image carrying real alpha and then copied on.
+     *
+     * @param  array{topOnly?: bool, gradientTo?: string}  $options
+     */
+    protected function fillRoundedAlpha(\GdImage $canvas, int $x, int $y, int $w, int $h, int $radius, string $color, int $opacity, array $options = []): void
+    {
+        if ($w <= 0 || $h <= 0) {
+            return;
+        }
+
+        $alpha = (int) round(127 * (1 - max(0, min(100, $opacity)) / 100));
+        $radius = max(0, min($radius, (int) (min($w, $h) / 2)));
+
+        if ($radius === 0 && empty($options['gradientTo'])) {
+            [$r, $g, $b] = array_values($this->hexToRgb($color));
+            imagealphablending($canvas, true);
+            imagefilledrectangle($canvas, $x, $y, $x + $w, $y + $h, imagecolorallocatealpha($canvas, $r, $g, $b, $alpha));
+
+            return;
+        }
+
+        $layer = imagecreatetruecolor($w, $h);
+        imagealphablending($layer, false);
+        imagesavealpha($layer, true);
+        imagefill($layer, 0, 0, imagecolorallocatealpha($layer, 0, 0, 0, 127));
+        imagealphablending($layer, true);
+
+        if (! empty($options['gradientTo'])) {
+            $this->renderGradientRect($layer, 0, 0, $w, $h, [
+                'angle' => 90,
+                'colorStops' => [
+                    ['offset' => 0, 'color' => $color],
+                    ['offset' => 1, 'color' => $options['gradientTo']],
+                ],
+            ]);
+        } else {
+            imagefilledrectangle($layer, 0, 0, $w, $h, $this->parseColor($layer, $color));
+        }
+
+        // Knock the corners out of the finished fill rather than drawing into them, so a
+        // gradient keeps its ramp right up to the rounded edge.
+        $clear = imagecolorallocatealpha($layer, 0, 0, 0, 127);
+        $bottomRadius = ! empty($options['topOnly']) ? 0 : $radius;
+        imagealphablending($layer, false);
+
+        foreach ([[0, 0, $radius], [$w - 1, 0, $radius], [0, $h - 1, $bottomRadius], [$w - 1, $h - 1, $bottomRadius]] as [$cornerX, $cornerY, $r]) {
+            if ($r <= 0) {
+                continue;
+            }
+            $centreX = $cornerX === 0 ? $r : $w - 1 - $r;
+            $centreY = $cornerY === 0 ? $r : $h - 1 - $r;
+
+            for ($px = 0; $px <= $r; $px++) {
+                for ($py = 0; $py <= $r; $py++) {
+                    $sampleX = $cornerX === 0 ? $px : $w - 1 - $px;
+                    $sampleY = $cornerY === 0 ? $py : $h - 1 - $py;
+                    $dx = $sampleX - $centreX;
+                    $dy = $sampleY - $centreY;
+                    if (($dx * $dx + $dy * $dy) > $r * $r) {
+                        imagesetpixel($layer, $sampleX, $sampleY, $clear);
+                    }
+                }
+            }
+        }
+
+        if ($alpha > 0) {
+            // Fold the requested opacity into the layer's own alpha before compositing.
+            for ($px = 0; $px < $w; $px++) {
+                for ($py = 0; $py < $h; $py++) {
+                    $pixel = imagecolorat($layer, $px, $py);
+                    $pixelAlpha = ($pixel >> 24) & 0x7F;
+                    if ($pixelAlpha >= 127) {
+                        continue;
+                    }
+                    $blended = min(127, $pixelAlpha + $alpha);
+                    imagesetpixel($layer, $px, $py, ($blended << 24) | ($pixel & 0xFFFFFF));
+                }
+            }
+        }
+
+        imagealphablending($canvas, true);
+        imagecopy($canvas, $layer, $x, $y, 0, 0, $w, $h);
+        imagedestroy($layer);
+    }
+
+    /** Outline for the same shape fillRoundedAlpha() fills. */
+    protected function strokeRoundedRect(\GdImage $canvas, int $x, int $y, int $w, int $h, int $radius, string $color, int $thickness): void
+    {
+        $thickness = max(1, $thickness);
+        $radius = max(0, min($radius, (int) (min($w, $h) / 2)));
+        $stroke = $this->parseColor($canvas, $color);
+
+        imagesetthickness($canvas, $thickness);
+
+        if ($radius === 0) {
+            imagerectangle($canvas, $x, $y, $x + $w, $y + $h, $stroke);
+            imagesetthickness($canvas, 1);
+
+            return;
+        }
+
+        imageline($canvas, $x + $radius, $y, $x + $w - $radius, $y, $stroke);
+        imageline($canvas, $x + $radius, $y + $h, $x + $w - $radius, $y + $h, $stroke);
+        imageline($canvas, $x, $y + $radius, $x, $y + $h - $radius, $stroke);
+        imageline($canvas, $x + $w, $y + $radius, $x + $w, $y + $h - $radius, $stroke);
+
+        $d = $radius * 2;
+        imagearc($canvas, $x + $radius, $y + $radius, $d, $d, 180, 270, $stroke);
+        imagearc($canvas, $x + $w - $radius, $y + $radius, $d, $d, 270, 360, $stroke);
+        imagearc($canvas, $x + $w - $radius, $y + $h - $radius, $d, $d, 0, 90, $stroke);
+        imagearc($canvas, $x + $radius, $y + $h - $radius, $d, $d, 90, 180, $stroke);
+
+        imagesetthickness($canvas, 1);
     }
 
     /**
@@ -1546,11 +1967,13 @@ class TemplateRenderService extends PosterGeneratorService
     {
         $rgb = $this->hexToRgb($hex);
         $factor = 1 - ($percent / 100);
-        return sprintf('#%02x%02x%02x',
-            max(0, (int) ($rgb['r'] * $factor)),
-            max(0, (int) ($rgb['g'] * $factor)),
-            max(0, (int) ($rgb['b'] * $factor))
-        );
+
+        // Clamped at both ends: a negative percent lightens, and without the ceiling a channel
+        // could exceed 255 and sprintf('%02x') would emit a third digit, producing a seven-
+        // character string that no longer parses as a colour at all.
+        $clamp = fn ($channel) => max(0, min(255, (int) ($channel * $factor)));
+
+        return sprintf('#%02x%02x%02x', $clamp($rgb['r']), $clamp($rgb['g']), $clamp($rgb['b']));
     }
 
     /**
@@ -2328,6 +2751,12 @@ class TemplateRenderService extends PosterGeneratorService
                 $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleBowlingData();
                 continue;
             }
+            // Every other stats-table source, so a new table shows plausible rows in the editor
+            // instead of "No scorecard data" while the design is being laid out.
+            if (in_array($placeholder, \App\Services\Poster\MatchStatsTableData::KEYS, true)) {
+                $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleStatsData($placeholder);
+                continue;
+            }
             if ($placeholder === 'fixture_area') {
                 $data[$placeholder] = $customData[$placeholder] ?? $this->getSampleFixtureData();
                 continue;
@@ -2361,9 +2790,9 @@ class TemplateRenderService extends PosterGeneratorService
     protected function getSampleBattingData(): array
     {
         return [
-            ['name' => 'Virat K.', 'runs' => 72, 'balls' => 45, 'fours' => 8, 'sixes' => 3],
-            ['name' => 'Rohit S.', 'runs' => 56, 'balls' => 38, 'fours' => 6, 'sixes' => 2],
-            ['name' => 'KL Rahul', 'runs' => 41, 'balls' => 30, 'fours' => 4, 'sixes' => 1],
+            ['name' => 'Virat K.', 'runs' => 72, 'balls' => 45, 'fours' => 8, 'sixes' => 3, 'strike_rate' => '160.00', 'how_out' => 'c Rahul b Bumrah'],
+            ['name' => 'Rohit S.', 'runs' => 56, 'balls' => 38, 'fours' => 6, 'sixes' => 2, 'strike_rate' => '147.37', 'how_out' => 'lbw b Siraj'],
+            ['name' => 'KL Rahul', 'runs' => 41, 'balls' => 30, 'fours' => 4, 'sixes' => 1, 'strike_rate' => '136.67', 'how_out' => 'not out'],
         ];
     }
 
@@ -2373,10 +2802,37 @@ class TemplateRenderService extends PosterGeneratorService
     protected function getSampleBowlingData(): array
     {
         return [
-            ['name' => 'Jasprit B.', 'overs' => '4.0', 'runs' => 24, 'wickets' => 3, 'economy' => '6.00'],
-            ['name' => 'Mohammed S.', 'overs' => '4.0', 'runs' => 32, 'wickets' => 2, 'economy' => '8.00'],
-            ['name' => 'Ravindra J.', 'overs' => '3.0', 'runs' => 22, 'wickets' => 1, 'economy' => '7.33'],
+            ['name' => 'Jasprit B.', 'overs' => '4.0', 'runs' => 24, 'wickets' => 3, 'economy' => '6.00', 'maidens' => 1, 'figures' => '3/24'],
+            ['name' => 'Mohammed S.', 'overs' => '4.0', 'runs' => 32, 'wickets' => 2, 'economy' => '8.00', 'maidens' => 0, 'figures' => '2/32'],
+            ['name' => 'Ravindra J.', 'overs' => '3.0', 'runs' => 22, 'wickets' => 1, 'economy' => '7.33', 'maidens' => 0, 'figures' => '1/22'],
         ];
+    }
+
+    /** Stand-in rows for the stats-table sources that have no sample of their own. */
+    protected function getSampleStatsData(string $source): array
+    {
+        return match ($source) {
+            'top_batting' => [
+                ['name' => 'Virat K.', 'team' => 'RCB', 'runs' => 72, 'balls' => 45, 'fours' => 8, 'sixes' => 3, 'strike_rate' => '160.00'],
+                ['name' => 'Rohit S.', 'team' => 'MI', 'runs' => 56, 'balls' => 38, 'fours' => 6, 'sixes' => 2, 'strike_rate' => '147.37'],
+                ['name' => 'KL Rahul', 'team' => 'RCB', 'runs' => 41, 'balls' => 30, 'fours' => 4, 'sixes' => 1, 'strike_rate' => '136.67'],
+            ],
+            'top_bowling' => [
+                ['name' => 'Jasprit B.', 'team' => 'MI', 'overs' => '4.0', 'maidens' => 1, 'runs' => 24, 'wickets' => 3, 'economy' => '6.00', 'figures' => '3/24'],
+                ['name' => 'Mohammed S.', 'team' => 'RCB', 'overs' => '4.0', 'maidens' => 0, 'runs' => 32, 'wickets' => 2, 'economy' => '8.00', 'figures' => '2/32'],
+                ['name' => 'Ravindra J.', 'team' => 'MI', 'overs' => '3.0', 'maidens' => 0, 'runs' => 22, 'wickets' => 1, 'economy' => '7.33', 'figures' => '1/22'],
+            ],
+            'match_summary_table' => [
+                ['team' => 'Royal Strikers', 'score' => '185/4', 'runs' => 185, 'wickets' => 4, 'overs' => '20.0', 'extras' => 9, 'run_rate' => '9.25'],
+                ['team' => 'Thunder Kings', 'score' => '172/8', 'runs' => 172, 'wickets' => 8, 'overs' => '20.0', 'extras' => 13, 'run_rate' => '8.60'],
+            ],
+            'fall_of_wickets_a', 'fall_of_wickets_b' => [
+                ['wicket' => 1, 'name' => 'Marquis A.', 'score' => '82/1', 'runs' => 82, 'over' => '6.3'],
+                ['wicket' => 2, 'name' => 'Ajay S.', 'score' => '89/2', 'runs' => 89, 'over' => '7.4'],
+                ['wicket' => 3, 'name' => 'Vikesh', 'score' => '137/3', 'runs' => 137, 'over' => '12.2'],
+            ],
+            default => $this->getSampleBattingData(),
+        };
     }
 
     /**

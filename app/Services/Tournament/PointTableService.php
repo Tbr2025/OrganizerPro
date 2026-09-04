@@ -11,6 +11,9 @@ use Illuminate\Support\Collection;
 
 class PointTableService
 {
+    /** Match stages that make up a league/group phase, as opposed to a knockout round. */
+    public const LEAGUE_STAGES = ['league', 'group'];
+
     /**
      * Initialize point table entries for all teams in a tournament
      */
@@ -207,6 +210,45 @@ class PointTableService
             $entry->save();
             $position++;
         }
+    }
+
+    /**
+     * Has this group's league stage actually finished?
+     *
+     * `updatePositions()` marks the top two `qualified` every time a result is entered, so after
+     * a single match the table already claimed two sides were through — which is not a fact, it
+     * is a snapshot of the standings. The flag is still stored (organizers set it by hand on the
+     * admin page, and posters read it), but the public "Qualified" tag is only truthful once no
+     * league fixture in the group is still to be played.
+     *
+     * League stages here are recorded as `league` or `group`; knockout rounds have their own
+     * stages and are never counted. A group with no league fixtures at all has decided nothing.
+     */
+    public function qualificationDecided(Tournament $tournament, ?int $groupId = null): bool
+    {
+        $query = Matches::where('tournament_id', $tournament->id)
+            ->whereIn('stage', self::LEAGUE_STAGES);
+
+        if ($groupId !== null) {
+            $query->where('tournament_group_id', $groupId);
+        }
+
+        $total = (clone $query)->count();
+        if ($total === 0) {
+            return false;
+        }
+
+        // `status` is only upcoming/live/completed — a called-off fixture is flagged rather than
+        // given a status of its own, and it is never going to be played, so it does not hold the
+        // table open.
+        $pending = (clone $query)
+            ->where('status', '!=', 'completed')
+            ->where(function ($q) {
+                $q->whereNull('is_cancelled')->orWhere('is_cancelled', false);
+            })
+            ->count();
+
+        return $pending === 0;
     }
 
     /**
