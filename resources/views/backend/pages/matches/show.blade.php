@@ -820,6 +820,8 @@
             </div>
         </div>
 
+        @include('backend.pages.matches.partials.match-blog')
+
         <!-- Match Awards -->
         @if($match->matchAwards->count() > 0)
         <div class="card rounded-2xl overflow-hidden">

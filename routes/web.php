@@ -26,6 +26,7 @@ use App\Http\Controllers\Backend\DashboardController;
 use App\Http\Controllers\Backend\ImageTemplateController;
 use App\Http\Controllers\Backend\LocaleController;
 use App\Http\Controllers\Backend\MatchAppreciationController;
+use App\Http\Controllers\Backend\MatchReportController;
 use App\Http\Controllers\Backend\MatchesController;
 use App\Http\Controllers\Backend\ModulesController;
 use App\Http\Controllers\Backend\OrganizationController;
@@ -67,6 +68,7 @@ use App\Http\Controllers\Backend\Tournament\AwardTemplateController;
 use App\Http\Controllers\Backend\GroundController;
 use App\Http\Controllers\Backend\MatchResultController;
 use App\Http\Controllers\Backend\PointTableController;
+use App\Http\Controllers\Public\BlogController;
 use App\Http\Controllers\Public\TournamentPublicController;
 use App\Http\Controllers\Public\RegistrationController as PublicRegistrationController;
 use App\Http\Controllers\Public\MatchPublicController;
@@ -930,6 +932,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
     Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');
     Route::get('/matches/{match}/download-posters', [MatchesController::class, 'downloadAllPosters'])->name('matches.download-posters');
+
+    // CricHeroes match report PDF -> AI-drafted blog post. Superadmin only; the gate is in
+    // MatchReportController, because these routes spend money at OpenAI.
+    Route::post('/matches/{match}/report/upload', [MatchReportController::class, 'upload'])->name('matches.report.upload');
+    Route::post('/matches/{match}/report/generate', [MatchReportController::class, 'generate'])->name('matches.report.generate');
+    Route::delete('/matches/{match}/report', [MatchReportController::class, 'destroy'])->name('matches.report.destroy');
     Route::get('/matches/{match}/generate-poster', [MatchesController::class, 'generatePoster'])->name('matches.generate-poster');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
@@ -1185,6 +1193,10 @@ Route::get('/test-mail', function () {
 | Tournament Organization Routes
 |--------------------------------------------------------------------------
 */
+
+// Public blog. /blog/{slug} is where a generated match report is published.
+Route::get('/blog', [BlogController::class, 'index'])->name('public.blog.index');
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('public.blog.show');
 
 // Public Tournament Routes (No Auth Required)
 Route::prefix('t/{tournament:slug}')->name('public.tournament.')->group(function () {
