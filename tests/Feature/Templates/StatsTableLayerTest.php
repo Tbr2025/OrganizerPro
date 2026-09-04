@@ -176,6 +176,76 @@ class StatsTableLayerTest extends TestCase
     }
 
     #[Test]
+    public function a_style_still_owns_its_border_radius_and_opacity_once_a_template_is_saved(): void
+    {
+        Storage::fake('public');
+        $render = new TemplateRenderService();
+        $data = MatchStatsTableData::build($this->match(), ['a' => 'RS', 'b' => 'TK']);
+
+        /*
+         * The full config the editor writes on save.
+         *
+         * cornerRadius, borderWidth and panelOpacity are the three properties a STYLE owns, and
+         * both renderers read them as `config.x ?? style.x`. The editor used to save a neutral
+         * 0 / 0 / 100 for them, which satisfied the `??` and killed the style for good — outline
+         * lost its border, card and glass their rounding, glass its translucency. It only showed
+         * up on saved templates, so a test passing a bare ['style' => x] never saw it.
+         */
+        $saved = [
+            'maxRows' => 3, 'title' => '', 'titleAlign' => 'left',
+            'showTitle' => true, 'showColumnHeaders' => true,
+            'uppercaseNames' => false, 'transparentBg' => false,
+            'columns' => ['_rank', 'name', 'team', 'runs', 'balls', 'strike_rate'],
+            'headerBg' => '#1e40af', 'headerBg2' => '#3b82f6', 'headerText' => '#ffffff',
+            'rowBg' => '#1e293b', 'altRowBg' => '#334155',
+            'textColor' => '#ffffff', 'mutedColor' => '#94a3b8', 'accentColor' => '#FFD700',
+            'panelBg' => '#0f172a', 'borderColor' => '#FFD700',
+            'fontSize' => 14, 'rowHeight' => 40, 'headerHeight' => 34, 'padding' => 12,
+            'fontFamily' => 'Montserrat',
+        ];
+
+        $renders = [];
+        foreach (array_keys(TemplateRenderService::statsTableDefinitions()['styles']) as $style) {
+            $template = $this->template($saved + ['style' => $style], 'top_batting');
+            $renders[$style] = Storage::disk('public')->get($render->renderTemplate($template, $data, true, true));
+        }
+
+        $this->assertCount(
+            count($renders),
+            array_unique(array_map('md5', $renders)),
+            'Two styles rendered identically from a saved config — a style-owned property is being masked.'
+        );
+
+        // And an explicit override still beats the style, which is the whole point of the field.
+        $plain = $render->renderTemplate($this->template($saved + ['style' => 'outline'], 'top_batting'), $data, true, true);
+        $thick = $render->renderTemplate($this->template($saved + ['style' => 'outline', 'borderWidth' => 9], 'top_batting'), $data, true, true);
+
+        $this->assertNotSame(
+            Storage::disk('public')->get($plain),
+            Storage::disk('public')->get($thick),
+            'An explicit borderWidth was ignored.'
+        );
+    }
+
+    #[Test]
+    public function the_editor_never_saves_the_three_properties_a_style_owns(): void
+    {
+        $editor = file_get_contents(resource_path('views/backend/pages/tournaments/templates/editor.blade.php'));
+
+        $start = strpos($editor, 'statsDefaultConfig(source) {');
+        $this->assertNotFalse($start);
+        $defaults = substr($editor, $start, 1400);
+
+        foreach (['cornerRadius', 'borderWidth', 'panelOpacity'] as $owned) {
+            $this->assertStringNotContainsString(
+                $owned . ':',
+                $defaults,
+                "statsDefaultConfig() writes {$owned}, which masks the style's own value on every saved template."
+            );
+        }
+    }
+
+    #[Test]
     public function choosing_columns_changes_what_is_drawn(): void
     {
         Storage::fake('public');

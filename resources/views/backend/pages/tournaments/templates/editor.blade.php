@@ -2402,9 +2402,19 @@ const editor = {
             headerBg: '#1e40af', headerBg2: '#3b82f6', headerText: '#ffffff',
             rowBg: '#1e293b', altRowBg: '#334155',
             textColor: '#ffffff', mutedColor: '#94a3b8', accentColor: '#FFD700',
-            panelBg: '#0f172a', panelOpacity: 100,
-            borderColor: '#FFD700', borderWidth: 0,
-            fontSize: 14, rowHeight: 40, headerHeight: 34, padding: 12, cornerRadius: 0,
+            panelBg: '#0f172a',
+            borderColor: '#FFD700',
+            fontSize: 14, rowHeight: 40, headerHeight: 34, padding: 12,
+            /*
+             * cornerRadius, borderWidth and panelOpacity are deliberately ABSENT.
+             *
+             * Those three are the properties a style owns, and both renderers read them as
+             * `config.x ?? style.x`. Writing a neutral 0 / 100 here would satisfy the `??` and
+             * mask the style's own value for good — outline would lose its border, card and
+             * glass their rounding, glass its translucency — and because the config is saved,
+             * the server render would lose them too. They appear only once the organizer
+             * actually overrides one.
+             */
             fontFamily: 'Montserrat',
             // Legacy keys, still written so a template saved here opens correctly in any older
             // build that only understands scorecardType + team.
@@ -2639,7 +2649,11 @@ const editor = {
         }
 
         this.rebuildStatsTable(obj);
-        if (key === 'source') this.updateScorecardPropertiesPanel(this.canvas.getActiveObject());
+        // Switching source rewrites the column list; switching style changes what the
+        // radius/border/opacity fields are actually drawn with. Both need the panel repainted.
+        if (key === 'source' || key === 'style') {
+            this.updateScorecardPropertiesPanel(this.canvas.getActiveObject());
+        }
         this.saveHistory();
     },
 
@@ -2723,15 +2737,18 @@ const editor = {
         set('propScAltRowBg', cfg.altRowBg || '#334155');
         set('propScTextColor', cfg.textColor || '#ffffff');
         set('propScMutedColor', cfg.mutedColor || '#94a3b8');
+        // The three style-owned properties show what the table is actually drawn with, so the
+        // field is not sitting on a neutral 0 while the style renders a border.
+        const styleSpec = STATS_STYLES[cfg.style || 'classic'] || STATS_STYLES.classic;
         set('propScPanelBg', cfg.panelBg || '#0f172a');
-        set('propScPanelOpacity', cfg.panelOpacity ?? 100);
+        set('propScPanelOpacity', cfg.panelOpacity ?? styleSpec.panelOpacity);
         set('propScBorderColor', cfg.borderColor || '#FFD700');
-        set('propScBorderWidth', cfg.borderWidth ?? 0);
+        set('propScBorderWidth', cfg.borderWidth ?? styleSpec.borderWidth);
         set('propScFontSize', cfg.fontSize ?? 14);
         set('propScRowHeight', cfg.rowHeight ?? 40);
         set('propScHeaderHeight', cfg.headerHeight ?? 34);
         set('propScPadding', cfg.padding ?? 12);
-        set('propScCornerRadius', cfg.cornerRadius ?? 0);
+        set('propScCornerRadius', cfg.cornerRadius ?? styleSpec.radius);
         set('propScFontFamily', cfg.fontFamily || 'Montserrat');
         check('propScShowTitle', cfg.showTitle !== false);
         check('propScShowColumnHeaders', cfg.showColumnHeaders !== false);
