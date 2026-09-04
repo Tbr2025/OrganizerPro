@@ -49,6 +49,21 @@ class SettingsController extends Controller
 
         $this->checkAuthorization(Auth::user(), ['settings.edit']);
 
+        /*
+         * Secrets never reach the generic loop below.
+         *
+         * That loop writes every posted field into the settings table as plain text and then
+         * hands the whole array to the action log. An API key must do neither, so it is pulled
+         * out here, stored encrypted by its own service, and removed from $fields — which also
+         * keeps it out of the log entry.
+         */
+        if (Auth::user()?->hasRole('Superadmin')) {
+            app(\App\Services\Blog\AiSettings::class)->storeApiKey($request->input('openai_api_key'));
+        }
+        foreach (\App\Services\Blog\AiSettings::SECRET_FIELDS as $secret) {
+            unset($fields[$secret]);
+        }
+
         $uploadPath = 'uploads/settings';
 
         foreach ($fields as $fieldName => $fieldValue) {

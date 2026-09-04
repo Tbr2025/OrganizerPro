@@ -40,6 +40,12 @@
                                     'title' => __('Email'),
                                     'view' => 'backend.pages.settings.email-tab',
                                 ];
+                                // Holds an API key with a card behind it, so Superadmin only —
+                                // the same gate the blog generation routes enforce.
+                                $settingsTabs['ai'] = [
+                                    'title' => __('AI & Blog'),
+                                    'view' => 'backend.pages.settings.ai-tab',
+                                ];
                             }
                         @endphp
 

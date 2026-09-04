@@ -39,9 +39,11 @@ class BlogGenerationService
     /** The dashboard setting the model switcher writes. */
     public const MODEL_SETTING = 'openai_blog_model';
 
+    public function __construct(private readonly AiSettings $settings) {}
+
     public function isConfigured(): bool
     {
-        return ! empty(config('services.openai.key'));
+        return $this->settings->hasKey();
     }
 
     /** Every model the dashboard offers, with its list prices. */
@@ -102,7 +104,7 @@ class BlogGenerationService
     {
         if (! $this->isConfigured()) {
             throw new \RuntimeException(
-                'No OpenAI API key is configured. Add OPENAI_API_KEY to the server .env and clear the config cache.'
+                'No API key is configured. Add one under Settings → AI & Blog.'
             );
         }
 
@@ -117,10 +119,10 @@ class BlogGenerationService
 
         $model = $this->model();
 
-        $response = Http::withToken(config('services.openai.key'))
+        $response = Http::withToken((string) $this->settings->apiKey())
             ->timeout((int) config('services.openai.timeout', 120))
             ->acceptJson()
-            ->post(rtrim((string) config('services.openai.base_url'), '/') . '/chat/completions', [
+            ->post(rtrim($this->settings->baseUrl(), '/') . '/chat/completions', [
                 'model' => $model,
                 // JSON mode: parsing prose for "the title is..." is guesswork, and a malformed
                 // draft would land in the database as the post body.
@@ -140,11 +142,10 @@ class BlogGenerationService
             throw new \RuntimeException('OpenAI could not generate the post: ' . $apiMessage);
         }
 
-        $raw = $response->json('choices.0.message.content');
-        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        $decoded = $this->decodeDraft($response->json('choices.0.message.content'));
 
         if (! is_array($decoded) || empty($decoded['content'])) {
-            throw new \RuntimeException('OpenAI returned a response this app could not read. Try generating again.');
+            throw new \RuntimeException('The model returned a response this app could not read. Try generating again.');
         }
 
         // What OpenAI says it charged for, so the dashboard reports a real average rather than
@@ -161,6 +162,48 @@ class BlogGenerationService
             'completion_tokens' => $completionTokens,
             'cost_usd' => $this->priceFor($model, $promptTokens, $completionTokens),
         ];
+    }
+
+    /**
+     * Read the JSON the model was asked for, tolerantly.
+     *
+     * OpenAI honours response_format and returns bare JSON. Other OpenAI-dialect providers —
+     * Groq, Gemini's compatibility layer — treat it as a strong hint and quite often wrap the
+     * object in a ```json fence or add a sentence either side. Insisting on a clean parse would
+     * make the feature look broken on exactly the free providers it is meant to support.
+     */
+    private function decodeDraft(mixed $raw): ?array
+    {
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        $text = trim($raw);
+
+        $direct = json_decode($text, true);
+        if (is_array($direct)) {
+            return $direct;
+        }
+
+        // ```json { ... } ```
+        if (preg_match('/```(?:json)?\s*(.+?)```/is', $text, $m)) {
+            $fenced = json_decode(trim($m[1]), true);
+            if (is_array($fenced)) {
+                return $fenced;
+            }
+        }
+
+        // Last resort: the outermost {...} in the reply.
+        $start = strpos($text, '{');
+        $end = strrpos($text, '}');
+        if ($start !== false && $end !== false && $end > $start) {
+            $slice = json_decode(substr($text, $start, $end - $start + 1), true);
+            if (is_array($slice)) {
+                return $slice;
+            }
+        }
+
+        return null;
     }
 
     private function systemPrompt(): string

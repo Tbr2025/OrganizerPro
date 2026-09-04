@@ -69,6 +69,11 @@ return [
              */
             'llama-3.3-70b-versatile' => ['label' => 'Llama 3.3 70B (Groq — free)', 'note' => 'Needs OPENAI_BASE_URL set to Groq', 'input' => 0.0, 'output' => 0.0],
             'llama-3.1-8b-instant' => ['label' => 'Llama 3.1 8B (Groq — free)', 'note' => 'Needs OPENAI_BASE_URL set to Groq. Fastest, weakest prose', 'input' => 0.0, 'output' => 0.0],
+
+            // Gemini speaks the same dialect at /v1beta/openai/ and takes a Bearer key. Its free
+            // tier is generous per token but tightly capped per DAY, so it suits occasional
+            // match reports rather than a bulk regenerate.
+            'gemini-3.8-flash' => ['label' => 'Gemini 3.8 Flash (Google — free tier)', 'note' => 'Needs OPENAI_BASE_URL set to Google. Free tier is ~20 requests/day', 'input' => 0.0, 'output' => 0.0],
         ],
     ],
 

@@ -294,6 +294,55 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
+    public function a_draft_wrapped_in_a_markdown_fence_is_still_read(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+
+        /*
+         * What Groq and Gemini's compatibility layer actually return.
+         *
+         * They treat response_format as a strong hint rather than a guarantee, so the object
+         * arrives inside a ```json fence with prose either side. Insisting on a clean parse
+         * would make this look broken on exactly the free providers it is meant to support.
+         */
+        $fenced = "Here is the article you asked for:\n\n```json\n"
+            . json_encode(['title' => 'Fenced title', 'excerpt' => 'x', 'content' => '<p>Fenced body.</p>'])
+            . "\n```\nHope that helps!";
+
+        Http::fake(['api.openai.com/*' => Http::response([
+            'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 50],
+            'choices' => [['message' => ['content' => $fenced]]],
+        ])]);
+
+        [$match, $superadmin] = $this->scenario();
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        $post = Post::firstOrFail();
+        $this->assertSame('Fenced title', $post->title);
+        $this->assertStringContainsString('Fenced body.', $post->content);
+    }
+
+    #[Test]
+    public function a_reply_that_is_not_json_at_all_is_reported_not_stored(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+        Http::fake(['api.openai.com/*' => Http::response([
+            'choices' => [['message' => ['content' => 'I am afraid I cannot help with that.']]],
+        ])]);
+
+        [$match, $superadmin] = $this->scenario();
+
+        $this->actingAs($superadmin)
+            ->post(route('admin.matches.report.generate', $match))
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, Post::count());
+    }
+
+    #[Test]
     public function what_a_generation_cost_is_recorded_from_openais_own_usage(): void
     {
         Storage::fake('local');
