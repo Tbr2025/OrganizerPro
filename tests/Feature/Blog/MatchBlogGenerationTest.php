@@ -347,7 +347,7 @@ class MatchBlogGenerationTest extends TestCase
     {
         Storage::fake('local');
         config(['services.openai.key' => 'sk-test']);
-        add_setting(BlogGenerationService::MODEL_SETTING, 'gpt-4o-mini');
+        add_setting('ai_model_openai', 'gpt-4o-mini');
 
         Http::fake(['api.openai.com/*' => Http::response(
             $this->draftBody([], ['prompt_tokens' => 2_000_000, 'completion_tokens' => 1_000_000])
@@ -369,18 +369,14 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
-    public function the_dashboard_model_choice_beats_the_env_default(): void
+    public function the_saved_model_is_the_one_that_gets_called(): void
     {
         Storage::fake('local');
         $this->fakeOpenAi();
         config(['services.openai.model' => 'gpt-4o-mini']);
+        add_setting('ai_model_openai', 'gpt-5.6-luna');
+
         [$match, $superadmin] = $this->scenario();
-
-        $this->actingAs($superadmin)
-            ->post(route('admin.blog.model'), ['model' => 'gpt-5.6-luna'])
-            ->assertRedirect()
-            ->assertSessionHas('success');
-
         $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
 
         Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-luna');
@@ -388,35 +384,29 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
-    public function a_model_that_is_not_offered_is_refused(): void
+    public function any_model_id_is_accepted_and_an_unpriced_one_still_generates(): void
     {
-        [, $superadmin] = $this->scenario();
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
 
-        $this->actingAs($superadmin)
-            ->post(route('admin.blog.model'), ['model' => 'gpt-9-imaginary'])
-            ->assertSessionHasErrors('model');
-    }
+        /*
+         * Model ids change constantly and differ by what a key is entitled to — gemini-3.8-flash
+         * exists and a free-tier key is still told it does not. So any id is accepted, and a
+         * model with no published price must still write a post: the cost is simply unknown
+         * rather than the generation failing or recording a wrong number.
+         */
+        add_setting('ai_model_openai', 'some-brand-new-model');
+        Http::fake(['api.openai.com/*' => Http::response($this->draftBody())]);
 
-    #[Test]
-    public function a_stale_model_choice_falls_back_instead_of_being_used_blind(): void
-    {
-        // Removing a model from the price table must not leave the site calling a name nobody
-        // prices — the cost display would silently read zero.
-        add_setting(BlogGenerationService::MODEL_SETTING, 'gpt-4o-mini');
-        config(['services.openai.models' => ['gpt-5.6-luna' => ['label' => 'Luna', 'note' => '', 'input' => 0.20, 'output' => 1.20]]]);
-        config(['services.openai.model' => 'gpt-5.6-luna']);
+        [$match, $superadmin] = $this->scenario();
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
 
-        $this->assertSame('gpt-5.6-luna', app(BlogGenerationService::class)->model());
-    }
+        Http::assertSent(fn ($request) => $request['model'] === 'some-brand-new-model');
 
-    #[Test]
-    public function only_a_superadmin_can_change_the_model(): void
-    {
-        [, , $organizer] = $this->scenario();
-
-        $this->actingAs($organizer)
-            ->post(route('admin.blog.model'), ['model' => 'gpt-5.6-sol'])
-            ->assertForbidden();
+        $report = MatchReport::where('match_id', $match->id)->firstOrFail();
+        $this->assertSame('some-brand-new-model', $report->model);
+        $this->assertNull($report->cost_usd, 'An unpriced model records no cost, rather than a wrong one.');
+        $this->assertSame(1, Post::count());
     }
 
     #[Test]
@@ -434,8 +424,7 @@ class MatchBlogGenerationTest extends TestCase
             ->assertSee('Match Blog')
             ->assertSee('Generate Blog')
             ->assertSee('Match report PDF')
-            ->assertSee('AI model')
-            ->assertSee('Estimated per post');
+            ->assertSee('estimated');
     }
 
     /** A tiny but genuinely valid PDF, so pdftotext has something real to read. */

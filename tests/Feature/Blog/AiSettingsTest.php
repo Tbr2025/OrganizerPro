@@ -58,9 +58,9 @@ class AiSettingsTest extends TestCase
     public function a_saved_key_is_encrypted_and_never_stored_in_plain_text(): void
     {
         $this->actingAs($this->superadmin())
-            ->post(route('admin.settings.store'), [
-                'openai_api_key' => 'sk-super-secret-value',
-                'openai_base_url' => 'https://api.groq.com/openai/v1',
+            ->post(route('admin.settings.store'), ['ai_provider' => 'openai', 
+                'ai_key_openai' => 'sk-super-secret-value',
+                'ai_base_url_openai' => 'https://api.groq.com/openai/v1',
             ])
             ->assertRedirect();
 
@@ -68,11 +68,12 @@ class AiSettingsTest extends TestCase
         $this->assertSame('sk-super-secret-value', $settings->apiKey());
 
         // The ciphertext is what is on disk, and the plaintext appears in no setting row at all.
-        $stored = Setting::where('option_name', AiSettings::KEY)->value('option_value');
+        $stored = Setting::where('option_name', 'ai_key_openai')->value('option_value');
         $this->assertNotSame('sk-super-secret-value', $stored);
         $this->assertNotEmpty($stored);
 
-        $this->assertDatabaseMissing('settings', ['option_name' => 'openai_api_key']);
+        // The row that exists holds ciphertext; the plaintext appears in no setting row at all,
+        // which is what stops it travelling in a database dump.
         foreach (Setting::pluck('option_value') as $value) {
             $this->assertStringNotContainsString('sk-super-secret-value', (string) $value);
         }
@@ -82,7 +83,7 @@ class AiSettingsTest extends TestCase
     public function the_key_is_never_rendered_back_to_the_page(): void
     {
         $admin = $this->superadmin();
-        $this->actingAs($admin)->post(route('admin.settings.store'), ['openai_api_key' => 'sk-super-secret-value']);
+        $this->actingAs($admin)->post(route('admin.settings.store'), ['ai_provider' => 'openai', 'ai_key_openai' => 'sk-super-secret-value']);
 
         $html = $this->actingAs($admin)->get(route('admin.settings.index'))->assertOk()->getContent();
 
@@ -96,10 +97,10 @@ class AiSettingsTest extends TestCase
     public function submitting_a_blank_key_keeps_the_saved_one(): void
     {
         $admin = $this->superadmin();
-        $this->actingAs($admin)->post(route('admin.settings.store'), ['openai_api_key' => 'sk-first-key']);
+        $this->actingAs($admin)->post(route('admin.settings.store'), ['ai_provider' => 'openai', 'ai_key_openai' => 'sk-first-key']);
 
         // The field renders empty every time, so an unrelated settings save must not wipe it.
-        $this->actingAs($admin)->post(route('admin.settings.store'), ['openai_api_key' => '', 'app_name' => 'Sportzley']);
+        $this->actingAs($admin)->post(route('admin.settings.store'), ['ai_provider' => 'openai', 'ai_key_openai' => '', 'app_name' => 'Sportzley']);
 
         $this->assertSame('sk-first-key', app(AiSettings::class)->apiKey());
     }
@@ -110,7 +111,7 @@ class AiSettingsTest extends TestCase
         config(['services.openai.key' => 'sk-from-env']);
         $this->assertSame('sk-from-env', app(AiSettings::class)->apiKey(), 'With nothing saved, .env is used.');
 
-        $this->actingAs($this->superadmin())->post(route('admin.settings.store'), ['openai_api_key' => 'sk-from-dashboard']);
+        $this->actingAs($this->superadmin())->post(route('admin.settings.store'), ['ai_provider' => 'openai', 'ai_key_openai' => 'sk-from-dashboard']);
 
         // Otherwise typing a key in while OPENAI_API_KEY was set would silently change nothing.
         $this->assertSame('sk-from-dashboard', app(AiSettings::class)->apiKey());
@@ -120,9 +121,9 @@ class AiSettingsTest extends TestCase
     #[Test]
     public function the_base_url_and_model_are_configurable_from_the_page(): void
     {
-        $this->actingAs($this->superadmin())->post(route('admin.settings.store'), [
-            'openai_base_url' => 'https://api.groq.com/openai/v1',
-            BlogGenerationService::MODEL_SETTING => 'llama-3.3-70b-versatile',
+        $this->actingAs($this->superadmin())->post(route('admin.settings.store'), ['ai_provider' => 'openai', 
+            'ai_base_url_openai' => 'https://api.groq.com/openai/v1',
+            'ai_model_openai' => 'llama-3.3-70b-versatile',
         ]);
 
         $this->assertSame('https://api.groq.com/openai/v1', app(AiSettings::class)->baseUrl());
@@ -151,10 +152,13 @@ class AiSettingsTest extends TestCase
         $role->givePermissionTo(Permission::firstOrCreate(['name' => 'settings.edit', 'guard_name' => 'web']));
         $plain->assignRole($role);
 
-        $this->actingAs($plain)->post(route('admin.settings.store'), ['openai_api_key' => 'sk-sneaky']);
+        $this->actingAs($plain)->post(route('admin.settings.store'), ['ai_provider' => 'openai', 'ai_key_openai' => 'sk-sneaky']);
 
         $this->assertNull(app(AiSettings::class)->apiKey());
-        // And it must not have fallen through to the plain settings table either.
-        $this->assertDatabaseMissing('settings', ['option_name' => 'openai_api_key']);
+        // And it must not have fallen through to the settings table by the generic loop either.
+        $this->assertDatabaseMissing('settings', ['option_name' => 'ai_key_openai']);
+        foreach (Setting::pluck('option_value') as $value) {
+            $this->assertStringNotContainsString('sk-sneaky', (string) $value);
+        }
     }
 }

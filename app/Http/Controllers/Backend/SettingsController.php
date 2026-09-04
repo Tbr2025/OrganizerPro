@@ -57,11 +57,23 @@ class SettingsController extends Controller
          * out here, stored encrypted by its own service, and removed from $fields — which also
          * keeps it out of the log entry.
          */
-        if (Auth::user()?->hasRole('Superadmin')) {
-            app(\App\Services\Blog\AiSettings::class)->storeApiKey($request->input('openai_api_key'));
+        if (Auth::user()?->hasRole('Superadmin') && $request->filled('ai_provider')) {
+            $ai = app(\App\Services\Blog\AiSettings::class);
+            $provider = (string) $request->input('ai_provider');
+
+            $ai->storeApiKey($provider, $request->input('ai_key_' . $provider));
+            $ai->storeEndpoint(
+                $provider,
+                $request->input('ai_base_url_' . $provider),
+                $request->input('ai_model_' . $provider)
+            );
         }
-        foreach (\App\Services\Blog\AiSettings::SECRET_FIELDS as $secret) {
-            unset($fields[$secret]);
+
+        // Every posted key field goes, whichever provider it belongs to.
+        foreach (array_keys($fields) as $field) {
+            if (str_starts_with((string) $field, \App\Services\Blog\AiSettings::SECRET_FIELD_PREFIX)) {
+                unset($fields[$field]);
+            }
         }
 
         $uploadPath = 'uploads/settings';

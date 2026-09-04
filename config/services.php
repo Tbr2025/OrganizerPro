@@ -31,50 +31,77 @@ return [
     ],
 
     /*
-     * OpenAI, for turning a CricHeroes match-report PDF into a blog post.
+     * The AI provider that drafts a blog post from a CricHeroes match-report PDF.
      *
-     * The key lives in the server's .env and nowhere else — this repository is PUBLIC, so a key
-     * committed here is scraped within minutes. `key` being empty is the supported "not
-     * configured" state: the generate button reports it rather than failing at the API.
+     * Any provider speaking the OpenAI chat-completions dialect works — the client is just
+     * Http::withToken() against {base_url}/chat/completions. Keys, base URL and model are all
+     * managed in Settings → AI & Blog and stored per provider, so switching between them does
+     * not throw away the credentials for the other.
+     *
+     * Model IDs are SUGGESTIONS, not a whitelist. They change constantly and differ by what a
+     * particular key is entitled to, so the settings page lets you type any id and offers a
+     * "Load available models" button that asks the provider what your key can actually use.
      */
+    'ai' => [
+        'timeout' => (int) env('OPENAI_TIMEOUT', 120),
+
+        'providers' => [
+            'openai' => [
+                'label' => 'OpenAI',
+                'base_url' => 'https://api.openai.com/v1',
+                'keys_url' => 'https://platform.openai.com/api-keys',
+                'note' => 'Paid. Best prose. ~$0.0008 per post on gpt-4o-mini.',
+                'models' => ['gpt-4o-mini', 'gpt-4o', 'gpt-5.6-luna', 'gpt-5.6-terra', 'gpt-5.6-sol'],
+            ],
+            'groq' => [
+                'label' => 'Groq',
+                'base_url' => 'https://api.groq.com/openai/v1',
+                'keys_url' => 'https://console.groq.com/keys',
+                'note' => 'Free, no card, roughly 1,000 requests a day. Fastest.',
+                'models' => ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant'],
+            ],
+            'gemini' => [
+                'label' => 'Google Gemini',
+                'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai/',
+                'keys_url' => 'https://aistudio.google.com/apikey',
+                'note' => 'Free tier is tightly capped per day, and which models a key may use varies — use Load available models.',
+                'models' => ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.8-flash'],
+            ],
+            'custom' => [
+                'label' => 'Custom (OpenAI-compatible)',
+                'base_url' => '',
+                'keys_url' => '',
+                'note' => 'Anything speaking the OpenAI chat-completions dialect.',
+                'models' => [],
+            ],
+        ],
+
+        /*
+         * List prices per 1M tokens, used only to ESTIMATE spend and to price the usage a
+         * provider reports back. A model that is not listed simply has no cost shown — that is
+         * a missing price, not an error, and must never stop a post being generated.
+         */
+        'pricing' => [
+            'gpt-4o-mini' => ['input' => 0.15, 'output' => 0.60],
+            'gpt-4o' => ['input' => 2.50, 'output' => 10.00],
+            'gpt-5.6-luna' => ['input' => 0.20, 'output' => 1.20],
+            'gpt-5.6-terra' => ['input' => 2.00, 'output' => 12.00],
+            'gpt-5.6-sol' => ['input' => 4.00, 'output' => 20.00],
+            'llama-3.3-70b-versatile' => ['input' => 0.0, 'output' => 0.0],
+            'llama-3.1-8b-instant' => ['input' => 0.0, 'output' => 0.0],
+            'gemini-2.5-flash' => ['input' => 0.0, 'output' => 0.0],
+            'gemini-3.5-flash' => ['input' => 0.0, 'output' => 0.0],
+            'gemini-3.8-flash' => ['input' => 0.0, 'output' => 0.0],
+        ],
+    ],
+
+    // Legacy .env fallbacks. Settings → AI & Blog is the supported place now; these still work
+    // so a server configured before that page existed keeps generating.
     'openai' => [
         'key' => env('OPENAI_API_KEY'),
-
-        // The fallback when no model has been chosen in the dashboard.
         'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
         'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'timeout' => (int) env('OPENAI_TIMEOUT', 120),
-
-        /*
-         * What the dashboard offers, and what each one costs per 1M tokens.
-         *
-         * Prices are OpenAI's published list rates and are used only to ESTIMATE spend and to
-         * price the usage OpenAI reports back — they are not a bill. OpenAI changes them, so
-         * this table is config rather than code, and the panel says the figure is an estimate.
-         */
-        'models' => [
-            'gpt-4o-mini' => ['label' => 'GPT-4o mini', 'note' => 'Cheapest — fine for testing', 'input' => 0.15, 'output' => 0.60],
-            'gpt-5.6-luna' => ['label' => 'GPT-5.6 Luna', 'note' => 'Fast and affordable, newer', 'input' => 0.20, 'output' => 1.20],
-            'gpt-4o' => ['label' => 'GPT-4o', 'note' => 'Stronger prose', 'input' => 2.50, 'output' => 10.00],
-            'gpt-5.6-terra' => ['label' => 'GPT-5.6 Terra', 'note' => 'Balanced, high volume', 'input' => 2.00, 'output' => 12.00],
-            'gpt-5.6-sol' => ['label' => 'GPT-5.6 Sol', 'note' => 'Flagship — most expensive', 'input' => 4.00, 'output' => 20.00],
-
-            /*
-             * Free, OpenAI-compatible alternatives.
-             *
-             * The whole client is Http::withToken() against {base_url}/chat/completions, so any
-             * provider speaking that dialect works with no code change — set OPENAI_BASE_URL and
-             * OPENAI_API_KEY to theirs. These only work once the base URL points at Groq, which
-             * is why the panel shows which endpoint is actually being called.
-             */
-            'llama-3.3-70b-versatile' => ['label' => 'Llama 3.3 70B (Groq — free)', 'note' => 'Needs OPENAI_BASE_URL set to Groq', 'input' => 0.0, 'output' => 0.0],
-            'llama-3.1-8b-instant' => ['label' => 'Llama 3.1 8B (Groq — free)', 'note' => 'Needs OPENAI_BASE_URL set to Groq. Fastest, weakest prose', 'input' => 0.0, 'output' => 0.0],
-
-            // Gemini speaks the same dialect at /v1beta/openai/ and takes a Bearer key. Its free
-            // tier is generous per token but tightly capped per DAY, so it suits occasional
-            // match reports rather than a bulk regenerate.
-            'gemini-3.8-flash' => ['label' => 'Gemini 3.8 Flash (Google — free tier)', 'note' => 'Needs OPENAI_BASE_URL set to Google. Free tier is ~20 requests/day', 'input' => 0.0, 'output' => 0.0],
-        ],
     ],
 
     // pdftotext (poppler-utils) — already present on the server at /usr/bin/pdftotext.

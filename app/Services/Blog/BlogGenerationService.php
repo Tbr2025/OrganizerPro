@@ -36,9 +36,6 @@ class BlogGenerationService
         'detailed' => '800-1000 words with sub-headings for each innings and the key performers',
     ];
 
-    /** The dashboard setting the model switcher writes. */
-    public const MODEL_SETTING = 'openai_blog_model';
-
     public function __construct(private readonly AiSettings $settings) {}
 
     public function isConfigured(): bool
@@ -46,34 +43,23 @@ class BlogGenerationService
         return $this->settings->hasKey();
     }
 
-    /** Every model the dashboard offers, with its list prices. */
-    public function models(): array
+    public function model(): string
     {
-        return (array) config('services.openai.models', []);
+        return $this->settings->model();
     }
 
     /**
-     * The model in use: the dashboard choice, else the .env fallback.
+     * List price in USD for a token count, or null when the model has no published price here.
      *
-     * A choice that is no longer in the price table falls back rather than being used blind —
-     * otherwise removing a model from config would leave sites calling a name nobody prices.
+     * Unknown is a normal answer, not an error: model ids change constantly and the settings page
+     * accepts any of them, so a missing price must never stop a post being written — it just
+     * means the cost column shows a dash.
      */
-    public function model(): string
-    {
-        $chosen = (string) (get_setting(self::MODEL_SETTING) ?: '');
-
-        if ($chosen !== '' && array_key_exists($chosen, $this->models())) {
-            return $chosen;
-        }
-
-        return (string) config('services.openai.model', 'gpt-4o-mini');
-    }
-
-    /** List price in USD for a given token count. Prices are per 1M tokens. */
     public function priceFor(string $model, int $promptTokens, int $completionTokens): ?float
     {
-        $rates = $this->models()[$model] ?? null;
-        if (! $rates) {
+        $rates = (array) config('services.ai.pricing.' . $model, []);
+
+        if (! isset($rates['input'], $rates['output'])) {
             return null;
         }
 
@@ -85,15 +71,15 @@ class BlogGenerationService
     }
 
     /**
-     * A rough per-post cost, for the panel to show BEFORE anything has been generated.
+     * A rough per-post cost, shown BEFORE anything has been generated.
      *
-     * Deliberately a stated assumption rather than a measurement: a typical run is a couple of
-     * thousand tokens of fact sheet and scorecard in, and a few hundred words of article out.
-     * Once real generations exist the panel shows their actual average instead.
+     * A stated assumption rather than a measurement: a typical run is a couple of thousand tokens
+     * of fact sheet and scorecard in, and a few hundred words of article out. Once real
+     * generations exist the page shows their actual average instead.
      */
-    public function estimatedCost(string $model): ?float
+    public function estimatedCost(?string $model = null): ?float
     {
-        return $this->priceFor($model, 2500, 800);
+        return $this->priceFor($model ?? $this->model(), 2500, 800);
     }
 
     /**
@@ -120,7 +106,7 @@ class BlogGenerationService
         $model = $this->model();
 
         $response = Http::withToken((string) $this->settings->apiKey())
-            ->timeout((int) config('services.openai.timeout', 120))
+            ->timeout((int) config('services.ai.timeout', 120))
             ->acceptJson()
             ->post(rtrim($this->settings->baseUrl(), '/') . '/chat/completions', [
                 'model' => $model,

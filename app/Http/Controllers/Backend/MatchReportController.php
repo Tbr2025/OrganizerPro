@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\MatchReport;
 use App\Models\Matches;
+use App\Services\Blog\AiSettings;
 use App\Services\Blog\BlogGenerationService;
 use App\Services\Blog\MatchBlogService;
 use App\Services\Blog\MatchReportPdfService;
@@ -111,33 +112,19 @@ class MatchReportController extends Controller
     }
 
     /**
-     * Choose which model writes the posts.
+     * Ask the active provider which models this key may actually use.
      *
-     * Stored as a setting rather than in .env so it can be changed without a deploy — the whole
-     * point is trying a cheap model and moving up only if the prose is not good enough.
+     * A hardcoded list cannot know what a particular key is entitled to — `gemini-3.8-flash`
+     * exists, and a free-tier key is still told it "does not exist". Every OpenAI-dialect
+     * provider exposes GET /models, so the honest answer is to go and ask.
      */
-    public function setModel(Request $request): RedirectResponse
+    public function models(): \Illuminate\Http\JsonResponse
     {
-        $validated = $request->validate([
-            'model' => 'required|string|in:' . implode(',', array_keys($this->ai->models())),
-        ]);
-
-        /*
-         * add_setting, not update_setting.
-         *
-         * update_setting() only UPDATES — it returns false and writes nothing when the row does
-         * not exist yet, so the very first time anyone picked a model the choice was silently
-         * dropped while this page reported success. add_setting() is updateOrCreate.
-         */
-        add_setting(BlogGenerationService::MODEL_SETTING, $validated['model']);
-
-        $rates = $this->ai->models()[$validated['model']];
-
-        return back()->with('success', sprintf(
-            'Blog model set to %s — about $%s per post.',
-            $rates['label'],
-            number_format((float) $this->ai->estimatedCost($validated['model']), 4)
-        ));
+        try {
+            return response()->json(['models' => app(AiSettings::class)->availableModels()]);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
     }
 
     /** Remove the uploaded PDF. The post, once written, is the editor's to keep or delete. */

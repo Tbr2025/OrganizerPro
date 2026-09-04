@@ -938,7 +938,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/report/upload', [MatchReportController::class, 'upload'])->name('matches.report.upload');
     Route::post('/matches/{match}/report/generate', [MatchReportController::class, 'generate'])->name('matches.report.generate');
     Route::delete('/matches/{match}/report', [MatchReportController::class, 'destroy'])->name('matches.report.destroy');
-    Route::post('/blog-model', [MatchReportController::class, 'setModel'])->name('blog.model');
+    Route::get('/ai/models', [MatchReportController::class, 'models'])->name('ai.models');
     Route::get('/matches/{match}/generate-poster', [MatchesController::class, 'generatePoster'])->name('matches.generate-poster');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
