@@ -40,7 +40,7 @@ class MatchBlogService
     /**
      * Create or overwrite the post for a report.
      *
-     * @param  array{title: string, excerpt: string, content: string, model: string}  $draft
+     * @param  array{title: string, excerpt: string, content: string, model: string, prompt_tokens?: int, completion_tokens?: int, cost_usd?: ?float}  $draft
      */
     public function publish(MatchReport $report, array $draft, string $status = 'draft'): Post
     {
@@ -78,6 +78,9 @@ class MatchBlogService
         }
 
         $report->model = $draft['model'];
+        $report->prompt_tokens = $draft['prompt_tokens'] ?? null;
+        $report->completion_tokens = $draft['completion_tokens'] ?? null;
+        $report->cost_usd = $draft['cost_usd'] ?? null;
         $report->generated_at = now();
         $report->save();
 

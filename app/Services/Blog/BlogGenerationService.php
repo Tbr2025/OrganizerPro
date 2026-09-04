@@ -36,14 +36,67 @@ class BlogGenerationService
         'detailed' => '800-1000 words with sub-headings for each innings and the key performers',
     ];
 
+    /** The dashboard setting the model switcher writes. */
+    public const MODEL_SETTING = 'openai_blog_model';
+
     public function isConfigured(): bool
     {
         return ! empty(config('services.openai.key'));
     }
 
+    /** Every model the dashboard offers, with its list prices. */
+    public function models(): array
+    {
+        return (array) config('services.openai.models', []);
+    }
+
+    /**
+     * The model in use: the dashboard choice, else the .env fallback.
+     *
+     * A choice that is no longer in the price table falls back rather than being used blind —
+     * otherwise removing a model from config would leave sites calling a name nobody prices.
+     */
+    public function model(): string
+    {
+        $chosen = (string) (get_setting(self::MODEL_SETTING) ?: '');
+
+        if ($chosen !== '' && array_key_exists($chosen, $this->models())) {
+            return $chosen;
+        }
+
+        return (string) config('services.openai.model', 'gpt-4o-mini');
+    }
+
+    /** List price in USD for a given token count. Prices are per 1M tokens. */
+    public function priceFor(string $model, int $promptTokens, int $completionTokens): ?float
+    {
+        $rates = $this->models()[$model] ?? null;
+        if (! $rates) {
+            return null;
+        }
+
+        return round(
+            ($promptTokens / 1_000_000) * (float) $rates['input']
+            + ($completionTokens / 1_000_000) * (float) $rates['output'],
+            6
+        );
+    }
+
+    /**
+     * A rough per-post cost, for the panel to show BEFORE anything has been generated.
+     *
+     * Deliberately a stated assumption rather than a measurement: a typical run is a couple of
+     * thousand tokens of fact sheet and scorecard in, and a few hundred words of article out.
+     * Once real generations exist the panel shows their actual average instead.
+     */
+    public function estimatedCost(string $model): ?float
+    {
+        return $this->priceFor($model, 2500, 800);
+    }
+
     /**
      * @param  array{tone?: string, length?: string, instructions?: string}  $options
-     * @return array{title: string, excerpt: string, content: string, model: string}
+     * @return array{title: string, excerpt: string, content: string, model: string, prompt_tokens: int, completion_tokens: int, cost_usd: ?float}
      */
     public function generate(MatchReport $report, array $options = []): array
     {
@@ -62,7 +115,7 @@ class BlogGenerationService
         $length = self::LENGTHS[$options['length'] ?? 'standard'] ?? self::LENGTHS['standard'];
         $extra = trim((string) ($options['instructions'] ?? ''));
 
-        $model = config('services.openai.model', 'gpt-4o-mini');
+        $model = $this->model();
 
         $response = Http::withToken(config('services.openai.key'))
             ->timeout((int) config('services.openai.timeout', 120))
@@ -94,11 +147,19 @@ class BlogGenerationService
             throw new \RuntimeException('OpenAI returned a response this app could not read. Try generating again.');
         }
 
+        // What OpenAI says it charged for, so the dashboard reports a real average rather than
+        // an estimate built from guessed prompt sizes.
+        $promptTokens = (int) ($response->json('usage.prompt_tokens') ?? 0);
+        $completionTokens = (int) ($response->json('usage.completion_tokens') ?? 0);
+
         return [
             'title' => $this->cleanLine($decoded['title'] ?? $this->fallbackTitle($match)),
             'excerpt' => $this->cleanLine($decoded['excerpt'] ?? ''),
             'content' => $this->sanitiseHtml((string) $decoded['content']),
             'model' => $model,
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+            'cost_usd' => $this->priceFor($model, $promptTokens, $completionTokens),
         ];
     }
 

@@ -16,7 +16,7 @@
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Fixtures</h1>
             <p class="text-gray-500">Manage tournament matches and schedules</p>
         </div>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 [&_button]:whitespace-nowrap [&_a]:whitespace-nowrap">
             <button @click="openAddModal()" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition text-sm">
                 + Add Match
             </button>
@@ -30,7 +30,12 @@
                 <button @click="open = !open" class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition text-sm">
                     Generate Knockouts
                 </button>
-                <div x-show="open" @click.away="open = false" class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-10">
+                {{-- Anchored to the button's LEFT edge until there is room to hang it off the
+                     right. `right-0` alone pins a 224px menu's right edge to a button that sits
+                     at the left of a wrapped row on a phone, putting the menu off-screen; the
+                     max-width stops it overflowing on the narrowest devices either way. --}}
+                <div x-show="open" @click.away="open = false" x-cloak
+                     class="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-20">
                     @foreach(['quarter_final' => 'Quarter Finals', 'semi_final' => 'Semi Finals', 'third_place' => 'Third Place', 'final' => 'Final'] as $stage => $label)
                         <form action="{{ route('admin.tournaments.fixtures.generate-knockouts', $tournament) }}" method="POST">
                             @csrf
@@ -58,7 +63,8 @@
                     Posters
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </button>
-                <div x-show="openPosterMenu" @click.away="openPosterMenu = false" x-cloak class="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-10">
+                <div x-show="openPosterMenu" @click.away="openPosterMenu = false" x-cloak
+                     class="absolute left-0 sm:left-auto sm:right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 z-20">
                     <form action="{{ route('admin.tournaments.fixtures.bulk-posters', $tournament) }}" method="POST">
                         @csrf
                         <button type="submit" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -132,9 +138,9 @@
         {{-- Selection bar. Fixed to the bottom so it stays reachable after scrolling past a pool
              of 28 — a bar at the top of the list is a bar nobody can see when they need it. --}}
         <div x-show="selected.length > 0" x-cloak
-             class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center gap-2
-                    rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900
-                    shadow-2xl px-4 py-3">
+             class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex flex-wrap items-center justify-center gap-2
+                    max-w-[calc(100vw-1.5rem)] rounded-2xl border border-gray-200 dark:border-gray-700
+                    bg-white dark:bg-gray-900 shadow-2xl px-4 py-3">
             <span class="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 <span x-text="selected.length"></span> selected
             </span>

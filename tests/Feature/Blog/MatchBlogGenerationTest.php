@@ -78,9 +78,9 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     /** The shape OpenAI returns: a JSON string inside choices[0].message.content. */
-    private function draftBody(array $payload = []): array
+    private function draftBody(array $payload = [], array $usage = ['prompt_tokens' => 2000, 'completion_tokens' => 700]): array
     {
-        return ['choices' => [['message' => ['content' => json_encode(array_merge([
+        return ['usage' => $usage, 'choices' => [['message' => ['content' => json_encode(array_merge([
             'title' => 'Blake blitz sends Royal Strikers past Thunder Kings',
             'excerpt' => 'An 88 off 44 set up a 13-run win.',
             'content' => '<h2>A one-sided chase</h2><p>Royal Strikers made <strong>185/4</strong>.</p>',
@@ -294,6 +294,83 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
+    public function what_a_generation_cost_is_recorded_from_openais_own_usage(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+        add_setting(BlogGenerationService::MODEL_SETTING, 'gpt-4o-mini');
+
+        Http::fake(['api.openai.com/*' => Http::response(
+            $this->draftBody([], ['prompt_tokens' => 2_000_000, 'completion_tokens' => 1_000_000])
+        )]);
+
+        [$match, $superadmin] = $this->scenario();
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        $report = MatchReport::where('match_id', $match->id)->firstOrFail();
+        $this->assertSame(2_000_000, $report->prompt_tokens);
+        $this->assertSame(1_000_000, $report->completion_tokens);
+
+        // gpt-4o-mini: $0.15/1M in + $0.60/1M out => 2 * 0.15 + 1 * 0.60 = $0.90
+        $this->assertEqualsWithDelta(0.90, $report->cost_usd, 0.000001);
+
+        $summary = MatchReport::spendSummary();
+        $this->assertSame(1, $summary['count']);
+        $this->assertEqualsWithDelta(0.90, $summary['average'], 0.000001);
+    }
+
+    #[Test]
+    public function the_dashboard_model_choice_beats_the_env_default(): void
+    {
+        Storage::fake('local');
+        $this->fakeOpenAi();
+        config(['services.openai.model' => 'gpt-4o-mini']);
+        [$match, $superadmin] = $this->scenario();
+
+        $this->actingAs($superadmin)
+            ->post(route('admin.blog.model'), ['model' => 'gpt-5.6-luna'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-luna');
+        $this->assertSame('gpt-5.6-luna', MatchReport::where('match_id', $match->id)->firstOrFail()->model);
+    }
+
+    #[Test]
+    public function a_model_that_is_not_offered_is_refused(): void
+    {
+        [, $superadmin] = $this->scenario();
+
+        $this->actingAs($superadmin)
+            ->post(route('admin.blog.model'), ['model' => 'gpt-9-imaginary'])
+            ->assertSessionHasErrors('model');
+    }
+
+    #[Test]
+    public function a_stale_model_choice_falls_back_instead_of_being_used_blind(): void
+    {
+        // Removing a model from the price table must not leave the site calling a name nobody
+        // prices — the cost display would silently read zero.
+        add_setting(BlogGenerationService::MODEL_SETTING, 'gpt-4o-mini');
+        config(['services.openai.models' => ['gpt-5.6-luna' => ['label' => 'Luna', 'note' => '', 'input' => 0.20, 'output' => 1.20]]]);
+        config(['services.openai.model' => 'gpt-5.6-luna']);
+
+        $this->assertSame('gpt-5.6-luna', app(BlogGenerationService::class)->model());
+    }
+
+    #[Test]
+    public function only_a_superadmin_can_change_the_model(): void
+    {
+        [, , $organizer] = $this->scenario();
+
+        $this->actingAs($organizer)
+            ->post(route('admin.blog.model'), ['model' => 'gpt-5.6-sol'])
+            ->assertForbidden();
+    }
+
+    #[Test]
     public function the_panel_renders_on_the_match_page_for_a_superadmin(): void
     {
         Storage::fake('local');
@@ -307,7 +384,9 @@ class MatchBlogGenerationTest extends TestCase
             ->assertOk()
             ->assertSee('Match Blog')
             ->assertSee('Generate Blog')
-            ->assertSee('Match report PDF');
+            ->assertSee('Match report PDF')
+            ->assertSee('AI model')
+            ->assertSee('Estimated per post');
     }
 
     /** A tiny but genuinely valid PDF, so pdftotext has something real to read. */

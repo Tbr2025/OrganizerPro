@@ -20,6 +20,9 @@ class MatchReport extends Model
         'extracted_text',
         'post_id',
         'model',
+        'prompt_tokens',
+        'completion_tokens',
+        'cost_usd',
         'generated_at',
         'created_by',
     ];
@@ -27,6 +30,9 @@ class MatchReport extends Model
     protected $casts = [
         'generated_at' => 'datetime',
         'pdf_size' => 'integer',
+        'prompt_tokens' => 'integer',
+        'completion_tokens' => 'integer',
+        'cost_usd' => 'float',
     ];
 
     public function match(): BelongsTo
@@ -42,6 +48,28 @@ class MatchReport extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * What generations have actually cost, across every match.
+     *
+     * Only rows that recorded a cost are counted — a report generated before usage tracking
+     * existed would otherwise drag the average towards zero.
+     *
+     * @return array{count: int, total: float, average: float}
+     */
+    public static function spendSummary(): array
+    {
+        $priced = static::query()->whereNotNull('cost_usd');
+        $count = (clone $priced)->count();
+
+        if ($count === 0) {
+            return ['count' => 0, 'total' => 0.0, 'average' => 0.0];
+        }
+
+        $total = (float) (clone $priced)->sum('cost_usd');
+
+        return ['count' => $count, 'total' => $total, 'average' => $total / $count];
     }
 
     /** Enough text to be worth sending to a model — a scanned PDF yields almost nothing. */

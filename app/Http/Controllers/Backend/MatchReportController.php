@@ -110,6 +110,36 @@ class MatchReportController extends Controller
         ));
     }
 
+    /**
+     * Choose which model writes the posts.
+     *
+     * Stored as a setting rather than in .env so it can be changed without a deploy — the whole
+     * point is trying a cheap model and moving up only if the prose is not good enough.
+     */
+    public function setModel(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'model' => 'required|string|in:' . implode(',', array_keys($this->ai->models())),
+        ]);
+
+        /*
+         * add_setting, not update_setting.
+         *
+         * update_setting() only UPDATES — it returns false and writes nothing when the row does
+         * not exist yet, so the very first time anyone picked a model the choice was silently
+         * dropped while this page reported success. add_setting() is updateOrCreate.
+         */
+        add_setting(BlogGenerationService::MODEL_SETTING, $validated['model']);
+
+        $rates = $this->ai->models()[$validated['model']];
+
+        return back()->with('success', sprintf(
+            'Blog model set to %s — about $%s per post.',
+            $rates['label'],
+            number_format((float) $this->ai->estimatedCost($validated['model']), 4)
+        ));
+    }
+
     /** Remove the uploaded PDF. The post, once written, is the editor's to keep or delete. */
     public function destroy(Matches $match): RedirectResponse
     {

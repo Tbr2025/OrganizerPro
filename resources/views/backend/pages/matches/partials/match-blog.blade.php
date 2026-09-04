@@ -5,8 +5,15 @@
 @php
     $canGenerateBlog = auth()->user()?->hasRole('Superadmin');
     $matchReport = $canGenerateBlog ? \App\Models\MatchReport::with('post')->where('match_id', $match->id)->first() : null;
-    $aiReady = $canGenerateBlog && app(\App\Services\Blog\BlogGenerationService::class)->isConfigured();
+    $ai = $canGenerateBlog ? app(\App\Services\Blog\BlogGenerationService::class) : null;
+    $aiReady = $canGenerateBlog && $ai->isConfigured();
     $pdfReady = $canGenerateBlog && app(\App\Services\Blog\MatchReportPdfService::class)->isAvailable();
+
+    $models = $canGenerateBlog ? $ai->models() : [];
+    $activeModel = $canGenerateBlog ? $ai->model() : null;
+    $estimate = $canGenerateBlog ? $ai->estimatedCost($activeModel) : null;
+    // Real spend beats a guess: once anything has been generated, show what it actually cost.
+    $spend = $canGenerateBlog ? \App\Models\MatchReport::spendSummary() : ['count' => 0, 'total' => 0.0, 'average' => 0.0];
 @endphp
 
 @if($canGenerateBlog)
@@ -34,6 +41,66 @@
                 Add <span class="font-mono">OPENAI_API_KEY</span> to the server's <span class="font-mono">.env</span> and clear the config cache.
             </div>
         @endunless
+
+        {{-- Model and spend. A cheap model is the sane default; this is where you find out
+             what moving up would cost before you do it. --}}
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+            <form action="{{ route('admin.blog.model') }}" method="POST">
+                @csrf
+                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">AI model</label>
+                <div class="flex items-center gap-2">
+                    <select name="model" class="flex-1 min-w-0 rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs">
+                        @foreach($models as $modelId => $rates)
+                            <option value="{{ $modelId }}" @selected($modelId === $activeModel)>
+                                {{ $rates['label'] }} — ~${{ number_format((float) $ai->estimatedCost($modelId), 4) }}/post
+                            </option>
+                        @endforeach
+                    </select>
+                    <button type="submit" class="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-800 text-white hover:bg-gray-900">Save</button>
+                </div>
+                @if(isset($models[$activeModel]))
+                    <p class="text-[11px] text-gray-400 mt-1.5">
+                        {{ $models[$activeModel]['note'] }} —
+                        ${{ number_format((float) $models[$activeModel]['input'], 2) }}/1M in,
+                        ${{ number_format((float) $models[$activeModel]['output'], 2) }}/1M out.
+                    </p>
+                @endif
+                {{-- Which endpoint is actually being called. A model from one provider selected
+                     while the base URL points at another is the one way to get a baffling 404. --}}
+                <p class="text-[11px] text-gray-400 mt-0.5">
+                    Endpoint: <span class="font-mono">{{ parse_url((string) config('services.openai.base_url'), PHP_URL_HOST) ?: 'not set' }}</span>
+                </p>
+            </form>
+
+            <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-3 text-center">
+                <div>
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">
+                        @if($spend['count'] > 0)
+                            ${{ number_format($spend['average'], 4) }}
+                        @else
+                            ~${{ number_format((float) $estimate, 4) }}
+                        @endif
+                    </p>
+                    <p class="text-[11px] text-gray-500">
+                        {{ $spend['count'] > 0 ? 'Average per post (' . $spend['count'] . ' generated)' : 'Estimated per post' }}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">${{ number_format($spend['total'], 4) }}</p>
+                    <p class="text-[11px] text-gray-500">Spent so far</p>
+                </div>
+            </div>
+
+            @if($spend['count'] > 0 && $spend['average'] > 0)
+                <p class="text-[11px] text-gray-400 mt-2 text-center">
+                    At this rate $5 of credit is about {{ number_format(5 / $spend['average']) }} posts.
+                </p>
+            @elseif($estimate > 0)
+                <p class="text-[11px] text-gray-400 mt-2 text-center">
+                    At this rate $5 of credit is roughly {{ number_format(5 / $estimate) }} posts. List prices — an estimate, not a bill.
+                </p>
+            @endif
+        </div>
 
         {{-- 1. The source PDF --}}
         <div>
@@ -137,7 +204,9 @@
                             {{ $matchReport->post->status === 'publish' ? 'Published' : 'Draft' }}
                         </span>
                         @if($matchReport->generated_at)
-                            <span class="text-[11px] text-gray-400">Written {{ $matchReport->generated_at->diffForHumans() }} by {{ $matchReport->model }}</span>
+                            <span class="text-[11px] text-gray-400">
+                                Written {{ $matchReport->generated_at->diffForHumans() }} by {{ $matchReport->model }}@if($matchReport->cost_usd), cost ${{ number_format($matchReport->cost_usd, 4) }}@endif
+                            </span>
                         @endif
                     </div>
                     <div class="flex flex-wrap gap-2 mt-3">
