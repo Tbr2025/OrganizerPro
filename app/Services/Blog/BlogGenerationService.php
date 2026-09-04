@@ -134,21 +134,24 @@ class BlogGenerationService
             Log::warning('Blog generation failed', ['status' => $response->status(), 'endpoint' => $endpoint, 'model' => $model, 'message' => $apiMessage]);
 
             /*
-             * Name the URL and the model in the message.
+             * The provider's own message always wins.
              *
-             * A bare "HTTP 404" is the least useful thing this can say, and 404 almost always
-             * means the base URL is wrong rather than anything about the request — pasting
-             * Gemini's native /v1beta/models/{model} endpoint instead of its OpenAI-compatible
-             * /v1beta/openai/ one produces exactly that, with no error body to explain it.
+             * A 404 here was assumed to mean a wrong base URL, and the real message was thrown
+             * away to say so — which hid Google telling us, in plain words, "this model is no
+             * longer available to new users, use models/gemini-3.6-flash". A guessed diagnosis
+             * that discards the actual one is worse than no diagnosis.
+             *
+             * The base-URL hint is only added when the provider said nothing at all, which is
+             * what a genuinely wrong path looks like: a 404 with an empty body.
              */
-            if ($response->status() === 404) {
+            if ($response->json('error.message') === null && $response->status() === 404) {
                 throw new \RuntimeException(sprintf(
-                    'The provider returned 404 for %s. That usually means the API Base URL is wrong — check it in Settings → AI & Blog.',
+                    'The provider returned 404 for %s with no explanation, which usually means the API Base URL is wrong — check it in Settings → AI & Blog.',
                     $endpoint
                 ));
             }
 
-            throw new \RuntimeException(sprintf('Could not generate the post (%s, model %s): %s', $apiMessage, $model, $endpoint));
+            throw new \RuntimeException(sprintf('%s (model %s)', $apiMessage, $model));
         }
 
         $decoded = $this->decodeDraft($response->json('choices.0.message.content'));

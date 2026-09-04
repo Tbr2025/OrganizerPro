@@ -369,16 +369,15 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
-    public function a_404_names_the_url_it_called_and_blames_the_base_url(): void
+    public function a_404_with_no_body_blames_the_base_url_and_names_the_address(): void
     {
         Storage::fake('local');
         config(['services.openai.key' => 'sk-test']);
 
         /*
-         * A 404 from a wrong base URL carries no error body, so "HTTP 404" told the organizer
-         * nothing — and the message said "OpenAI" while they were on Gemini. Pasting Gemini's
-         * native /v1beta/models/{model} endpoint instead of its /v1beta/openai/ one lands here
-         * exactly, so the message has to name the address and point at the setting.
+         * What a genuinely wrong path looks like: a 404 with nothing in the body. Pasting
+         * Gemini's native /v1beta/models/{model} endpoint instead of its /v1beta/openai/ one
+         * lands here, so the message has to name the address it assembled.
          */
         add_setting('ai_base_url_openai', 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest');
         Http::fake(['*' => Http::response('', 404)]);
@@ -393,6 +392,35 @@ class MatchBlogGenerationTest extends TestCase
         $this->assertStringContainsString('/chat/completions', $error);
         $this->assertStringContainsString('Base URL', $error);
         $this->assertStringNotContainsString('OpenAI could not', $error, 'The message must not name OpenAI when another provider is in use.');
+    }
+
+    #[Test]
+    public function a_404_that_explains_itself_is_repeated_verbatim(): void
+    {
+        Storage::fake('local');
+        config(['services.openai.key' => 'sk-test']);
+
+        /*
+         * The bug this replaced: a 404 was ASSUMED to mean a wrong base URL, and the provider's
+         * real message was discarded to say so — hiding Google stating in plain words that the
+         * model was retired and naming its replacement. A guessed diagnosis that throws away the
+         * actual one is worse than no diagnosis.
+         */
+        add_setting('ai_model_openai', 'gemini-2.5-flash');
+        Http::fake(['*' => Http::response([
+            'error' => ['code' => 404, 'message' => 'This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash.'],
+        ], 404)]);
+
+        [$match, $superadmin] = $this->scenario();
+
+        $error = $this->actingAs($superadmin)
+            ->post(route('admin.matches.report.generate', $match))
+            ->assertRedirect()
+            ->getSession()->get('error');
+
+        $this->assertStringContainsString('no longer available to new users', $error);
+        $this->assertStringContainsString('gemini-3.6-flash', $error, 'The replacement the provider named must survive.');
+        $this->assertStringNotContainsString('API Base URL is wrong', $error, 'A guess must not override the real reason.');
     }
 
     #[Test]

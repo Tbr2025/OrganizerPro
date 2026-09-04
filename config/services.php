@@ -64,8 +64,8 @@ return [
                 'label' => 'Google Gemini',
                 'base_url' => 'https://generativelanguage.googleapis.com/v1beta/openai/',
                 'keys_url' => 'https://aistudio.google.com/apikey',
-                'note' => 'Free tier is capped at roughly 20 requests a day and bills nothing. Which models a key may use varies — use Load available models. Flash-Lite is the cheapest if you ever enable billing; avoid Pro.',
-                'models' => ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-3.8-flash'],
+                'note' => 'Free tier is capped at roughly 20 requests a day and bills nothing. Older models are listed but refused to new keys, so prefer the -latest aliases; avoid Pro.',
+                'models' => ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-flash-lite-latest'],
             ],
             'custom' => [
                 'label' => 'Custom (OpenAI-compatible)',
@@ -97,6 +97,8 @@ return [
              * and 3.5 Flash is roughly twentyfold, which is exactly the sort of thing an
              * estimate exists to warn you about.
              */
+            'gemini-flash-latest' => ['input' => 0.75, 'output' => 3.75],
+            'gemini-flash-lite-latest' => ['input' => 0.10, 'output' => 0.40],
             'gemini-2.5-flash-lite' => ['input' => 0.10, 'output' => 0.40],
             'gemini-3.5-flash-lite' => ['input' => 0.30, 'output' => 2.50],
             'gemini-2.5-flash' => ['input' => 0.30, 'output' => 2.50],
