@@ -1353,8 +1353,12 @@ class TemplateRenderService extends PosterGeneratorService
             $currentY += $rowHeight;
         }
 
-        // Legend
-        if ($showLegend) {
+        // Legend — only when a green row exists to explain. Before the league stage is over,
+        // nothing is marked qualified, and a swatch pointing at rows that are all the same
+        // colour is worse than no legend at all.
+        $hasQualified = (bool) array_filter($tableData, fn ($team) => ! empty($team['qualified']));
+
+        if ($showLegend && $hasQualified) {
             $legendY = $currentY + 8;
             $qualifiedLegendColor = $this->parseColor($canvas, $qualifiedBg);
             imagefilledrectangle($canvas, $areaX + 10, $legendY, $areaX + 28, $legendY + 16, $qualifiedLegendColor);

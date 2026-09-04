@@ -50,6 +50,30 @@ class GeneratePagePanelsTest extends TestCase
     }
 
     #[Test]
+    public function the_three_award_photos_can_be_cropped_too(): void
+    {
+        $html = $this->page('match_summary');
+
+        // One modal serves all three slots, keyed by cropSlot.
+        $this->assertStringContainsString('cropSlot', $html);
+        $this->assertStringContainsString('applyCrop()', $html);
+        $this->assertStringContainsString('reopenCrop(', $html);
+
+        foreach (['motm', 'best_batsman', 'best_bowler'] as $slot) {
+            // The picker and the carrier are separate: applyCrop writes the cropped File into
+            // the carrier, so the raw photo is never what gets uploaded.
+            $this->assertStringContainsString("picker_{$slot}", $html, "No crop picker for {$slot}.");
+            $this->assertStringContainsString("id=\"{$slot}ImageUpload\" class=\"hidden\"", $html,
+                "{$slot}'s upload input must be the hidden carrier, not the visible control.");
+        }
+
+        // The Remove BG answer is still read off this component by shape.
+        $this->assertStringContainsString('ms.removeBg.motm', $html);
+        $this->assertStringContainsString('ms.removeBg.best_batsman', $html);
+        $this->assertStringContainsString('ms.removeBg.best_bowler', $html);
+    }
+
+    #[Test]
     public function the_playing_xi_photo_can_be_cropped_like_every_other_player_upload(): void
     {
         $html = $this->page('playing_xi');

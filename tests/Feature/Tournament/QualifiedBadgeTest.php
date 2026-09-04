@@ -7,8 +7,10 @@ namespace Tests\Feature\Tournament;
 use App\Models\Matches;
 use App\Models\PointTableEntry;
 use App\Models\TournamentGroup;
+use App\Services\Poster\PointTablePosterService;
 use App\Services\Tournament\PointTableService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Concerns\CreatesAuctionScenario;
 use Tests\TestCase;
@@ -80,6 +82,29 @@ class QualifiedBadgeTest extends TestCase
         $this->get(route('public.tournament.point-table', $tournament->slug))
             ->assertOk()
             ->assertSee('Qualified');
+    }
+
+    #[Test]
+    public function the_point_table_poster_follows_the_same_rule_as_the_page(): void
+    {
+        Storage::fake('public');
+
+        [, $group, $fixture] = $this->scenario();
+        $fixture('completed');
+        $pending = $fixture('upcoming');
+
+        // A green "qualified" row while a league game is still to be played puts a claim on a
+        // poster that the public table deliberately withholds.
+        $provisional = Storage::disk('public')->get((new PointTablePosterService())->generate($group->fresh()));
+
+        $pending->update(['status' => 'completed']);
+        $decided = Storage::disk('public')->get((new PointTablePosterService())->generate($group->fresh()));
+
+        $this->assertNotSame(
+            $provisional,
+            $decided,
+            'Finishing the league stage did not change the poster — the qualified rows are not gated.'
+        );
     }
 
     #[Test]

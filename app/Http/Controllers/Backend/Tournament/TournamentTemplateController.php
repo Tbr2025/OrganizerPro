@@ -825,6 +825,16 @@ class TournamentTemplateController extends Controller
                 $group = $tournament->groups()->find($request->input('group_id'));
                 if ($group) {
                     $entries = $group->pointTableEntries()->with('team')->ranked()->get();
+
+                    /*
+                     * The green rows and the "Qualified for next round" legend follow the same
+                     * rule as the public table: the stored flag is only "currently top two" until
+                     * the group has no league fixture left, and a poster is the last place to
+                     * publish a standing as a decision.
+                     */
+                    $qualificationDecided = app(\App\Services\Tournament\PointTableService::class)
+                        ->qualificationDecided($tournament, $group->id);
+
                     $data['table_data'] = $entries->map(fn ($entry) => [
                         'position' => $entry->position,
                         'team_name' => $entry->team?->name ?? 'Unknown',
@@ -835,7 +845,7 @@ class TournamentTemplateController extends Controller
                         'tied' => $entry->tied,
                         'net_run_rate' => $entry->net_run_rate,
                         'points' => $entry->points,
-                        'qualified' => $entry->qualified,
+                        'qualified' => $entry->qualified && $qualificationDecided,
                     ])->toArray();
                     $data['group_name'] = $group->name;
                     $data['last_updated'] = now()->format('M d, Y H:i');

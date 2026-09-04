@@ -332,13 +332,36 @@
                                 <div class="flex items-start gap-3">
                                     <div class="flex-1 min-w-0">
                                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{{ $slotLabel }}</label>
-                                        <input type="file" id="{{ $slotKey }}ImageUpload" accept="image/jpeg,image/png,image/webp"
-                                               @change="onFileChange('{{ $slotKey }}', $event)"
-                                               class="w-full text-xs text-gray-600 dark:text-gray-300
-                                                      file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0
-                                                      file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700
-                                                      hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300">
+
+                                        {{-- The picker and the input the request reads are two different
+                                             things: applyCrop() writes the cropped File into
+                                             #{{ $slotKey }}ImageUpload, so what is sent is always the crop. --}}
+                                        <input type="file" x-ref="picker_{{ $slotKey }}" accept="image/jpeg,image/png,image/webp"
+                                               @change="onFileChange('{{ $slotKey }}', $event)" class="hidden">
+                                        <input type="file" id="{{ $slotKey }}ImageUpload" class="hidden">
+
+                                        <button type="button" x-show="!previews.{{ $slotKey }}"
+                                                @click="openPicker('{{ $slotKey }}')"
+                                                @dragover.prevent="dragging = '{{ $slotKey }}'"
+                                                @dragleave.prevent="dragging = null"
+                                                @drop.prevent="onDrop('{{ $slotKey }}', $event)"
+                                                :class="dragging === '{{ $slotKey }}' ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-300'"
+                                                class="w-full border-2 border-dashed rounded-lg py-3 text-center transition">
+                                            <svg class="w-5 h-5 mx-auto mb-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            <span class="text-xs text-gray-500">Drop a photo or click to browse</span>
+                                            <span class="block text-[10px] text-gray-400 mt-0.5">Crop &amp; background removal available</span>
+                                        </button>
+
+                                        <div x-show="previews.{{ $slotKey }}" class="flex flex-wrap items-center gap-1.5">
+                                            <button type="button" @click="reopenCrop('{{ $slotKey }}')"
+                                                    class="text-[11px] font-medium px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100">Crop</button>
+                                            <button type="button" @click="openPicker('{{ $slotKey }}')"
+                                                    class="text-[11px] font-medium px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200">Change</button>
+                                            <button type="button" @click="clearFile('{{ $slotKey }}')"
+                                                    class="text-[11px] font-medium px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-300 hover:bg-red-100">Clear</button>
+                                        </div>
                                     </div>
+
                                     <template x-if="previews.{{ $slotKey }}">
                                         <div class="flex items-start gap-2 shrink-0">
                                             <div class="w-14 h-14 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
@@ -350,15 +373,50 @@
                                                     <input type="checkbox" x-model="removeBg.{{ $slotKey }}" class="rounded border-gray-300 text-blue-600 w-3.5 h-3.5">
                                                     <span class="text-[11px] text-gray-600 dark:text-gray-400">Remove BG</span>
                                                 </label>
-                                                <button type="button" @click="clearFile('{{ $slotKey }}')" class="text-[11px] text-gray-400 hover:text-red-500 mt-1 block">Clear</button>
+                                                <p class="text-[10px] text-gray-400 mt-0.5" x-show="isTransparent.{{ $slotKey }}">Already transparent</p>
                                             </div>
                                         </div>
                                     </template>
                                 </div>
-
                             </div>
                             @endforeach
 
+                            {{-- One crop modal for all three slots; `cropSlot` says which is being
+                                 cropped. At the component root so its fixed overlay is never
+                                 clipped by a scrolling ancestor. --}}
+                            <div x-show="cropSlot" x-cloak x-transition.opacity
+                                 class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                                 @keydown.escape.window="closeCrop()">
+                                <div @click.outside="closeCrop()" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                                    <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <h4 class="font-semibold text-gray-900 dark:text-white text-sm" x-text="'Crop ' + slotLabel(cropSlot)"></h4>
+                                        <button type="button" @click="closeCrop()" class="text-gray-400 hover:text-gray-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                                    </div>
+
+                                    <div class="px-5 pt-3 flex items-center gap-2">
+                                        <span class="text-xs text-gray-500 mr-1">Ratio:</span>
+                                        <template x-for="r in cropRatios" :key="r.value">
+                                            <button type="button" @click="setCropRatio(r.value)"
+                                                    :class="activeRatio === r.value ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200'"
+                                                    class="px-2.5 py-1 rounded-lg text-xs font-semibold transition" x-text="r.label"></button>
+                                        </template>
+                                    </div>
+
+                                    <div class="px-5 py-3">
+                                        <div class="bg-gray-900 rounded-lg overflow-hidden" style="max-height: 400px;">
+                                            <img x-ref="cropImage" :src="cropSrc" alt="Crop" class="max-w-full" style="display:block; max-height:400px;">
+                                        </div>
+                                    </div>
+
+                                    <div class="px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                                        <span class="text-xs text-gray-400">Crop tight to the player for the sharpest cut-out</span>
+                                        <div class="flex gap-2">
+                                            <button type="button" @click="closeCrop()" class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded-lg">Cancel</button>
+                                            <button type="button" @click="applyCrop()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">Apply Crop</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1602,25 +1660,167 @@ function imageAdjustment(placeholderName) {
 }
 
 // ─── Match summary award image uploads ─────────────────────────────────────
+/*
+ * Three photo slots that crop, like every other player upload on this page.
+ *
+ * One crop modal serves all three — `cropSlot` says which slot is open — and the originals are
+ * kept in `originals` so "Crop" can be reopened without picking the file again. The visible
+ * control is a picker; the input the request reads (#<slot>ImageUpload) is hidden and receives
+ * the cropped File, so what is uploaded is never the raw camera-roll photo.
+ */
 function matchSummaryImages() {
+    const SLOTS = { motm: 'Man of the Match', best_batsman: 'Best Batsman', best_bowler: 'Best Bowler' };
+
     return {
         previews: { motm: '', best_batsman: '', best_bowler: '' },
         removeBg: { motm: true, best_batsman: true, best_bowler: true },
+        isTransparent: { motm: false, best_batsman: false, best_bowler: false },
+        originals: { motm: '', best_batsman: '', best_bowler: '' },
+        dragging: null,
+        cropSlot: null,
+        cropSrc: '',
+        cropper: null,
+        activeRatio: '0.75',
+        cropRatios: [
+            { label: '3:4', value: '0.75' },
+            { label: '4:3', value: '1.333' },
+            { label: '1:1', value: '1' },
+            { label: 'Free', value: 'free' },
+        ],
+
+        slotLabel(key) { return SLOTS[key] || 'Photo'; },
+
+        openPicker(key) { this.$refs['picker_' + key]?.click(); },
 
         onFileChange(key, event) {
             const file = event.target.files?.[0];
-            if (!file) { this.clearFile(key); return; }
+            if (!file) return;
+            this.loadImage(key, file);
+            // Let the same file be chosen again after a Clear — setting .files does not fire
+            // change, and a stale value would swallow the second pick.
+            event.target.value = '';
+        },
+
+        onDrop(key, event) {
+            this.dragging = null;
+            const file = event.dataTransfer?.files?.[0];
+            if (file && file.type.startsWith('image/')) this.loadImage(key, file);
+        },
+
+        loadImage(key, file) {
             this.removeBg[key] = true;
+            this.isTransparent[key] = false;
+
             const reader = new FileReader();
-            reader.onload = (e) => { this.previews[key] = e.target.result; };
+            reader.onload = (e) => {
+                this.originals[key] = e.target.result;
+                this.detectTransparency(key, e.target.result);
+                this.openCrop(key);
+            };
             reader.readAsDataURL(file);
+        },
+
+        /* A PNG that already has an alpha channel needs no removal, and running it through
+           removal anyway is slow and can eat the edges of the subject. */
+        detectTransparency(key, dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const w = Math.min(img.width, 160);
+                    const h = Math.max(1, Math.round(img.height * (w / img.width)));
+                    const c = document.createElement('canvas');
+                    c.width = w; c.height = h;
+                    const ctx = c.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const px = ctx.getImageData(0, 0, w, h).data;
+                    for (let i = 3; i < px.length; i += 4) {
+                        if (px[i] < 250) {
+                            this.isTransparent[key] = true;
+                            this.removeBg[key] = false;
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    // A tainted or oversized canvas is not a reason to block the poster.
+                }
+            };
+            img.src = dataUrl;
+        },
+
+        openCrop(key) {
+            this.cropSrc = this.originals[key];
+            this.cropSlot = key;
+            this.$nextTick(() => this.initCropper());
+        },
+
+        reopenCrop(key) {
+            if (!this.originals[key]) { this.openPicker(key); return; }
+            this.openCrop(key);
+        },
+
+        initCropper() {
+            if (this.cropper) this.cropper.destroy();
+            const imgEl = this.$refs.cropImage;
+            if (!imgEl) return;
+            this.cropper = new Cropper(imgEl, {
+                viewMode: 1,
+                dragMode: 'move',
+                aspectRatio: this.activeRatio === 'free' ? NaN : parseFloat(this.activeRatio),
+                autoCropArea: 0.9,
+                responsive: true,
+                background: true,
+            });
+        },
+
+        setCropRatio(ratio) {
+            this.activeRatio = ratio;
+            if (this.cropper) this.cropper.setAspectRatio(ratio === 'free' ? NaN : parseFloat(ratio));
+        },
+
+        applyCrop() {
+            if (!this.cropper || !this.cropSlot) return;
+            const key = this.cropSlot;
+
+            /*
+             * maxWidth/maxHeight only — the same shrink-only ceiling PlayerImageService uses for
+             * stored photos. cropper.js treats minWidth/minHeight as a floor it scales UP to
+             * reach, which would enlarge a small crop and hand the renderer interpolation
+             * instead of detail.
+             */
+            const canvas = this.cropper.getCroppedCanvas({
+                maxWidth: 1600,
+                maxHeight: 2133,
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            });
+
+            this.previews[key] = thumbDataUrl(canvas, 320);
+
+            canvas.toBlob((blob) => {
+                if (!blob) return;
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], key + '-award.png', { type: 'image/png' }));
+                const carrier = document.getElementById(key + 'ImageUpload');
+                if (carrier) carrier.files = dt.files;
+            }, 'image/png');
+
+            this.closeCrop();
+        },
+
+        closeCrop() {
+            this.cropSlot = null;
+            if (this.cropper) { this.cropper.destroy(); this.cropper = null; }
         },
 
         clearFile(key) {
             const input = document.getElementById(key + 'ImageUpload');
             if (input) input.value = '';
+            if (this.$refs['picker_' + key]) this.$refs['picker_' + key].value = '';
+            if (this.cropSlot === key) this.closeCrop();
+            this.originals[key] = '';
             this.previews[key] = '';
             this.removeBg[key] = true;
+            this.isTransparent[key] = false;
         },
     };
 }

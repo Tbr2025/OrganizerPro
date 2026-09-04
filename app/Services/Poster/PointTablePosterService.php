@@ -22,6 +22,11 @@ class PointTablePosterService extends PosterGeneratorService
         $settings = $tournament->settings;
         $entries = $group->pointTableEntries()->with('team')->ranked()->get();
 
+        // Same rule as the public table and the template-driven poster: the stored flag is only
+        // "currently top two" until the group's league fixtures are done. See PointTableService.
+        $qualificationDecided = app(\App\Services\Tournament\PointTableService::class)
+            ->qualificationDecided($tournament, $group->id);
+
         $width = 1080;
         $teamCount = $entries->count();
         $headerHeight = 180;
@@ -96,7 +101,7 @@ class PointTablePosterService extends PosterGeneratorService
         $dividerColor = imagecolorallocatealpha($canvas, 255, 255, 255, 100);
 
         foreach ($entries as $index => $entry) {
-            $isQualified = $entry->qualified;
+            $isQualified = $entry->qualified && $qualificationDecided;
             $bgHex = $isQualified ? '#064e3b' : ($index % 2 === 0 ? '#1e293b' : '#293548');
 
             $rgb = $this->hexToRgb($bgHex);
@@ -144,12 +149,14 @@ class PointTablePosterService extends PosterGeneratorService
             $currentY += $rowHeight;
         }
 
-        // Legend
+        // Legend — only when there is actually a green row to explain.
         $legendY = $currentY + 15;
-        $qualifiedRgb = $this->hexToRgb('#064e3b');
-        $qualifiedColor = imagecolorallocate($canvas, $qualifiedRgb['r'], $qualifiedRgb['g'], $qualifiedRgb['b']);
-        imagefilledrectangle($canvas, 40, $legendY, 58, $legendY + 16, $qualifiedColor);
-        $this->addText($canvas, '= Qualified for next round', 68, $legendY + 13, 12, '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
+        if ($qualificationDecided && $entries->contains(fn ($entry) => (bool) $entry->qualified)) {
+            $qualifiedRgb = $this->hexToRgb('#064e3b');
+            $qualifiedColor = imagecolorallocate($canvas, $qualifiedRgb['r'], $qualifiedRgb['g'], $qualifiedRgb['b']);
+            imagefilledrectangle($canvas, 40, $legendY, 58, $legendY + 16, $qualifiedColor);
+            $this->addText($canvas, '= Qualified for next round', 68, $legendY + 13, 12, '#AAAAAA', 'Montserrat-Medium.ttf', 'left');
+        }
 
         // Updated timestamp
         $this->addText(
