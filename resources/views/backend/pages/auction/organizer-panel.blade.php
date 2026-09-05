@@ -3991,6 +3991,14 @@ function auctionOrganizerPanel() {
         soldBoardBusy: false,
         // Break length sent with a board; 0 puts one up with no clock.
         breakMinutes: 10,
+        /*
+         * The most rungs one request may carry.
+         *
+         * Must not exceed the server's own limit — AuctionAdminController validates
+         * `steps` as max:20 — because a batch above it is rejected outright rather than
+         * clamped, and this panel has already moved its figure by then.
+         */
+        MAX_STEPS_PER_REQUEST: 20,
         // Presses taken while a step is in flight, replayed one at a time — see stepBidUp().
         _pendingSteps: 0,
         /* Debounce handle for batched price steps — see stepBidUp()/flushSteps(). */
@@ -4042,6 +4050,25 @@ function auctionOrganizerPanel() {
              */
             this._pendingSteps = (this._pendingSteps || 0) + 1;
             this._advanceDisplayedBid();
+
+            /*
+             * Send at the cap rather than letting the count run past it.
+             *
+             * The server refuses a batch of more than MAX_STEPS_PER_REQUEST rungs, and it is
+             * right to: a stuck key must not be able to walk the price up without limit in one
+             * call. But an auctioneer calling a price hard genuinely does press twenty-one
+             * times, and the whole request was then REJECTED — leaving this panel showing a
+             * figure the server had never been told about, which is the one outcome a batching
+             * scheme must never produce.
+             *
+             * Flushing at the cap keeps the limit intact and simply starts the next batch.
+             * Deliberately not awaited: the press has already moved the figure on screen, and
+             * blocking here would make the button feel stuck mid-call.
+             */
+            if (this._pendingSteps >= this.MAX_STEPS_PER_REQUEST) {
+                this.flushSteps();
+                return;
+            }
 
             if (this._stepTimer) clearTimeout(this._stepTimer);
             this._stepTimer = setTimeout(() => this.flushSteps(), 1000);

@@ -32,6 +32,14 @@ use Illuminate\Support\Facades\Mail;
 
 class AuctionOrganizerController extends Controller
 {
+    /**
+     * How many recent sales the panel poll carries.
+     *
+     * The panel only ever looks up the player who just left the block, but it can miss a
+     * transition, so a small window covers that without shipping the whole auction.
+     */
+    private const RECENT_SALES_ON_PANEL = 10;
+
     public function __construct(
         private readonly AuctionPoolService $pools,
         private readonly AuctionSaleService $sales,
@@ -444,17 +452,59 @@ class AuctionOrganizerController extends Controller
             ])
             ->first();
 
-        $soldPlayers = $auction->auctionPlayers()
+        /*
+         * The last few sales, projected — not every sale, hydrated.
+         *
+         * This shipped EVERY sold player with the whole Player model and the whole team on each
+         * one: measured at 870 KB of an 889 KB payload on a 465-player auction, fetched again on
+         * every reconcile, then merged and re-rendered by Alpine. The panel reads exactly four
+         * fields off exactly one of them — it looks up the player who just left the block to
+         * caption the SOLD overlay — so the rest was a full auction's data moved across the wire
+         * to answer a single lookup.
+         *
+         * A short window rather than one row: the lookup is by the player who WAS on the block,
+         * and the panel can miss a transition (a slept laptop, a dropped frame), in which case
+         * the most recent sale is not the one being asked about. Ten covers that; 465 was never
+         * covering anything the tenth did not.
+         */
+        $recentSales = $auction->auctionPlayers()
             ->where('status', 'sold')
-            ->with(['player', 'soldToTeam'])
+            ->with(['player:id,name,image_path', 'soldToTeam:id,name,team_logo'])
             ->orderBy('updated_at', 'desc')
-            ->get();
+            ->limit(self::RECENT_SALES_ON_PANEL)
+            ->get()
+            ->map(fn ($sale) => [
+                'id' => $sale->id,
+                'player_id' => $sale->player_id,
+                'final_price' => $sale->final_price,
+                'player' => $sale->player ? [
+                    'id' => $sale->player->id,
+                    'name' => $sale->player->name,
+                    'image_path' => $sale->player->image_path,
+                ] : null,
+                'sold_to_team' => $sale->soldToTeam ? [
+                    'id' => $sale->soldToTeam->id,
+                    'name' => $sale->soldToTeam->name,
+                    /*
+                     * Named `logo_url` because that is what the overlay binds to — and it has
+                     * never had one. ActualTeam has no $appends, so serialising the whole model
+                     * emitted real columns only: `logo_url` was always undefined, the x-if never
+                     * passed, and the winning team's crest has silently never appeared on the
+                     * SOLD card. The accessor is team_logo_url; this hands it over under the
+                     * name the template already asks for.
+                     */
+                    'logo_url' => $sale->soldToTeam->team_logo_url,
+                ] : null,
+            ])
+            ->values();
 
         $teams = $this->teamsWithPurse($auction, $currentPlayer);
 
         $stats = [
             'total_players' => $auction->auctionPlayers()->count(),
-            'sold_count' => $soldPlayers->count(),
+            // Counted in the database. This used to count a fully hydrated collection of every
+            // sale, which is why the collection existed at all.
+            'sold_count' => $auction->auctionPlayers()->where('status', 'sold')->count(),
             'unsold_count' => $auction->auctionPlayers()->where('status', 'unsold')->count(),
             'skipped_count' => $auction->auctionPlayers()->where('status', 'skipped')->count(),
             'waiting_count' => $availablePlayers->count(),
@@ -482,7 +532,7 @@ class AuctionOrganizerController extends Controller
             'available_players' => $this->projectAvailablePlayers($availablePlayers),
             // Trimmed for the same reason as the queue above — see projectBids().
             'current_player' => $this->withTrimmedBids($currentPlayer),
-            'sold_players' => $soldPlayers,
+            'sold_players' => $recentSales,
             'teams' => $teams,
             'stats' => $stats,
             'open_bid_mode' => $freshAuction->open_bid_mode,
