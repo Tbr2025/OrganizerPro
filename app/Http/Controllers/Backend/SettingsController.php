@@ -69,6 +69,19 @@ class SettingsController extends Controller
             );
         }
 
+        /*
+         * Ad code is Superadmin-only, whoever may edit settings.
+         *
+         * These fields are rendered unescaped on a public page, so writing them is the power to
+         * run script in every visitor's browser — a narrower thing than settings.edit. The
+         * on/off switch stays available to anyone; the HTML behind it does not.
+         */
+        if (! Auth::user()?->hasRole('Superadmin')) {
+            foreach (\App\Services\Blog\BlogSettings::HTML_FIELDS as $htmlField) {
+                unset($fields[$htmlField]);
+            }
+        }
+
         // Every posted key field goes, whichever provider it belongs to.
         foreach (array_keys($fields) as $field) {
             if (str_starts_with((string) $field, \App\Services\Blog\AiSettings::SECRET_FIELD_PREFIX)) {

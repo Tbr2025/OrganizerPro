@@ -33,6 +33,10 @@
                                     'title' => __('Integrations'),
                                     'view' => 'backend.pages.settings.integration-settings',
                                 ],
+                                'blog' => [
+                                    'title' => __('Blog'),
+                                    'view' => 'backend.pages.settings.blog-tab',
+                                ],
                             ];
 
                             if (auth()->user()->hasRole('Superadmin')) {

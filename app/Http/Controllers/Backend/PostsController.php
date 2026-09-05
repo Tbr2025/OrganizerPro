@@ -281,6 +281,8 @@ class PostsController extends Controller
             $post->published_at = now();
         }
 
+        $this->applyBlogDisplay($post, $request);
+
         $post = ld_apply_filters('before_post_update', $post, $request);
 
         $post->save();
@@ -294,6 +296,30 @@ class PostsController extends Controller
 
         return redirect()->route('admin.posts.edit', [$postType, $post->id])
             ->with('success', 'Post updated successfully');
+    }
+
+    /**
+     * Per-post blog layout and advertising, merged into the post's meta.
+     *
+     * Custom ad code is written unescaped onto a public page, so only a Superadmin may set it —
+     * the same gate the site-wide fields use. The layout choices are harmless and stay open to
+     * anyone who may edit the post.
+     */
+    private function applyBlogDisplay(Post $post, Request $request): void
+    {
+        $input = (array) $request->input('blog_display', []);
+
+        if (empty($input)) {
+            return;
+        }
+
+        if (! auth()->user()?->hasRole('Superadmin')) {
+            foreach (array_keys(\App\Services\Blog\BlogSettings::AD_SLOTS) as $slot) {
+                unset($input['ad_' . $slot]);
+            }
+        }
+
+        app(\App\Services\Blog\BlogSettings::class)->applyPostOverrides($post, $input);
     }
 
     /**

@@ -101,6 +101,59 @@
 
     <!-- Sidebar Area -->
     <div class="lg:col-span-1 space-y-6">
+        {{-- Per-post display, for blog posts only.
+
+             Every field defaults to "inherit", which is stored as ABSENCE rather than as the
+             word — a post that recorded "inherit" would be frozen against future changes to the
+             site-wide setting, which is the opposite of inheriting. --}}
+        @if((string) $postType === 'post')
+            @php
+                $blogSettings = app(\App\Services\Blog\BlogSettings::class);
+                $thisPost = $post ?? null;
+            @endphp
+            <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
+                <div class="px-4 py-3 sm:px-6 border-b border-gray-100 dark:border-gray-800">
+                    <h3 class="text-base font-medium text-gray-700 dark:text-white">{{ __('Page Layout') }}</h3>
+                </div>
+                <div class="p-3 space-y-3 sm:p-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{{ __('Sidebar') }}</label>
+                        <select name="blog_display[sidebar]" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <option value="inherit">{{ __('Use site default') }} ({{ __(\App\Services\Blog\BlogSettings::SIDEBAR_POSITIONS[$blogSettings->sidebarPosition()]) }})</option>
+                            @foreach(\App\Services\Blog\BlogSettings::SIDEBAR_POSITIONS as $value => $label)
+                                <option value="{{ $value }}" @selected($blogSettings->postMeta($thisPost, 'sidebar') === $value)>{{ __($label) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{{ __('Advertising') }}</label>
+                        <select name="blog_display[ads]" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-sm">
+                            <option value="inherit">{{ __('Use site default') }} ({{ $blogSettings->adsEnabled() ? __('on') : __('off') }})</option>
+                            <option value="on" @selected($blogSettings->postMeta($thisPost, 'ads') === 'on')>{{ __('Show on this post') }}</option>
+                            <option value="off" @selected($blogSettings->postMeta($thisPost, 'ads') === 'off')>{{ __('Hide on this post') }}</option>
+                        </select>
+                    </div>
+
+                    @if(auth()->user()?->hasRole('Superadmin'))
+                        <details class="pt-1">
+                            <summary class="text-xs font-medium text-gray-600 dark:text-gray-400 cursor-pointer">{{ __('Custom ad code for this post') }}</summary>
+                            <div class="mt-2 space-y-2">
+                                @foreach(\App\Services\Blog\BlogSettings::AD_SLOTS as $slot => $label)
+                                    <div>
+                                        <label class="block text-[11px] text-gray-500 mb-1">{{ __($label) }}</label>
+                                        <textarea name="blog_display[ad_{{ $slot }}]" rows="2" spellcheck="false"
+                                                  placeholder="{{ __('Blank uses the site-wide code') }}"
+                                                  class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs font-mono">{{ $blogSettings->postMeta($thisPost, 'ad_' . $slot) }}</textarea>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </details>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         <!-- Status and Visibility -->
         <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
             <div class="px-4 py-3 sm:px-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
