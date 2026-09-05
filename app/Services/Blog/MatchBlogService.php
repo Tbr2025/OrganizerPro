@@ -62,6 +62,20 @@ class MatchBlogService
             ]),
         ];
 
+        /*
+         * A generated report gets the match poster as its featured image.
+         *
+         * The blog index is a magazine grid, and a card with no picture falls back to a faint
+         * watermark — fine as a safety net, dull as the normal case when the app has already
+         * produced artwork for this exact match. Stored as a disk path; Post::featuredImageUrl()
+         * handles that shape as well as the full URL the upload form writes.
+         *
+         * Only ever filled in, never overwritten: an editor who chose their own image keeps it.
+         */
+        if (empty($post?->featured_image) && ! empty($match?->poster_image)) {
+            $attributes['featured_image'] = $match->poster_image;
+        }
+
         if ($post) {
             // An editor may have published it and fixed the wording; regenerating replaces the
             // body they asked to have replaced, but never silently unpublishes the page.

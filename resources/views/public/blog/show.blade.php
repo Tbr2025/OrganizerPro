@@ -4,7 +4,7 @@
 @section('meta_description', $post->excerpt ?: \Illuminate\Support\Str::limit(strip_tags($post->content), 155))
 @section('og_type', 'article')
 @if($post->featured_image)
-    @section('og_image', \Illuminate\Support\Facades\Storage::url($post->featured_image))
+    @section('og_image', $post->featuredImageUrl())
 @endif
 
 @section('content')
@@ -40,7 +40,7 @@
         </header>
 
         @if($post->featured_image)
-            <img src="{{ \Illuminate\Support\Facades\Storage::url($post->featured_image) }}" alt="{{ $post->title }}"
+            <img src="{{ $post->featuredImageUrl() }}" alt="{{ $post->title }}"
                  class="w-full rounded-2xl border rule mb-10">
         @endif
 

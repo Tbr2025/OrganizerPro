@@ -369,6 +369,32 @@ class MatchBlogGenerationTest extends TestCase
     }
 
     #[Test]
+    public function a_generated_post_takes_the_match_poster_as_its_featured_image(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->fakeOpenAi();
+        [$match, $superadmin] = $this->scenario();
+
+        Storage::disk('public')->put('posters/match.png', 'x');
+        $match->update(['poster_image' => 'posters/match.png']);
+
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        $post = Post::firstOrFail();
+        $this->assertSame('posters/match.png', $post->featured_image);
+        // Stored as a disk path; the accessor turns either shape into something a browser loads.
+        $this->assertStringContainsString('posters/match.png', $post->featuredImageUrl());
+
+        // An editor's own choice is never overwritten by a regenerate.
+        $post->update(['featured_image' => 'uploads/posts/chosen.png']);
+        $this->fakeOpenAi();
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        $this->assertSame('uploads/posts/chosen.png', $post->fresh()->featured_image);
+    }
+
+    #[Test]
     public function the_five_writing_styles_all_reach_the_prompt(): void
     {
         Storage::fake('local');

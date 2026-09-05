@@ -24,7 +24,7 @@ class BlogController extends Controller
             ->publiclyVisible()
             ->orderByDesc('published_at')
             ->orderByDesc('created_at')
-            ->paginate(12)
+            ->paginate(10)
             ->withQueryString();
 
         return view('public.blog.index', ['posts' => $posts]);

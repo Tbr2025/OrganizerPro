@@ -77,6 +77,29 @@ class Post extends Model
     }
 
     /**
+     * The featured image as something a browser can load.
+     *
+     * The column holds two shapes. The post form stores what storeImageAndGetUrl() returns,
+     * which is a full asset() URL; a generated match report stores a bare disk path. Wrapping
+     * either in Storage::url() blindly produced "/storage/https://…" and a broken picture, so
+     * the shape is detected rather than assumed.
+     */
+    public function featuredImageUrl(): ?string
+    {
+        $image = trim((string) $this->featured_image);
+
+        if ($image === '') {
+            return null;
+        }
+
+        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://') || str_starts_with($image, '/')) {
+            return $image;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($image);
+    }
+
+    /**
      * Where this post is actually served, or null when its type has no public route.
      *
      * The editor's permalink preview used to build url('/') . '/' . $slug, which is not a route
