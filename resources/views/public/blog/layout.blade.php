@@ -86,27 +86,24 @@
         :root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
         :root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
 
-        /* Swapping between two supplied variants. Only rendered when they actually differ. */
+        /* Exactly one of the two is visible at any time. */
         .site-logo-dark { display: none; }
         @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) .site-logo-lite:not(.invert-on-dark) { display: none; }
+            :root:not([data-theme="light"]) .site-logo-lite { display: none; }
             :root:not([data-theme="light"]) .site-logo-dark { display: block; }
-        }
-        :root[data-theme="dark"] .site-logo-lite:not(.invert-on-dark) { display: none; }
-        :root[data-theme="dark"] .site-logo-dark { display: block; }
-        :root[data-theme="light"] .site-logo-lite { display: block; }
-        :root[data-theme="light"] .site-logo-dark { display: none; }
-
-        /* brightness(0) flattens the artwork to black whatever colour it was, then invert(1)
-           makes it white — so any dark mark comes out legible, not just a pure-black one. */
-        @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) .invert-on-dark { filter: brightness(0) invert(1); }
             :root:not([data-theme="light"]) .thumb-fallback { filter: invert(1) hue-rotate(180deg); }
         }
-        :root[data-theme="dark"] .invert-on-dark { filter: brightness(0) invert(1); }
+        :root[data-theme="dark"] .site-logo-lite { display: none; }
+        :root[data-theme="dark"] .site-logo-dark { display: block; }
         :root[data-theme="dark"] .thumb-fallback { filter: invert(1) hue-rotate(180deg); }
-        :root[data-theme="light"] .invert-on-dark { filter: none; }
+        :root[data-theme="light"] .site-logo-lite { display: block; }
+        :root[data-theme="light"] .site-logo-dark { display: none; }
         :root[data-theme="light"] .thumb-fallback { filter: none; }
+
+        /* brightness(0) flattens the artwork to black whatever colour it was, then invert(1)
+           makes it white — so any dark mark comes out legible, not just a pure-black one.
+           Unconditional: this class is only ever put on the image shown in dark mode. */
+        .invert-on-dark { filter: brightness(0) invert(1); }
 
         /* Stand-in for a post with no featured image: the site mark, faint, on the page's own
            background — so a card without a picture still has the shape of one, instead of a
@@ -159,23 +156,25 @@
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
             @php
                 $logoLite = config('settings.site_logo_lite');
-                $logoDark = config('settings.site_logo_dark');
-
                 /*
-                 * On this install both settings point at the same file — a dark wordmark, which
-                 * is invisible on a dark header. When no genuinely different dark artwork has
-                 * been supplied, the light mark is flipped to white in CSS instead. That is
-                 * right for a monochrome wordmark and costs nothing; a site that uploads a real
-                 * dark logo gets it used untouched.
+                 * Which logo a dark background gets, and whether it must be flipped, is decided
+                 * by measuring the artwork — not by comparing the two configured paths. This
+                 * install's site_logo_dark is a differently-named but byte-identical copy of the
+                 * light one, so a name check concludes a dark variant exists and then renders a
+                 * black wordmark on a black header.
                  */
-                $hasDistinctDarkLogo = $logoDark && $logoDark !== $logoLite;
+                $darkLogo = $blogSettings->darkModeLogo();
+                $liteNeedsInvert = false;
             @endphp
             <a href="{{ route('public.blog.index') }}" class="flex items-center gap-2.5 min-w-0">
-                @if($logoLite)
-                    <img src="{{ $logoLite }}" alt="{{ config('app.name') }}"
-                         class="site-logo site-logo-lite h-7 w-auto object-contain @unless($hasDistinctDarkLogo) invert-on-dark @endunless">
-                    @if($hasDistinctDarkLogo)
-                        <img src="{{ $logoDark }}" alt="{{ config('app.name') }}" class="site-logo site-logo-dark h-7 w-auto object-contain">
+                @if($logoLite || $darkLogo)
+                    @if($logoLite)
+                        <img src="{{ $logoLite }}" alt="{{ config('app.name') }}"
+                             class="site-logo site-logo-lite h-7 w-auto object-contain">
+                    @endif
+                    @if($darkLogo)
+                        <img src="{{ $darkLogo['url'] }}" alt="{{ config('app.name') }}"
+                             class="site-logo site-logo-dark h-7 w-auto object-contain @if($darkLogo['invert']) invert-on-dark @endif">
                     @endif
                 @else
                     <span class="text-lg font-extrabold tracking-tight">{{ config('app.name') }}</span>

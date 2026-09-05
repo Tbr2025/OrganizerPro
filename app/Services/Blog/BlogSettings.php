@@ -175,6 +175,91 @@ class BlogSettings
         return is_array($blog) && isset($blog[$key]) ? (string) $blog[$key] : null;
     }
 
+    /**
+     * The logo to show on a dark background, and whether it has to be flipped to be seen.
+     *
+     * Comparing the two configured PATHS is not enough: this install has site_logo_dark pointing
+     * at a differently-named but byte-identical copy of the light one, so a name check happily
+     * concludes a dark variant exists and then renders a black wordmark on a black header.
+     *
+     * So the artwork itself is measured. If what would be shown is dark, it is inverted in CSS;
+     * if somebody has uploaded a genuinely light logo for dark mode, it is left alone.
+     *
+     * @return array{url: string, invert: bool}|null
+     */
+    public function darkModeLogo(): ?array
+    {
+        $lite = (string) (config('settings.site_logo_lite') ?: '');
+        $dark = (string) (config('settings.site_logo_dark') ?: '');
+        $chosen = $dark !== '' ? $dark : $lite;
+
+        if ($chosen === '') {
+            return null;
+        }
+
+        return ['url' => $chosen, 'invert' => $this->isDarkArtwork($chosen)];
+    }
+
+    /**
+     * Is this image mostly dark ink?
+     *
+     * Averaged over the visible pixels only — a wordmark is mostly transparent, and counting the
+     * empty space would call every logo "light". Cached against the file's mtime so a re-upload
+     * is picked up but the pixels are not walked on every request.
+     */
+    public function isDarkArtwork(string $publicPath): bool
+    {
+        $file = public_path(ltrim(parse_url($publicPath, PHP_URL_PATH) ?? '', '/'));
+
+        if (! is_file($file) || ! function_exists('imagecreatefromstring')) {
+            // Unknowable: assume dark ink, which is the overwhelmingly common case for a logo
+            // and the assumption that fails safe — a light mark inverted looks wrong, but a dark
+            // one left alone is invisible.
+            return true;
+        }
+
+        return (bool) cache()->remember(
+            'blog:logo-dark:' . md5($file . '|' . filemtime($file)),
+            now()->addDay(),
+            function () use ($file) {
+                $image = @imagecreatefromstring((string) file_get_contents($file));
+                if (! $image) {
+                    return true;
+                }
+
+                $width = imagesx($image);
+                $height = imagesy($image);
+                $stepX = max(1, (int) ($width / 40));
+                $stepY = max(1, (int) ($height / 40));
+
+                $total = 0.0;
+                $counted = 0;
+
+                for ($x = 0; $x < $width; $x += $stepX) {
+                    for ($y = 0; $y < $height; $y += $stepY) {
+                        $rgba = imagecolorat($image, $x, $y);
+                        $alpha = ($rgba >> 24) & 0x7F;
+
+                        // 127 is fully transparent; anything near it is not part of the mark.
+                        if ($alpha > 100) {
+                            continue;
+                        }
+
+                        $total += 0.2126 * (($rgba >> 16) & 0xFF)
+                            + 0.7152 * (($rgba >> 8) & 0xFF)
+                            + 0.0722 * ($rgba & 0xFF);
+                        $counted++;
+                    }
+                }
+
+                imagedestroy($image);
+
+                // No visible pixels at all says nothing; fail safe.
+                return $counted === 0 ? true : ($total / $counted) < 128;
+            }
+        );
+    }
+
     private function flag(string $name, bool $default): bool
     {
         $value = get_setting($name);

@@ -130,6 +130,89 @@ class BlogPresentationTest extends TestCase
     }
 
     #[Test]
+    public function a_dark_logo_is_inverted_for_dark_mode_and_a_light_one_is_left_alone(): void
+    {
+        $settings = app(BlogSettings::class);
+
+        /*
+         * The reason this is measured rather than inferred from the file names: this install's
+         * site_logo_dark is a differently-named but byte-identical copy of the light one, so a
+         * name check concludes a dark variant exists and then renders a black wordmark on a
+         * black header.
+         */
+        $dark = $this->writeLogo('dark-mark.png', 0, 0, 0);
+        $light = $this->writeLogo('light-mark.png', 255, 255, 255);
+
+        $this->assertTrue($settings->isDarkArtwork($dark), 'A black wordmark must be flipped to be seen on a dark header.');
+        $this->assertFalse($settings->isDarkArtwork($light), 'A logo already made for dark backgrounds must be left alone.');
+
+        // Missing artwork fails safe: a light mark inverted looks wrong, a dark one left alone
+        // is invisible, so the unknown case assumes dark ink.
+        $this->assertTrue($settings->isDarkArtwork('/images/logo/does-not-exist.png'));
+    }
+
+    #[Test]
+    public function the_header_flips_the_logo_only_when_the_artwork_needs_it(): void
+    {
+        $post = $this->makePost();
+
+        // Scoped to the <img>, not the document: the class name also appears in the <style>
+        // block that defines it, so asserting against the whole page always matches.
+        $darkLogoTag = function () use ($post) {
+            $html = $this->get('/blog/' . $post->slug)->assertOk()->getContent();
+            preg_match('#<img[^>]*site-logo-dark[^>]*>#', $html, $m);
+            $this->assertNotEmpty($m, 'No dark-mode logo was rendered.');
+
+            return $m[0];
+        };
+
+        config(['settings.site_logo_lite' => $this->writeLogo('lite.png', 10, 10, 10)]);
+        config(['settings.site_logo_dark' => null]);
+        $this->assertStringContainsString('invert-on-dark', $darkLogoTag());
+
+        config(['settings.site_logo_dark' => $this->writeLogo('proper-dark.png', 250, 250, 250)]);
+        $this->assertStringNotContainsString('invert-on-dark', $darkLogoTag());
+    }
+
+    /** @var array<int, string> Absolute paths written by writeLogo(), removed in tearDown. */
+    private array $writtenLogos = [];
+
+    /*
+     * These have to be real files under public/ — the detector reads pixels, so Storage::fake()
+     * cannot stand in for them. Cleaning up is therefore the test's own job; left behind they
+     * show up as untracked files in the repository.
+     */
+    protected function tearDown(): void
+    {
+        foreach ($this->writtenLogos as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+        $this->writtenLogos = [];
+
+        parent::tearDown();
+    }
+
+    /** A one-colour PNG under public/, returned as the root-relative path the settings hold. */
+    private function writeLogo(string $name, int $r, int $g, int $b): string
+    {
+        $dir = public_path('images/logo');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $image = imagecreatetruecolor(20, 20);
+        imagefill($image, 0, 0, imagecolorallocate($image, $r, $g, $b));
+        imagepng($image, $dir . '/' . $name);
+        imagedestroy($image);
+
+        $this->writtenLogos[] = $dir . '/' . $name;
+
+        return '/images/logo/' . $name;
+    }
+
+    #[Test]
     public function the_theme_toggle_is_present_and_applies_before_the_page_paints(): void
     {
         $post = $this->makePost();
