@@ -130,6 +130,33 @@ class BlogPresentationTest extends TestCase
     }
 
     #[Test]
+    public function the_theme_toggle_is_present_and_applies_before_the_page_paints(): void
+    {
+        $post = $this->makePost();
+        $html = $this->get('/blog/' . $post->slug)->assertOk()->getContent();
+
+        $this->assertStringContainsString('toggleBlogTheme()', $html);
+        $this->assertStringContainsString('theme-toggle', $html);
+
+        /*
+         * The stored choice has to be applied in <head>, before the body renders. Read after
+         * paint, the page shows the system theme and then corrects itself — a flash that is
+         * worse than having no toggle.
+         */
+        $head = substr($html, 0, strpos($html, '</head>'));
+        $this->assertStringContainsString("localStorage.getItem('blog-theme')", $head);
+        $this->assertStringContainsString("setAttribute('data-theme'", $head);
+
+        /*
+         * The dark tokens must exist under an explicit [data-theme="dark"] as well as under the
+         * media query, and the media query must be guarded — otherwise choosing LIGHT on a
+         * system set to dark changes nothing and the toggle only works one way.
+         */
+        $this->assertStringContainsString(':root[data-theme="dark"]', $html);
+        $this->assertStringContainsString(':root:not([data-theme="light"])', $html);
+    }
+
+    #[Test]
     public function a_draft_never_appears_in_the_sidebar(): void
     {
         $this->makePost(['slug' => 'secret', 'title' => 'Unreleased scoop', 'status' => 'draft', 'published_at' => null]);

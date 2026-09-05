@@ -30,19 +30,60 @@
         <meta property="og:image" content="@yield('og_image')">
     @endif
 
+    {{-- Applied before anything paints. Reading localStorage after the body renders means the
+         page flashes the system theme and then corrects itself, which is worse than not having
+         a toggle at all. --}}
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('blog-theme');
+                if (saved === 'dark' || saved === 'light') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {
+                // Private mode, or storage blocked. The system preference still applies.
+            }
+        })();
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
     <style>
+        /* Light is the base. The dark values are declared twice on purpose: once for readers
+           who have chosen nothing and whose system says dark, and once for readers who picked
+           dark here. The media query is guarded so an explicit LIGHT choice still wins on a
+           system set to dark — without that guard the toggle only works one way. */
         :root {
             --ink: #16141f; --paper: #ffffff; --muted: #5b6474; --rule: #e6e8ee;
             --accent: #e11d48; --soft: #f7f8fa;
+            color-scheme: light;
         }
         @media (prefers-color-scheme: dark) {
-            :root { --ink: #e8eaf0; --paper: #12101b; --muted: #98a1b3; --rule: rgba(255,255,255,.09);
-                    --soft: rgba(255,255,255,.035); }
+            :root:not([data-theme="light"]) {
+                --ink: #e8eaf0; --paper: #12101b; --muted: #98a1b3; --rule: rgba(255,255,255,.09);
+                --soft: rgba(255,255,255,.035);
+                color-scheme: dark;
+            }
         }
+        :root[data-theme="dark"] {
+            --ink: #e8eaf0; --paper: #12101b; --muted: #98a1b3; --rule: rgba(255,255,255,.09);
+            --soft: rgba(255,255,255,.035);
+            color-scheme: dark;
+        }
+
+        /* Only one of the two icons is ever shown, and which one is a pure CSS consequence of
+           the resolved theme — so it is right on first paint with no JavaScript involved. */
+        .theme-toggle .icon-moon { display: none; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: none; }
+            :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: block; }
+        }
+        :root[data-theme="dark"] .theme-toggle .icon-sun { display: none; }
+        :root[data-theme="dark"] .theme-toggle .icon-moon { display: block; }
+        :root[data-theme="light"] .theme-toggle .icon-sun { display: block; }
+        :root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
         body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; background: var(--paper); color: var(--ink); }
         a { color: inherit; }
 
@@ -84,7 +125,19 @@
             <a href="{{ route('public.blog.index') }}" class="text-lg font-extrabold tracking-tight">
                 {{ config('app.name') }}<span style="color: var(--accent)">.</span><span class="muted font-semibold"> Blog</span>
             </a>
-            <a href="{{ url('/') }}" class="text-sm muted hover:opacity-70 transition">{{ __('Home') }} &rarr;</a>
+            <div class="flex items-center gap-1">
+                <a href="{{ url('/') }}" class="text-sm muted hover:opacity-70 transition px-2">{{ __('Home') }} &rarr;</a>
+
+                <button type="button" onclick="toggleBlogTheme()" class="theme-toggle p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 transition"
+                        aria-label="{{ __('Switch between light and dark') }}" title="{{ __('Switch between light and dark') }}">
+                    <svg class="icon-sun w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+                    </svg>
+                    <svg class="icon-moon w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -137,5 +190,26 @@
             <a href="{{ route('public.blog.index') }}" class="hover:opacity-70">{{ __('All posts') }}</a>
         </div>
     </footer>
+    <script>
+        function toggleBlogTheme() {
+            var root = document.documentElement;
+            var current = root.getAttribute('data-theme');
+
+            // Nothing chosen yet: flip away from whatever the system is showing, so the first
+            // click always visibly changes something.
+            if (!current) {
+                current = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            }
+
+            var next = current === 'dark' ? 'light' : 'dark';
+            root.setAttribute('data-theme', next);
+
+            try {
+                localStorage.setItem('blog-theme', next);
+            } catch (e) {
+                // The choice still applies to this page; it just will not be remembered.
+            }
+        }
+    </script>
 </body>
 </html>
