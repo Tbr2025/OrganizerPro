@@ -6535,4 +6535,9 @@ function auctionOrganizerPanel() {
 {{-- Loaded after the component definition so window.auctionChannel exists before init()
      runs and calls subscribeToRaises(). --}}
 @include('backend.pages.auction.partials.echo-init')
+
+{{-- The way across to the Fast (Vue) panel. Both screens stay; this is the door between. --}}
+<x-auction.mode-switch :to="route('admin.auction.organizer.fast-panel', $auction->id)"
+                       label="Fast panel"
+                       title="Switch to the Fast (Vue) organizer panel" />
 @endsection

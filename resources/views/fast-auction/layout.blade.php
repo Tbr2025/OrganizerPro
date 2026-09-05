@@ -32,6 +32,10 @@
          does not have to fetch a CSRF token and then a snapshot before it can draw anything. --}}
     <script type="application/json" id="fast-auction-boot">@json($boot)</script>
 
+    {{-- The way back to the classic screen. Each Fast view fills this in, because only it
+         knows which classic page it is the counterpart of. --}}
+    @yield('switch')
+
     {{-- Reused verbatim: same-origin pusher-js and laravel-echo with a CDN fallback, config()
          rather than env() so `config:cache` cannot silently kill push, and the
          window.auctionChannel() helper the realtime module expects. --}}

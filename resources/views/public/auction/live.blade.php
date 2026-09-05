@@ -5902,6 +5902,10 @@ HTML;
         window.addEventListener('resize', fitCardText);
     </script>
 
+
+    <x-auction.mode-switch :to="route('public.auction.fast-wall', $auction->id)"
+                           label="Fast wall"
+                           title="Switch to the Fast (Vue) wall" />
 </body>
 
 </html>

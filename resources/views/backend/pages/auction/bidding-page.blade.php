@@ -970,6 +970,10 @@
         </div>
     </div>
 </div>
+
+<x-auction.mode-switch :to="route('team.auction.bidding.fast', $auction->id)"
+                       label="Fast screen"
+                       title="Switch to the Fast (Vue) bidding screen" />
 @endsection
 
 @push('scripts')
