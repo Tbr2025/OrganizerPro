@@ -163,7 +163,7 @@ class MatchBlogGenerationTest extends TestCase
         [$match, $superadmin] = $this->scenario();
 
         $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match), [
-            'tone' => 'exciting',
+            'tone' => 'fan',
             'length' => 'detailed',
             'instructions' => 'Lead on the last over.',
             'status' => 'publish',
@@ -171,8 +171,8 @@ class MatchBlogGenerationTest extends TestCase
 
         Http::assertSent(function ($request) {
             $prompt = collect($request['messages'])->firstWhere('role', 'user')['content'];
-            $this->assertStringContainsString('energetic fan-facing', $prompt);
-            $this->assertStringContainsString('800-1000 words', $prompt);
+            $this->assertStringContainsString('punchy fan-facing', $prompt);
+            $this->assertStringContainsString('900-1200 words', $prompt);
             $this->assertStringContainsString('Lead on the last over.', $prompt);
 
             return true;
@@ -366,6 +366,106 @@ class MatchBlogGenerationTest extends TestCase
         $summary = MatchReport::spendSummary();
         $this->assertSame(1, $summary['count']);
         $this->assertEqualsWithDelta(0.90, $summary['average'], 0.000001);
+    }
+
+    #[Test]
+    public function the_five_writing_styles_all_reach_the_prompt(): void
+    {
+        Storage::fake('local');
+        [$match, $superadmin] = $this->scenario();
+
+        // Every style the dropdown offers must have a brief behind it, or picking it silently
+        // falls back to the default and the organizer sees the same article every time.
+        $this->assertSame(
+            array_keys(BlogGenerationService::TONE_LABELS),
+            array_keys(BlogGenerationService::TONES),
+            'The dropdown and the briefs have drifted apart.'
+        );
+        $this->assertCount(5, BlogGenerationService::TONES);
+
+        foreach (BlogGenerationService::TONES as $tone => $brief) {
+            $this->fakeOpenAi();
+            $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match), ['tone' => $tone]);
+
+            Http::assertSent(function ($request) use ($brief) {
+                $prompt = collect($request['messages'])->firstWhere('role', 'user')['content'];
+
+                return str_contains($prompt, $brief);
+            });
+        }
+    }
+
+    #[Test]
+    public function the_article_is_told_to_run_first_innings_then_second(): void
+    {
+        Storage::fake('local');
+        $this->fakeOpenAi();
+        [$match, $superadmin] = $this->scenario();
+
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        Http::assertSent(function ($request) {
+            $system = collect($request['messages'])->firstWhere('role', 'system')['content'];
+
+            $this->assertStringContainsString('FIRST innings', $system);
+            $this->assertStringContainsString('never the other way round', $system);
+            $this->assertStringContainsString('AT LEAST TWO sentences', $system);
+            // The page prints the title as the h1, so the body must start at h2.
+            $this->assertStringContainsString('Do NOT use <h1>', $system);
+
+            return true;
+        });
+    }
+
+    #[Test]
+    public function an_image_placeholder_becomes_a_figure_and_an_invented_one_disappears(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        [$match, $superadmin] = $this->scenario();
+
+        Storage::disk('public')->put('posters/match.png', 'x');
+        $match->update(['poster_image' => 'posters/match.png']);
+
+        /*
+         * The model picks WHICH image and WHERE; it never writes a URL. Asked for an <img> tag
+         * directly it will invent a plausible path, and a broken image is worse than none — so a
+         * key that names nothing has to vanish rather than render.
+         */
+        $this->fakeOpenAi(['content' => '<p>Before.</p>[[image:match_poster]]<p>After.</p>[[image:not_a_real_key]]<p>End.</p>']);
+
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        $content = Post::firstOrFail()->content;
+        $this->assertStringContainsString('<figure><img src="', $content);
+        $this->assertStringContainsString('posters/match.png', $content);
+        $this->assertStringContainsString('<figcaption>', $content);
+        $this->assertStringNotContainsString('[[image:', $content, 'An unmatched placeholder must not be printed.');
+        $this->assertStringNotContainsString('not_a_real_key', $content);
+    }
+
+    #[Test]
+    public function the_prompt_lists_the_images_that_actually_exist(): void
+    {
+        Storage::fake('public');
+        Storage::fake('local');
+        $this->fakeOpenAi();
+        [$match, $superadmin] = $this->scenario();
+
+        Storage::disk('public')->put('posters/match.png', 'x');
+        // Recorded on the match but missing from disk: offering it would guarantee a broken image.
+        $match->update(['poster_image' => 'posters/match.png']);
+
+        $this->actingAs($superadmin)->post(route('admin.matches.report.generate', $match));
+
+        Http::assertSent(function ($request) {
+            $prompt = collect($request['messages'])->firstWhere('role', 'user')['content'];
+
+            $this->assertStringContainsString('[[image:match_poster]]', $prompt);
+            $this->assertStringNotContainsString('[[image:match_summary_poster]]', $prompt);
+
+            return true;
+        });
     }
 
     #[Test]

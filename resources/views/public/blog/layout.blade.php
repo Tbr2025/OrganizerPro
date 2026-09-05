@@ -33,7 +33,14 @@
         .article ol { list-style: decimal; }
         .article li { margin-bottom: .35rem; }
         .article strong { color: #fff; font-weight: 600; }
+        .article em { color: #cbd5e1; font-style: italic; }
         .article blockquote { border-left: 3px solid #ef4444; padding-left: 1rem; margin: 1.5rem 0; color: #94a3b8; font-style: italic; }
+        /* Figures are inserted by the generator after sanitising, so the markup here is fixed:
+           one <img> and one <figcaption>. A logo is far smaller than a poster, so the cap is on
+           height as well as width to stop a crest being blown up across the column. */
+        .article figure { margin: 1.75rem 0; text-align: center; }
+        .article figure img { max-width: 100%; max-height: 32rem; width: auto; height: auto; border-radius: .75rem; border: 1px solid rgba(255,255,255,.08); }
+        .article figcaption { margin-top: .5rem; font-size: .8rem; color: #94a3b8; }
     </style>
     @stack('styles')
 </head>

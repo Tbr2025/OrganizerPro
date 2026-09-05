@@ -117,10 +117,11 @@
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-1">Tone</label>
+                        {{-- Driven off the service so a new style is added in one place. --}}
                         <select name="tone" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-700 text-xs">
-                            <option value="report">Match report</option>
-                            <option value="exciting">Exciting</option>
-                            <option value="analytical">Analytical</option>
+                            @foreach(\App\Services\Blog\BlogGenerationService::TONE_LABELS as $toneKey => $toneLabel)
+                                <option value="{{ $toneKey }}">{{ $toneLabel }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div>

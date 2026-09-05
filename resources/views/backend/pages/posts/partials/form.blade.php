@@ -23,7 +23,11 @@
                     <div class="mt-2 flex items-center text-sm text-gray-500 dark:text-gray-300">
                         <span class="mr-1">{{ __('Permalink') }}:</span>
                         <span class="flex-1 truncate" x-show="!showSlugEdit">
-                            <span class="text-gray-400">{{ url('/') }}/</span><span
+                            {{-- The real public prefix, not url('/'): a blog post is served from
+                                 /blog/{slug}, and showing the bare root sent every "view" link
+                                 to a 404. A type with no public route says so instead. --}}
+                            @php $publicPrefix = \App\Models\Post::publicUrlPrefix((string) $postType); @endphp
+                            <span class="text-gray-400">{{ $publicPrefix ?? url('/') . '/' }}</span><span
                                 class="font-medium text-primary" x-text="slug || '{{ __('auto-generated') }}'"></span>
                         </span>
                         <div class="flex-1" x-show="showSlugEdit">

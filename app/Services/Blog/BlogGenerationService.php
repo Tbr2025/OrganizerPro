@@ -8,6 +8,7 @@ use App\Models\MatchReport;
 use App\Models\Matches;
 use App\Services\Poster\MatchStatsTableData;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -24,16 +25,28 @@ use Illuminate\Support\Facades\Log;
  */
 class BlogGenerationService
 {
+    /** Five distinct voices. The label is what the organizer picks; the value is the brief. */
     public const TONES = [
-        'report' => 'a straight match report, factual and neutral',
-        'exciting' => 'an energetic fan-facing write-up that builds drama around the turning points',
-        'analytical' => 'an analytical piece that explains why the result happened',
+        'report' => 'a classic newspaper match report: measured, factual, third person, no hyperbole',
+        'dramatic' => 'a dramatic narrative that follows the arc of the game, naming the turning points and the passages where it swung',
+        'analytical' => "an analyst's breakdown that explains WHY the result happened — match-ups, tempo, where the runs and wickets actually came from",
+        'fan' => 'a punchy fan-facing write-up: short paragraphs, direct address, energy, but never inventing drama that the scorecard does not support',
+        'statistical' => 'a numbers-led piece built around the standout figures, leaning on bullet lists for the key contributions',
+    ];
+
+    /** What the organizer sees in the dropdown, in the same order. */
+    public const TONE_LABELS = [
+        'report' => 'Match report — classic and factual',
+        'dramatic' => 'Dramatic — the story of the game',
+        'analytical' => 'Analytical — why it happened',
+        'fan' => 'Fan hype — punchy and energetic',
+        'statistical' => 'Statistical — numbers and lists',
     ];
 
     public const LENGTHS = [
-        'short' => '250-350 words, three or four short paragraphs',
-        'standard' => '450-600 words with a couple of sub-headings',
-        'detailed' => '800-1000 words with sub-headings for each innings and the key performers',
+        'short' => '300-400 words',
+        'standard' => '550-750 words',
+        'detailed' => '900-1200 words',
     ];
 
     public function __construct(private readonly AiSettings $settings) {}
@@ -173,7 +186,7 @@ class BlogGenerationService
         return [
             'title' => $this->cleanLine($decoded['title'] ?? $this->fallbackTitle($match)),
             'excerpt' => $this->cleanLine($decoded['excerpt'] ?? ''),
-            'content' => $this->sanitiseHtml((string) $decoded['content']),
+            'content' => $this->placeImages($this->sanitiseHtml((string) $decoded['content']), $this->imageCatalogue($match)),
             'model' => $model,
             'prompt_tokens' => $promptTokens,
             'completion_tokens' => $completionTokens,
@@ -260,16 +273,37 @@ class BlogGenerationService
 
     private function systemPrompt(): string
     {
-        return implode(' ', [
+        return implode("\n", [
             'You are a cricket journalist writing for a tournament website.',
-            'You will be given verified match facts from the tournament database and the raw text of a scorecard PDF.',
-            'The verified facts are authoritative: where the PDF text disagrees with them, or is unreadable, follow the facts.',
-            'Never invent a score, a name, a wicket or a statistic that does not appear in the material you are given.',
+            'You are given verified match facts from the tournament database and the raw text of a scorecard PDF.',
+            'The verified facts are authoritative: where the PDF disagrees with them, or is unreadable, follow the facts.',
+            'Never invent a score, a name, a wicket or a statistic that is not in the material you are given.',
             'If something is not in the material, leave it out rather than guessing.',
-            'Respond with a JSON object with exactly these keys: "title" (plain text, under 90 characters),',
-            '"excerpt" (plain text, one or two sentences, under 200 characters),',
-            'and "content" (the article as simple HTML using only <h2>, <h3>, <p>, <ul>, <li>, <strong> and <em> tags —',
-            'no <html>, <head>, <body>, <script>, <style> or inline styles, and no markdown).',
+            '',
+            'STRUCTURE — follow this order exactly:',
+            '1. A short scene-setting opening paragraph: the competition, the ground, the toss and the result in one breath.',
+            '2. A section for the FIRST innings, then a section for the SECOND innings, in the order they were played — never the other way round.',
+            '   In each innings section, cover the batting of the side at the crease and then the bowling that contained it.',
+            '3. A section for the award winners and standout performers.',
+            '4. A short closing paragraph.',
+            '',
+            'For every named player you single out — an award winner or a top performer — write AT LEAST TWO sentences',
+            'beyond simply restating their figures: what the innings or spell did to the game, when it came, what it changed.',
+            '',
+            'FORMATTING — this is published as a blog page, so it must read like one:',
+            'Use <h2> for each section and <h3> for a sub-point. Do NOT use <h1>; the page prints the title itself.',
+            'Use <p> for prose, <strong> for names and figures worth emphasis, <em> for asides and commentary,',
+            'and <ul>/<li> for lists of contributions or figures. Vary paragraph length; do not write one long block.',
+            'Return simple HTML only — no markdown, no inline styles, no attributes of any kind on the tags.',
+            '',
+            'IMAGES: you will be given a list of available images, each with a KEY.',
+            'Place an image by putting [[image:KEY]] alone on its own line where it should appear.',
+            'Use only keys from that list, use each at most once, and never write an <img> tag or a URL yourself.',
+            'Put the match poster near the top and a player image beside the section that discusses that player.',
+            '',
+            'Respond with a JSON object with exactly these keys:',
+            '"title" (plain text, under 90 characters), "excerpt" (plain text, one or two sentences, under 200 characters),',
+            'and "content" (the article as the HTML described above).',
         ]);
     }
 
@@ -283,6 +317,17 @@ class BlogGenerationService
         $sections[] = $text !== ''
             ? "SCORECARD PDF TEXT (may be column-mangled; use for detail, defer to the facts above):\n" . $text
             : 'SCORECARD PDF TEXT: none could be read from the upload. Write from the verified facts alone.';
+
+        $images = $this->imageCatalogue($match);
+        if ($images) {
+            $lines = [];
+            foreach ($images as $key => $image) {
+                $lines[] = "- [[image:{$key}]] — {$image['caption']}";
+            }
+            $sections[] = "AVAILABLE IMAGES (place with [[image:KEY]] alone on its own line):\n" . implode("\n", $lines);
+        } else {
+            $sections[] = 'AVAILABLE IMAGES: none. Do not place any image placeholders.';
+        }
 
         $sections[] = "STYLE: Write {$tone}. Length: {$length}.";
 
@@ -356,6 +401,92 @@ class BlogGenerationService
         }
 
         return $lines ? implode("\n", $lines) : '- No structured data is recorded for this match.';
+    }
+
+    /**
+     * The pictures this match can offer, keyed for the model to reference.
+     *
+     * The model chooses WHICH image and WHERE; it never writes a URL. That is the whole point of
+     * the [[image:KEY]] indirection — asked for an <img> tag directly a model will happily invent
+     * a plausible path, and a broken image is worse than no image.
+     *
+     * @return array<string, array{url: string, caption: string, alt: string}>
+     */
+    private function imageCatalogue(Matches $match): array
+    {
+        $match->loadMissing(['teamA', 'teamB', 'matchAwards.player', 'matchAwards.tournamentAward', 'summary']);
+
+        $images = [];
+        $add = function (string $key, ?string $path, string $caption, ?string $alt = null) use (&$images) {
+            $path = trim((string) $path);
+            if ($path === '' || ! Storage::disk('public')->exists($path)) {
+                return;
+            }
+            $images[$key] = [
+                'url' => Storage::disk('public')->url($path),
+                'caption' => $caption,
+                'alt' => $alt ?? $caption,
+            ];
+        };
+
+        $add('match_poster', $match->poster_image, trim(($match->teamA?->name ?? '') . ' v ' . ($match->teamB?->name ?? '')));
+        $add('match_summary_poster', $match->summary?->summary_poster, 'Match summary');
+
+        foreach ($match->matchAwards as $award) {
+            $slug = $award->tournamentAward?->slug;
+            $player = $award->player?->name ?? $award->custom_player_name;
+
+            if (! $slug || ! $player) {
+                continue;
+            }
+
+            $label = ucwords(str_replace('-', ' ', $slug));
+            $key = 'award_' . str_replace('-', '_', $slug);
+
+            // The award poster is the better picture when one has been generated; the player's
+            // own photo is the fallback, so the section is never left without a face.
+            $add($key . '_poster', $award->poster_image, $player . ' — ' . $label);
+            $add($key, $award->custom_player_image ?: $award->player?->image_path, $player . ' — ' . $label, $player);
+        }
+
+        $add('team_a_logo', $match->teamA?->team_logo, (string) $match->teamA?->name);
+        $add('team_b_logo', $match->teamB?->team_logo, (string) $match->teamB?->name);
+
+        return $images;
+    }
+
+    /**
+     * Turn [[image:KEY]] into a figure, and drop the ones that name nothing.
+     *
+     * Runs AFTER sanitising, which strips every attribute — so the src and alt here are ours and
+     * cannot have come from the model.
+     *
+     * @param  array<string, array{url: string, caption: string, alt: string}>  $images
+     */
+    private function placeImages(string $html, array $images): string
+    {
+        $used = [];
+
+        $html = preg_replace_callback('/\[\[image:\s*([a-z0-9_]+)\s*\]\]/i', function ($m) use ($images, &$used) {
+            $key = strtolower($m[1]);
+
+            // A key it invented, or one it has already used, simply disappears.
+            if (! isset($images[$key]) || isset($used[$key])) {
+                return '';
+            }
+            $used[$key] = true;
+            $image = $images[$key];
+
+            return sprintf(
+                '<figure><img src="%s" alt="%s"><figcaption>%s</figcaption></figure>',
+                e($image['url']),
+                e($image['alt']),
+                e($image['caption'])
+            );
+        }, $html);
+
+        // A placeholder that sat alone in a paragraph leaves an empty one behind.
+        return preg_replace('#<p>\s*</p>#i', '', $html);
     }
 
     private function fallbackTitle(Matches $match): string

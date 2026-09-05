@@ -56,6 +56,27 @@ class Post extends Model
     }
 
     /**
+     * Where this post is actually served, or null when its type has no public route.
+     *
+     * The editor's permalink preview used to build url('/') . '/' . $slug, which is not a route
+     * this app answers — every "view" link from the admin 404'd. Blog posts live under /blog.
+     */
+    public function publicUrl(): ?string
+    {
+        if ($this->post_type !== 'post' || ! $this->slug) {
+            return null;
+        }
+
+        return route('public.blog.show', $this->slug);
+    }
+
+    /** The prefix the permalink preview shows while a slug is being typed. */
+    public static function publicUrlPrefix(string $postType): ?string
+    {
+        return $postType === 'post' ? rtrim(route('public.blog.index'), '/') . '/' : null;
+    }
+
+    /**
      * Get the user that owns the post.
      */
     public function user(): BelongsTo
