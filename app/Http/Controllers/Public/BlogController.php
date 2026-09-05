@@ -21,8 +21,7 @@ class BlogController extends Controller
     {
         $posts = Post::query()
             ->where('post_type', 'post')
-            ->where('status', 'publish')
-            ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+            ->publiclyVisible()
             ->orderByDesc('published_at')
             ->orderByDesc('created_at')
             ->paginate(12)
@@ -36,8 +35,7 @@ class BlogController extends Controller
         $post = Post::query()
             ->where('post_type', 'post')
             ->where('slug', $slug)
-            ->where('status', 'publish')
-            ->where(fn ($q) => $q->whereNull('published_at')->orWhere('published_at', '<=', now()))
+            ->publiclyVisible()
             ->firstOrFail();
 
         return view('public.blog.show', ['post' => $post]);

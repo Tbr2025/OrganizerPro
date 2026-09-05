@@ -56,6 +56,27 @@ class Post extends Model
     }
 
     /**
+     * Posts the public may see.
+     *
+     * `publish` is the obvious case. `future` is the trap: the editor offers "Scheduled", which
+     * stores status=future with a published_at — and NOTHING in this app ever turns that back
+     * into `publish`. There is no command for it and no crontab on the server, so a scheduled
+     * post would stay invisible for ever, long after its time had come and gone.
+     *
+     * So the date decides, not the word: due means live. A future date still waits.
+     */
+    public function scopePubliclyVisible(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('status', ['publish', 'future'])
+            ->where(function (Builder $q) {
+                $q->whereNull('published_at')->orWhere('published_at', '<=', now());
+            })
+            // A row still marked `future` with no date has never actually been scheduled.
+            ->where(fn (Builder $q) => $q->where('status', 'publish')->orWhereNotNull('published_at'));
+    }
+
+    /**
      * Where this post is actually served, or null when its type has no public route.
      *
      * The editor's permalink preview used to build url('/') . '/' . $slug, which is not a route

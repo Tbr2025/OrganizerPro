@@ -103,8 +103,21 @@
     <div class="lg:col-span-1 space-y-6">
         <!-- Status and Visibility -->
         <div class="rounded-md border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
-            <div class="px-4 py-3 sm:px-6 border-b border-gray-100 dark:border-gray-800">
+            <div class="px-4 py-3 sm:px-6 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-2">
                 <h3 class="text-base font-medium text-gray-700 dark:text-white">{{ __('Status & Visibility') }}</h3>
+
+                {{-- Straight to the page a reader sees. Only offered once the post exists and its
+                     type has a public route, and it says when the page is not live yet rather
+                     than handing over a link that 404s. --}}
+                @if(isset($post) && $post->publicUrl())
+                    @php $isLive = \App\Models\Post::query()->whereKey($post->getKey())->publiclyVisible()->exists(); @endphp
+                    <a href="{{ $post->publicUrl() }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg
+                              {{ $isLive ? 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400' }}">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        {{ $isLive ? __('View public page') : __('Preview — not live yet') }}
+                    </a>
+                @endif
             </div>
             <div class="p-3 space-y-2 sm:p-4">
                 <!-- Status with Combobox -->

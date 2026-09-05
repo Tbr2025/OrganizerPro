@@ -59,7 +59,31 @@ class PublicBlogTest extends TestCase
     #[Test]
     public function a_post_dated_in_the_future_waits(): void
     {
-        $post = $this->makePost(['published_at' => now()->addWeek()]);
+        $post = $this->makePost(['status' => 'future', 'published_at' => now()->addWeek()]);
+
+        $this->get('/blog/' . $post->slug)->assertNotFound();
+        $this->get('/blog')->assertOk()->assertDontSee('Blake blitz');
+    }
+
+    #[Test]
+    public function a_scheduled_post_whose_time_has_come_is_live(): void
+    {
+        /*
+         * The editor's "Scheduled" option stores status=future with a date, and NOTHING in this
+         * app ever turns that back into `publish` — there is no command for it and no crontab on
+         * the server. Gating on the word alone left a scheduled post invisible for ever, which is
+         * exactly what 404'd a generated match report whose time had already passed.
+         */
+        $post = $this->makePost(['status' => 'future', 'published_at' => now()->subHour()]);
+
+        $this->get('/blog/' . $post->slug)->assertOk()->assertSee('Blake blitz');
+        $this->get('/blog')->assertOk()->assertSee('Blake blitz');
+    }
+
+    #[Test]
+    public function a_future_row_with_no_date_was_never_really_scheduled(): void
+    {
+        $post = $this->makePost(['status' => 'future', 'published_at' => null]);
 
         $this->get('/blog/' . $post->slug)->assertNotFound();
     }
