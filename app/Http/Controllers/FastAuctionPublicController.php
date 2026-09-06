@@ -129,6 +129,17 @@ class FastAuctionPublicController extends Controller
             'background' => $template
                 ? $template->background_url
                 : ($auction->background_image_url ?? asset('images/player-card.jpeg')),
+            /*
+             * The waiting screen's OWN artwork, which is not the card's.
+             *
+             * The card background carries the card's furniture — a name plate, a price strip,
+             * panels laid out to frame a player. With nobody on the block this wall drew that
+             * same picture and printed the stage caption over the top of it, so a hall saw an
+             * empty name plate under "AUCTION IS LIVE" and read the screen as stuck. The
+             * classic wall never does this: its waiting screen is a separate full-screen layer
+             * with the auction's own waiting artwork behind it.
+             */
+            'waitingBackground' => $auction->waiting_background_image_url,
             'soldBadge' => $template?->sold_badge_url,
             // The unsold stamp was missing, so an unsold lot on this wall could never wear the
             // artwork the organizer uploaded for it — only the built-in fallback.

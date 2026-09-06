@@ -283,12 +283,57 @@ function fit() {
     scale.value = Math.min(window.innerWidth / cw.value, window.innerHeight / ch.value);
 }
 
+/*
+ * The waiting screen — a screen, not a caption.
+ *
+ * Its own artwork, the auction's rather than the template's, falling back to a dark gradient the
+ * way the classic wall's does. Everything on it comes from the server: the stage decides the
+ * words, `progress` decides the rail, so the wall cannot show a state the auction is not in.
+ */
+const waitingArt = computed(() => design.value.waitingBackground || null);
+const progress = computed(() => active.value?.progress ?? {});
+
+/* The chip names the pool being played. A pool that has just ENDED is already named in the
+   heading, and showing it again underneath as the running pool would contradict it. */
+const poolChip = computed(() => (stage.value?.key === 'pool_complete' ? null : progress.value.pool_name || null));
+
+/** Meaningless before anybody has been through the block, so it is not drawn until then. */
+const rail = computed(() => {
+    const total = Number(progress.value.total || 0);
+    const done = Number(progress.value.done || 0);
+    const waiting = Number(progress.value.waiting || 0);
+
+    if (!total || !done) return null;
+
+    return {
+        pct: Math.min(100, (done / total) * 100).toFixed(1) + '%',
+        // Named, because "3 of 17" means nothing to anyone who has not seen the pools screen —
+        // and a pool is how a hall follows an evening.
+        text: `${progress.value.pool_name ? progress.value.pool_name + ' · ' : ''}${done} of ${total} done · ${waiting} to go`,
+    };
+});
+
+/* The auction's own waiting artwork, or the classic wall's dark gradient when it has none. */
+const waitingStyle = computed(() => (waitingArt.value
+    ? { backgroundImage: `url("${waitingArt.value}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { background: 'linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%)' }));
+
 const canvasStyle = computed(() => ({
     width: `${cw.value}px`,
     height: `${ch.value}px`,
     transform: `scale(${scale.value})`,
     transformOrigin: 'center center',
-    backgroundImage: design.value.background ? `url("${design.value.background}")` : 'none',
+    /*
+     * ONLY while there is a card to frame.
+     *
+     * This artwork is the card's furniture — a name plate, a price strip, panels drawn to hold a
+     * player. With nobody on the block it was still painted and the stage caption printed over
+     * the top, so a hall saw an empty name plate under "AUCTION IS LIVE" and read the wall as
+     * stuck on a picture. The classic wall puts this background on `.card-container` and hides
+     * the whole thing the moment there is no player, which is what makes its waiting screen a
+     * screen rather than a caption.
+     */
+    backgroundImage: (onBlock.value && design.value.background) ? `url("${design.value.background}")` : 'none',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     // Crossfade when the organizer changes the design, rather than a hard cut on a screen the
@@ -433,8 +478,9 @@ onUnmounted(() => {
             </a>
         </div>
 
+        <template v-else>
         <!-- The template's canvas, at its own pixel size, scaled to fit. -->
-        <div v-else class="relative shrink-0" :style="canvasStyle">
+        <div class="relative shrink-0" :style="canvasStyle">
             <!-- The whole card fades and lifts in when a new lot goes up, so the room sees a
                  change of player rather than fields quietly swapping values. -->
             <template v-if="onBlock">
@@ -596,26 +642,6 @@ onUnmounted(() => {
             </template>
 
             <!--
-                Loading the next player.
-
-                The gap between one lot leaving and the next arriving is a beat the room reads
-                as "something is coming". Without it the card simply swaps face mid-blink and
-                the change reads as a glitch.
-            -->
-            <div v-else-if="loadingNext" class="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <div class="loader-mark"></div>
-                <p class="mt-6 text-3xl font-bold tracking-wide">Loading next player</p>
-                <div class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-            </div>
-
-            <!-- Nobody on the block and nothing just settled: the stage heading the server
-                 already computes. -->
-            <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <p class="text-6xl font-black stage-in">{{ stage?.heading ?? 'PLEASE WAIT' }}</p>
-                <p v-if="stage?.subline" class="mt-4 text-3xl text-white/50 stage-in">{{ stage.subline }}</p>
-            </div>
-
-            <!--
                 The outcome, across the top.
 
                 Outside the card guard deliberately — this is the thing a hall looks up at, and
@@ -647,6 +673,46 @@ onUnmounted(() => {
                 sold list, and the sold board has its own template type and its own screen.
             -->
         </div>
+
+        <!--
+            Loading the next player.
+
+            The gap between one lot leaving and the next arriving is a beat the room reads as
+            "something is coming". Without it the card swaps face mid-blink and the change reads
+            as a glitch. Full-screen, because the previous player goes down as this goes up.
+        -->
+        <div v-if="loadingNext" class="screen-layer" :style="waitingStyle">
+            <div class="loader-mark"></div>
+            <p class="mt-6 text-3xl font-bold tracking-wide">Loading next player</p>
+            <div class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+
+        <!--
+            Nobody on the block: the waiting SCREEN.
+
+            Not a caption over the card artwork — that artwork frames a player, and printing
+            "AUCTION IS LIVE" across an empty name plate is what made this wall read as a frozen
+            picture. Its own background, the auction's rather than the template's, and the words
+            come from the server so the wall cannot claim a state the auction is not in.
+        -->
+        <div v-else-if="!onBlock" class="screen-layer" :style="waitingStyle">
+            <div v-if="poolChip" class="pool-chip">
+                <span class="pool-dot"></span>
+                <span>{{ poolChip }}</span>
+                <span class="pool-sub">Now in play</span>
+            </div>
+
+            <h1 class="waiting-title">{{ stage?.heading ?? 'PLEASE WAIT' }}</h1>
+            <p class="waiting-sub">{{ stage?.subline || boot.auctionName }}</p>
+
+            <div v-if="rail" class="waiting-rail">
+                <div class="waiting-rail-track">
+                    <div class="waiting-rail-fill" :style="{ width: rail.pct }"></div>
+                </div>
+                <p class="waiting-rail-text">{{ rail.text }}</p>
+            </div>
+        </div>
+        </template>
     </div>
 </template>
 
@@ -718,6 +784,78 @@ onUnmounted(() => {
     100% { opacity: 0; transform: translate(-50%, -1vh); }
 }
 
+/*
+ * A full-screen layer, above the canvas.
+ *
+ * Fixed rather than absolute, so it covers the letterboxing a template of a different aspect
+ * leaves down the sides — the classic wall's waiting screen is fixed for the same reason.
+ */
+.screen-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: #fff;
+    overflow: hidden;
+}
+
+.waiting-title {
+    font-size: 9vh;
+    font-weight: 900;
+    letter-spacing: .02em;
+    text-shadow: 0 0 4vh rgba(255, 255, 255, .28);
+    animation: waiting-pulse 2s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+    0%, 100% { opacity: .62; transform: scale(1); }
+    50%      { opacity: 1; transform: scale(1.02); }
+}
+
+.waiting-sub { margin-top: 1.6vh; font-size: 3.4vh; color: rgba(226, 232, 240, .72); }
+
+/* "Pool A is selected" — a hall follows an evening by its pools. */
+.pool-chip {
+    display: flex;
+    align-items: center;
+    gap: 1.2vh;
+    margin-bottom: 2.6vh;
+    padding: 1vh 2.4vh;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(2, 6, 23, .55);
+    font-size: 2.4vh;
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+.pool-dot {
+    width: 1.2vh; height: 1.2vh;
+    border-radius: 9999px;
+    background: #22c55e;
+    box-shadow: 0 0 1.6vh rgba(34, 197, 94, .8);
+    animation: waiting-pulse 1.6s ease-in-out infinite;
+}
+.pool-sub { font-size: 1.5vh; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .55; }
+
+.waiting-rail { margin-top: 3.4vh; width: min(760px, 62vw); }
+.waiting-rail-track {
+    height: 1.4vh;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, .12);
+    overflow: hidden;
+}
+.waiting-rail-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    transition: width .5s ease;
+}
+.waiting-rail-text { margin-top: 1.4vh; font-size: 2vh; font-weight: 700; color: rgba(226, 232, 240, .62); }
+
 /* "Loading next player" — a mark that turns and three dots that do not cost a frame. */
 .loader-mark {
     width: 9vh; height: 9vh;
@@ -743,9 +881,6 @@ onUnmounted(() => {
     0%, 100% { opacity: .25; transform: scale(.8); }
     50%      { opacity: 1; transform: scale(1); }
 }
-
-.stage-in { animation: stage-fade .4s ease both; }
-@keyframes stage-fade { from { opacity: 0; transform: translateY(1.5vh); } to { opacity: 1; transform: none; } }
 
 /* Confetti. Fixed count, positioned once, so there is no per-frame work in JavaScript. */
 .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
@@ -779,7 +914,8 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
     .badge-in,
     .result-banner,
-    .stage-in { animation: none; opacity: 1; }
+    .waiting-title,
+    .pool-dot { animation: none; opacity: 1; }
     .result-banner { transform: translateX(-50%); }
     .loader-mark { animation-duration: 2.4s; }
     .loader-dots span { animation: none; opacity: .6; }
