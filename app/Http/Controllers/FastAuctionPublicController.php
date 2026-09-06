@@ -140,6 +140,15 @@ class FastAuctionPublicController extends Controller
              * with the auction's own waiting artwork behind it.
              */
             'waitingBackground' => $auction->waiting_background_image_url,
+            /*
+             * The auction's colours, for the parts of this wall the template does not own.
+             *
+             * The waiting screen is the auction's, not the card template's — the gavel's flash
+             * and its bench are brand-tinted on the classic wall, and without these the fast one
+             * had no colour at all to tint them with.
+             */
+            'primaryColor' => $auction->primary_color ?? '#00bcd4',
+            'secondaryColor' => $auction->secondary_color ?? '#22c55e',
             'soldBadge' => $template?->sold_badge_url,
             // The unsold stamp was missing, so an unsold lot on this wall could never wear the
             // artwork the organizer uploaded for it — only the built-in fallback.

@@ -313,10 +313,26 @@ const rail = computed(() => {
     };
 });
 
-/* The auction's own waiting artwork, or the classic wall's dark gradient when it has none. */
-const waitingStyle = computed(() => (waitingArt.value
-    ? { backgroundImage: `url("${waitingArt.value}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
-    : { background: 'linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%)' }));
+/** The auction's brand colour as an `r, g, b` triple, for the rgba() the gavel is tinted with. */
+function rgbOf(hex, fallback) {
+    const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(String(hex ?? ''));
+
+    return m ? `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}` : fallback;
+}
+
+/*
+ * The auction's own waiting artwork, or the classic wall's dark gradient when it has none.
+ *
+ * The brand colour rides along as a custom property rather than being bound to each element:
+ * the gavel's flash, its bench and the pool chip's dot all want it, and a wall that has to be
+ * re-plumbed to change one colour is a wall nobody changes.
+ */
+const waitingStyle = computed(() => ({
+    '--brand': rgbOf(design.value.primaryColor, '0, 188, 212'),
+    ...(waitingArt.value
+        ? { backgroundImage: `url("${waitingArt.value}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : { background: 'linear-gradient(135deg,#0a0a0a 0%,#1a1a2e 50%,#0a0a0a 100%)' }),
+}));
 
 const canvasStyle = computed(() => ({
     width: `${cw.value}px`,
@@ -696,6 +712,37 @@ onUnmounted(() => {
             come from the server so the wall cannot claim a state the auction is not in.
         -->
         <div v-else-if="!onBlock" class="screen-layer" :style="waitingStyle">
+            <!--
+                The gavel, striking.
+
+                Without it this screen is a heading on a dark rectangle, and a hall looking at a
+                dark rectangle assumes the feed has dropped. The classic wall has had this since
+                the beginning; it is the difference between "waiting" and "broken". Flat fills
+                and no `url(#id)` paint servers — a gradient in a subtree that is display:none
+                does not reliably resolve, which is how the classic wall's second copy of this
+                lost its head entirely.
+            -->
+            <div class="gavel-stage" aria-hidden="true">
+                <div class="gavel-base"></div>
+                <div class="gavel-block"></div>
+                <div class="gavel-flash"></div>
+
+                <svg class="auction-gavel" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <g transform="rotate(-38 16 92)">
+                        <rect x="12" y="85" width="80" height="14" rx="7" fill="#8d571f"/>
+                        <rect x="12" y="86.5" width="80" height="3" rx="1.5" fill="#b07c3c"/>
+                        <rect x="12" y="85" width="14" height="14" rx="7" fill="#4a2709"/>
+                    </g>
+                    <g transform="rotate(52 78 44)">
+                        <rect x="55" y="28" width="46" height="32" rx="8" fill="#a9682f"/>
+                        <rect x="55" y="29" width="46" height="8" rx="4" fill="#c98d4d"/>
+                        <rect x="55" y="52" width="46" height="8" rx="4" fill="#7d4718"/>
+                        <rect x="53" y="26" width="7" height="36" rx="3.5" fill="#4a2709"/>
+                        <rect x="96" y="26" width="7" height="36" rx="3.5" fill="#4a2709"/>
+                    </g>
+                </svg>
+            </div>
+
             <div v-if="poolChip" class="pool-chip">
                 <span class="pool-dot"></span>
                 <span>{{ poolChip }}</span>
@@ -803,6 +850,85 @@ onUnmounted(() => {
     overflow: hidden;
 }
 
+/*
+ * The gavel. Proportions are the classic wall's, in vh rather than px: that one is laid out for
+ * a 1080p hall screen at fixed pixel sizes, and the same figures on a laptop leave the gavel
+ * hanging off its own block.
+ */
+.gavel-stage { position: relative; width: 74vh; height: 40vh; margin-bottom: 1.2vh; }
+
+/* Pivots at the butt of the handle, where a hand would hold it. */
+.auction-gavel {
+    position: absolute; left: 11.8vh; top: -2.4vh;
+    width: 32vh; height: 32vh;
+    transform-origin: 13% 78%;
+    animation: gavel-strike 1.7s cubic-bezier(.4, 0, .7, 1) infinite;
+    filter: drop-shadow(0 1.4vh 3vh rgba(0, 0, 0, .6));
+}
+
+/* Raised, a beat of wind-up, down onto the block, one rebound, and back up. Contact is at 48% —
+   the flash and the block's recoil are on the same clock. */
+@keyframes gavel-strike {
+    0%   { transform: rotate(0deg); }
+    26%  { transform: rotate(-9deg); }
+    48%  { transform: rotate(45deg); }
+    57%  { transform: rotate(31deg); }
+    68%  { transform: rotate(42deg); }
+    88%  { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+}
+
+/* The sound block, where the head arrives. */
+.gavel-block {
+    position: absolute; left: 28vh; top: 26.2vh;
+    width: 18vh; height: 3.4vh; border-radius: .8vh;
+    background: linear-gradient(180deg, #b4763c 0%, #8b5220 45%, #5c3211 100%);
+    box-shadow: 0 1.2vh 2.6vh rgba(0, 0, 0, .55), inset 0 .2vh 0 rgba(255, 255, 255, .22);
+    animation: gavel-hit 1.7s ease-out infinite;
+}
+.gavel-block::after {
+    content: ''; position: absolute; left: 8%; right: 8%; bottom: -.9vh; height: .9vh;
+    border-radius: 0 0 .6vh .6vh;
+    background: linear-gradient(180deg, #4a2709, #2f1805);
+}
+
+@keyframes gavel-hit {
+    0%, 44%   { transform: translateY(0) scaleY(1); }
+    50%       { transform: translateY(.3vh) scaleY(.9); }
+    60%, 100% { transform: translateY(0) scaleY(1); }
+}
+
+/* Flash at the moment of contact, in the auction's own colour. */
+.gavel-flash {
+    position: absolute; left: 37vh; top: 25vh;
+    width: 26vh; height: 26vh; margin: -13vh 0 0 -13vh;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, .9) 0%, rgba(var(--brand), .5) 40%, transparent 70%);
+    opacity: 0; pointer-events: none;
+    animation: gavel-flash 1.7s linear infinite;
+}
+
+@keyframes gavel-flash {
+    0%, 44% { opacity: 0; transform: scale(.4); }
+    50%     { opacity: 1; transform: scale(1.2); }
+    62%     { opacity: 0; transform: scale(1.7); }
+    100%    { opacity: 0; transform: scale(1.7); }
+}
+
+/* The bench it all stands on — a thin brand-tinted line. */
+.gavel-base {
+    position: absolute; left: 50%; bottom: 4.2vh;
+    width: 42vh; height: .4vh; margin-left: -21vh;
+    background: linear-gradient(90deg, transparent, rgba(var(--brand), .75), transparent);
+    border-radius: .2vh;
+}
+.gavel-base::after {
+    content: ''; position: absolute; left: 50%; top: -.1vh;
+    width: 9vh; height: .5vh; margin-left: -4.5vh; border-radius: .3vh;
+    background: rgba(var(--brand), .9);
+    box-shadow: 0 0 2.2vh rgba(var(--brand), .8);
+}
+
 .waiting-title {
     font-size: 9vh;
     font-weight: 900;
@@ -835,8 +961,8 @@ onUnmounted(() => {
 .pool-dot {
     width: 1.2vh; height: 1.2vh;
     border-radius: 9999px;
-    background: #22c55e;
-    box-shadow: 0 0 1.6vh rgba(34, 197, 94, .8);
+    background: rgb(var(--brand));
+    box-shadow: 0 0 1.6vh rgba(var(--brand), .8);
     animation: waiting-pulse 1.6s ease-in-out infinite;
 }
 .pool-sub { font-size: 1.5vh; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .55; }
@@ -916,6 +1042,8 @@ onUnmounted(() => {
     .result-banner,
     .waiting-title,
     .pool-dot { animation: none; opacity: 1; }
+    .auction-gavel, .gavel-block, .gavel-flash { animation: none; }
+    .gavel-flash { opacity: 0; }
     .result-banner { transform: translateX(-50%); }
     .loader-mark { animation-duration: 2.4s; }
     .loader-dots span { animation: none; opacity: .6; }
