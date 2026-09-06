@@ -112,7 +112,7 @@ function startBidding() {
         dropped.value = '';
     }
 
-    if (!participants.value.length) return;
+    if (!participants.value.length || !props.player) return;
 
     // Everyone opens at the base price, so a team that bid nothing is visibly at the floor
     // rather than at zero.
@@ -172,8 +172,17 @@ defineExpose({ settled });
 
         <!-- ── 1. Who is in the room ─────────────────────────────────────── -->
         <div v-if="phase === 'selection'">
+            <!--
+                Usable with NOBODY on the block, deliberately.
+
+                Ticking the room is setup, and setup happens before the lot goes up — an
+                organizer who can only reach this once a player is already on screen is doing it
+                with the hall watching. Only the figures need a player, because they open at
+                that player's base price.
+            -->
             <p class="text-[10px] uppercase tracking-wider text-slate-500 mb-2">
-                Teams bidding on {{ player?.name ?? 'this player' }}
+                <template v-if="player">Teams bidding on {{ player.name }}</template>
+                <template v-else>Teams in the room — pick them now, before the next lot goes up</template>
             </p>
 
             <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 mb-3">
@@ -200,9 +209,11 @@ defineExpose({ settled });
                 No team can bid on this player — every purse is spent down or every squad is full.
             </p>
 
-            <button type="button" @click="startBidding" :disabled="!participants.length"
+            <button type="button" @click="startBidding" :disabled="!participants.length || !player"
                     class="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed">
-                {{ participants.length ? `Start bidding (${participants.length} teams)` : 'Select teams to start' }}
+                <template v-if="!participants.length">Select teams to start</template>
+                <template v-else-if="!player">{{ participants.length }} teams ready — put a player up</template>
+                <template v-else>Start bidding ({{ participants.length }} teams)</template>
             </button>
         </div>
 

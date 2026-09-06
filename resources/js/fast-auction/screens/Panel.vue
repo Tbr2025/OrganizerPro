@@ -65,6 +65,13 @@ const sealed = computed(() => s.value.sealed ?? null);
    and one could be started. An open auction never sees it. */
 const showSealed = computed(() => Boolean(sealed.value) || (cp.value && s.value.bid_type === 'closed'));
 
+const soldBoard = computed(() => s.value.sold_players ?? []);
+const pool = computed(() => s.value.active_pool ?? null);
+const leaderTeam = computed(() => teams.value.find((t) => t.name === cp.value?.leader) ?? null);
+const pools = computed(() => s.value.pools ?? []);
+const quickSteps = computed(() => s.value.quick_bid_steps ?? []);
+const started = computed(() => s.value.auction_status && s.value.auction_status !== 'pending');
+
 /*
  * How an offline room is being run — a preference of THIS operator, not auction state.
  *
@@ -75,14 +82,8 @@ const showSealed = computed(() => Boolean(sealed.value) || (cp.value && s.value.
  */
 const offlineStage = ref('live');
 const offline = computed(() => s.value.open_bid_mode === 'offline');
-const showOfflineDesk = computed(() => Boolean(offline.value && offlineStage.value === 'batch' && cp.value && can.sell));
+const showOfflineDesk = computed(() => Boolean(started.value && offline.value && offlineStage.value === 'batch' && can.sell));
 const desk = ref(null);
-const soldBoard = computed(() => s.value.sold_players ?? []);
-const pool = computed(() => s.value.active_pool ?? null);
-const leaderTeam = computed(() => teams.value.find((t) => t.name === cp.value?.leader) ?? null);
-const pools = computed(() => s.value.pools ?? []);
-const quickSteps = computed(() => s.value.quick_bid_steps ?? []);
-const started = computed(() => s.value.auction_status && s.value.auction_status !== 'pending');
 
 const filteredPlayers = computed(() => {
     const q = playerSearch.value.trim().toLowerCase();
@@ -689,7 +690,7 @@ onBeforeUnmount(() => {
                  to the server — so it sits outside the control block: an auctioneer trusted to
                  sell but not to control the auction still has to be able to reach the desk, and
                  the desk's only write is a sale. -->
-            <span v-if="cp && offline && (can.sell || can.control)" class="inline-flex rounded-xl overflow-hidden border border-orange-700">
+            <span v-if="offline && (can.sell || can.control)" class="inline-flex rounded-xl overflow-hidden border border-orange-700">
                 <button v-for="mode in ['live', 'batch']" :key="mode" type="button"
                         @click="offlineStage = mode"
                         class="px-2.5 py-2.5 text-xs font-semibold transition"
@@ -706,9 +707,16 @@ onBeforeUnmount(() => {
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Players</button>
                 <button v-if="pools.length" type="button" @click="drawer = drawer === 'pools' ? '' : 'pools'"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Pools</button>
-                <!-- Which way this lot is being run. Only while somebody is up: switching the
-                     phase with an empty block changes nothing anyone can see. -->
-                <span v-if="cp" class="inline-flex rounded-xl overflow-hidden border border-slate-600">
+                <!--
+                    Which way the room is being run.
+
+                    NOT gated on somebody being on the block, which is what the classic panel
+                    does and what hid this whole feature: an organizer opens the panel between
+                    lots, finds no Offline button anywhere, and concludes the mode switch does
+                    not exist here. Setting the mode writes two columns on the auction — it does
+                    not touch the lot — so there is nothing to protect by hiding it.
+                -->
+                <span v-if="started" class="inline-flex rounded-xl overflow-hidden border border-slate-600">
                     <button v-for="mode in ['online', 'offline']" :key="mode" type="button"
                             @click="switchPhase(mode)" :disabled="!!busy"
                             class="px-2.5 py-2.5 text-xs font-semibold transition disabled:opacity-30"

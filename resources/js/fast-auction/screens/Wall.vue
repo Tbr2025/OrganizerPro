@@ -63,17 +63,47 @@ const shownResultId = ref(0);
 const sealIn = ref(false);
 const confetti = ref([]);
 
+/*
+ * A stamp is an ANNOUNCEMENT, and an announcement ends.
+ *
+ * It used to hold the screen until the next lot went up, and `result` is simply "the last lot
+ * that settled" — so a hall that stopped for tea after an unsold player sat under a red UNSOLD
+ * seal for the whole break while the panel said the auction was paused. Twelve seconds is long
+ * enough for a room to read a name and a figure, after which the wall falls back to the stage
+ * caption, which is the thing that stays true.
+ */
+const SEAL_MS = 12000;
+const sealUp = ref(false);
+let sealTimer = null;
+
+/*
+ * Some stages OUTRANK the stamp.
+ *
+ * Paused, finished and not-yet-started are states the room has to see the moment they happen —
+ * a projector still celebrating the last sale while the auctioneer has stopped the auction is
+ * exactly the "not updating" a hall reads as a frozen screen. A gap between two lots does not
+ * outrank it: that IS when the stamp belongs.
+ */
+const HALTED = ['paused', 'completed', 'not_started'];
+const halted = computed(() => HALTED.includes(stage.value?.key));
+
+const showSeal = computed(() => Boolean(sealUp.value && result.value && sealStyle.value && !halted.value));
+
 watch(result, (next) => {
     if (!next || next.id === shownResultId.value) return;
 
     shownResultId.value = next.id;
     sealIn.value = false;
+    sealUp.value = true;
 
     // A tick apart so the class is removed and re-added; without it the animation does not
     // restart when one result follows another.
     requestAnimationFrame(() => { sealIn.value = true; });
 
     confetti.value = next.outcome === 'sold' ? burst() : [];
+
+    clearTimeout(sealTimer);
+    sealTimer = setTimeout(() => { sealUp.value = false; }, SEAL_MS);
 }, { immediate: true });
 
 /*
@@ -261,12 +291,29 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('resize', fit);
+    clearTimeout(sealTimer);
     stopLocal();
 });
 </script>
 
 <template>
     <div class="w-screen h-screen overflow-hidden bg-black flex items-center justify-center select-none">
+        <!--
+            Paused, over everything.
+
+            The classic wall has had this since the beginning and this one had nothing, so an
+            auctioneer stopping for tea left the projector on whatever it was last showing —
+            a card, or the stamp of the last lot — while the panel said AUCTION PAUSED. A hall
+            reads that as a screen that has stopped working. Fixed to the viewport, not to the
+            canvas, so it covers the letterboxing too.
+        -->
+        <div v-if="stage?.key === 'paused'"
+             class="fixed inset-0 z-[9999] flex flex-col items-center justify-center text-center bg-slate-950/85 backdrop-blur-md">
+            <div class="text-8xl leading-none mb-4">⏸️</div>
+            <p class="text-5xl font-extrabold uppercase tracking-[0.15em] text-white">Auction paused</p>
+            <p class="mt-3 text-lg text-slate-300">{{ stage?.subline || 'Please wait — the auction will resume shortly.' }}</p>
+        </div>
+
         <!-- An HTML-mode template owns its whole document and cannot be honoured here. Say so and
              point at the wall that can render it, rather than quietly showing a different design
              from the one the organizer chose. -->
@@ -421,7 +468,7 @@ onUnmounted(() => {
 
             <!-- The lot that just settled, stamped. Takes precedence over the stage heading:
                  between lots the result IS the news, and the heading can wait its turn. -->
-            <div v-else-if="result && sealStyle" class="absolute inset-0 flex flex-col items-center justify-center text-white">
+            <div v-else-if="showSeal" class="absolute inset-0 flex flex-col items-center justify-center text-white">
                 <div class="seal-card" :class="{ 'seal-in': sealIn }">
                     <div class="seal-photo" :style="{ borderColor: sealStyle.ring, boxShadow: `0 0 60px ${sealStyle.glow}` }">
                         <img v-if="result.image_path" :src="`/storage/${result.image_path}`" :alt="result.name">
