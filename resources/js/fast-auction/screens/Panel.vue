@@ -11,8 +11,7 @@
  * the team chips all POST to the endpoints the classic panel already uses, so a raise made here
  * and one made there travel exactly the same road and hit exactly the same guards.
  *
- * Still only on the classic panel, one permanent click away: the sealed-bid desk, the offline
- * bidding desk, pool management, ads, templates and card exports.
+ * Still only on the classic panel, one permanent click away: ads, templates and card exports.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { get, post } from '../lib/api';
@@ -20,6 +19,7 @@ import { connect } from '../lib/realtime';
 import { moneyFor } from '../lib/money';
 import { publishLocal } from '../lib/local-bus';
 import SealedDesk from './SealedDesk.vue';
+import OfflineDesk from './OfflineDesk.vue';
 
 const props = defineProps({
     boot: { type: Object, required: true },
@@ -64,6 +64,19 @@ const sealed = computed(() => s.value.sealed ?? null);
 /* The desk is shown while a round is live, or while a closed auction has somebody on the block
    and one could be started. An open auction never sees it. */
 const showSealed = computed(() => Boolean(sealed.value) || (cp.value && s.value.bid_type === 'closed'));
+
+/*
+ * How an offline room is being run — a preference of THIS operator, not auction state.
+ *
+ * LIVE is the auctioneer's way and needs no desk: tap a team chip and the server's increment
+ * ladder decides the raise, exactly as an online lot. BATCH is for rooms where every team writes
+ * a figure and they are read out together, which the chips cannot express. Nothing about it goes
+ * to the server, so two people running the same auction can each work the way they prefer.
+ */
+const offlineStage = ref('live');
+const offline = computed(() => s.value.open_bid_mode === 'offline');
+const showOfflineDesk = computed(() => Boolean(offline.value && offlineStage.value === 'batch' && cp.value && can.sell));
+const desk = ref(null);
 const soldBoard = computed(() => s.value.sold_players ?? []);
 const pool = computed(() => s.value.active_pool ?? null);
 const leaderTeam = computed(() => teams.value.find((t) => t.name === cp.value?.leader) ?? null);
@@ -252,7 +265,9 @@ const clearTeam = () => act('clear', urls.clearBidTeam, {
    has not been told about. */
 async function settle(fn) {
     await flushSteps();
-    fn();
+    // Awaited, so a caller can do something once the settlement has actually landed — the
+    // offline desk clears its figures only if the server accepted the sale.
+    await fn();
 }
 
 const sell = () => settle(() => act('sell', urls.sell,
@@ -267,6 +282,30 @@ const sellTo = (team) => {
         amount: price.value,
     }));
 };
+
+/**
+ * A sale off the offline desk.
+ *
+ * The same endpoint every other sale uses, with the desk's figure instead of the running price —
+ * there is no running price in a batch round, which is the whole reason the desk exists. Flushed
+ * first like any other settlement, and the figures are cleared only once the server has agreed:
+ * a refused sale (over a ceiling, squad full) must leave the round exactly as it was so the
+ * organizer can sell to the next row down rather than retype six amounts.
+ */
+async function offlineSell({ teamId, amount, teamName }) {
+    if (!cp.value) return;
+    if (!window.confirm(`Sell ${cp.value.name} to ${teamName} for ${money(amount)}?`)) return;
+
+    await settle(async () => {
+        await act('sell', urls.sellToTeam, {
+            auction_player_id: cp.value?.id,
+            team_id: teamId,
+            amount,
+        });
+
+        if (!error.value) desk.value?.settled();
+    });
+}
 
 const pass = () => settle(() => act('pass', urls.pass,
     { auction_player_id: cp.value?.id }, `Pass ${cp.value?.name} with no sale?`));
@@ -573,8 +612,14 @@ onBeforeUnmount(() => {
                         @done="sealedDone" @error="(m) => (error = m)" />
         </section>
 
+        <!-- ── Offline desk ─────────────────────────────────────────────── -->
+        <section v-if="showOfflineDesk" class="px-6 lg:px-10 pb-3 shrink-0">
+            <OfflineDesk ref="desk" :player="cp" :teams="teams" :pool-id="pool?.id"
+                         :money="money" :busy="busy" @sell="offlineSell" />
+        </section>
+
         <!-- ── Quick-bid steps ──────────────────────────────────────────── -->
-        <section v-if="cp && can.control && quickSteps.length" class="px-6 lg:px-10 pb-2 shrink-0 flex flex-wrap items-center gap-2">
+        <section v-if="cp && can.control && quickSteps.length && !showOfflineDesk" class="px-6 lg:px-10 pb-2 shrink-0 flex flex-wrap items-center gap-2">
             <span class="text-[10px] uppercase tracking-wider text-slate-500">Quick jump</span>
             <button v-for="(amount, i) in quickSteps" :key="i" type="button" @click="toggleQuickStep(i)"
                     class="px-2.5 py-1 rounded-lg border text-xs font-semibold transition"
@@ -587,7 +632,10 @@ onBeforeUnmount(() => {
         </section>
 
         <!-- ── Team chips ───────────────────────────────────────────────── -->
-        <section v-if="cp && can.control" class="px-6 lg:px-10 pb-3 shrink-0">
+        <!-- Hidden while the batch desk is up. The chips ARE the live way of running a lot: a
+             raise taken here would put one team ahead of a board of figures nobody has read
+             out yet, and the desk would then sell at its own number regardless. -->
+        <section v-if="cp && can.control && !showOfflineDesk" class="px-6 lg:px-10 pb-3 shrink-0">
             <div class="flex flex-wrap gap-2">
                 <button v-for="team in teams" :key="team.id" type="button"
                         @click="bidForTeam(team)"
@@ -636,6 +684,22 @@ onBeforeUnmount(() => {
                         :title="s.next_undo_notes || 'Undo the last action'"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm disabled:opacity-30">Undo</button>
             </template>
+
+            <!-- How this offline room is run. A preference of THIS operator — nothing here goes
+                 to the server — so it sits outside the control block: an auctioneer trusted to
+                 sell but not to control the auction still has to be able to reach the desk, and
+                 the desk's only write is a sale. -->
+            <span v-if="cp && offline && (can.sell || can.control)" class="inline-flex rounded-xl overflow-hidden border border-orange-700">
+                <button v-for="mode in ['live', 'batch']" :key="mode" type="button"
+                        @click="offlineStage = mode"
+                        class="px-2.5 py-2.5 text-xs font-semibold transition"
+                        :class="offlineStage === mode ? 'bg-orange-600 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-800'"
+                        :title="mode === 'live'
+                            ? 'Tap a team to raise, as an auctioneer does'
+                            : 'Type every team\'s figure and sell to the highest'">
+                    {{ mode === 'live' ? 'Live' : 'Batch' }}
+                </button>
+            </span>
 
             <template v-if="can.control">
                 <button type="button" @click="openPlayers"

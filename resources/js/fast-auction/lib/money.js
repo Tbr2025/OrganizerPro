@@ -63,3 +63,39 @@ export function priceLabel(row) {
 
     return row.current_bid_team ? 'CURRENT BID' : 'BASE VALUE';
 }
+
+/*
+ * ── Money entry, in millions ──────────────────────────────────────────────────
+ *
+ * Twins of `window.auctionToM` / `auctionFromM` in `resources/js/auction-money.js`, which the
+ * classic panel uses and this bundle cannot reach — that file is exposed on `window` from the
+ * `app.js` bundle, and Fast Auction is a separate entry point.
+ *
+ * Amounts are STORED in whole units and always ENTERED in millions, so the number an operator
+ * types matches the M figures they read everywhere else. Getting this wrong is not cosmetic: the
+ * classic panel once had two screens entering on different scales, and typing "5" wrote 500,000
+ * on one and 5,000,000 on the other. Any input in this bundle that takes an amount goes through
+ * these and is labelled M.
+ */
+
+/** Raw stored units → the millions figure shown in an input. */
+export function toM(raw) {
+    if (raw === '' || raw === null || raw === undefined) return '';
+
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return '';
+
+    // Trim floating-point residue without losing real precision.
+    return Number((n / 1e6).toFixed(6));
+}
+
+/** Millions typed into an input → raw stored units. */
+export function fromM(value) {
+    if (value === '' || value === null || value === undefined) return '';
+
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '';
+
+    // toFixed(2) first: 0.1 * 1e6 is 100000.00000000001 in floating point.
+    return Number((n * 1e6).toFixed(2));
+}

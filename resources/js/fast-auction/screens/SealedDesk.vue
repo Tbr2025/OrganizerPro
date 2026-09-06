@@ -15,6 +15,7 @@
  */
 import { computed, ref } from 'vue';
 import { post } from '../lib/api';
+import { toM, fromM } from '../lib/money';
 
 const props = defineProps({
     sealed: { type: Object, default: null },
@@ -104,9 +105,13 @@ const resolveManual = (entry) => send('manual', 'resolve-manual', {
 }, `Award to ${entry.team_name} by hand?`);
 
 function adjust(entry) {
+    // Typed in millions, sent in stored units. See the note on the input. Untouched, the field
+    // shows the bid as submitted, so a correction is an edit rather than a retype.
     const typed = adjusting.value[entry.entry_id];
-    if (!typed) return;
-    entryCommand(entry, 'adjust', { amount: Number(typed) });
+    const amount = typed === undefined || typed === '' ? entry.amount : fromM(typed);
+    if (amount === '' || !amount) return;
+
+    entryCommand(entry, 'adjust', { amount });
 }
 </script>
 
@@ -175,9 +180,20 @@ function adjust(entry) {
 
                     <!-- Corrections, once figures are open. -->
                     <template v-if="revealed && !entry.withdrawn">
-                        <input v-model="adjusting[entry.entry_id]" type="number" inputmode="numeric"
-                               class="w-24 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs"
-                               placeholder="amount">
+                        <!--
+                            MILLIONS, like every other amount entry — the classic desk's
+                            equivalent field is in millions and this one was in raw units, so an
+                            organizer moving between the two panels would have corrected a bid to
+                            45 instead of 45,000,000 with the round open.
+                        -->
+                        <span class="inline-flex items-center rounded bg-slate-800 border border-slate-700">
+                            <input :value="adjusting[entry.entry_id] ?? toM(entry.amount)"
+                                   @input="adjusting[entry.entry_id] = $event.target.value"
+                                   type="number" step="any" min="0"
+                                   class="w-20 px-1.5 py-0.5 bg-transparent text-xs text-right outline-none"
+                                   placeholder="amount">
+                            <span class="pr-1.5 text-[10px] text-slate-500">M</span>
+                        </span>
                         <button type="button" @click="adjust(entry)" :disabled="!!working"
                                 class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-600 disabled:opacity-30">Set</button>
                         <button type="button" @click="entryCommand(entry, 'withdraw')" :disabled="!!working"
