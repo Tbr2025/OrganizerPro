@@ -11,8 +11,32 @@ const props = defineProps({
 });
 
 const snap = ref(props.boot.snapshot ?? {});
-const design = props.boot.design ?? {};
-const positions = design.positions ?? {};
+
+/*
+ * The design is REACTIVE, not read once.
+ *
+ * It used to be a const taken from the boot payload, so the template an organizer switched to
+ * mid-auction — or the one a pool carries — never reached the projector until somebody reloaded
+ * it. The snapshot now carries a thirty-byte key saying which design is in force, and the full
+ * twelve-kilobyte design is fetched only when that key actually changes.
+ */
+const design = ref(props.boot.design ?? {});
+const positions = computed(() => design.value.positions ?? {});
+const designKey = ref(props.boot.snapshot?.design_key ?? null);
+
+watch(() => snap.value.design_key, async (key) => {
+    if (!key || key === designKey.value) return;
+    designKey.value = key;
+
+    try {
+        design.value = await get(props.boot.urls.design, 'design');
+        // The canvas is sized from the design, so a new one has to be re-fitted.
+        fit();
+    } catch (e) {
+        // Keep drawing on the design we have; a wall that blanks itself is worse than one a
+        // template behind.
+    }
+});
 
 const lastBidId = ref(0);
 const flash = ref(false);
@@ -116,32 +140,37 @@ const showBase = computed(() => {
  * anything being re-flowed: that is what makes the organizer's layout hold its proportions on a
  * projector, a laptop and a phone, and it is how the classic wall behaves too.
  */
-const cw = Number(design.canvasWidth || 1601);
-const ch = Number(design.canvasHeight || 910);
+// Computed, not constants: a template swapped mid-auction can carry a different canvas.
+const cw = computed(() => Number(design.value.canvasWidth || 1601));
+const ch = computed(() => Number(design.value.canvasHeight || 910));
 const scale = ref(1);
 
 function fit() {
-    scale.value = Math.min(window.innerWidth / cw, window.innerHeight / ch);
+    scale.value = Math.min(window.innerWidth / cw.value, window.innerHeight / ch.value);
 }
 
 const canvasStyle = computed(() => ({
-    width: `${cw}px`,
-    height: `${ch}px`,
+    width: `${cw.value}px`,
+    height: `${ch.value}px`,
     transform: `scale(${scale.value})`,
     transformOrigin: 'center center',
-    backgroundImage: design.background ? `url("${design.background}")` : 'none',
+    backgroundImage: design.value.background ? `url("${design.value.background}")` : 'none',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
+    // Crossfade when the organizer changes the design, rather than a hard cut on a screen the
+    // whole room is looking at.
+    transition: 'background-image .35s ease',
 }));
 
 /** Position + style straight from the template. */
-const at = (key, fallback = {}) => elementStyle(positions, key, fallback);
-const shown = (key) => isVisible(positions, key);
+const at = (key, fallback = {}) => elementStyle(positions.value, key, fallback);
+const shown = (key) => isVisible(positions.value, key);
 
 const money = moneyFor(props.boot.amountUnit);
 
-const columns = tableColumns(positions);
-const images = customImages(positions);
+// Computed for the same reason the canvas is: a new template brings new columns and images.
+const columns = computed(() => tableColumns(positions.value));
+const images = computed(() => customImages(positions.value));
 
 async function reconcile() {
     try {

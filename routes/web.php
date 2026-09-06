@@ -706,6 +706,10 @@ Route::middleware([])->withoutMiddleware([
     // must not emit Set-Cookie or Cloudflare will refuse to cache it.
     Route::get('/auction/{auction}/fast-wall-snapshot', [FastAuctionPublicController::class, 'snapshot'])
         ->name('public.auction.fast-wall-snapshot');
+
+    // Fetched only when the snapshot's design_key changes — see FastAuctionPublicController.
+    Route::get('/auction/{auction}/fast-wall-design', [FastAuctionPublicController::class, 'wallDesign'])
+        ->name('public.auction.fast-wall-design');
 });
 
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);

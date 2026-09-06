@@ -43,11 +43,6 @@ class FastAuctionPublicController extends Controller
          * An HTML-mode template owns the whole document and is a different thing entirely; those
          * are left to the classic wall, which already renders them under their own CSP.
          */
-        $template = AuctionTemplate::overrideFor($auction, 'live_display', request('template'))
-            ?? AuctionTemplate::resolveFor($auction, 'live_display');
-
-        $htmlMode = (bool) $template?->isHtmlMode();
-
         return view('fast-auction.wall', [
             'boot' => [
                 'screen' => 'wall',
@@ -56,23 +51,10 @@ class FastAuctionPublicController extends Controller
                 'tournamentName' => $auction->tournament->name ?? null,
                 'amountUnit' => $auction->amountUnitConfig(),
                 'snapshot' => $this->payload($auction),
-                'design' => [
-                    // Absolute pixels on the template's own canvas. The client scales the whole
-                    // canvas to the viewport rather than re-flowing anything, so a design holds
-                    // its proportions on a 1080p projector and a laptop alike.
-                    'positions' => $htmlMode ? [] : ($template?->element_positions ?? AuctionTemplate::getDefaultPositions()),
-                    'canvasWidth' => $template?->canvas_width ?? 1601,
-                    'canvasHeight' => $template?->canvas_height ?? 910,
-                    'background' => $template
-                        ? $template->background_url
-                        : ($auction->background_image_url ?? asset('images/player-card.jpeg')),
-                    'soldBadge' => $template?->sold_badge_url,
-                    // An HTML template cannot be honoured here; say so rather than silently
-                    // showing a different design from the one the organizer chose.
-                    'htmlMode' => $htmlMode,
-                ],
+                'design' => $this->design($auction, request('template')),
                 'urls' => [
                     'snapshot' => route('public.auction.fast-wall-snapshot', $auction),
+                    'design' => route('public.auction.fast-wall-design', $auction),
                     // The wall that has run every auction so far, one click away.
                     'classic' => route('public.auction.live', $auction),
                 ],
@@ -123,6 +105,47 @@ class FastAuctionPublicController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * The template the wall draws on, resolved the way the classic wall resolves it.
+     *
+     * @return array<string, mixed>
+     */
+    private function design(Auction $auction, ?string $override = null): array
+    {
+        $template = AuctionTemplate::overrideFor($auction, 'live_display', $override)
+            ?? AuctionTemplate::resolveFor($auction, 'live_display');
+
+        $htmlMode = (bool) $template?->isHtmlMode();
+
+        return [
+            // Absolute pixels on the template's own canvas. The client scales the whole canvas
+            // to the viewport rather than re-flowing anything, so a design holds its proportions
+            // on a 1080p projector and a laptop alike.
+            'positions' => $htmlMode ? [] : ($template?->element_positions ?? AuctionTemplate::getDefaultPositions()),
+            'canvasWidth' => $template?->canvas_width ?? 1601,
+            'canvasHeight' => $template?->canvas_height ?? 910,
+            'background' => $template
+                ? $template->background_url
+                : ($auction->background_image_url ?? asset('images/player-card.jpeg')),
+            'soldBadge' => $template?->sold_badge_url,
+            // An HTML template cannot be honoured here; say so rather than silently showing a
+            // different design from the one the organizer chose.
+            'htmlMode' => $htmlMode,
+        ];
+    }
+
+    /**
+     * Fetched only when the key in the snapshot changes.
+     *
+     * The design is nearly 12 KB against a snapshot of under two, so sending it every couple of
+     * seconds to say "still the same template" would be most of the wall's traffic for no
+     * information at all.
+     */
+    public function wallDesign(Auction $auction): JsonResponse
+    {
+        return response()->json($this->design($auction, request('template')));
     }
 
     public function snapshot(Auction $auction): JsonResponse
@@ -192,9 +215,23 @@ class FastAuctionPublicController extends Controller
         $active = $public->activePlayer($auction)->getData(true);
         $sold = $public->soldPlayers($auction)->getData(true);
 
+        $template = AuctionTemplate::overrideFor($auction, 'live_display', request('template'))
+            ?? AuctionTemplate::resolveFor($auction, 'live_display');
+
         return [
             'active' => $active,
             'result' => $this->lastResult($auction),
+            /*
+             * Which design is in force, in thirty bytes.
+             *
+             * The wall used to read its template ONCE at page load, so an organizer switching
+             * templates mid-auction — or a pool carrying its own — changed nothing until
+             * somebody reloaded the projector. This is what makes it notice, without paying
+             * twelve kilobytes a poll to be told the template has not changed.
+             */
+            'design_key' => $template
+                ? $template->id . ':' . $template->updated_at?->getTimestamp()
+                : 'default',
             // The board grows all evening and the wall wants the recent end of it; the full list
             // stays available on the classic feed for anything that needs every row.
             'sold' => array_slice($sold['soldPlayers'] ?? [], 0, 12),
