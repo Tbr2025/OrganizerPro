@@ -84,14 +84,59 @@ export function isVisible(positions, key) {
     return p === undefined || p.visible !== false;
 }
 
-/** The custom images an organizer dropped on the canvas, in z-order. */
-export function customImages(positions) {
-    return Object.keys(positions ?? {})
-        .filter((k) => k.startsWith('custom_image_') && positions[k]?.imagePath)
-        .map((k) => ({ key: k, path: positions[k].imagePath }));
+/**
+ * The custom elements an organizer dropped on the canvas — text, shapes and artwork.
+ *
+ * ONE pass over the keys, in the order the template stores them, because that is the order the
+ * classic wall paints them in and elements that overlap without an explicit z-index rely on it.
+ * This screen used to render `custom_image_*` only, so a template carrying a caption or a
+ * coloured panel arrived on the projector missing pieces of itself.
+ *
+ * The `visible` flag is honoured for the same reason the classic wall honours it: an element the
+ * organizer switched off in the editor has no other way of leaving the wall.
+ */
+const SHAPE_GEOMETRY = {
+    circle: { borderRadius: '50%' },
+    pill: { borderRadius: '9999px' },
+    'rounded-rect': { borderRadius: '12px' },
+    diamond: { transform: 'rotate(45deg)' },
+    triangle: { clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' },
+};
+
+export function customElements(positions) {
+    const out = [];
+
+    for (const key of Object.keys(positions ?? {})) {
+        const p = positions[key];
+
+        if (!p || p.visible === false) continue;
+
+        if (key.startsWith('custom_text_')) {
+            out.push({
+                key,
+                kind: 'text',
+                content: p.content ?? '',
+                // An element with no width set is a label, and a label that wraps mid-word is
+                // worse than one that runs past its box.
+                extra: p.width ? { wordWrap: 'break-word' } : { whiteSpace: 'nowrap' },
+            });
+        } else if (key.startsWith('custom_shape_')) {
+            const shape = p.shapeType ?? 'rectangle';
+            const extra = { ...(SHAPE_GEOMETRY[shape] ?? {}) };
+
+            // A triangle is cut out of its box, so its colour has to come from a background
+            // rather than a border — the same exception the classic wall makes.
+            if (shape === 'triangle') extra.background = p.bgColor ?? 'rgba(255,255,255,0.1)';
+
+            out.push({ key, kind: 'shape', extra });
+        } else if (key.startsWith('custom_image_') && p.imagePath) {
+            out.push({ key, kind: 'image', path: p.imagePath, extra: { objectFit: 'contain' } });
+        }
+    }
+
+    return out;
 }
 
-/** `stats_table` stores its columns as a JSON string. */
 export function tableColumns(positions) {
     const raw = positions?.stats_table?.tableColumns;
 

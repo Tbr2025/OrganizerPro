@@ -3,7 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { get } from '../lib/api';
 import { connect } from '../lib/realtime';
 import { moneyFor, priceLabel } from '../lib/money';
-import { customImages, elementStyle, isVisible, tableColumns } from '../lib/design';
+import { customElements, elementStyle, isVisible, tableColumns } from '../lib/design';
 import { subscribeLocal } from '../lib/local-bus';
 
 const props = defineProps({
@@ -170,7 +170,7 @@ const money = moneyFor(props.boot.amountUnit);
 
 // Computed for the same reason the canvas is: a new template brings new columns and images.
 const columns = computed(() => tableColumns(positions.value));
-const images = computed(() => customImages(positions.value));
+const custom = computed(() => customElements(positions.value));
 
 async function reconcile() {
     try {
@@ -282,15 +282,28 @@ onUnmounted(() => {
 
         <!-- The template's canvas, at its own pixel size, scaled to fit. -->
         <div v-else class="relative shrink-0" :style="canvasStyle">
-            <!-- Custom artwork the organizer placed, underneath everything by z-index. -->
-            <img v-for="img in images" :key="img.key"
-                 :src="`/storage/${img.path}`" alt=""
-                 :style="at(img.key)">
-
             <!-- The whole card fades and lifts in when a new lot goes up, so the room sees a
                  change of player rather than fields quietly swapping values. -->
             <template v-if="onBlock">
                 <div class="lot-enter" :class="{ 'lot-in': lotIn }"></div>
+
+                <!--
+                    The card artwork the organizer placed, INSIDE this guard.
+
+                    It used to sit outside it, so between lots the template's panels, dividers and
+                    sponsor strip stayed painted under the "waiting to start" heading and the wall
+                    read as a frozen picture that had stopped updating. The classic wall hides its
+                    whole card layer the moment nobody is on the block
+                    (`card-container.classList.add('hidden')` in showWaiting), and the artwork is
+                    part of that layer — it frames a player, and with no player to frame it is
+                    just leftover paint.
+                -->
+                <template v-for="el in custom" :key="el.key">
+                    <img v-if="el.kind === 'image'" :src="`/storage/${el.path}`" alt=""
+                         :style="{ ...at(el.key), ...el.extra }">
+                    <div v-else-if="el.kind === 'text'" :style="{ ...at(el.key), ...el.extra }">{{ el.content }}</div>
+                    <div v-else :style="{ ...at(el.key), ...el.extra }"></div>
+                </template>
                 <template v-if="shown('player_image')">
                     <img v-if="photo" :src="photo" alt="" class="object-cover"
                          :style="at('player_image')">
