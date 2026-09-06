@@ -71,6 +71,51 @@
     @keyframes winnerGlow { from { box-shadow: 0 0 20px rgba(34, 197, 94, 0.3); } to { box-shadow: 0 0 40px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.3); } }
     .offline-winner-glow { animation: winnerGlow 2s ease-in-out infinite alternate; }
 
+    /*
+     * ── A new lot arrives ──
+     *
+     * The stage turns in as ONE piece: squeezed and angled away, unfolding to face the operator,
+     * with a band of light running across it as it lands. The whole stage rather than its fields,
+     * because fields changing value one by one read as a form being filled in — what an
+     * auctioneer needs to see is that the PLAYER changed.
+     *
+     * transform and opacity only: this panel drives the room, and anything that animates layout
+     * or paint costs frames on the one screen that must not stutter.
+     */
+    .lot-stage { position: relative; }
+    .lot-stage.lot-arrive { animation: lotArrive .62s cubic-bezier(.16, 1, .3, 1) both; }
+
+    @keyframes lotArrive {
+        0%   { opacity: 0; transform: perspective(2200px) rotateY(-26deg) scaleX(.76) translateX(4%); }
+        62%  { opacity: 1; transform: perspective(2200px) rotateY(4deg) scaleX(1.015) translateX(0); }
+        100% { opacity: 1; transform: none; }
+    }
+
+    .lot-shine {
+        position: absolute; inset: 0;
+        pointer-events: none;
+        opacity: 0;
+        z-index: 20;
+        background: linear-gradient(105deg,
+            transparent 38%,
+            rgba(255,255,255,0.30) 48%,
+            rgba(255,255,255,0.52) 51%,
+            rgba(255,255,255,0.30) 54%,
+            transparent 64%);
+    }
+    .lot-stage.lot-arrive .lot-shine { animation: lotSheen .72s ease-out both; }
+
+    @keyframes lotSheen {
+        0%   { opacity: 0; transform: translateX(-115%); }
+        18%  { opacity: 1; }
+        100% { opacity: 0; transform: translateX(115%); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .lot-stage.lot-arrive { animation: none; opacity: 1; transform: none; }
+        .lot-shine { display: none; }
+    }
+
     /* Fullscreen wrapper */
     .organizer-panel-wrapper.is-fullscreen {
         position: fixed;
@@ -1026,7 +1071,12 @@
             </div>
 
             {{-- ── ACTIVE PLAYER: HORIZONTAL LAYOUT (online/closed) ── --}}
-            <div x-show="displayState === 'bidding' && showLiveStage" x-transition class="flex items-stretch px-12 w-full h-full">
+            <div x-show="displayState === 'bidding' && showLiveStage" x-transition
+                 :class="lotArriving ? 'lot-arrive' : ''"
+                 class="lot-stage flex items-stretch px-12 w-full h-full">
+                {{-- The light, over everything on the stage, on the same clock as the turn. --}}
+                <div class="lot-shine" aria-hidden="true"></div>
+
                 {{-- LEFT: Player Photo + Info --}}
                 <div class="flex-1 flex items-center gap-10">
                     {{-- Player Photo --}}
@@ -2836,6 +2886,16 @@ function auctionOrganizerPanel() {
              * given change is worth animating.
              */
             this.$watch('currentBid', (value) => this.countBidTo(value));
+
+            /*
+             * The stage animates when the PLAYER changes, and only then.
+             *
+             * Watching the object rather than an id: every assignment site replaces it, so this
+             * follows the poll, a pushed frame, an undo and a restart without any of them having
+             * to remember to call anything. The id guard is what keeps a price change — which
+             * replaces the object too — from re-triggering the turn mid-lot.
+             */
+            this.$watch('currentPlayer', (p) => this.markLotArrived(p?.id ?? null));
 
             if (currentPlayer) {
                 this.currentPlayer = currentPlayer;
@@ -5173,6 +5233,21 @@ function auctionOrganizerPanel() {
             });
         },
 
+        /* Whether the stage is playing its entrance, and which lot it last played for. */
+        lotArriving: false,
+        _shownLotId: null,
+
+        markLotArrived(id) {
+            if (!id || id === this._shownLotId) return;
+
+            this._shownLotId = id;
+
+            // Removed and re-added a frame apart: a CSS animation will not replay while its
+            // class is still on the element, so back-to-back lots would animate only the first.
+            this.lotArriving = false;
+            requestAnimationFrame(() => { this.lotArriving = true; });
+        },
+
         // Tumbler (legacy) + select from queue
         startTumbler() {
             if (this.isTumbling || this.availablePlayers.length === 0) return;
@@ -5212,9 +5287,17 @@ function auctionOrganizerPanel() {
             }
             this.selectedPlayerId = player.id;
             this.tumblerText = player.name;
-            this.displayState = 'tumbling';
             this.statusText = `Selected: ${player.name}`;
-            setTimeout(() => this.putPlayerOnBid(), 500);
+
+            /*
+             * Straight up. No half-second of "Selecting player…".
+             *
+             * That pause existed to give the tumbling caption something to be read during, and
+             * it was already the name the operator had just clicked — so it announced a choice
+             * back to the person who made it while the room waited. The stage entrance is what
+             * marks the change now, and it plays on arrival rather than before it.
+             */
+            return this.putPlayerOnBid();
         },
 
         /**

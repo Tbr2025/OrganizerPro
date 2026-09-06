@@ -184,52 +184,33 @@ watch(resultKey, (key, was) => {
 }, { immediate: true });
 
 /*
- * ── "Loading next player" ──
+ * ── The next lot arrives ──
  *
- * The previous player goes down as the loader goes up. The card is repainted underneath while
- * this runs — the push already carries the new player — so without hiding it the sequence is:
- * old face, loader over old face, new face. Hiding it makes the three beats the room should
- * see: the old one leaves, something is coming, the new one arrives.
+ * No gap and no loader. A hall does not need to be told a player is coming — it needs to SEE one
+ * arrive, and a second and a half of spinner between two cards is a second and a half of nothing
+ * while the room waits for an answer the panel already has. The card comes straight up and the
+ * entrance does the work: it sweeps in squeezed and turned away, unfolds to face the room, and a
+ * band of light runs across it as it lands.
+ *
+ * Keyed on the auction_player id rather than on the name — two players can share a name, and a
+ * price change must not re-trigger the animation mid-lot.
  */
-const LOADER_MS = 1600;
-const loadingNext = ref(false);
-let loaderTimer = null;
-let seenFirstLot = false;
-
 const lotIn = ref(false);
 const shownLotId = ref(0);
-
-function enterLot() {
-    lotIn.value = false;
-    requestAnimationFrame(() => { lotIn.value = true; });
-}
 
 watch(() => liveRow.value?.id, (id) => {
     if (!id || id === shownLotId.value) return;
 
     shownLotId.value = id;
 
-    // The first lot a projector sees is not a CHANGE of player — it is the wall coming up, and
-    // a loader there just delays the first card by a second and a half.
-    if (!seenFirstLot) {
-        seenFirstLot = true;
-        enterLot();
-
-        return;
-    }
-
-    loadingNext.value = true;
-    clearTimeout(loaderTimer);
-
-    loaderTimer = setTimeout(() => {
-        loaderTimer = null;
-        loadingNext.value = false;
-        enterLot();
-    }, LOADER_MS);
+    // Removed and re-added a tick apart: a CSS animation will not replay while its class is
+    // still on the element, so back-to-back lots would animate only the first.
+    lotIn.value = false;
+    requestAnimationFrame(() => { lotIn.value = true; });
 }, { immediate: true });
 
 /** Whether there is a card to draw at all — a live lot, or a settled one still being held. */
-const onBlock = computed(() => Boolean(player.value) && !loadingNext.value);
+const onBlock = computed(() => Boolean(player.value));
 
 /** A fixed set of paper scraps, positioned once. Cheap enough for a wall that must not stutter. */
 function burst() {
@@ -457,7 +438,6 @@ onMounted(() => {
 onUnmounted(() => {
     window.removeEventListener('resize', fit);
     clearTimeout(bannerTimer);
-    clearTimeout(loaderTimer);
     clearTimeout(holdTimer);
     stopLocal();
 });
@@ -497,11 +477,11 @@ onUnmounted(() => {
         <template v-else>
         <!-- The template's canvas, at its own pixel size, scaled to fit. -->
         <div class="relative shrink-0" :style="canvasStyle">
-            <!-- The whole card fades and lifts in when a new lot goes up, so the room sees a
-                 change of player rather than fields quietly swapping values. -->
-            <template v-if="onBlock">
-                <div class="lot-enter" :class="{ 'lot-in': lotIn }"></div>
-
+            <!--
+                Every card element inside ONE layer, so a new lot turns the whole composition in
+                rather than animating twenty absolutely-positioned pieces against each other.
+            -->
+            <div v-if="onBlock" class="card-layer" :class="{ 'lot-in': lotIn }">
                 <!--
                     The card artwork the organizer placed, INSIDE this guard.
 
@@ -655,7 +635,10 @@ onUnmounted(() => {
                         </tr>
                     </tbody>
                 </table>
-            </template>
+
+                <!-- The light runs across the whole card, so it sits last and above. -->
+                <div class="lot-shine" :class="{ 'lot-in': lotIn }" aria-hidden="true"></div>
+            </div>
 
             <!--
                 The outcome, across the top.
@@ -691,19 +674,6 @@ onUnmounted(() => {
         </div>
 
         <!--
-            Loading the next player.
-
-            The gap between one lot leaving and the next arriving is a beat the room reads as
-            "something is coming". Without it the card swaps face mid-blink and the change reads
-            as a glitch. Full-screen, because the previous player goes down as this goes up.
-        -->
-        <div v-if="loadingNext" class="screen-layer" :style="waitingStyle">
-            <div class="loader-mark"></div>
-            <p class="mt-6 text-3xl font-bold tracking-wide">Loading next player</p>
-            <div class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-        </div>
-
-        <!--
             Nobody on the block: the waiting SCREEN.
 
             Not a caption over the card artwork — that artwork frames a player, and printing
@@ -711,7 +681,7 @@ onUnmounted(() => {
             picture. Its own background, the auction's rather than the template's, and the words
             come from the server so the wall cannot claim a state the auction is not in.
         -->
-        <div v-else-if="!onBlock" class="screen-layer" :style="waitingStyle">
+        <div v-if="!onBlock" class="screen-layer" :style="waitingStyle">
             <!--
                 The gavel, striking.
 
@@ -982,6 +952,59 @@ onUnmounted(() => {
 }
 .waiting-rail-text { margin-top: 1.4vh; font-size: 2vh; font-weight: 700; color: rgba(226, 232, 240, .62); }
 
+.waiting-title {
+    font-size: 9vh;
+    font-weight: 900;
+    letter-spacing: .02em;
+    text-shadow: 0 0 4vh rgba(255, 255, 255, .28);
+    animation: waiting-pulse 2s ease-in-out infinite;
+}
+
+@keyframes waiting-pulse {
+    0%, 100% { opacity: .62; transform: scale(1); }
+    50%      { opacity: 1; transform: scale(1.02); }
+}
+
+.waiting-sub { margin-top: 1.6vh; font-size: 3.4vh; color: rgba(226, 232, 240, .72); }
+
+/* "Pool A is selected" — a hall follows an evening by its pools. */
+.pool-chip {
+    display: flex;
+    align-items: center;
+    gap: 1.2vh;
+    margin-bottom: 2.6vh;
+    padding: 1vh 2.4vh;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, .16);
+    background: rgba(2, 6, 23, .55);
+    font-size: 2.4vh;
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+.pool-dot {
+    width: 1.2vh; height: 1.2vh;
+    border-radius: 9999px;
+    background: rgb(var(--brand));
+    box-shadow: 0 0 1.6vh rgba(var(--brand), .8);
+    animation: waiting-pulse 1.6s ease-in-out infinite;
+}
+.pool-sub { font-size: 1.5vh; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .55; }
+
+.waiting-rail { margin-top: 3.4vh; width: min(760px, 62vw); }
+.waiting-rail-track {
+    height: 1.4vh;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, .12);
+    overflow: hidden;
+}
+.waiting-rail-fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    transition: width .5s ease;
+}
+.waiting-rail-text { margin-top: 1.4vh; font-size: 2vh; font-weight: 700; color: rgba(226, 232, 240, .62); }
+
 /* "Loading next player" — a mark that turns and three dots that do not cost a frame. */
 .loader-mark {
     width: 9vh; height: 9vh;
@@ -1024,16 +1047,45 @@ onUnmounted(() => {
 }
 
 /*
- * The lot entrance is drawn as a full-canvas wash rather than by animating the card, because the
- * card's elements are absolutely positioned from a saved template — moving them would fight the
- * designer's coordinates and land them in the wrong place for the length of the animation.
+ * The lot entrance.
+ *
+ * The whole card turns in as ONE piece — a layer wrapping every element, not the elements
+ * themselves. Animating them individually would fight the designer's coordinates and land each
+ * one somewhere it was never placed for the length of the animation; animating their common
+ * parent moves the composition and leaves every position inside it exactly where the template
+ * put it.
+ *
+ * `transform` and `opacity` only. This runs on whatever machine drives the projector, often a
+ * modest one, and anything that animates layout or paint drops frames on a screen the whole room
+ * is looking at.
  */
-.lot-enter { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
-.lot-enter.lot-in { animation: lot-wash .6s ease-out both; }
+.card-layer { position: absolute; inset: 0; transform-style: preserve-3d; }
+.card-layer.lot-in { animation: lot-arrive .62s cubic-bezier(.16, 1, .3, 1) both; }
 
-@keyframes lot-wash {
-    0%   { opacity: 1; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.22), transparent 62%); }
-    100% { opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0), transparent 62%); }
+@keyframes lot-arrive {
+    0%   { opacity: 0; transform: perspective(2200px) rotateY(-34deg) scaleX(.7) translateX(6%); }
+    62%  { opacity: 1; transform: perspective(2200px) rotateY(5deg) scaleX(1.02) translateX(0); }
+    100% { opacity: 1; transform: none; }
+}
+
+/* A band of light running across the card as it lands, on the same clock as the turn. */
+.lot-shine {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(105deg,
+        transparent 38%,
+        rgba(255, 255, 255, .38) 48%,
+        rgba(255, 255, 255, .62) 51%,
+        rgba(255, 255, 255, .38) 54%,
+        transparent 64%);
+}
+.lot-shine.lot-in { animation: lot-sheen .72s ease-out both; }
+
+@keyframes lot-sheen {
+    0%   { opacity: 0; transform: translateX(-115%); }
+    18%  { opacity: 1; }
+    100% { opacity: 0; transform: translateX(115%); }
 }
 
 /* A projector is not a phone, but the setting is honoured wherever it is set. */
@@ -1045,9 +1097,8 @@ onUnmounted(() => {
     .auction-gavel, .gavel-block, .gavel-flash { animation: none; }
     .gavel-flash { opacity: 0; }
     .result-banner { transform: translateX(-50%); }
-    .loader-mark { animation-duration: 2.4s; }
-    .loader-dots span { animation: none; opacity: .6; }
-    .lot-enter.lot-in { animation: none; opacity: 0; }
+    .card-layer.lot-in { animation: none; opacity: 1; transform: none; }
+    .lot-shine { display: none; }
     .confetti { display: none; }
 }
 </style>
