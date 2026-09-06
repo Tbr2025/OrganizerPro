@@ -42,86 +42,194 @@ const lastBidId = ref(0);
 const flash = ref(false);
 
 const active = computed(() => snap.value.active ?? null);
-const row = computed(() => active.value?.auctionPlayer ?? null);
-const player = computed(() => row.value?.player ?? null);
-const onBlock = computed(() => Boolean(active.value?.success && player.value));
-const price = computed(() => row.value?.current_price ?? null);
-const leader = computed(() => row.value?.current_bid_team?.name ?? null);
 const stage = computed(() => active.value?.stage ?? null);
 const sealed = computed(() => active.value?.closed_bid ?? null);
 const sold = computed(() => snap.value.sold ?? []);
 
 /*
- * The lot that just settled, and whether its stamp has been shown yet.
+ * The card outlives the lot.
  *
- * `activePlayer` only ever returns somebody ON the block, so between lots the wall had nothing
- * to say and a sale passed without a mark. The id is what makes the animation play ONCE: a
- * reconcile every couple of seconds would otherwise restart it continuously.
+ * `auctionPlayer` is only ever somebody ON the block, so the instant the hammer fell this wall
+ * lost the player entirely and put up a stamp of its own composition instead. That is not what
+ * the classic wall does and not what a hall expects: the card STAYS, wearing its SOLD badge and
+ * the buyer's crest, so the room goes on looking at the face of the player who just sold rather
+ * than at a summary of them.
+ *
+ * The feed already carries that row as `lastActionPlayer` — the whole settled lot, not a
+ * summary — and this is the half the wall was not reading.
  */
-const result = computed(() => snap.value.result ?? null);
-const shownResultId = ref(0);
-const sealIn = ref(false);
+const liveRow = computed(() => active.value?.auctionPlayer ?? null);
+const settledRow = computed(() => active.value?.lastActionPlayer ?? null);
+
+/*
+ * ── How long a result holds the wall ──
+ *
+ * An ordinary gap between two players keeps the card up indefinitely: the room is looking at who
+ * just sold, and blanking that to say "waiting for the next player" tells them nothing they did
+ * not already know. But a pool ending, an auction closing or a pause are things the room has to
+ * be TOLD, and holding a ten-minute-old card through them is how a wall reads as broken.
+ *
+ * So the hold is a hold, not a state: once the result has had its ten seconds, a stage worth
+ * announcing takes the screen. Both timestamps come from the server — the app runs on Asia/Dubai
+ * and the database on UTC, so a browser clock cannot be part of this sum. Lifted from the
+ * classic wall, including the list.
+ */
+const ANNOUNCE_STAGES = ['pool_complete', 'all_done', 'completed', 'not_started', 'paused', 'no_pool'];
+const RESULT_HOLD_S = 10;
+
+const heldFor = computed(() => {
+    const now = Number(active.value?.server_time ?? 0);
+    const at = Number(settledRow.value?.updated_at ?? 0);
+
+    return (now && at) ? now - at : Infinity;
+});
+
+const announcing = computed(() => ANNOUNCE_STAGES.includes(stage.value?.key) && heldFor.value >= RESULT_HOLD_S);
+
+/*
+ * Nothing else will wake the wall.
+ *
+ * It stops polling while push is healthy and refetches on events, and the end of a hold is not
+ * an event — so without this one-shot the announcement would wait for whatever the organizer
+ * did next, which during a break between pools is nothing at all.
+ */
+let holdTimer = null;
+
+watch([heldFor, announcing], ([held, announce]) => {
+    if (announce || !ANNOUNCE_STAGES.includes(stage.value?.key) || !Number.isFinite(held)) return;
+    if (holdTimer) return;
+
+    holdTimer = setTimeout(() => {
+        holdTimer = null;
+        reconcile();
+    }, Math.max(500, (RESULT_HOLD_S - held) * 1000 + 250));
+});
+
+const row = computed(() => liveRow.value ?? (announcing.value ? null : settledRow.value));
+const player = computed(() => row.value?.player ?? null);
+
+/** What happened to the lot on the card — null while it is still being bid for. */
+const outcome = computed(() => ({
+    sold: 'sold', unsold: 'unsold', skipped: 'skipped',
+}[row.value?.status] ?? null));
+
+const price = computed(() => (outcome.value === 'sold' ? row.value?.final_price : row.value?.current_price) ?? null);
+const leader = computed(() => row.value?.current_bid_team?.name ?? null);
+const buyer = computed(() => row.value?.sold_to_team ?? null);
+
+/*
+ * ── The result, announced the way the classic wall announces it ──
+ *
+ * Three separate things happen when a lot settles, and they are deliberately not one thing:
+ *
+ *   1. a BADGE lands on the card, at the coordinates the template author placed it — the
+ *      organizer's own SOLD or UNSOLD artwork when they have uploaded some;
+ *   2. a BANNER names the outcome across the top and fades itself out after seven seconds;
+ *   3. the buyer's crest appears, and for a sale only, confetti.
+ *
+ * All three are keyed on `id:status`, not on a poll: a reconcile every couple of seconds would
+ * otherwise restart the animation continuously and the banner would never leave.
+ */
+const RESULT_BANNER_MS = 7000;
+
+const resultKey = computed(() => (row.value && outcome.value) ? `${row.value.id}:${row.value.status}` : '');
+
+const badgeIn = ref(false);
+const bannerUp = ref(false);
 const confetti = ref([]);
+let bannerTimer = null;
+
+const bannerWord = computed(() => ({
+    sold: 'Sold', unsold: 'Unsold', skipped: 'Passed',
+}[outcome.value] ?? null));
 
 /*
- * A stamp is an ANNOUNCEMENT, and an announcement ends.
+ * Name the BUYER, not just the player.
  *
- * It used to hold the screen until the next lot went up, and `result` is simply "the last lot
- * that settled" — so a hall that stopped for tea after an unsold player sat under a red UNSOLD
- * seal for the whole break while the panel said the auction was paused. Twelve seconds is long
- * enough for a room to read a name and a figure, after which the wall falls back to the stage
- * caption, which is the thing that stays true.
+ * "Sold — Glenn Maxwell" leaves the one fact the room is waiting for off the loudest thing on
+ * the screen. The team is on the card below, but the banner is what people look up at, and a
+ * sale nobody can attribute is a sale that gets asked about twice.
  */
-const SEAL_MS = 12000;
-const sealUp = ref(false);
-let sealTimer = null;
+const bannerName = computed(() => {
+    const name = player.value?.name ?? '';
+    const to = buyer.value?.name;
 
-/*
- * Some stages OUTRANK the stamp.
- *
- * Paused, finished and not-yet-started are states the room has to see the moment they happen —
- * a projector still celebrating the last sale while the auctioneer has stopped the auction is
- * exactly the "not updating" a hall reads as a frozen screen. A gap between two lots does not
- * outrank it: that IS when the stamp belongs.
- */
-const HALTED = ['paused', 'completed', 'not_started'];
-const halted = computed(() => HALTED.includes(stage.value?.key));
+    return (outcome.value === 'sold' && to) ? `${name} \u2192 ${to}` : name;
+});
 
-const showSeal = computed(() => Boolean(sealUp.value && result.value && sealStyle.value && !halted.value));
+watch(resultKey, (key, was) => {
+    if (key === was) return;
 
-watch(result, (next) => {
-    if (!next || next.id === shownResultId.value) return;
+    clearTimeout(bannerTimer);
 
-    shownResultId.value = next.id;
-    sealIn.value = false;
-    sealUp.value = true;
+    if (!key) {
+        bannerUp.value = false;
+        badgeIn.value = false;
+        confetti.value = [];
+
+        return;
+    }
 
     // A tick apart so the class is removed and re-added; without it the animation does not
     // restart when one result follows another.
-    requestAnimationFrame(() => { sealIn.value = true; });
+    badgeIn.value = false;
+    bannerUp.value = true;
+    requestAnimationFrame(() => { badgeIn.value = true; });
 
-    confetti.value = next.outcome === 'sold' ? burst() : [];
+    // No poppers for an unsold lot: nothing was bought, and streamers over a player nobody
+    // wanted reads as mockery rather than drama. The classic wall makes the same distinction.
+    confetti.value = outcome.value === 'sold' ? burst() : [];
 
-    clearTimeout(sealTimer);
-    sealTimer = setTimeout(() => { sealUp.value = false; }, SEAL_MS);
+    bannerTimer = setTimeout(() => { bannerUp.value = false; }, RESULT_BANNER_MS);
 }, { immediate: true });
 
 /*
- * A new lot arriving gets its own entrance.
+ * ── "Loading next player" ──
  *
- * Keyed on the auction_player id rather than on the name: two players can share a name, and a
- * price change must not re-trigger the animation mid-lot.
+ * The previous player goes down as the loader goes up. The card is repainted underneath while
+ * this runs — the push already carries the new player — so without hiding it the sequence is:
+ * old face, loader over old face, new face. Hiding it makes the three beats the room should
+ * see: the old one leaves, something is coming, the new one arrives.
  */
+const LOADER_MS = 1600;
+const loadingNext = ref(false);
+let loaderTimer = null;
+let seenFirstLot = false;
+
 const lotIn = ref(false);
 const shownLotId = ref(0);
 
-watch(() => row.value?.id, (id) => {
+function enterLot() {
+    lotIn.value = false;
+    requestAnimationFrame(() => { lotIn.value = true; });
+}
+
+watch(() => liveRow.value?.id, (id) => {
     if (!id || id === shownLotId.value) return;
 
     shownLotId.value = id;
-    lotIn.value = false;
-    requestAnimationFrame(() => { lotIn.value = true; });
+
+    // The first lot a projector sees is not a CHANGE of player — it is the wall coming up, and
+    // a loader there just delays the first card by a second and a half.
+    if (!seenFirstLot) {
+        seenFirstLot = true;
+        enterLot();
+
+        return;
+    }
+
+    loadingNext.value = true;
+    clearTimeout(loaderTimer);
+
+    loaderTimer = setTimeout(() => {
+        loaderTimer = null;
+        loadingNext.value = false;
+        enterLot();
+    }, LOADER_MS);
 }, { immediate: true });
+
+/** Whether there is a card to draw at all — a live lot, or a settled one still being held. */
+const onBlock = computed(() => Boolean(player.value) && !loadingNext.value);
 
 /** A fixed set of paper scraps, positioned once. Cheap enough for a wall that must not stutter. */
 function burst() {
@@ -138,12 +246,8 @@ function burst() {
     }));
 }
 
-/** Green for sold, red for unsold, amber for skipped — the classic wall's pairing. */
-const sealStyle = computed(() => ({
-    sold: { ring: '#22c55e', glow: 'rgba(34,197,94,.55)', word: 'SOLD' },
-    unsold: { ring: '#ef4444', glow: 'rgba(239,68,68,.55)', word: 'UNSOLD' },
-    skipped: { ring: '#f59e0b', glow: 'rgba(245,158,11,.55)', word: 'SKIPPED' },
-}[result.value?.outcome] ?? null));
+/** The organizer's own stamp artwork, when the template carries one for this outcome. */
+const badgeArt = computed(() => (outcome.value === 'sold' ? design.value.soldBadge : design.value.unsoldBadge) || null);
 
 const photo = computed(() =>
     player.value?.image_path ? `/storage/${player.value.image_path}` : null);
@@ -291,7 +395,9 @@ onMounted(() => {
 
 onUnmounted(() => {
     window.removeEventListener('resize', fit);
-    clearTimeout(sealTimer);
+    clearTimeout(bannerTimer);
+    clearTimeout(loaderTimer);
+    clearTimeout(holdTimer);
     stopLocal();
 });
 </script>
@@ -438,6 +544,29 @@ onUnmounted(() => {
                     SEALED · {{ String(sealed.state ?? '').replace(/_/g, ' ').toUpperCase() }}
                 </div>
 
+                <!--
+                    The outcome, stamped where the template author put it.
+
+                    `sold_badge` carries the position for BOTH stamps — the classic wall places
+                    its unsold badge on the same coordinates, because a card has one place for a
+                    stamp and a lot has one outcome. The organizer's own artwork when they have
+                    uploaded any; a plain stamp when they have not, rather than nothing at all.
+                -->
+                <div v-if="outcome && outcome !== 'skipped' && shown('sold_badge')"
+                     :style="at('sold_badge', { bottom: 27, left: 112, width: 150, height: 150, zIndex: 9 })"
+                     class="grid place-items-center" :class="{ 'badge-in': badgeIn }">
+                    <img v-if="badgeArt" :src="badgeArt" alt="" class="w-full h-full object-contain">
+                    <div v-else class="stamp" :class="outcome === 'sold' ? 'stamp-sold' : 'stamp-unsold'">
+                        <span class="stamp-word">{{ outcome === 'sold' ? 'Sold' : 'Unsold' }}</span>
+                        <span class="stamp-sub">{{ outcome === 'sold' ? 'Signed' : 'No bids' }}</span>
+                    </div>
+                </div>
+
+                <!-- The buyer's crest, at the template's own spot. Only a sale has one. -->
+                <img v-if="outcome === 'sold' && buyer?.logo_path && shown('team_logo')"
+                     :src="buyer.logo_path" alt="" class="object-contain"
+                     :class="{ 'badge-in': badgeIn }" :style="at('team_logo')">
+
                 <!-- The stats table, with the columns the organizer chose in the editor. -->
                 <table v-if="shown('stats_table') && columns.length"
                        :style="at('stats_table')" class="border-collapse">
@@ -466,36 +595,17 @@ onUnmounted(() => {
                 </table>
             </template>
 
-            <!-- The lot that just settled, stamped. Takes precedence over the stage heading:
-                 between lots the result IS the news, and the heading can wait its turn. -->
-            <div v-else-if="showSeal" class="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <div class="seal-card" :class="{ 'seal-in': sealIn }">
-                    <div class="seal-photo" :style="{ borderColor: sealStyle.ring, boxShadow: `0 0 60px ${sealStyle.glow}` }">
-                        <img v-if="result.image_path" :src="`/storage/${result.image_path}`" :alt="result.name">
-                        <span v-else>{{ (result.name ?? '?').charAt(0) }}</span>
-                    </div>
+            <!--
+                Loading the next player.
 
-                    <div class="seal-stamp" :style="{ borderColor: sealStyle.ring, color: sealStyle.ring }">
-                        {{ sealStyle.word }}
-                    </div>
-
-                    <p class="seal-name">{{ result.name }}</p>
-
-                    <div v-if="result.outcome === 'sold'" class="seal-buyer">
-                        <img v-if="result.team_logo" :src="result.team_logo" alt="">
-                        <span>{{ result.team }}</span>
-                    </div>
-                    <p v-if="result.price" class="seal-price">{{ money(result.price) }}</p>
-                </div>
-
-                <!-- Paper, for a sale only. -->
-                <div v-if="confetti.length" class="confetti" aria-hidden="true">
-                    <i v-for="c in confetti" :key="c.id"
-                       :style="{ left: c.left + '%', background: c.colour,
-                                 width: c.size + 'px', height: (c.size * 0.45) + 'px',
-                                 animationDelay: c.delay + 's', animationDuration: c.duration + 's',
-                                 '--drift': c.drift + 'px', '--spin': c.spin + 'deg' }"></i>
-                </div>
+                The gap between one lot leaving and the next arriving is a beat the room reads
+                as "something is coming". Without it the card simply swaps face mid-blink and
+                the change reads as a glitch.
+            -->
+            <div v-else-if="loadingNext" class="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div class="loader-mark"></div>
+                <p class="mt-6 text-3xl font-bold tracking-wide">Loading next player</p>
+                <div class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
             </div>
 
             <!-- Nobody on the block and nothing just settled: the stage heading the server
@@ -503,6 +613,29 @@ onUnmounted(() => {
             <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-white">
                 <p class="text-6xl font-black stage-in">{{ stage?.heading ?? 'PLEASE WAIT' }}</p>
                 <p v-if="stage?.subline" class="mt-4 text-3xl text-white/50 stage-in">{{ stage.subline }}</p>
+            </div>
+
+            <!--
+                The outcome, across the top.
+
+                Outside the card guard deliberately — this is the thing a hall looks up at, and
+                it has to stay legible while the card underneath is repainted for the next lot.
+                Seven seconds and it fades itself out; a banner that needs taking down by hand
+                is a banner that is still up an hour later.
+            -->
+            <div v-if="bannerUp && bannerWord" class="result-banner"
+                 :class="outcome === 'sold' ? 'is-sold' : 'is-unsold'">
+                <span class="result-word">{{ bannerWord }}</span>
+                <span class="result-name">{{ bannerName }}</span>
+            </div>
+
+            <!-- Paper, for a sale only. -->
+            <div v-if="confetti.length" class="confetti" aria-hidden="true">
+                <i v-for="c in confetti" :key="c.id"
+                   :style="{ left: c.left + '%', background: c.colour,
+                             width: c.size + 'px', height: (c.size * 0.45) + 'px',
+                             animationDelay: c.delay + 's', animationDuration: c.duration + 's',
+                             '--drift': c.drift + 'px', '--spin': c.spin + 'deg' }"></i>
             </div>
 
             <!--
@@ -525,59 +658,91 @@ onUnmounted(() => {
  * animates layout or paint drops frames on a screen the whole room is looking at. These are the
  * two properties a compositor can handle without touching the main thread.
  */
-.seal-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    opacity: 0;
-    transform: scale(.86);
+/* The stamp lands, once, at the coordinates the template gave it. */
+.badge-in { animation: badge-land .45s cubic-bezier(.16, 1, .3, 1) backwards; }
+
+@keyframes badge-land {
+    from { opacity: 0; transform: rotate(-8deg) scale(2.4); }
+    to   { opacity: 1; transform: none; }
 }
 
-.seal-card.seal-in {
-    animation: seal-land .55s cubic-bezier(.16, 1, .3, 1) forwards;
-}
-
-@keyframes seal-land {
-    from { opacity: 0; transform: scale(.86); }
-    60%  { opacity: 1; transform: scale(1.03); }
-    to   { opacity: 1; transform: scale(1); }
-}
-
-.seal-photo {
-    width: 18vh; height: 18vh;
-    border-radius: 9999px;
+/* Used only when the organizer has uploaded no artwork of their own. */
+.stamp {
+    display: grid;
+    place-items: center;
+    width: 100%; height: 100%;
     border: .5vh solid;
-    overflow: hidden;
-    display: grid; place-items: center;
-    background: rgba(0, 0, 0, .45);
-    font-size: 7vh; font-weight: 900;
-}
-.seal-photo img { width: 100%; height: 100%; object-fit: cover; }
-
-/* Struck on at an angle, the way a rubber stamp lands. */
-.seal-stamp {
-    margin-top: -2.5vh;
-    padding: .6vh 2.4vh;
-    border: .45vh solid;
-    border-radius: .8vh;
-    font-size: 4.4vh;
-    font-weight: 900;
-    letter-spacing: .12em;
+    border-radius: 1vh;
     background: rgba(0, 0, 0, .72);
     transform: rotate(-8deg);
+    line-height: 1.1;
+}
+.stamp-sold   { border-color: #22c55e; color: #4ade80; }
+.stamp-unsold { border-color: #f43f5e; color: #fb7185; }
+.stamp-word { font-size: 3.2vh; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.stamp-sub  { font-size: 1.4vh; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; opacity: .8; }
+
+/*
+ * The outcome banner. Pinned to the canvas rather than the viewport so a template that fills the
+ * screen and one that letterboxes both put it in the same place relative to the card.
+ */
+.result-banner {
+    position: absolute;
+    top: 4%;
+    left: 50%;
+    z-index: 40;
+    display: flex;
+    align-items: baseline;
+    gap: 1.6vh;
+    padding: 1.2vh 3.2vh;
+    border-radius: 1.2vh;
+    background: rgba(2, 6, 23, .82);
+    backdrop-filter: blur(6px);
+    white-space: nowrap;
+    transform: translateX(-50%);
+    animation: banner-life 7s ease-out forwards;
 }
 
-.seal-card.seal-in .seal-stamp { animation: stamp .45s .18s cubic-bezier(.16, 1, .3, 1) backwards; }
+.result-banner.is-sold   { border: 2px solid #22c55e; box-shadow: 0 0 54px rgba(34, 197, 94, .4); }
+.result-banner.is-unsold { border: 2px solid #f43f5e; box-shadow: 0 0 54px rgba(244, 63, 94, .4); }
+.result-banner.is-sold .result-word   { color: #4ade80; }
+.result-banner.is-unsold .result-word { color: #fb7185; }
 
-@keyframes stamp {
-    from { opacity: 0; transform: rotate(-8deg) scale(2.4); }
-    to   { opacity: 1; transform: rotate(-8deg) scale(1); }
+.result-word { font-size: 4vh; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.result-name { font-size: 2.6vh; font-weight: 700; color: #e2e8f0; }
+
+@keyframes banner-life {
+    0%   { opacity: 0; transform: translate(-50%, -2vh); }
+    6%   { opacity: 1; transform: translate(-50%, 0); }
+    82%  { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -1vh); }
 }
 
-.seal-name { margin-top: 2.4vh; font-size: 5vh; font-weight: 900; }
-.seal-buyer { margin-top: 1.2vh; display: flex; align-items: center; gap: 1.2vh; font-size: 3vh; opacity: .85; }
-.seal-buyer img { width: 5vh; height: 5vh; border-radius: 9999px; object-fit: cover; }
-.seal-price { margin-top: .8vh; font-size: 4.6vh; font-weight: 900; color: #22c55e; }
+/* "Loading next player" — a mark that turns and three dots that do not cost a frame. */
+.loader-mark {
+    width: 9vh; height: 9vh;
+    border-radius: 9999px;
+    border: .7vh solid rgba(255, 255, 255, .12);
+    border-top-color: rgba(255, 255, 255, .85);
+    animation: loader-spin .9s linear infinite;
+}
+
+@keyframes loader-spin { to { transform: rotate(360deg); } }
+
+.loader-dots { display: flex; gap: 1.1vh; margin-top: 2vh; }
+.loader-dots span {
+    width: 1.1vh; height: 1.1vh;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, .6);
+    animation: loader-pulse 1.05s ease-in-out infinite;
+}
+.loader-dots span:nth-child(2) { animation-delay: .16s; }
+.loader-dots span:nth-child(3) { animation-delay: .32s; }
+
+@keyframes loader-pulse {
+    0%, 100% { opacity: .25; transform: scale(.8); }
+    50%      { opacity: 1; transform: scale(1); }
+}
 
 .stage-in { animation: stage-fade .4s ease both; }
 @keyframes stage-fade { from { opacity: 0; transform: translateY(1.5vh); } to { opacity: 1; transform: none; } }
@@ -612,9 +777,12 @@ onUnmounted(() => {
 
 /* A projector is not a phone, but the setting is honoured wherever it is set. */
 @media (prefers-reduced-motion: reduce) {
-    .seal-card.seal-in,
-    .seal-card.seal-in .seal-stamp,
-    .stage-in { animation: none; opacity: 1; transform: none; }
+    .badge-in,
+    .result-banner,
+    .stage-in { animation: none; opacity: 1; }
+    .result-banner { transform: translateX(-50%); }
+    .loader-mark { animation-duration: 2.4s; }
+    .loader-dots span { animation: none; opacity: .6; }
     .lot-enter.lot-in { animation: none; opacity: 0; }
     .confetti { display: none; }
 }

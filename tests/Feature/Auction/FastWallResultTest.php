@@ -12,9 +12,13 @@ use Tests\TestCase;
 /**
  * What the wall shows between lots.
  *
- * `activePlayer()` only ever returns somebody ON the block, so the moment a player sold they
- * vanished from the feed and the sale passed without a mark on the wall. The result block is the
- * missing half.
+ * The card OUTLIVES the lot. `auctionPlayer` is only ever somebody on the block, so the instant
+ * the hammer falls the player is gone from that half of the feed — and a wall reading only that
+ * half loses the face the room is still looking at. `lastActionPlayer` is the other half: the
+ * whole settled row, so the card stays up wearing its SOLD badge and the buyer's crest.
+ *
+ * The wall decides how long to hold it from `stage.key` and the two server clocks, never from a
+ * browser clock: the app runs on Asia/Dubai and the database on UTC.
  */
 class FastWallResultTest extends TestCase
 {
@@ -30,13 +34,15 @@ class FastWallResultTest extends TestCase
         return [$auction, $this->makeTeam($org, 'Alpha', $tournament)];
     }
 
-    private function snapshot($auction): array
+    private function active($auction): array
     {
-        return $this->get(route('public.auction.fast-wall-snapshot', $auction))->assertOk()->json();
+        return $this->get(route('public.auction.fast-wall-snapshot', $auction))
+            ->assertOk()
+            ->json('active');
     }
 
     #[Test]
-    public function a_sale_is_reported_with_everything_the_seal_prints(): void
+    public function a_sale_leaves_the_whole_row_on_the_feed_so_the_card_can_stay_up(): void
     {
         [$auction, $team] = $this->scenario();
         $sale = $this->makeAuctionPlayer($auction, [
@@ -45,27 +51,31 @@ class FastWallResultTest extends TestCase
             'final_price' => 4_200_000,
         ]);
 
-        $result = $this->snapshot($auction)['result'];
+        $active = $this->active($auction);
+        $last = $active['lastActionPlayer'];
 
-        $this->assertSame($sale->id, $result['id']);
-        $this->assertSame('sold', $result['outcome']);
-        $this->assertSame(4_200_000, (int) $result['price']);
-        $this->assertSame('Alpha', $result['team']);
-        $this->assertArrayHasKey('image_path', $result);
+        $this->assertNull($active['auctionPlayer'], 'A sold player is no longer on the block.');
+        $this->assertSame($sale->id, $last['id']);
+        $this->assertSame('sold', $last['status']);
+        $this->assertSame(4_200_000, (int) $last['final_price']);
+        $this->assertSame('Alpha', $last['sold_to_team']['name']);
+        // The crest goes on the card at the template's own coordinates.
+        $this->assertArrayHasKey('logo_path', $last['sold_to_team']);
+        // The player, not a summary of them: the card draws a face, a name and a role.
+        $this->assertNotEmpty($last['player']['name']);
     }
 
     #[Test]
-    public function an_unsold_and_a_skipped_lot_are_reported_too(): void
+    public function an_unsold_and_a_skipped_lot_stay_on_the_feed_too(): void
     {
         foreach (['unsold', 'skipped'] as $outcome) {
             [$auction] = $this->scenario();
             $this->makeAuctionPlayer($auction, ['status' => $outcome]);
 
-            $result = $this->snapshot($auction)['result'];
+            $last = $this->active($auction)['lastActionPlayer'];
 
-            // Each gets its own seal on the wall — a red one and an amber one.
-            $this->assertSame($outcome, $result['outcome']);
-            $this->assertNull($result['price'], 'Only a sale has a price to print.');
+            $this->assertSame($outcome, $last['status']);
+            $this->assertNull($last['sold_to_team'], 'Nothing was bought, so there is no buyer to name.');
         }
     }
 
@@ -78,28 +88,43 @@ class FastWallResultTest extends TestCase
             ->forceFill(['updated_at' => now()->subSeconds(10)])->save();
         $latest = $this->makeAuctionPlayer($auction, ['status' => 'sold', 'sold_to_team_id' => $team->id]);
 
-        $this->assertSame($latest->id, $this->snapshot($auction)['result']['id']);
+        $this->assertSame($latest->id, $this->active($auction)['lastActionPlayer']['id']);
     }
 
     #[Test]
-    public function an_old_result_clears_rather_than_sitting_on_the_wall_all_evening(): void
+    public function both_clocks_the_hold_is_measured_with_are_on_the_feed(): void
     {
         [$auction] = $this->scenario();
 
         $this->makeAuctionPlayer($auction, ['status' => 'sold'])
             ->forceFill(['updated_at' => now()->subMinutes(5)])->save();
 
-        // A break must not leave a stale SOLD card up for twenty minutes.
-        $this->assertNull($this->snapshot($auction)['result']);
+        $active = $this->active($auction);
+
+        // Both from the server. A browser subtracting its own clock from the database's would
+        // be four hours out, and the hold would either never start or never end.
+        $this->assertIsInt($active['server_time']);
+        $this->assertIsInt($active['lastActionPlayer']['updated_at']);
+        $this->assertGreaterThanOrEqual(
+            300,
+            $active['server_time'] - $active['lastActionPlayer']['updated_at'],
+            'The wall works out how long a result has been up from these two numbers.'
+        );
+
+        // And the caption it falls back to once the hold is over.
+        $this->assertArrayHasKey('key', $active['stage']);
     }
 
     #[Test]
-    public function a_waiting_player_is_not_a_result(): void
+    public function a_player_on_the_block_is_the_card_and_there_is_no_result_to_hold(): void
     {
         [$auction] = $this->scenario();
         $this->makeAuctionPlayer($auction, ['status' => 'waiting']);
         $this->makeAuctionPlayer($auction, ['status' => 'on_auction']);
 
-        $this->assertNull($this->snapshot($auction)['result']);
+        $active = $this->active($auction);
+
+        $this->assertSame('on_auction', $active['auctionPlayer']['status']);
+        $this->assertArrayNotHasKey('lastActionPlayer', $active);
     }
 }
