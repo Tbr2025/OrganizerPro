@@ -82,6 +82,39 @@ class FastPanelParityTest extends TestCase
     }
 
     #[Test]
+    public function the_heavy_lists_are_fetched_on_demand_and_never_polled(): void
+    {
+        [$auction, , , $operator] = $this->scenario();
+
+        $boot = $this->actingAs($operator)
+            ->get(route('admin.auction.organizer.fast-panel', $auction))
+            ->assertOk()
+            ->viewData('boot');
+
+        // Templates, resolved in the client. Route changes stay in the routes file.
+        $this->assertStringContainsString('__TEAM__', $boot['urls']['squad']);
+        $this->assertStringContainsString('__POOL__', $boot['urls']['pools']['activate']);
+
+        $state = $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.fast-state', $auction))
+            ->assertOk()
+            ->json();
+
+        /*
+         * The full player list and a squad are the heaviest things the panel can show and the
+         * least often looked at. They must not ride the reconcile — a 400-player list on every
+         * poll is exactly what made the classic panel expensive.
+         */
+        $this->assertArrayNotHasKey('available_players', $state);
+        $this->assertArrayNotHasKey('all_players', $state);
+
+        // Pools DO ride it: a handful of rows, and the toolbar shows progress continuously.
+        $this->assertArrayHasKey('pools', $state);
+        // Reported inside stats, not at the top level — the panel reads it from there.
+        $this->assertArrayHasKey('unsold_count', $state['stats']);
+    }
+
+    #[Test]
     public function the_panel_publishes_to_the_local_bus_and_the_wall_listens(): void
     {
         $bus = file_get_contents(resource_path('js/fast-auction/lib/local-bus.js'));

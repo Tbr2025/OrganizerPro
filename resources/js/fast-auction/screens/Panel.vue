@@ -36,6 +36,24 @@ const pushUp = ref(false);
 const lastBidId = ref(0);
 const sellOpen = ref(false);
 
+/*
+ * Drawers, and the two lists that are fetched only when one opens.
+ *
+ * The full player list and a team's squad are the heaviest things this screen can show and the
+ * least often looked at. Keeping them out of the reconcile is what keeps it small — a 400-player
+ * list riding every poll is precisely what made the classic panel expensive.
+ */
+const drawer = ref('');            // '' | 'players' | 'pools' | 'squad'
+const players = ref([]);
+const playersLoading = ref(false);
+const playerSearch = ref('');
+const squad = ref([]);
+const squadTeam = ref(null);
+const squadLoading = ref(false);
+
+/* A quick-bid step armed for the NEXT team click — the classic panel's behaviour exactly. */
+const armedStep = ref(null);
+
 const cp = computed(() => s.value.current_player ?? null);
 const teams = computed(() => s.value.teams ?? []);
 const stats = computed(() => s.value.stats ?? {});
@@ -44,6 +62,14 @@ const sealedPending = computed(() => Boolean(s.value.sealed_threshold_pending));
 const soldBoard = computed(() => s.value.sold_players ?? []);
 const pool = computed(() => s.value.active_pool ?? null);
 const leaderTeam = computed(() => teams.value.find((t) => t.name === cp.value?.leader) ?? null);
+const pools = computed(() => s.value.pools ?? []);
+const quickSteps = computed(() => s.value.quick_bid_steps ?? []);
+const started = computed(() => s.value.auction_status && s.value.auction_status !== 'pending');
+
+const filteredPlayers = computed(() => {
+    const q = playerSearch.value.trim().toLowerCase();
+    return q ? players.value.filter((p) => (p.name ?? '').toLowerCase().includes(q)) : players.value;
+});
 
 /* The figure on screen, which moves on a press before the server has answered — see step(). */
 const shownPrice = ref(null);
@@ -199,11 +225,18 @@ async function flushSteps() {
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
-const bidForTeam = (team) => act(`team-${team.id}`, urls.addBid, {
-    auctionId: props.boot.auctionId,
-    playerID: cp.value?.id,
-    teamId: team.id,
-});
+function bidForTeam(team) {
+    const stepIndex = armedStep.value;
+    armedStep.value = null;
+
+    return act(`team-${team.id}`, urls.addBid, {
+        auctionId: props.boot.auctionId,
+        playerID: cp.value?.id,
+        teamId: team.id,
+        // Which configured step, not what it is worth — the server climbs its own ladder.
+        ...(stepIndex === null ? {} : { stepIndex }),
+    });
+}
 
 const clearTeam = () => act('clear', urls.clearBidTeam, {
     auctionId: props.boot.auctionId,
@@ -239,6 +272,80 @@ const reBid = () => settle(() => act('rebid', urls.reBid,
     { auction_player_id: cp.value?.id }, `Re-open bidding on ${cp.value?.name}?`));
 const togglePause = () => act('pause', urls.togglePause, {});
 const toggleTimer = () => act('timer', urls.toggleTimer, {});
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
+const startAuction = () => act('start', urls.start, {}, 'Start this auction?');
+const endAuction = () => act('end', urls.end, {}, 'End this auction? No further lots can be called.');
+const restartAuction = () => act('restart', urls.restart, {},
+    'Restart the auction? Every sale is undone and the room goes back to zero.');
+const reAuction = () => settle(() => act('reauction', urls.reAuction,
+    { auction_player_id: cp.value?.id }, `Send ${cp.value?.name} back to the unsold list?`));
+const reAuctionRound = () => act('reround', urls.reAuctionRound, {},
+    'Open a fresh round for every unsold player?');
+
+// ── Pools ─────────────────────────────────────────────────────────────────────
+/* One template per pool action; the id is substituted rather than a URL being built here, so
+   route changes stay in the routes file. */
+const poolUrl = (action, poolId) => (urls.pools?.[action] ?? '').replace('__POOL__', poolId);
+
+const poolAction = (action, pool, confirmText = null) =>
+    act(`pool-${action}-${pool.id}`, poolUrl(action, pool.id), {}, confirmText);
+
+// ── On-demand lists ───────────────────────────────────────────────────────────
+async function openPlayers() {
+    drawer.value = drawer.value === 'players' ? '' : 'players';
+    if (drawer.value !== 'players' || players.value.length) return;
+
+    playersLoading.value = true;
+    try {
+        const data = await get(urls.allPlayers, 'players');
+        players.value = data.players ?? data ?? [];
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        playersLoading.value = false;
+    }
+}
+
+/** Put a chosen player on the block. Same endpoint the "next player" button uses. */
+const putOnBid = (player) => {
+    drawer.value = '';
+    settle(() => act('onbid', urls.onBid, { auction_player_id: player.id }));
+};
+
+async function openSquad(team) {
+    if (squadTeam.value?.id === team.id && drawer.value === 'squad') {
+        drawer.value = '';
+        return;
+    }
+
+    drawer.value = 'squad';
+    squadTeam.value = team;
+    squad.value = [];
+    squadLoading.value = true;
+
+    try {
+        const data = await get((urls.squad ?? '').replace('__TEAM__', team.id), 'squad');
+        squad.value = data.players ?? data ?? [];
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        squadLoading.value = false;
+    }
+}
+
+/*
+ * Arm a quick-bid jump for the next team clicked.
+ *
+ * The amount is never sent — only which configured step was armed. The server resolves it from
+ * the auction's own ladder, so a client still cannot name its own jump size.
+ */
+function toggleQuickStep(index) {
+    armedStep.value = armedStep.value === index ? null : index;
+    notice.value = armedStep.value === null
+        ? ''
+        : `Next bid jumps by ${money(quickSteps.value[index])} — now click a team.`;
+}
 
 function fullscreen() {
     if (document.fullscreenElement) document.exitFullscreen();
@@ -381,6 +488,19 @@ onBeforeUnmount(() => {
             </div>
         </main>
 
+        <!-- ── Quick-bid steps ──────────────────────────────────────────── -->
+        <section v-if="cp && can.control && quickSteps.length" class="px-6 lg:px-10 pb-2 shrink-0 flex flex-wrap items-center gap-2">
+            <span class="text-[10px] uppercase tracking-wider text-slate-500">Quick jump</span>
+            <button v-for="(amount, i) in quickSteps" :key="i" type="button" @click="toggleQuickStep(i)"
+                    class="px-2.5 py-1 rounded-lg border text-xs font-semibold transition"
+                    :class="armedStep === i
+                        ? 'border-amber-400 bg-amber-500/15 text-amber-200'
+                        : 'border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800'"
+                    :title="armedStep === i ? 'Armed — click a team' : `Jump by ${money(amount)} on the next team click`">
+                +{{ money(amount) }}
+            </button>
+        </section>
+
         <!-- ── Team chips ───────────────────────────────────────────────── -->
         <section v-if="cp && can.control" class="px-6 lg:px-10 pb-3 shrink-0">
             <div class="flex flex-wrap gap-2">
@@ -395,6 +515,11 @@ onBeforeUnmount(() => {
                     <img v-if="team.logo_url" :src="team.logo_url" alt="" class="w-6 h-6 rounded-full object-cover">
                     <span class="font-semibold">{{ team.name }}</span>
                     <span class="text-[11px] text-slate-400 tabular-nums">{{ money(team.remaining_budget) }}</span>
+                    <!-- Right-click opens the squad rather than bidding: an operator's mis-click
+                         during a lot must never be a bid they did not mean to make. -->
+                    <span @click.right.prevent.stop="openSquad(team)"
+                          class="text-[10px] text-slate-500 hover:text-slate-300"
+                          title="Right-click for this team's squad">▸</span>
                 </button>
             </div>
         </section>
@@ -427,7 +552,21 @@ onBeforeUnmount(() => {
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm disabled:opacity-30">Undo</button>
             </template>
 
+            <template v-if="can.control">
+                <button type="button" @click="openPlayers"
+                        class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Players</button>
+                <button v-if="pools.length" type="button" @click="drawer = drawer === 'pools' ? '' : 'pools'"
+                        class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Pools</button>
+                <button type="button" @click="reAuction" :disabled="!!busy || !cp"
+                        class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm disabled:opacity-30"
+                        title="Send this player back to the unsold list">Re-auction</button>
+            </template>
+
             <div class="ml-auto flex items-center gap-2">
+                <button v-if="can.control && !started" type="button" @click="startAuction" :disabled="!!busy"
+                        class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-semibold disabled:opacity-30">
+                    Start auction
+                </button>
                 <button v-if="can.control" type="button" @click="toggleTimer" :disabled="!!busy"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm disabled:opacity-30">
                     {{ s.timer_enabled ? 'Timer on' : 'Timer off' }}
@@ -439,6 +578,26 @@ onBeforeUnmount(() => {
                 <button type="button" @click="fullscreen"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Fullscreen</button>
                 <a :href="urls.classic" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Classic panel</a>
+
+                <!-- The three that cannot be undone sit behind a menu, not beside Pass. -->
+                <details v-if="can.control" class="relative">
+                    <summary class="list-none cursor-pointer px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm select-none">⋯</summary>
+                    <div class="absolute right-0 bottom-full mb-2 w-56 rounded-xl bg-slate-900 border border-slate-700 p-1.5 shadow-2xl">
+                        <button type="button" @click="reAuctionRound" :disabled="!!busy || !stats.unsold_count"
+                                class="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-slate-800 disabled:opacity-30">
+                            Re-auction round
+                            <span class="text-[11px] text-slate-500">({{ stats.unsold_count ?? 0 }} unsold)</span>
+                        </button>
+                        <button type="button" @click="restartAuction" :disabled="!!busy"
+                                class="w-full text-left px-3 py-2 rounded-lg text-sm text-amber-300 hover:bg-slate-800 disabled:opacity-30">
+                            Restart auction
+                        </button>
+                        <button type="button" @click="endAuction" :disabled="!!busy"
+                                class="w-full text-left px-3 py-2 rounded-lg text-sm text-rose-300 hover:bg-slate-800 disabled:opacity-30">
+                            End auction
+                        </button>
+                    </div>
+                </details>
             </div>
         </footer>
 
@@ -452,6 +611,81 @@ onBeforeUnmount(() => {
                 </span>
             </div>
         </section>
+
+        <!-- ── Drawers ──────────────────────────────────────────────────── -->
+        <div v-if="drawer" class="fixed inset-0 z-40 flex justify-end bg-black/60" @click.self="drawer = ''">
+            <aside class="w-full max-w-md h-full bg-slate-900 border-l border-slate-700 flex flex-col">
+                <header class="flex items-center gap-2 px-4 py-3 border-b border-slate-800 shrink-0">
+                    <h2 class="font-bold text-sm">
+                        <template v-if="drawer === 'players'">Players</template>
+                        <template v-else-if="drawer === 'pools'">Pools</template>
+                        <template v-else>{{ squadTeam?.name }} squad</template>
+                    </h2>
+                    <button type="button" @click="drawer = ''" class="ml-auto text-slate-400 hover:text-white text-lg leading-none">&times;</button>
+                </header>
+
+                <!-- Players: pick one to put on the block -->
+                <template v-if="drawer === 'players'">
+                    <div class="p-3 shrink-0">
+                        <input v-model="playerSearch" type="search" placeholder="Search by name"
+                               class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-sm">
+                    </div>
+                    <div class="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-1">
+                        <p v-if="playersLoading" class="text-sm text-slate-500 px-1">Loading…</p>
+                        <p v-else-if="!filteredPlayers.length" class="text-sm text-slate-500 px-1">Nobody matches.</p>
+                        <button v-for="p in filteredPlayers" :key="p.id" type="button"
+                                @click="putOnBid(p)" :disabled="!!busy || !!cp"
+                                :title="cp ? 'Finish the current player first' : `Put ${p.name} on the block`"
+                                class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-slate-800 text-left disabled:opacity-30 disabled:cursor-not-allowed">
+                            <img v-if="p.image_path" :src="`/storage/${p.image_path}`" alt="" class="w-8 h-8 rounded-full object-cover shrink-0">
+                            <span v-else class="w-8 h-8 rounded-full bg-slate-800 grid place-items-center text-xs shrink-0">{{ (p.name ?? '?').charAt(0) }}</span>
+                            <span class="min-w-0">
+                                <span class="block text-sm font-medium truncate">{{ p.name }}</span>
+                                <span class="block text-[11px] text-slate-500">{{ p.player_type }}</span>
+                            </span>
+                            <span class="ml-auto text-[11px] text-slate-400 tabular-nums shrink-0">{{ money(p.base_price) }}</span>
+                        </button>
+                    </div>
+                </template>
+
+                <!-- Pools -->
+                <div v-else-if="drawer === 'pools'" class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                    <div v-for="pool in pools" :key="pool.id"
+                         class="rounded-xl border p-3"
+                         :class="pool.is_active ? 'border-emerald-600 bg-emerald-500/5' : 'border-slate-700'">
+                        <div class="flex items-center gap-2">
+                            <p class="font-semibold text-sm">{{ pool.name }}</p>
+                            <span v-if="pool.is_active" class="text-[10px] uppercase px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Active</span>
+                            <span class="ml-auto text-[11px] text-slate-400">{{ pool.done ?? 0 }}/{{ pool.total ?? 0 }}</span>
+                        </div>
+                        <div class="mt-2.5 flex flex-wrap gap-1.5">
+                            <button v-if="!pool.is_active" type="button" @click="poolAction('activate', pool)" :disabled="!!busy"
+                                    class="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-xs font-semibold disabled:opacity-30">Activate</button>
+                            <button v-if="pool.is_active" type="button" @click="poolAction('complete', pool, `Mark ${pool.name} complete?`)" :disabled="!!busy"
+                                    class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-xs disabled:opacity-30">Complete</button>
+                            <button type="button" @click="poolAction('reopen', pool, `Reopen ${pool.name}?`)" :disabled="!!busy"
+                                    class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-600 text-xs disabled:opacity-30">Reopen</button>
+                            <button type="button" @click="poolAction('restart', pool, `Restart ${pool.name}? Its sales are undone.`)" :disabled="!!busy"
+                                    class="px-2.5 py-1 rounded-lg bg-slate-800 border border-amber-700 text-amber-300 text-xs disabled:opacity-30">Restart</button>
+                        </div>
+                    </div>
+                    <p v-if="!pools.length" class="text-sm text-slate-500">No pools configured.</p>
+                </div>
+
+                <!-- Squad -->
+                <div v-else class="flex-1 min-h-0 overflow-y-auto p-3 space-y-1">
+                    <p v-if="squadLoading" class="text-sm text-slate-500">Loading…</p>
+                    <p v-else-if="!squad.length" class="text-sm text-slate-500">No players bought yet.</p>
+                    <div v-for="p in squad" :key="p.id" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-800/60">
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium truncate">{{ p.name ?? p.player?.name }}</span>
+                            <span class="block text-[11px] text-slate-500">{{ p.player_type ?? p.player?.player_type }}</span>
+                        </span>
+                        <span class="ml-auto text-[11px] text-slate-400 tabular-nums">{{ money(p.final_price ?? p.price) }}</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
 
         <!-- ── Sell to a named team ─────────────────────────────────────── -->
         <div v-if="sellOpen" class="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"

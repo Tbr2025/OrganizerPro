@@ -125,6 +125,27 @@ class FastAuctionScreenController extends Controller
                     'reBid' => route('admin.auction.organizer.api.player.re-bid', $auction),
                     'toggleTimer' => route('admin.auction.organizer.api.toggle-timer', $auction),
                     'start' => route('admin.auction.organizer.api.start', $auction),
+                    'end' => route('admin.auction.organizer.api.end', $auction),
+                    'restart' => route('admin.auction.organizer.api.restart', $auction),
+                    'reAuction' => route('admin.auction.organizer.api.player.re-auction', $auction),
+                    'reAuctionRound' => route('admin.auction.organizer.api.start-reauction-round', $auction),
+                    /*
+                     * Loaded on demand, never polled.
+                     *
+                     * The full player list and a team's squad are the two heaviest things this
+                     * screen can show and the two least often looked at. Fetching them when the
+                     * drawer opens keeps the reconcile small, which is the whole point of this
+                     * panel — a 400-player list riding every poll is what made the classic one
+                     * expensive.
+                     */
+                    'allPlayers' => route('admin.auction.organizer.api.all-players', $auction),
+                    'squad' => route('admin.auction.organizer.api.team.squad', ['auction' => $auction, 'team' => '__TEAM__']),
+                    'pools' => [
+                        'activate' => route('admin.auction.organizer.api.pool.activate', ['auction' => $auction, 'pool' => '__POOL__']),
+                        'complete' => route('admin.auction.organizer.api.pool.complete', ['auction' => $auction, 'pool' => '__POOL__']),
+                        'reopen' => route('admin.auction.organizer.api.pool.reopen', ['auction' => $auction, 'pool' => '__POOL__']),
+                        'restart' => route('admin.auction.organizer.api.pool.restart', ['auction' => $auction, 'pool' => '__POOL__']),
+                    ],
                     // Bidding posts to the shared endpoints the classic panel uses, so a raise
                     // made here and one made there travel exactly the same path.
                     'addBid' => url('/admin/auctions/add-bid'),
@@ -175,6 +196,7 @@ class FastAuctionScreenController extends Controller
             'can_undo', 'next_undo', 'next_undo_notes', 'active_pool', 'next_pool',
             'timer_enabled', 'timer_seconds_remaining', 'timer_expired', 'timer_paused',
             'bid_timer_seconds', 'final_call', 'server_time', 'amount_unit', 'available_players',
+            'pools',
         ];
 
         $state = array_intersect_key($full, array_flip($keep));
