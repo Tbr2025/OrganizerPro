@@ -19,6 +19,7 @@ import { get, post } from '../lib/api';
 import { connect } from '../lib/realtime';
 import { moneyFor } from '../lib/money';
 import { publishLocal } from '../lib/local-bus';
+import SealedDesk from './SealedDesk.vue';
 
 const props = defineProps({
     boot: { type: Object, required: true },
@@ -59,6 +60,10 @@ const teams = computed(() => s.value.teams ?? []);
 const stats = computed(() => s.value.stats ?? {});
 const paused = computed(() => s.value.auction_status === 'paused');
 const sealedPending = computed(() => Boolean(s.value.sealed_threshold_pending));
+const sealed = computed(() => s.value.sealed ?? null);
+/* The desk is shown while a round is live, or while a closed auction has somebody on the block
+   and one could be started. An open auction never sees it. */
+const showSealed = computed(() => Boolean(sealed.value) || (cp.value && s.value.bid_type === 'closed'));
 const soldBoard = computed(() => s.value.sold_players ?? []);
 const pool = computed(() => s.value.active_pool ?? null);
 const leaderTeam = computed(() => teams.value.find((t) => t.name === cp.value?.leader) ?? null);
@@ -312,6 +317,24 @@ const undo = () => settle(() => act('undo', urls.undo, {}, 'Undo the last action
 const reBid = () => settle(() => act('rebid', urls.reBid,
     { auction_player_id: cp.value?.id }, `Re-open bidding on ${cp.value?.name}?`));
 const togglePause = () => act('pause', urls.togglePause, {});
+
+/*
+ * The price has reached the sealed threshold and the server is waiting to be told what happens.
+ *
+ * Answered here rather than left to a poll: until it is answered the lot is stopped, and an
+ * unanswered question in the middle of a room full of people is the worst kind of pause.
+ */
+const confirmThreshold = () => act('threshold', `${urls.sealed}/confirm-threshold`,
+    { auction_player_id: cp.value?.id },
+    `Take ${cp.value?.name} to sealed bidding from ${money(price.value)}?`);
+
+const switchPhase = (mode) => act(`mode-${mode}`, urls.switchMode, { mode });
+
+/* The desk reports its own outcome; the panel just refreshes and surfaces the message. */
+function sealedDone(message) {
+    notice.value = message;
+    reconcile();
+}
 const toggleTimer = () => act('timer', urls.toggleTimer, {});
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
@@ -529,6 +552,27 @@ onBeforeUnmount(() => {
             </div>
         </main>
 
+        <!-- ── The lot has hit the sealed threshold ─────────────────────── -->
+        <section v-if="sealedPending && can.control" class="px-6 lg:px-10 pb-3 shrink-0">
+            <div class="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-purple-600 bg-purple-500/10">
+                <p class="text-sm text-purple-100">
+                    Reached <b>{{ money(s.sealed_threshold_amount) }}</b><span v-if="s.sealed_threshold_leader"> with {{ s.sealed_threshold_leader }} leading</span>.
+                    Take it to sealed bidding?
+                </p>
+                <button type="button" @click="confirmThreshold" :disabled="!!busy"
+                        class="ml-auto px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-sm font-bold disabled:opacity-30">
+                    Go sealed
+                </button>
+            </div>
+        </section>
+
+        <!-- ── Sealed desk ──────────────────────────────────────────────── -->
+        <section v-if="showSealed && can.control" class="px-6 lg:px-10 pb-3 shrink-0">
+            <SealedDesk :sealed="sealed" :teams="teams" :player-id="cp?.id"
+                        :urls="urls" :money="money" :busy="busy"
+                        @done="sealedDone" @error="(m) => (error = m)" />
+        </section>
+
         <!-- ── Quick-bid steps ──────────────────────────────────────────── -->
         <section v-if="cp && can.control && quickSteps.length" class="px-6 lg:px-10 pb-2 shrink-0 flex flex-wrap items-center gap-2">
             <span class="text-[10px] uppercase tracking-wider text-slate-500">Quick jump</span>
@@ -598,6 +642,17 @@ onBeforeUnmount(() => {
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Players</button>
                 <button v-if="pools.length" type="button" @click="drawer = drawer === 'pools' ? '' : 'pools'"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm">Pools</button>
+                <!-- Which way this lot is being run. Only while somebody is up: switching the
+                     phase with an empty block changes nothing anyone can see. -->
+                <span v-if="cp" class="inline-flex rounded-xl overflow-hidden border border-slate-600">
+                    <button v-for="mode in ['online', 'offline']" :key="mode" type="button"
+                            @click="switchPhase(mode)" :disabled="!!busy"
+                            class="px-2.5 py-2.5 text-xs font-semibold transition disabled:opacity-30"
+                            :class="(s.open_bid_mode === mode) ? 'bg-blue-600 text-white' : 'bg-slate-900 text-slate-400 hover:bg-slate-800'">
+                        {{ mode === 'online' ? 'Online' : 'Offline' }}
+                    </button>
+                </span>
+
                 <button type="button" @click="reAuction" :disabled="!!busy || !cp"
                         class="px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-600 text-sm disabled:opacity-30"
                         title="Send this player back to the unsold list">Re-auction</button>

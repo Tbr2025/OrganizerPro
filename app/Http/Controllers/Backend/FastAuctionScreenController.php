@@ -11,9 +11,11 @@ use App\Models\AuctionOperator;
 use App\Models\AuctionPlayer;
 use App\Models\AuctionPool;
 use App\Services\Auction\AuctionPoolService;
+use App\Services\Auction\ClosedBidService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
@@ -143,6 +145,16 @@ class FastAuctionScreenController extends Controller
                      */
                     'allPlayers' => route('admin.auction.organizer.api.all-players', $auction),
                     'nextCandidate' => route('admin.auction.organizer.api.next-candidate', $auction),
+                    /*
+                     * The sealed desk. A base plus the round-level command name, and a template
+                     * for the per-entry ones, rather than eleven separate entries — they all
+                     * share one controller and one shape.
+                     */
+                    // Str::beforeLast, not rtrim: rtrim strips any of those CHARACTERS from the
+                    // end, so a URL happening to finish in r, a, t or s would lose them too.
+                    'sealed' => Str::beforeLast(route('admin.auction.organizer.api.closed-bid.start', $auction), '/start'),
+                    'sealedEntry' => route('admin.auction.organizer.api.closed-bid.entries.adjust', ['auction' => $auction, 'entry' => '__ENTRY__']),
+                    'switchMode' => route('admin.auction.organizer.api.switch-mode', $auction),
                     'squad' => route('admin.auction.organizer.api.team.squad', ['auction' => $auction, 'team' => '__TEAM__']),
                     'pools' => [
                         'activate' => route('admin.auction.organizer.api.pool.activate', ['auction' => $auction, 'pool' => '__POOL__']),
@@ -262,6 +274,22 @@ class FastAuctionScreenController extends Controller
 
         $state['current_player'] = $this->trimCurrent($full['current_player'] ?? null);
         $state['pool_progress'] = $full['pool_progress'] ?? null;
+
+        /*
+         * The sealed round, only while there is one.
+         *
+         * Present it inline rather than making the desk fetch its own state: a sealed round is
+         * the one moment this panel is genuinely busy — a clock running, teams submitting, an
+         * organizer watching counts — and a second request per reconcile there is the worst
+         * possible place to spend one. Absent entirely the rest of the time, so an open auction
+         * carries nothing for a feature it is not using.
+         */
+        $onBlock = $auction->auctionPlayers()->where('status', 'on_auction')->first();
+        $sealed = $onBlock
+            ? app(ClosedBidService::class)->stateForOrganizer($auction, $onBlock)
+            : ['active' => false];
+
+        $state['sealed'] = ($sealed['active'] ?? false) ? $sealed : null;
         // The board grows all evening; the panel renders a scrolling list, not 400 rows.
         $state['sold_players'] = array_map(fn ($p) => [
             'id' => $p['id'] ?? null,
