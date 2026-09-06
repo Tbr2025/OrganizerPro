@@ -120,6 +120,16 @@ class FastAuctionScreenController extends Controller
                     'pass' => route('admin.auction.organizer.api.player.pass', $auction),
                     'onBid' => route('admin.auction.organizer.api.player.onbid', $auction),
                     'togglePause' => route('admin.auction.organizer.api.toggle-pause', $auction),
+                    'sellToTeam' => route('admin.auction.organizer.api.player.sell-to-team', $auction),
+                    'undo' => route('admin.auction.organizer.api.undo', $auction),
+                    'reBid' => route('admin.auction.organizer.api.player.re-bid', $auction),
+                    'toggleTimer' => route('admin.auction.organizer.api.toggle-timer', $auction),
+                    'start' => route('admin.auction.organizer.api.start', $auction),
+                    // Bidding posts to the shared endpoints the classic panel uses, so a raise
+                    // made here and one made there travel exactly the same path.
+                    'addBid' => url('/admin/auctions/add-bid'),
+                    'decreaseBid' => url('/admin/auctions/decrease-bid'),
+                    'clearBidTeam' => url('/admin/auctions/clear-bid-team'),
                     'classic' => route('admin.auction.organizer.panel', $auction),
                 ],
             ],
@@ -160,7 +170,7 @@ class FastAuctionScreenController extends Controller
 
         $keep = [
             'auction_status', 'restarting', 'restart_seconds', 'stats', 'teams',
-            'open_bid_mode', 'bid_type', 'next_bid_amount', 'max_bid_reached', 'quick_bid_steps',
+            'open_bid_mode', 'bid_type', 'next_bid_amount', 'bid_increment', 'max_bid_reached', 'quick_bid_steps',
             'sealed_threshold_pending', 'sealed_threshold_leader', 'sealed_threshold_amount',
             'can_undo', 'next_undo', 'next_undo_notes', 'active_pool', 'next_pool',
             'timer_enabled', 'timer_seconds_remaining', 'timer_expired', 'timer_paused',
@@ -170,6 +180,7 @@ class FastAuctionScreenController extends Controller
         $state = array_intersect_key($full, array_flip($keep));
 
         $state['current_player'] = $this->trimCurrent($full['current_player'] ?? null);
+        $state['pool_progress'] = $full['pool_progress'] ?? null;
         // The board grows all evening; the panel renders a scrolling list, not 400 rows.
         $state['sold_players'] = array_map(fn ($p) => [
             'id' => $p['id'] ?? null,
@@ -195,15 +206,29 @@ class FastAuctionScreenController extends Controller
 
         $bids = array_slice(array_reverse($cp['bids'] ?? []), 0, 8);
 
+        $player = $cp['player'] ?? [];
+
         return [
             'id' => $cp['id'] ?? null,
-            'name' => $cp['player']['name'] ?? null,
-            'image_path' => $cp['player']['image_path'] ?? null,
-            'player_type' => $cp['player']['player_type']['type'] ?? null,
+            'name' => $player['name'] ?? null,
+            'image_path' => $player['image_path'] ?? null,
+            'player_type' => $player['player_type']['type'] ?? null,
             'base_price' => $cp['base_price'] ?? null,
             'current_price' => $cp['current_price'] ?? null,
             'lot_number' => $cp['lot_number'] ?? null,
             'leader' => $cp['current_bid_team']['name'] ?? null,
+            /*
+             * The detail strip the classic stage prints beside the photo. Named individually
+             * rather than passing the Player model through: this endpoint is reached by an
+             * operator, but the same trimming discipline that kept 86 columns off the wall's
+             * feed applies here — a panel needs a handful of facts, not a personnel record.
+             */
+            'leader_team_id' => $cp['current_bid_team']['id'] ?? null,
+            'batting_style' => $player['batting_style'] ?? null,
+            'bowling_style' => $player['bowling_style'] ?? null,
+            'jersey_number' => $player['jersey_number'] ?? null,
+            'location' => $player['location'] ?? null,
+            'is_capped' => $player['is_capped'] ?? null,
             'bids' => array_map(fn ($b) => [
                 'id' => $b['id'] ?? null,
                 'amount' => $b['amount'] ?? null,

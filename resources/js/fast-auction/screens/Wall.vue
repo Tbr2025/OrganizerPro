@@ -4,6 +4,7 @@ import { get } from '../lib/api';
 import { connect } from '../lib/realtime';
 import { moneyFor, priceLabel } from '../lib/money';
 import { customImages, elementStyle, isVisible, tableColumns } from '../lib/design';
+import { subscribeLocal } from '../lib/local-bus';
 
 const props = defineProps({
     boot: { type: Object, required: true },
@@ -113,9 +114,45 @@ function applyRaise(e) {
     setTimeout(() => { flash.value = false; }, 450);
 }
 
+/**
+ * A price from the panel on this same machine.
+ *
+ * Applied with no bid id, because there is no bid yet — the operator has pressed "+" and the
+ * request is still in flight. That is exactly why it is worth applying: a wall projected from
+ * the same laptop redraws before the request has left it. The push that follows carries a real
+ * id and takes over; the reconcile after that corrects anything this got ahead of.
+ *
+ * Guarded on the player: a message about a lot that is no longer up must not rewrite this one.
+ *
+ * The PRICE and nothing else. The panel can see a winning team the room is not meant to have yet
+ * — a lot-reveal spin withholds it deliberately — so the leader is never carried on this bus and
+ * is left to arrive through `bid.raised`, which already respects that.
+ */
+function applyLocal(data) {
+    if (data.type !== 'price') return;
+    if (!snap.value.active?.auctionPlayer) return;
+    if (data.playerId && Number(data.playerId) !== Number(snap.value.active.auctionPlayer.id)) return;
+
+    snap.value = {
+        ...snap.value,
+        active: {
+            ...snap.value.active,
+            auctionPlayer: {
+                ...snap.value.active.auctionPlayer,
+                current_price: data.price,
+            },
+        },
+    };
+}
+
+let stopLocal = () => {};
+
 onMounted(() => {
     fit();
     window.addEventListener('resize', fit);
+
+    // Same machine, no server in the middle. Push still runs for every other screen.
+    stopLocal = subscribeLocal(props.boot.auctionId, applyLocal);
 
     connect({
         auctionId: props.boot.auctionId,
@@ -129,7 +166,10 @@ onMounted(() => {
     });
 });
 
-onUnmounted(() => window.removeEventListener('resize', fit));
+onUnmounted(() => {
+    window.removeEventListener('resize', fit);
+    stopLocal();
+});
 </script>
 
 <template>
