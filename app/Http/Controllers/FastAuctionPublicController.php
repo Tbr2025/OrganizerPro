@@ -101,10 +101,78 @@ class FastAuctionPublicController extends Controller
      * response cacheable; turning that into cache HITS needs a rule for
      * `/auction/*&#47;fast-wall-snapshot` in the dashboard.
      */
+    /**
+     * The broadcast strip.
+     *
+     * Reuses the classic ticker's feed rather than composing a new one — it is already 1.2 KB
+     * and cached for a second across every viewer. What was heavy about the old ticker was the
+     * 1,840-line view, not the data behind it.
+     */
+    public function ticker(Auction $auction): View
+    {
+        return view('fast-auction.ticker', [
+            'boot' => [
+                'screen' => 'ticker',
+                'auctionId' => $auction->id,
+                'auctionName' => $auction->name,
+                'amountUnit' => $auction->amountUnitConfig(),
+                'snapshot' => app(PublicAuctionController::class)->tickerFeed($auction)->getData(true),
+                'urls' => [
+                    'snapshot' => route('public.auction.ticker-feed', $auction),
+                    'classic' => route('public.auction.ticker', $auction),
+                ],
+            ],
+        ]);
+    }
+
     public function snapshot(Auction $auction): JsonResponse
     {
         return response()->json($this->payload($auction))
             ->header('Cache-Control', 'public, max-age=1, s-maxage=1');
+    }
+
+    /**
+     * How long a result stays on the wall after the hammer.
+     *
+     * Long enough for the room to read it, short enough that a break does not leave a stale
+     * SOLD card up for twenty minutes.
+     */
+    private const RESULT_WINDOW_SECONDS = 25;
+
+    /**
+     * The lot that just settled, so the wall can stamp it.
+     *
+     * `activePlayer()` only ever returns somebody ON the block — the moment a player is sold
+     * they are gone from it — so a wall built on that feed alone has nothing to show between
+     * lots and the sale passes without a mark. This is the missing half: the last settled lot
+     * and what happened to it.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function lastResult(Auction $auction): ?array
+    {
+        $settled = $auction->auctionPlayers()
+            ->whereIn('status', ['sold', 'unsold', 'skipped'])
+            ->where('updated_at', '>=', now()->subSeconds(self::RESULT_WINDOW_SECONDS))
+            ->with(['player:id,name,image_path', 'soldToTeam:id,name,team_logo'])
+            ->latest('updated_at')
+            ->first();
+
+        if (! $settled) {
+            return null;
+        }
+
+        return [
+            // The id is what lets the wall tell a NEW result from the same one still on screen,
+            // so an animation plays once rather than restarting on every reconcile.
+            'id' => $settled->id,
+            'outcome' => $settled->status,
+            'name' => $settled->player?->name,
+            'image_path' => $settled->player?->image_path,
+            'price' => $settled->status === 'sold' ? $settled->final_price : null,
+            'team' => $settled->soldToTeam?->name,
+            'team_logo' => $settled->soldToTeam?->team_logo_url,
+        ];
     }
 
     /**
@@ -126,6 +194,7 @@ class FastAuctionPublicController extends Controller
 
         return [
             'active' => $active,
+            'result' => $this->lastResult($auction),
             // The board grows all evening and the wall wants the recent end of it; the full list
             // stays available on the classic feed for anything that needs every row.
             'sold' => array_slice($sold['soldPlayers'] ?? [], 0, 12),

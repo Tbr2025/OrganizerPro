@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { get } from '../lib/api';
 import { connect } from '../lib/realtime';
 import { moneyFor, priceLabel } from '../lib/money';
@@ -26,6 +26,70 @@ const leader = computed(() => row.value?.current_bid_team?.name ?? null);
 const stage = computed(() => active.value?.stage ?? null);
 const sealed = computed(() => active.value?.closed_bid ?? null);
 const sold = computed(() => snap.value.sold ?? []);
+
+/*
+ * The lot that just settled, and whether its stamp has been shown yet.
+ *
+ * `activePlayer` only ever returns somebody ON the block, so between lots the wall had nothing
+ * to say and a sale passed without a mark. The id is what makes the animation play ONCE: a
+ * reconcile every couple of seconds would otherwise restart it continuously.
+ */
+const result = computed(() => snap.value.result ?? null);
+const shownResultId = ref(0);
+const sealIn = ref(false);
+const confetti = ref([]);
+
+watch(result, (next) => {
+    if (!next || next.id === shownResultId.value) return;
+
+    shownResultId.value = next.id;
+    sealIn.value = false;
+
+    // A tick apart so the class is removed and re-added; without it the animation does not
+    // restart when one result follows another.
+    requestAnimationFrame(() => { sealIn.value = true; });
+
+    confetti.value = next.outcome === 'sold' ? burst() : [];
+}, { immediate: true });
+
+/*
+ * A new lot arriving gets its own entrance.
+ *
+ * Keyed on the auction_player id rather than on the name: two players can share a name, and a
+ * price change must not re-trigger the animation mid-lot.
+ */
+const lotIn = ref(false);
+const shownLotId = ref(0);
+
+watch(() => row.value?.id, (id) => {
+    if (!id || id === shownLotId.value) return;
+
+    shownLotId.value = id;
+    lotIn.value = false;
+    requestAnimationFrame(() => { lotIn.value = true; });
+}, { immediate: true });
+
+/** A fixed set of paper scraps, positioned once. Cheap enough for a wall that must not stutter. */
+function burst() {
+    const colours = ['#22c55e', '#fbbf24', '#38bdf8', '#f472b6', '#ffffff'];
+    return Array.from({ length: 60 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 0.35,
+        duration: 2.4 + Math.random() * 1.6,
+        drift: (Math.random() - 0.5) * 220,
+        spin: (Math.random() - 0.5) * 900,
+        colour: colours[i % colours.length],
+        size: 6 + Math.random() * 8,
+    }));
+}
+
+/** Green for sold, red for unsold, amber for skipped — the classic wall's pairing. */
+const sealStyle = computed(() => ({
+    sold: { ring: '#22c55e', glow: 'rgba(34,197,94,.55)', word: 'SOLD' },
+    unsold: { ring: '#ef4444', glow: 'rgba(239,68,68,.55)', word: 'UNSOLD' },
+    skipped: { ring: '#f59e0b', glow: 'rgba(245,158,11,.55)', word: 'SKIPPED' },
+}[result.value?.outcome] ?? null));
 
 const photo = computed(() =>
     player.value?.image_path ? `/storage/${player.value.image_path}` : null);
@@ -194,7 +258,10 @@ onUnmounted(() => {
                  :src="`/storage/${img.path}`" alt=""
                  :style="at(img.key)">
 
+            <!-- The whole card fades and lifts in when a new lot goes up, so the room sees a
+                 change of player rather than fields quietly swapping values. -->
             <template v-if="onBlock">
+                <div class="lot-enter" :class="{ 'lot-in': lotIn }"></div>
                 <template v-if="shown('player_image')">
                     <img v-if="photo" :src="photo" alt="" class="object-cover"
                          :style="at('player_image')">
@@ -310,10 +377,43 @@ onUnmounted(() => {
                 </table>
             </template>
 
-            <!-- Nobody on the block: the stage heading the server already computes. -->
+            <!-- The lot that just settled, stamped. Takes precedence over the stage heading:
+                 between lots the result IS the news, and the heading can wait its turn. -->
+            <div v-else-if="result && sealStyle" class="absolute inset-0 flex flex-col items-center justify-center text-white">
+                <div class="seal-card" :class="{ 'seal-in': sealIn }">
+                    <div class="seal-photo" :style="{ borderColor: sealStyle.ring, boxShadow: `0 0 60px ${sealStyle.glow}` }">
+                        <img v-if="result.image_path" :src="`/storage/${result.image_path}`" :alt="result.name">
+                        <span v-else>{{ (result.name ?? '?').charAt(0) }}</span>
+                    </div>
+
+                    <div class="seal-stamp" :style="{ borderColor: sealStyle.ring, color: sealStyle.ring }">
+                        {{ sealStyle.word }}
+                    </div>
+
+                    <p class="seal-name">{{ result.name }}</p>
+
+                    <div v-if="result.outcome === 'sold'" class="seal-buyer">
+                        <img v-if="result.team_logo" :src="result.team_logo" alt="">
+                        <span>{{ result.team }}</span>
+                    </div>
+                    <p v-if="result.price" class="seal-price">{{ money(result.price) }}</p>
+                </div>
+
+                <!-- Paper, for a sale only. -->
+                <div v-if="confetti.length" class="confetti" aria-hidden="true">
+                    <i v-for="c in confetti" :key="c.id"
+                       :style="{ left: c.left + '%', background: c.colour,
+                                 width: c.size + 'px', height: (c.size * 0.45) + 'px',
+                                 animationDelay: c.delay + 's', animationDuration: c.duration + 's',
+                                 '--drift': c.drift + 'px', '--spin': c.spin + 'deg' }"></i>
+                </div>
+            </div>
+
+            <!-- Nobody on the block and nothing just settled: the stage heading the server
+                 already computes. -->
             <div v-else class="absolute inset-0 flex flex-col items-center justify-center text-white">
-                <p class="text-6xl font-black">{{ stage?.heading ?? 'PLEASE WAIT' }}</p>
-                <p v-if="stage?.subline" class="mt-4 text-3xl text-white/50">{{ stage.subline }}</p>
+                <p class="text-6xl font-black stage-in">{{ stage?.heading ?? 'PLEASE WAIT' }}</p>
+                <p v-if="stage?.subline" class="mt-4 text-3xl text-white/50 stage-in">{{ stage.subline }}</p>
             </div>
 
             <!--
@@ -327,3 +427,106 @@ onUnmounted(() => {
         </div>
     </div>
 </template>
+
+<style scoped>
+/*
+ * Transform and opacity only.
+ *
+ * This runs on whatever machine drives the projector, often a modest one, and anything that
+ * animates layout or paint drops frames on a screen the whole room is looking at. These are the
+ * two properties a compositor can handle without touching the main thread.
+ */
+.seal-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0;
+    transform: scale(.86);
+}
+
+.seal-card.seal-in {
+    animation: seal-land .55s cubic-bezier(.16, 1, .3, 1) forwards;
+}
+
+@keyframes seal-land {
+    from { opacity: 0; transform: scale(.86); }
+    60%  { opacity: 1; transform: scale(1.03); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+.seal-photo {
+    width: 18vh; height: 18vh;
+    border-radius: 9999px;
+    border: .5vh solid;
+    overflow: hidden;
+    display: grid; place-items: center;
+    background: rgba(0, 0, 0, .45);
+    font-size: 7vh; font-weight: 900;
+}
+.seal-photo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Struck on at an angle, the way a rubber stamp lands. */
+.seal-stamp {
+    margin-top: -2.5vh;
+    padding: .6vh 2.4vh;
+    border: .45vh solid;
+    border-radius: .8vh;
+    font-size: 4.4vh;
+    font-weight: 900;
+    letter-spacing: .12em;
+    background: rgba(0, 0, 0, .72);
+    transform: rotate(-8deg);
+}
+
+.seal-card.seal-in .seal-stamp { animation: stamp .45s .18s cubic-bezier(.16, 1, .3, 1) backwards; }
+
+@keyframes stamp {
+    from { opacity: 0; transform: rotate(-8deg) scale(2.4); }
+    to   { opacity: 1; transform: rotate(-8deg) scale(1); }
+}
+
+.seal-name { margin-top: 2.4vh; font-size: 5vh; font-weight: 900; }
+.seal-buyer { margin-top: 1.2vh; display: flex; align-items: center; gap: 1.2vh; font-size: 3vh; opacity: .85; }
+.seal-buyer img { width: 5vh; height: 5vh; border-radius: 9999px; object-fit: cover; }
+.seal-price { margin-top: .8vh; font-size: 4.6vh; font-weight: 900; color: #22c55e; }
+
+.stage-in { animation: stage-fade .4s ease both; }
+@keyframes stage-fade { from { opacity: 0; transform: translateY(1.5vh); } to { opacity: 1; transform: none; } }
+
+/* Confetti. Fixed count, positioned once, so there is no per-frame work in JavaScript. */
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti i {
+    position: absolute;
+    top: -6vh;
+    border-radius: 1px;
+    animation-name: fall;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes fall {
+    to { transform: translate3d(var(--drift), 108vh, 0) rotate(var(--spin)); opacity: 0; }
+}
+
+/*
+ * The lot entrance is drawn as a full-canvas wash rather than by animating the card, because the
+ * card's elements are absolutely positioned from a saved template — moving them would fight the
+ * designer's coordinates and land them in the wrong place for the length of the animation.
+ */
+.lot-enter { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+.lot-enter.lot-in { animation: lot-wash .6s ease-out both; }
+
+@keyframes lot-wash {
+    0%   { opacity: 1; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.22), transparent 62%); }
+    100% { opacity: 0; background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0), transparent 62%); }
+}
+
+/* A projector is not a phone, but the setting is honoured wherever it is set. */
+@media (prefers-reduced-motion: reduce) {
+    .seal-card.seal-in,
+    .seal-card.seal-in .seal-stamp,
+    .stage-in { animation: none; opacity: 1; transform: none; }
+    .lot-enter.lot-in { animation: none; opacity: 0; }
+    .confetti { display: none; }
+}
+</style>

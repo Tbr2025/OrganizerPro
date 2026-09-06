@@ -660,6 +660,10 @@ Route::get('/auction/{auction}/sold', [PublicAuctionController::class, 'showPubl
  */
 Route::get('/auction/{auction}/fast-wall', [FastAuctionPublicController::class, 'wall'])
     ->name('public.auction.fast-wall');
+
+// The broadcast strip. Same feed as the classic ticker, a fraction of the view.
+Route::get('/auction/{auction}/fast-ticker', [FastAuctionPublicController::class, 'ticker'])
+    ->name('public.auction.fast-ticker');
 Route::get('/auction/{auction}/results', [PublicAuctionController::class, 'showResults'])
     ->name('public.auction.results');
 // Transparent 1920x1080 overlay for a streaming mixer (OBS browser source).

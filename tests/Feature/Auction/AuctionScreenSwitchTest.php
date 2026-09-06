@@ -36,6 +36,22 @@ class AuctionScreenSwitchTest extends TestCase
     }
 
     #[Test]
+    public function the_ticker_has_a_fast_counterpart_and_they_link_to_each_other(): void
+    {
+        $org = $this->makeOrganization('Org ' . uniqid());
+        $tournament = $this->makeTournament($org);
+        $auction = $this->makeAuction($org, ['tournament_id' => $tournament->id, 'status' => 'running']);
+
+        $this->get(route('public.auction.fast-ticker', $auction))
+            ->assertOk()
+            ->assertSee(route('public.auction.ticker', $auction->id), false)
+            ->assertSee('Classic ticker');
+
+        // Both are public: a ticker is for a stream overlay and a side monitor.
+        $this->get(route('public.auction.ticker', $auction))->assertOk();
+    }
+
+    #[Test]
     public function the_team_bidding_screen_offers_the_fast_screen_and_back(): void
     {
         $org = $this->makeOrganization('Org ' . uniqid());

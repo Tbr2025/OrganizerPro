@@ -3,6 +3,7 @@ import { createApp } from 'vue';
 import TeamBidding from './screens/TeamBidding.vue';
 import Wall from './screens/Wall.vue';
 import Panel from './screens/Panel.vue';
+import Ticker from './screens/Ticker.vue';
 
 /**
  * Fast Auction's entry point.
@@ -19,6 +20,7 @@ const SCREENS = {
     'team-bidding': () => Promise.resolve({ default: TeamBidding }),
     'wall': () => Promise.resolve({ default: Wall }),
     'panel': () => Promise.resolve({ default: Panel }),
+    'ticker': () => Promise.resolve({ default: Ticker }),
 };
 
 function boot() {
