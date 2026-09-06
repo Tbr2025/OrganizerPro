@@ -266,7 +266,48 @@ const sellTo = (team) => {
 const pass = () => settle(() => act('pass', urls.pass,
     { auction_player_id: cp.value?.id }, `Pass ${cp.value?.name} with no sale?`));
 
-const next = () => settle(() => act('next', urls.onBid, {}));
+/**
+ * Put the next lot up.
+ *
+ * `player-on-bid` names a player — it does not choose one — so posting an empty body simply got
+ * "player id is required" back. The server picks, for two reasons: the waiting queue is the
+ * heaviest thing this screen could carry and keeping it out of the reconcile is the whole point
+ * of this panel, and a RANDOM pool has to be drawn from the full candidate set rather than from
+ * whatever slice a client happened to be holding.
+ *
+ * A player already on the block is passed first, with a confirmation — the same order the
+ * classic panel does it in.
+ */
+async function next() {
+    if (busy.value) return;
+    await flushSteps();
+
+    if (cp.value) {
+        if (!window.confirm(`Pass ${cp.value.name} and load the next player?`)) return;
+        await act('next', urls.pass, { auction_player_id: cp.value.id });
+        if (error.value) return;
+    }
+
+    busy.value = 'next';
+    error.value = '';
+
+    try {
+        const candidate = await get(urls.nextCandidate, 'next');
+
+        if (!candidate?.id) {
+            notice.value = 'No more players waiting.';
+            return;
+        }
+
+        const data = await post(urls.onBid, { auction_player_id: candidate.id });
+        notice.value = data.message ?? `${candidate.name ?? 'Next player'} is up.`;
+        await reconcile();
+    } catch (e) {
+        error.value = e.message;
+    } finally {
+        busy.value = '';
+    }
+}
 const undo = () => settle(() => act('undo', urls.undo, {}, 'Undo the last action?'));
 const reBid = () => settle(() => act('rebid', urls.reBid,
     { auction_player_id: cp.value?.id }, `Re-open bidding on ${cp.value?.name}?`));

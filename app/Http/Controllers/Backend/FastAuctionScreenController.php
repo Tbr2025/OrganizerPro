@@ -8,6 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
 use App\Models\Auction;
 use App\Models\AuctionOperator;
+use App\Models\AuctionPlayer;
+use App\Models\AuctionPool;
+use App\Services\Auction\AuctionPoolService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -139,6 +142,7 @@ class FastAuctionScreenController extends Controller
                      * expensive.
                      */
                     'allPlayers' => route('admin.auction.organizer.api.all-players', $auction),
+                    'nextCandidate' => route('admin.auction.organizer.api.next-candidate', $auction),
                     'squad' => route('admin.auction.organizer.api.team.squad', ['auction' => $auction, 'team' => '__TEAM__']),
                     'pools' => [
                         'activate' => route('admin.auction.organizer.api.pool.activate', ['auction' => $auction, 'pool' => '__POOL__']),
@@ -155,6 +159,61 @@ class FastAuctionScreenController extends Controller
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Who goes up next.
+     *
+     * Decided on the server rather than in the browser, because the alternative is shipping the
+     * waiting queue on every reconcile so the panel can pick from it — and that queue is the
+     * single heaviest thing this screen could carry. One small request at the moment of pressing
+     * "Next" costs less than four hundred rows riding every poll all evening.
+     *
+     * It has to be the whole candidate set, not a cached slice: a RANDOM pool drawn from the
+     * first few rows is not a random draw, it is a biased one, and a draw the room is watching
+     * has to be honest.
+     */
+    public function nextCandidate(Auction $auction): JsonResponse
+    {
+        $pools = app(AuctionPoolService::class);
+        $activePool = $pools->activePool($auction);
+
+        // Sequential is the default everywhere else, and it is the safe assumption: calling a
+        // list in order when a draw was wanted is a smaller wrong than the reverse.
+        $random = $activePool && $activePool->order_mode === AuctionPool::MODE_RANDOM;
+
+        $next = $random
+            ? $this->waiting($auction)->where('auction_pool_id', $activePool->id)->inRandomOrder()->first()
+            : $pools->nextPlayer($auction);
+
+        /*
+         * Never let "no pool" mean "no players".
+         *
+         * nextPlayer() requires an auction_pool_id and joins auction_pools, so an auction whose
+         * players were never assigned to a pool answers nothing at all — and the panel would
+         * report an empty room while a hundred people waited. The classic panel has the same
+         * fallback for the same reason: when the rows cannot say which pool they belong to, the
+         * whole waiting list is the candidate set.
+         */
+        if (! $next) {
+            $next = $this->waiting($auction)
+                ->orderByRaw('lot_number IS NULL, lot_number')
+                ->first();
+        }
+
+        return response()->json($next
+            ? ['id' => $next->id, 'name' => $next->player?->name]
+            : ['id' => null]);
+    }
+
+    /** Players still to be called. */
+    private function waiting(Auction $auction)
+    {
+        return AuctionPlayer::query()
+            ->where('auction_id', $auction->id)
+            ->where('status', 'waiting')
+            ->where('is_retained', false)
+            ->with('player:id,name');
     }
 
     /** The panel's live state — trimmed for the wire, not rebuilt. */

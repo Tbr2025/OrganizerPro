@@ -82,6 +82,41 @@ class FastPanelParityTest extends TestCase
     }
 
     #[Test]
+    public function next_player_is_chosen_by_the_server(): void
+    {
+        [$auction, , $onBlock, $operator] = $this->scenario();
+        $waiting = $this->makeAuctionPlayer($auction, ['status' => 'waiting']);
+
+        /*
+         * `player-on-bid` NAMES a player, it does not choose one — posting an empty body got
+         * "player id is required" back. The server picks, because the waiting queue is the
+         * heaviest thing this screen could carry and a random pool must be drawn from the whole
+         * candidate set, not from whatever slice a client happens to hold.
+         */
+        $candidate = $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.next-candidate', $auction))
+            ->assertOk()
+            ->json();
+
+        $this->assertArrayHasKey('id', $candidate);
+        $this->assertSame($waiting->id, $candidate['id'], 'The waiting player should be next up.');
+        $this->assertNotSame($onBlock->id, $candidate['id'], 'A player already on the block is not a candidate.');
+    }
+
+    #[Test]
+    public function with_nobody_waiting_the_server_says_so_rather_than_erroring(): void
+    {
+        [$auction, , , $operator] = $this->scenario();
+
+        // Only the on-block player exists, so there is no next candidate. A null id is an
+        // answer the panel can show; an exception is not.
+        $this->actingAs($operator)
+            ->getJson(route('admin.auction.organizer.api.next-candidate', $auction))
+            ->assertOk()
+            ->assertJson(['id' => null]);
+    }
+
+    #[Test]
     public function the_heavy_lists_are_fetched_on_demand_and_never_polled(): void
     {
         [$auction, , , $operator] = $this->scenario();
