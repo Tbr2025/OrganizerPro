@@ -184,6 +184,69 @@ watch(resultKey, (key, was) => {
 }, { immediate: true });
 
 /*
+ * ── "Going once, going twice" ──
+ *
+ * The closing call was on the classic wall and on the ticker and not here, so the one screen the
+ * whole hall is looking at said nothing while a lot was being closed.
+ *
+ * It needs a LOCAL clock. The server states the seconds remaining and the thresholds the calls
+ * sit at, but this screen reconciles every fifteen seconds while push is healthy, and the calls
+ * are three seconds apart — so read straight off the snapshot they would arrive in a lump, after
+ * the fact, or not at all. The server stays the authority: every figure below is seeded from it
+ * and re-seeded by it, and the rule that turns seconds into a call is the server's own
+ * `finalCallStages()` shipped with the payload rather than a copy of the rule written here.
+ */
+const stages = computed(() => active.value?.final_call_stages ?? []);
+const timerRuns = computed(() => Boolean(
+    liveRow.value && active.value?.timer_enabled && !active.value?.timer_paused
+));
+
+const secondsLeft = ref(null);
+let tick = null;
+
+/** Seeded by the server, never by this screen's own arithmetic alone. */
+function seedClock(value) {
+    secondsLeft.value = (value === null || value === undefined) ? null : Number(value);
+}
+
+watch(() => active.value?.timer_seconds_remaining, seedClock, { immediate: true });
+
+/*
+ * Local seconds, and NOT while the clock is paused.
+ *
+ * A frozen clock that keeps ticking locally counts the wall down past a pause and puts a FINAL
+ * CALL on a lot the organizer has stopped — the wall then disagrees with the panel and the
+ * stream about what is happening, which is worse than showing nothing.
+ */
+onMounted(() => {
+    tick = setInterval(() => {
+        if (!timerRuns.value || secondsLeft.value === null) return;
+
+        secondsLeft.value = Math.max(0, secondsLeft.value - 1);
+    }, 1000);
+});
+
+/**
+ * The call the clock has reached — the server's thresholds, run final-first, so the first match
+ * is the most advanced call. Nothing outside the closing window, nothing while paused, and
+ * nothing at all once the clock is at zero: a call that is no longer closing anything must not
+ * still be on the screen.
+ */
+const call = computed(() => {
+    if (!timerRuns.value || !secondsLeft.value) return null;
+
+    return stages.value.find((st) => secondsLeft.value <= st.at) ?? null;
+});
+
+/*
+ * "No bids — this player will go unsold."
+ *
+ * Only during a closing call and only when nobody has bid: it is the one thing a hall can still
+ * act on, and saying it at any other time is just noise on the screen.
+ */
+const goingUnsold = computed(() => Boolean(call.value && liveRow.value && !leader.value));
+
+/*
  * ── The next lot arrives ──
  *
  * No gap and no loader. A hall does not need to be told a player is coming — it needs to SEE one
@@ -379,6 +442,10 @@ function applyRaise(e) {
         },
     };
 
+    // BidRaised ships `Auction::timerStateFor()` for exactly this: a raise resets the clock,
+    // and a wall that kept counting the old one would call a lot that has just been bid on.
+    if (e.timer_seconds_remaining !== undefined) seedClock(e.timer_seconds_remaining);
+
     flash.value = true;
     setTimeout(() => { flash.value = false; }, 450);
 }
@@ -439,6 +506,7 @@ onUnmounted(() => {
     window.removeEventListener('resize', fit);
     clearTimeout(bannerTimer);
     clearTimeout(holdTimer);
+    clearInterval(tick);
     stopLocal();
 });
 </script>
@@ -674,6 +742,23 @@ onUnmounted(() => {
         </div>
 
         <!--
+            The closing call.
+
+            A wash over the whole screen, then the words. The dim follows the CALL and not
+            whether anyone has bid — "bidding is closing" is true whether the lot is about to be
+            won or lost, and it is the thing the hall has to notice. Below the paused overlay,
+            above everything else: a paused auction is not closing anything.
+        -->
+        <div v-if="call" class="call-dim" aria-hidden="true"></div>
+
+        <div v-if="call" class="call-banner" :class="{ 'is-final': call.is_final }">
+            <span class="call-word">{{ call.label }}</span>
+            <span class="call-secs">{{ secondsLeft }}</span>
+        </div>
+
+        <p v-if="goingUnsold" class="unsold-warning">No bids — player will go unsold</p>
+
+        <!--
             Nobody on the block: the waiting SCREEN.
 
             Not a caption over the card artwork — that artwork frames a player, and printing
@@ -899,6 +984,83 @@ onUnmounted(() => {
     box-shadow: 0 0 2.2vh rgba(var(--brand), .8);
 }
 
+/*
+ * ── The closing call ──
+ *
+ * Simple on purpose: a wash, a word and the seconds. Nothing here moves anything else on the
+ * screen — the card underneath is untouched, so a call cannot shift a price or a name a
+ * fraction of a second before somebody reads it.
+ */
+.call-dim {
+    position: fixed; inset: 0;
+    z-index: 300;
+    background: rgba(2, 6, 23, .32);
+    pointer-events: none;
+    animation: call-dim-in .45s ease both;
+}
+
+@keyframes call-dim-in { from { opacity: 0; } to { opacity: 1; } }
+
+.call-banner {
+    position: fixed;
+    left: 50%; bottom: 6%;
+    z-index: 320;
+    display: flex;
+    align-items: baseline;
+    gap: 2.4vh;
+    padding: 1.4vh 4vh;
+    border-radius: 9999px;
+    border: .3vh solid rgba(255, 255, 255, .35);
+    background: rgba(2, 6, 23, .86);
+    backdrop-filter: blur(10px);
+    color: #fff;
+    white-space: nowrap;
+    transform: translateX(-50%);
+    animation: call-in .5s cubic-bezier(.16, 1, .3, 1) both, call-beat 1.4s ease-in-out .5s infinite;
+}
+
+/* The last call is the one that matters, so it is the only one that changes colour. */
+.call-banner.is-final {
+    border-color: #f43f5e;
+    box-shadow: 0 0 8vh rgba(244, 63, 94, .45);
+}
+
+.call-word { font-size: 4.6vh; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
+.call-banner.is-final .call-word { color: #fb7185; }
+.call-secs { font-size: 3.2vh; font-weight: 900; color: rgba(226, 232, 240, .7); font-variant-numeric: tabular-nums; }
+
+@keyframes call-in {
+    from { opacity: 0; transform: translate(-50%, 3vh) scale(.9); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+/* A beat, not a throb: it sits on screen for seconds at a time. */
+@keyframes call-beat {
+    0%, 100% { transform: translate(-50%, 0) scale(1); }
+    50%      { transform: translate(-50%, 0) scale(1.035); }
+}
+
+.unsold-warning {
+    position: fixed;
+    left: 50%; top: 8%;
+    z-index: 320;
+    padding: 1.4vh 4vh;
+    border-radius: 9999px;
+    border: .3vh solid #f43f5e;
+    background: rgba(2, 6, 23, .86);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 6vh rgba(244, 63, 94, .45);
+    font-size: 2.8vh; font-weight: 900; letter-spacing: .1em; text-transform: uppercase;
+    color: #fff; white-space: nowrap;
+    transform: translateX(-50%);
+    animation: unsold-warn 1.4s ease-in-out infinite;
+}
+
+@keyframes unsold-warn {
+    0%, 100% { opacity: .92; }
+    50%      { opacity: 1; }
+}
+
 .waiting-title {
     font-size: 9vh;
     font-weight: 900;
@@ -1095,6 +1257,8 @@ onUnmounted(() => {
     .waiting-title,
     .pool-dot { animation: none; opacity: 1; }
     .auction-gavel, .gavel-block, .gavel-flash { animation: none; }
+    .call-banner, .unsold-warning, .call-dim { animation: none; opacity: 1; }
+    .call-banner { transform: translateX(-50%); }
     .gavel-flash { opacity: 0; }
     .result-banner { transform: translateX(-50%); }
     .card-layer.lot-in { animation: none; opacity: 1; transform: none; }
