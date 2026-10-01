@@ -70,6 +70,8 @@
         @foreach($groups as $group)
             @php
                 $groupEntries = $pointTableByGroups[$group->name] ?? collect();
+                // An empty column of dashes is noise; it appears once a team is marked qualified.
+                $showQualified = $groupEntries->contains(fn ($e) => (bool) $e->qualified);
             @endphp
             <div class="card overflow-hidden">
                 <div class="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 flex items-center justify-between">
@@ -97,7 +99,9 @@
                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NR</th>
                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NRR</th>
                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
+                                    @if($showQualified)
                                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qualified</th>
+                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y dark:divide-gray-700">
@@ -125,6 +129,7 @@
                                             {{ $entry->net_run_rate >= 0 ? '+' : '' }}{{ number_format($entry->net_run_rate, 3) }}
                                         </td>
                                         <td class="px-4 py-3 text-center text-sm font-bold text-gray-900 dark:text-white">{{ $entry->points }}</td>
+                                        @if($showQualified)
                                         <td class="px-4 py-3 text-center">
                                             @if($entry->qualified)
                                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
@@ -137,6 +142,7 @@
                                                 <span class="text-gray-400">-</span>
                                             @endif
                                         </td>
+                                        @endif
                                     </tr>
                                 @endforeach
                             </tbody>

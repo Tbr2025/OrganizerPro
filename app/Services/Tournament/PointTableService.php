@@ -61,11 +61,25 @@ class PointTableService
      */
     public function recalculatePointTable(Tournament $tournament): void
     {
+        // "Qualified" is the organizer's call (Mark Qualified Teams), not something a result
+        // implies, so it survives the rebuild instead of being wiped with the rows.
+        $qualified = $tournament->pointTableEntries()
+            ->where('qualified', true)
+            ->get(['tournament_group_id', 'actual_team_id'])
+            ->map(fn ($e) => $e->tournament_group_id . ':' . $e->actual_team_id)
+            ->all();
+
         // Reset all entries
         $tournament->pointTableEntries()->delete();
 
         // Re-initialize
         $this->initializePointTable($tournament);
+
+        if ($qualified) {
+            $tournament->pointTableEntries()->get()
+                ->filter(fn ($e) => in_array($e->tournament_group_id . ':' . $e->actual_team_id, $qualified, true))
+                ->each(fn ($e) => $e->update(['qualified' => true]));
+        }
 
         // Process all completed group-stage matches with results
         $matches = $tournament->matches()
@@ -241,7 +255,8 @@ class PointTableService
         $position = 1;
         foreach ($entries as $entry) {
             $entry->position = $position;
-            $entry->qualified = $position <= 2; // Top 2 qualify by default
+            // Qualification is not set here: marking the top two after every result told the
+            // table, the posters and the admin page that sides were through after one round.
             $entry->save();
             $position++;
         }
@@ -250,11 +265,9 @@ class PointTableService
     /**
      * Has this group's league stage actually finished?
      *
-     * `updatePositions()` marks the top two `qualified` every time a result is entered, so after
-     * a single match the table already claimed two sides were through — which is not a fact, it
-     * is a snapshot of the standings. The flag is still stored (organizers set it by hand on the
-     * admin page, and posters read it), but the public "Qualified" tag is only truthful once no
-     * league fixture in the group is still to be played.
+     * `qualified` is set by hand on the admin page (it used to be "currently top two", set by
+     * updatePositions() after every result). Posters still only draw it once no league fixture
+     * in the group is left to play; the public page no longer shows it at all.
      *
      * League stages here are recorded as `league` or `group`; knockout rounds have their own
      * stages and are never counted. A group with no league fixtures at all has decided nothing.

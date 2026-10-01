@@ -58,6 +58,47 @@ class PointTablePosterPageTest extends TestCase
             ->assertOk()
             ->assertSee('Generated posters')
             ->assertSee('storage/' . $poster->image_path, false)
-            ->assertSee('Titans');
+            ->assertSee('Titans')
+            // No team is marked qualified, so the column is not drawn at all.
+            ->assertDontSee('tracking-wider">Qualified</th>', false);
+    }
+
+    #[Test]
+    public function recalculating_keeps_the_organizers_qualified_marks_and_adds_none(): void
+    {
+        $org = $this->makeOrganization('Org ' . uniqid());
+        $tournament = $this->makeTournament($org, 'open');
+        $group = TournamentGroup::create(['tournament_id' => $tournament->id, 'name' => 'Pool A']);
+        $teams = collect(['Titans', 'Spartans', 'Bulls'])->map(fn ($n) => $this->makeTeam($org, $n, $tournament));
+        $group->teams()->attach($teams->pluck('id'));
+
+        $service = app(\App\Services\Tournament\PointTableService::class);
+        $service->recalculatePointTable($tournament->fresh());
+        $this->assertSame(0, \App\Models\PointTableEntry::where('qualified', true)->count(),
+            'A rebuild marked teams qualified on its own.');
+
+        \App\Models\PointTableEntry::where('actual_team_id', $teams[2]->id)->update(['qualified' => true]);
+        $service->recalculatePointTable($tournament->fresh());
+
+        $this->assertSame([$teams[2]->id],
+            \App\Models\PointTableEntry::where('qualified', true)->pluck('actual_team_id')->all());
+    }
+
+    #[Test]
+    public function the_public_table_gives_phones_a_short_code_for_long_team_names(): void
+    {
+        $org = $this->makeOrganization('Org ' . uniqid());
+        $tournament = $this->makeTournament($org, 'open');
+        $group = TournamentGroup::create(['tournament_id' => $tournament->id, 'name' => 'Pool A']);
+        $team = $this->makeTeam($org, 'Kerala Super Kings', $tournament);
+        // short_name on live is usually the full name again, which saves no space.
+        $team->update(['short_name' => 'Kerala Super Kings']);
+        $group->teams()->attach($team->id);
+        app(\App\Services\Tournament\PointTableService::class)->initializePointTable($tournament->fresh());
+
+        $this->get(route('public.tournament.point-table', $tournament->slug))
+            ->assertOk()
+            ->assertSee('<span class="sm:hidden">KSK</span>', false)
+            ->assertSee('<span class="hidden sm:inline">Kerala Super Kings</span>', false);
     }
 }

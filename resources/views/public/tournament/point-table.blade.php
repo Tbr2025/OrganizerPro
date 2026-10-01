@@ -126,13 +126,23 @@
         .pt-table .hide-mobile {
             display: none;
         }
+        .pt-table thead th:first-child,
+        .pt-table tbody td:first-child {
+            padding-left: 8px;
+            padding-right: 2px;
+        }
+        .pos-badge {
+            width: 24px;
+            height: 24px;
+            font-size: 11px;
+        }
         .team-logo-circle {
-            width: 30px;
-            height: 30px;
+            width: 28px;
+            height: 28px;
         }
         .team-logo-circle img {
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
         }
         .pts-value {
             font-size: 15px;
@@ -204,7 +214,8 @@
                                 </span>
                             </h2>
                             @php
-                                $groupMatchesPlayed = $entries->sum('matches_played');
+                                // Every match is counted once for each side, so the sum is twice the games.
+                                $groupMatchesPlayed = intdiv((int) $entries->sum('matches_played'), 2);
                             @endphp
                             @if($groupMatchesPlayed > 0)
                                 <span class="text-xs text-gray-500">{{ $groupMatchesPlayed }} matches played</span>
@@ -220,7 +231,7 @@
                         <table class="pt-table">
                             <thead>
                                 <tr>
-                                    <th class="w-12">#</th>
+                                    <th class="w-8 sm:w-12">#</th>
                                     <th>Team</th>
                                     <th class="w-12">M</th>
                                     <th class="w-12">W</th>
@@ -235,6 +246,17 @@
                                 @forelse($entries as $index => $entry)
                                     @php
                                         $pos = $entry->position ?? ($index + 1);
+                                        $fullName = $entry->team?->name ?? 'Unknown';
+                                        // Phones get a code so M/W/L/NRR/PTS all fit without scrolling.
+                                        // short_name is often just the full name again, so only a
+                                        // genuinely short one is used; otherwise the initials.
+                                        $short = trim((string) $entry->team?->short_name);
+                                        $words = array_values(array_filter(preg_split('/\s+/', trim($fullName))));
+                                        $mobileName = ($short !== '' && mb_strlen($short) <= 5)
+                                            ? mb_strtoupper($short)
+                                            : (count($words) > 1
+                                                ? implode('', array_map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)), array_slice($words, 0, 4)))
+                                                : mb_strtoupper(mb_substr($fullName, 0, 3)));
                                     @endphp
                                     {{-- No "Qualified" tag on the public table: the stored flag is
                                          "currently top two", and the league-finished check reads a
@@ -250,7 +272,7 @@
 
                                         {{-- Team --}}
                                         <td>
-                                            <div class="flex items-center gap-3">
+                                            <div class="flex items-center gap-2 sm:gap-3">
                                                 <div class="team-logo-circle">
                                                     @if($entry->team?->team_logo)
                                                         <img src="{{ Storage::url($entry->team->team_logo) }}" alt="{{ $entry->team->name }}">
@@ -259,8 +281,9 @@
                                                     @endif
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <p class="font-semibold text-white text-sm truncate max-w-[160px] md:max-w-none">
-                                                        {{ $entry->team?->name ?? 'Unknown' }}
+                                                    <p class="font-semibold text-white text-sm truncate max-w-[160px] md:max-w-none" title="{{ $fullName }}">
+                                                        <span class="sm:hidden">{{ $mobileName }}</span>
+                                                        <span class="hidden sm:inline">{{ $fullName }}</span>
                                                     </p>
                                                 </div>
                                             </div>
