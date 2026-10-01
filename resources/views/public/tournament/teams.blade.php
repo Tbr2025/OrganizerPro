@@ -53,11 +53,6 @@
         border-radius: 8px;
         padding: 4px 10px;
     }
-    .qualified-badge {
-        background: linear-gradient(135deg, rgba(34, 197, 94, 0.3) 0%, rgba(34, 197, 94, 0.1) 100%);
-        border: 1px solid rgba(34, 197, 94, 0.5);
-        color: #4ade80;
-    }
     .position-badge {
         width: 28px;
         height: 28px;
@@ -172,15 +167,6 @@
                                         <div class="position-badge {{ $position <= 3 ? 'position-' . $position : 'position-other' }}">
                                             {{ $position }}
                                         </div>
-                                    </div>
-                                @endif
-
-                                {{-- Qualified Badge --}}
-                                @if($teamEntry?->qualified && ($qualificationDecided ?? false))
-                                    <div class="absolute top-4 right-4">
-                                        <span class="qualified-badge text-xs font-semibold px-2 py-1 rounded">
-                                            <i class="fas fa-check-circle mr-1"></i>Q
-                                        </span>
                                     </div>
                                 @endif
 

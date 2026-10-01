@@ -859,7 +859,7 @@
 
                  The XI is chosen here and nowhere else. There is no lineup table in this
                  schema, so nothing persists this selection between posters — the roster the
-                 slots offer is the team's approved players for THIS tournament, which is real
+                 slots offer is the team's squad for THIS tournament, which is real
                  data, but which eleven of them play is a judgement only the organizer has. --}}
             <div id="playingXiSelection" class="hidden space-y-5" x-data="playingXiPanel()" x-init="init()">
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 space-y-4">
@@ -2159,9 +2159,9 @@ let savedDownloadUrl = null;
 /*
  * The Playing XI panel.
  *
- * The roster is emitted per team from the same $players collection the rest of this page uses,
- * keyed by the player's tournament team (the pivot wins over their home team) so a player on
- * loan appears under the side they actually play for here.
+ * The roster is emitted per team from the tournament squad only (player_actual_team_tournament),
+ * the same list the team manager's lineup page offers — not the wider $players collection the
+ * other poster types use, which also pulls in home-team and registration links.
  */
 const XI_ROSTER = @json($xiRoster ?? []);
 

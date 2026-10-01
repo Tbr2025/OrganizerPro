@@ -267,9 +267,29 @@ class TournamentTemplateController extends Controller
             ->pluck('user_id')
             ->all();
 
+        /*
+         * Only the tournament squad — the player_actual_team_tournament pivot, the same roster
+         * the team manager's lineup page offers (TeamManagerController::squadForLineup()).
+         *
+         * $players above is deliberately wider (home team, registrations, team membership) for
+         * the other poster types, and the XI picker used to share it, so it listed everyone ever
+         * attached to the club rather than the side actually signed up for this tournament.
+         * Queried without the organization scope so retained players with a NULL org still show.
+         */
+        $squadTeamMap = DB::table('player_actual_team_tournament')
+            ->where('tournament_id', $tournament->id)
+            ->whereIn('actual_team_id', $allTeamIds)
+            ->pluck('actual_team_id', 'player_id');
+
+        $squadPlayers = Player::withoutOrganizationScope()
+            ->whereIn('id', $squadTeamMap->keys())
+            ->with('playerType')
+            ->orderBy('name')
+            ->get();
+
         $xiRoster = [];
-        foreach ($players as $p) {
-            $teamId = $tournamentTeamMap[$p->id] ?? $p->actual_team_id;
+        foreach ($squadPlayers as $p) {
+            $teamId = $squadTeamMap[$p->id] ?? null;
             if (! $teamId) {
                 continue;
             }

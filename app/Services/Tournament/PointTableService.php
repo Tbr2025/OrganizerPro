@@ -76,9 +76,14 @@ class PointTableService
 
         $settings = $tournament->settings;
 
+        // Balls faced/bowled per entry id, summed as integers. The overs columns are decimals,
+        // so adding a third of an over to them match by match rounds every time; NRR is worked
+        // out from these exact totals instead.
+        $balls = [];
+
         foreach ($matches as $match) {
             if ($match->result && $match->isGroupStage()) {
-                $this->applyMatchResult($match, $settings);
+                $this->applyMatchResult($match, $settings, $balls);
             }
         }
 
@@ -92,7 +97,7 @@ class PointTableService
      * Apply a single match result to the point table entries (incremental).
      * Only called from recalculatePointTable to avoid double-counting.
      */
-    private function applyMatchResult(Matches $match, $settings): void
+    private function applyMatchResult(Matches $match, $settings, array &$balls): void
     {
         $result = $match->result;
         $tournament = $match->tournament;
@@ -100,19 +105,28 @@ class PointTableService
         $teamAEntry = $this->getOrCreateEntry($tournament, $match->tournament_group_id, $match->team_a_id);
         $teamBEntry = $this->getOrCreateEntry($tournament, $match->tournament_group_id, $match->team_b_id);
 
+        $quota = (int) ($match->overs ?: ($settings->overs_per_match ?? 20));
+        $teamABalls = $this->ballsForNrr($result->team_a_overs, $result->team_a_wickets, $quota);
+        $teamBBalls = $this->ballsForNrr($result->team_b_overs, $result->team_b_wickets, $quota);
+
+        $balls[$teamAEntry->id]['faced'] = ($balls[$teamAEntry->id]['faced'] ?? 0) + $teamABalls;
+        $balls[$teamAEntry->id]['bowled'] = ($balls[$teamAEntry->id]['bowled'] ?? 0) + $teamBBalls;
+        $balls[$teamBEntry->id]['faced'] = ($balls[$teamBEntry->id]['faced'] ?? 0) + $teamBBalls;
+        $balls[$teamBEntry->id]['bowled'] = ($balls[$teamBEntry->id]['bowled'] ?? 0) + $teamABalls;
+
         // Update Team A stats
         $teamAEntry->matches_played++;
         $teamAEntry->runs_scored += $result->team_a_score;
-        $teamAEntry->overs_faced += $this->oversToDecimal($result->team_a_overs);
+        $teamAEntry->overs_faced = $balls[$teamAEntry->id]['faced'] / 6;
         $teamAEntry->runs_conceded += $result->team_b_score;
-        $teamAEntry->overs_bowled += $this->oversToDecimal($result->team_b_overs);
+        $teamAEntry->overs_bowled = $balls[$teamAEntry->id]['bowled'] / 6;
 
         // Update Team B stats
         $teamBEntry->matches_played++;
         $teamBEntry->runs_scored += $result->team_b_score;
-        $teamBEntry->overs_faced += $this->oversToDecimal($result->team_b_overs);
+        $teamBEntry->overs_faced = $balls[$teamBEntry->id]['faced'] / 6;
         $teamBEntry->runs_conceded += $result->team_a_score;
-        $teamBEntry->overs_bowled += $this->oversToDecimal($result->team_a_overs);
+        $teamBEntry->overs_bowled = $balls[$teamBEntry->id]['bowled'] / 6;
 
         // Update win/loss/tie based on result
         if ($result->result_type === 'tie') {
@@ -138,8 +152,8 @@ class PointTableService
         }
 
         // Calculate NRR
-        $teamAEntry->net_run_rate = $this->calculateNRR($teamAEntry);
-        $teamBEntry->net_run_rate = $this->calculateNRR($teamBEntry);
+        $teamAEntry->net_run_rate = $this->calculateNRR($teamAEntry, $balls[$teamAEntry->id]);
+        $teamBEntry->net_run_rate = $this->calculateNRR($teamBEntry, $balls[$teamBEntry->id]);
 
         $teamAEntry->save();
         $teamBEntry->save();
@@ -167,28 +181,49 @@ class PointTableService
     /**
      * Calculate Net Run Rate
      */
-    private function calculateNRR(PointTableEntry $entry): float
+    private function calculateNRR(PointTableEntry $entry, array $balls): float
     {
-        $runRateFor = $entry->overs_faced > 0
-            ? $entry->runs_scored / $entry->overs_faced
+        $runRateFor = ($balls['faced'] ?? 0) > 0
+            ? $entry->runs_scored * 6 / $balls['faced']
             : 0;
 
-        $runRateAgainst = $entry->overs_bowled > 0
-            ? $entry->runs_conceded / $entry->overs_bowled
+        $runRateAgainst = ($balls['bowled'] ?? 0) > 0
+            ? $entry->runs_conceded * 6 / $balls['bowled']
             : 0;
 
         return round($runRateFor - $runRateAgainst, 3);
     }
 
     /**
-     * Convert overs (e.g., 19.4) to decimal
+     * The balls an innings counts for in NRR.
+     *
+     * A side that is bowled out is charged its full quota, not the overs it lasted (the ICC
+     * rule, and what CricHeroes shows). Without this, 92 all out in 14.5 overs reads as a run
+     * rate of 6.20 instead of 4.60 — flattering the side that collapsed and short-changing the
+     * side that bowled it out, which moved teams on the same points past each other.
+     *
+     * All out is taken as 10 wickets: there is no players-per-side setting to read a smaller
+     * figure from.
      */
-    private function oversToDecimal(float $overs): float
+    private function ballsForNrr($overs, $wickets, int $quota): int
     {
-        $wholeOvers = floor($overs);
-        $balls = ($overs - $wholeOvers) * 10;
+        if ((int) $wickets >= 10 && $quota > 0) {
+            return $quota * 6;
+        }
 
-        return $wholeOvers + ($balls / 6);
+        return $this->oversToBalls((float) $overs);
+    }
+
+    /**
+     * Convert cricket overs notation (19.4 = 19 overs and 4 balls) to balls.
+     */
+    private function oversToBalls(float $overs): int
+    {
+        $wholeOvers = (int) floor($overs);
+        // round(): 19.4 - 19 is 0.3999…, which would truncate to 3 balls.
+        $balls = (int) round(($overs - $wholeOvers) * 10);
+
+        return $wholeOvers * 6 + $balls;
     }
 
     /**

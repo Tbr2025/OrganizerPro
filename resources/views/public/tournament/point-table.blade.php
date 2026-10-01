@@ -56,13 +56,6 @@
     .pt-table tbody tr:hover {
         background: rgba(var(--accent-rgb), 0.05);
     }
-    .pt-table tbody tr.qualified-row {
-        background: rgba(34, 197, 94, 0.05);
-        border-left: 3px solid #22c55e;
-    }
-    .pt-table tbody tr.qualified-row:hover {
-        background: rgba(34, 197, 94, 0.08);
-    }
     .pt-table tbody td {
         padding: 14px 10px;
         text-align: center;
@@ -242,11 +235,12 @@
                                 @forelse($entries as $index => $entry)
                                     @php
                                         $pos = $entry->position ?? ($index + 1);
-                                        // Only a fact once the group has no league fixture left to play —
-                                        // before that the flag is just "currently top two".
-                                        $isQualified = $entry->qualified && ($qualificationDecided[$groupName] ?? false);
                                     @endphp
-                                    <tr class="{{ $isQualified ? 'qualified-row' : '' }}">
+                                    {{-- No "Qualified" tag on the public table: the stored flag is
+                                         "currently top two", and the league-finished check reads a
+                                         group as decided when later fixtures simply aren't created
+                                         yet. Organizers still mark qualifiers in the admin table. --}}
+                                    <tr>
                                         {{-- Position --}}
                                         <td>
                                             <span class="pos-badge {{ $pos <= 3 ? 'pos-' . $pos : 'pos-default' }} {{ $pos === 1 ? 'bounce-badge' : '' }}">
@@ -268,11 +262,6 @@
                                                     <p class="font-semibold text-white text-sm truncate max-w-[160px] md:max-w-none">
                                                         {{ $entry->team?->name ?? 'Unknown' }}
                                                     </p>
-                                                    @if($isQualified)
-                                                        <span class="text-[10px] text-green-400 font-medium">
-                                                            <i class="fas fa-check-circle mr-0.5"></i>Qualified
-                                                        </span>
-                                                    @endif
                                                 </div>
                                             </div>
                                         </td>
@@ -318,11 +307,6 @@
 
                     {{-- Legend --}}
                     <div class="px-5 py-3 border-t border-white/5 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-gray-500">
-                        @if(($qualificationDecided[$groupName] ?? false) && $entries->where('qualified', true)->count() > 0)
-                            <span class="flex items-center gap-1.5">
-                                <span class="w-2 h-2 bg-green-500 rounded-sm"></span> Qualified
-                            </span>
-                        @endif
                         <span><b class="text-gray-400">M</b> Played</span>
                         <span><b class="text-gray-400">W</b> Won</span>
                         <span><b class="text-gray-400">L</b> Lost</span>

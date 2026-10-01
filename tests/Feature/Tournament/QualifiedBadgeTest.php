@@ -71,8 +71,11 @@ class QualifiedBadgeTest extends TestCase
     }
 
     #[Test]
-    public function the_tag_appears_once_the_league_stage_is_done(): void
+    public function the_public_table_never_shows_the_tag_even_once_the_league_stage_is_done(): void
     {
+        // "Decided" only means no league fixture is left in the table — a group whose later
+        // fixtures are not created yet reads as decided after two rounds. The organizer asked
+        // for the tag to come off the public page altogether.
         [$tournament, $group, $fixture] = $this->scenario();
         $fixture('completed');
         $fixture('completed');
@@ -81,7 +84,7 @@ class QualifiedBadgeTest extends TestCase
 
         $this->get(route('public.tournament.point-table', $tournament->slug))
             ->assertOk()
-            ->assertSee('Qualified');
+            ->assertDontSee('Qualified');
     }
 
     #[Test]

@@ -30,8 +30,10 @@ class PointTableEntry extends Model
     ];
 
     protected $casts = [
-        'overs_faced' => 'decimal:1',
-        'overs_bowled' => 'decimal:1',
+        // True decimal overs (19.4 overs = 19.6667), summed across matches. One decimal place
+        // rounded a third of an over away per match, and that drift compounded into the NRR.
+        'overs_faced' => 'decimal:4',
+        'overs_bowled' => 'decimal:4',
         'net_run_rate' => 'decimal:3',
         'qualified' => 'boolean',
     ];
