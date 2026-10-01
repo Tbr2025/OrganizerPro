@@ -112,6 +112,28 @@ class ActualTeam extends Model
     }
 
     /**
+     * A code short enough for a phone-width table row: "KSK" for Kerala Super Kings.
+     *
+     * short_name is often just the full name typed again, so it is only used when it is
+     * genuinely short (5 characters or fewer); otherwise the initials of up to four words, or
+     * the first three letters of a one-word name.
+     */
+    public function getCompactCodeAttribute(): string
+    {
+        $short = trim((string) $this->short_name);
+        if ($short !== '' && mb_strlen($short) <= 5) {
+            return mb_strtoupper($short);
+        }
+
+        $words = array_values(array_filter(preg_split('/\s+/', trim((string) $this->name))));
+        if (count($words) > 1) {
+            return implode('', array_map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)), array_slice($words, 0, 4)));
+        }
+
+        return mb_strtoupper(mb_substr((string) $this->name, 0, 3));
+    }
+
+    /**
      * Get team captain (first user with captain role)
      */
     public function getCaptainAttribute()

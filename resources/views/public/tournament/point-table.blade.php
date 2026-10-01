@@ -248,15 +248,7 @@
                                         $pos = $entry->position ?? ($index + 1);
                                         $fullName = $entry->team?->name ?? 'Unknown';
                                         // Phones get a code so M/W/L/NRR/PTS all fit without scrolling.
-                                        // short_name is often just the full name again, so only a
-                                        // genuinely short one is used; otherwise the initials.
-                                        $short = trim((string) $entry->team?->short_name);
-                                        $words = array_values(array_filter(preg_split('/\s+/', trim($fullName))));
-                                        $mobileName = ($short !== '' && mb_strlen($short) <= 5)
-                                            ? mb_strtoupper($short)
-                                            : (count($words) > 1
-                                                ? implode('', array_map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)), array_slice($words, 0, 4)))
-                                                : mb_strtoupper(mb_substr($fullName, 0, 3)));
+                                        $mobileName = $entry->team?->compact_code ?? '?';
                                     @endphp
                                     {{-- No "Qualified" tag on the public table: the stored flag is
                                          "currently top two", and the league-finished check reads a
@@ -284,6 +276,11 @@
                                                     <p class="font-semibold text-white text-sm truncate max-w-[160px] md:max-w-none" title="{{ $fullName }}">
                                                         <span class="sm:hidden">{{ $mobileName }}</span>
                                                         <span class="hidden sm:inline">{{ $fullName }}</span>
+                                                    </p>
+                                                    {{-- Phones: the code above, the full name under it — small, one
+                                                         line, cut with "…" so a long name never widens the column. --}}
+                                                    <p class="sm:hidden italic text-gray-400 leading-tight truncate" style="font-size: 10px; max-width: 110px;" title="{{ $fullName }}">
+                                                        {{ $fullName }}
                                                     </p>
                                                 </div>
                                             </div>

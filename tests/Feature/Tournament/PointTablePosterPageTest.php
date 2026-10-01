@@ -59,6 +59,8 @@ class PointTablePosterPageTest extends TestCase
             ->assertSee('Generated posters')
             ->assertSee('storage/' . $poster->image_path, false)
             ->assertSee('Titans')
+            // Phone layout: the code (one-word name → first three letters) over the full name.
+            ->assertSee('<span class="sm:hidden font-semibold text-gray-900 dark:text-white">TIT</span>', false)
             // No team is marked qualified, so the column is not drawn at all.
             ->assertDontSee('tracking-wider">Qualified</th>', false);
     }
@@ -99,6 +101,7 @@ class PointTablePosterPageTest extends TestCase
         $this->get(route('public.tournament.point-table', $tournament->slug))
             ->assertOk()
             ->assertSee('<span class="sm:hidden">KSK</span>', false)
-            ->assertSee('<span class="hidden sm:inline">Kerala Super Kings</span>', false);
+            ->assertSee('<span class="hidden sm:inline">Kerala Super Kings</span>', false)
+            ->assertSee('<p class="sm:hidden italic text-gray-400 leading-tight truncate"', false);
     }
 }

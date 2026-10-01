@@ -90,47 +90,53 @@
                         <table class="w-full">
                             <thead class="bg-gray-50 dark:bg-gray-800">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">L</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">T</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NR</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NRR</th>
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
+                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                    <th class="px-2 sm:px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">P</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">W</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">L</th>
+                                    <th class="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">T</th>
+                                    <th class="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NR</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">NRR</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Pts</th>
                                     @if($showQualified)
-                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qualified</th>
+                                    <th class="px-2 sm:px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Qualified</th>
                                     @endif
                                 </tr>
                             </thead>
                             <tbody class="divide-y dark:divide-gray-700">
                                 @foreach($groupEntries as $index => $entry)
                                     <tr class="{{ $entry->qualified ? 'bg-green-50 dark:bg-green-900/20' : '' }}">
-                                        <td class="px-4 py-3 text-sm text-gray-500">{{ $index + 1 }}</td>
-                                        <td class="px-4 py-3">
+                                        <td class="px-2 sm:px-4 py-3 text-sm text-gray-500">{{ $index + 1 }}</td>
+                                        <td class="px-2 sm:px-4 py-3">
                                             <div class="flex items-center">
                                                 @if($entry->team?->team_logo)
-                                                    <img src="{{ Storage::url($entry->team->team_logo) }}" alt="{{ $entry->team->name }}" class="w-8 h-8 rounded-full mr-2 object-cover">
+                                                    <img src="{{ Storage::url($entry->team->team_logo) }}" alt="{{ $entry->team->name }}" class="w-7 h-7 sm:w-8 sm:h-8 rounded-full mr-2 object-cover shrink-0">
                                                 @else
-                                                    <div class="w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 mr-2 flex items-center justify-center text-xs font-bold">
+                                                    <div class="w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-full bg-gray-300 dark:bg-gray-600 mr-2 flex items-center justify-center text-xs font-bold">
                                                         {{ strtoupper(substr($entry->team?->name ?? 'T', 0, 2)) }}
                                                     </div>
                                                 @endif
-                                                <span class="font-medium text-gray-900 dark:text-white">{{ $entry->team?->name ?? 'Unknown' }}</span>
+                                                {{-- Phones: code in bold, full name small and italic under it on
+                                                     one line, cut with "…", so the stat columns fit. --}}
+                                                <div class="min-w-0">
+                                                    <span class="sm:hidden font-semibold text-gray-900 dark:text-white">{{ $entry->team?->compact_code ?? '?' }}</span>
+                                                    <span class="sm:hidden block truncate italic text-[10px] leading-tight text-gray-500 dark:text-gray-400 max-w-[110px]" title="{{ $entry->team?->name }}">{{ $entry->team?->name ?? 'Unknown' }}</span>
+                                                    <span class="hidden sm:inline font-medium text-gray-900 dark:text-white">{{ $entry->team?->name ?? 'Unknown' }}</span>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td class="px-4 py-3 text-center text-sm">{{ $entry->played }}</td>
-                                        <td class="px-4 py-3 text-center text-sm text-green-600 font-medium">{{ $entry->won }}</td>
-                                        <td class="px-4 py-3 text-center text-sm text-red-600 font-medium">{{ $entry->lost }}</td>
-                                        <td class="px-4 py-3 text-center text-sm">{{ $entry->tied }}</td>
-                                        <td class="px-4 py-3 text-center text-sm">{{ $entry->no_result }}</td>
-                                        <td class="px-4 py-3 text-center text-sm {{ $entry->net_run_rate >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                        <td class="px-2 sm:px-4 py-3 text-center text-sm">{{ $entry->played }}</td>
+                                        <td class="px-2 sm:px-4 py-3 text-center text-sm text-green-600 font-medium">{{ $entry->won }}</td>
+                                        <td class="px-2 sm:px-4 py-3 text-center text-sm text-red-600 font-medium">{{ $entry->lost }}</td>
+                                        <td class="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-sm">{{ $entry->tied }}</td>
+                                        <td class="hidden sm:table-cell px-2 sm:px-4 py-3 text-center text-sm">{{ $entry->no_result }}</td>
+                                        <td class="px-2 sm:px-4 py-3 text-center text-sm {{ $entry->net_run_rate >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                             {{ $entry->net_run_rate >= 0 ? '+' : '' }}{{ number_format($entry->net_run_rate, 3) }}
                                         </td>
-                                        <td class="px-4 py-3 text-center text-sm font-bold text-gray-900 dark:text-white">{{ $entry->points }}</td>
+                                        <td class="px-2 sm:px-4 py-3 text-center text-sm font-bold text-gray-900 dark:text-white">{{ $entry->points }}</td>
                                         @if($showQualified)
-                                        <td class="px-4 py-3 text-center">
+                                        <td class="px-2 sm:px-4 py-3 text-center">
                                             @if($entry->qualified)
                                                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
                                                     <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
