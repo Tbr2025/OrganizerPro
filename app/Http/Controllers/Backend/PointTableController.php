@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\GeneratedPoster;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Services\Poster\PointTablePosterService;
@@ -81,28 +82,39 @@ class PointTableController extends Controller
             ->orderByDesc('is_default')
             ->first();
 
+        /*
+         * Generating used to end at a "poster generated" flash: the PNG was written to storage
+         * and nothing on this page, or anywhere else, linked to it. Each one is now recorded
+         * in the tournament's poster gallery and handed back to the page to show.
+         */
         try {
-            if ($groupId) {
-                $group = $tournament->groups()->findOrFail($groupId);
+            $groups = $groupId
+                ? collect([$tournament->groups()->findOrFail($groupId)])
+                : $tournament->groups;
 
-                if ($template) {
-                    $this->generateWithTemplate($template, $tournament, $group);
-                } else {
-                    $this->posterService->generate($group);
-                }
+            $posters = [];
+            foreach ($groups as $group) {
+                $path = $template
+                    ? $this->generateWithTemplate($template, $tournament, $group)
+                    : $this->posterService->generate($group);
 
-                return redirect()->back()->with('success', __('Point table poster generated for :group.', ['group' => $group->name]));
-            } else {
-                if ($template) {
-                    foreach ($tournament->groups as $group) {
-                        $this->generateWithTemplate($template, $tournament, $group);
-                    }
-                    return redirect()->back()->with('success', __(':count point table posters generated.', ['count' => $tournament->groups->count()]));
-                } else {
-                    $paths = $this->posterService->generateAllGroups($tournament);
-                    return redirect()->back()->with('success', __(':count point table posters generated.', ['count' => count($paths)]));
-                }
+                GeneratedPoster::create([
+                    'tournament_id' => $tournament->id,
+                    'user_id' => Auth::id(),
+                    'type' => TournamentTemplate::TYPE_POINT_TABLE,
+                    'image_path' => $path,
+                    'label' => $group->name,
+                    'template_id' => $template?->id,
+                ]);
+
+                $posters[] = ['group' => $group->name, 'url' => asset('storage/' . $path)];
             }
+
+            $message = count($posters) === 1
+                ? __('Point table poster generated for :group.', ['group' => $posters[0]['group']])
+                : __(':count point table posters generated.', ['count' => count($posters)]);
+
+            return redirect()->back()->with('success', $message)->with('generated_posters', $posters);
         } catch (\Exception $e) {
             return redirect()->back()->with('error', __('Failed to generate poster: ') . $e->getMessage());
         }
@@ -111,6 +123,10 @@ class PointTableController extends Controller
     private function generateWithTemplate(TournamentTemplate $template, Tournament $tournament, $group): string
     {
         $entries = $group->pointTableEntries()->with('team')->ranked()->get();
+
+        // Same rule as the generate page and PointTablePosterService: the stored flag is just
+        // "currently top two" until the group's league fixtures are done.
+        $qualificationDecided = $this->pointTableService->qualificationDecided($tournament, $group->id);
 
         $data = [
             'tournament_name' => $tournament->name,
@@ -127,7 +143,7 @@ class PointTableController extends Controller
                 'tied' => $entry->tied,
                 'net_run_rate' => $entry->net_run_rate,
                 'points' => $entry->points,
-                'qualified' => $entry->qualified,
+                'qualified' => $entry->qualified && $qualificationDecided,
             ])->toArray(),
         ];
 

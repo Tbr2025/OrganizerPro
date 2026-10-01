@@ -45,11 +45,31 @@
         <div class="p-4 bg-red-100 text-red-700 rounded-lg">{{ session('error') }}</div>
     @endif
 
+    @if(session('generated_posters'))
+        <div class="card p-4">
+            <h3 class="font-bold text-gray-900 dark:text-white mb-3">Generated posters</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach(session('generated_posters') as $poster)
+                    <div class="space-y-2">
+                        <a href="{{ $poster['url'] }}" target="_blank" rel="noopener">
+                            <img src="{{ $poster['url'] }}" alt="{{ $poster['group'] }} point table poster"
+                                 class="w-full rounded-lg border border-gray-200 dark:border-gray-700">
+                        </a>
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="font-medium text-gray-700 dark:text-gray-200">{{ $poster['group'] }}</span>
+                            <a href="{{ $poster['url'] }}" download class="text-blue-600 hover:underline">Download</a>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <!-- Point Tables by Group -->
     @if($groups->count() > 0)
         @foreach($groups as $group)
             @php
-                $groupEntries = $pointTableByGroups[$group->id] ?? collect();
+                $groupEntries = $pointTableByGroups[$group->name] ?? collect();
             @endphp
             <div class="card overflow-hidden">
                 <div class="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-3 flex items-center justify-between">
@@ -137,7 +157,7 @@
                 @csrf
                 <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                     @foreach($groups as $group)
-                        @php $groupEntries = $pointTableByGroups[$group->id] ?? collect(); @endphp
+                        @php $groupEntries = $pointTableByGroups[$group->name] ?? collect(); @endphp
                         @foreach($groupEntries as $entry)
                             @if($entry->team)
                                 <label class="flex items-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
