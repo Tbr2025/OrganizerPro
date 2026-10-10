@@ -303,6 +303,9 @@ class TournamentFixtureController extends Controller
 
         $matches = $query->get();
 
+        // Credits: the whole batch is affordable, or none of it starts.
+        app(\App\Services\Credits\PosterMeter::class)->ensureCanAfford($matches->count());
+
         // Use default match poster template if one is set
         $template = $tournament->getTemplate(TournamentTemplate::TYPE_MATCH_POSTER);
         $enhancedService = $template ? new \App\Services\Poster\EnhancedMatchPosterService() : null;

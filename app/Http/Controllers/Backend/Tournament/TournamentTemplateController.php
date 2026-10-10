@@ -24,10 +24,10 @@ class TournamentTemplateController extends Controller
 {
     public function __construct()
     {
-        // Template management (CRUD) is Superadmin only
-        // AJAX requests to index/edit are allowed for Admin (used by generate poster page)
+        // Template management (CRUD) needs template.manage.
+        // AJAX requests to index/edit are allowed for generate-only users (used by the generate poster page)
         $this->middleware(function ($request, $next) {
-            if (! auth()->user()->hasRole('Superadmin')) {
+            if (! auth()->user()->can('template.manage')) {
                 // Allow AJAX template list queries (used by generate poster page to load templates)
                 if (($request->ajax() || $request->has('ajax')) && $request->isMethod('GET')) {
                     return $next($request);
@@ -36,12 +36,13 @@ class TournamentTemplateController extends Controller
                 if ($request->has('ajax_layout') && $request->isMethod('GET')) {
                     return $next($request);
                 }
-                abort(403, 'Only Super Admin can manage templates.');
+                abort(403, 'You do not have permission to manage templates.');
             }
             return $next($request);
         })->only([
             'index', 'create', 'store', 'edit', 'update', 'destroy',
             'duplicate', 'setDefault', 'uploadOverlay', 'deleteOverlay', 'updateSize',
+            'updateBackground', 'preview',
         ]);
     }
 
@@ -331,7 +332,6 @@ class TournamentTemplateController extends Controller
          * filtered here would go stale the moment the organizer changed tab. The view renders
          * them all tagged with their type and shows the matching ones.
          */
-        $presets = (new TemplatePresetService())->all();
 
         /*
          * Which person images each template draws, keyed by template id.
@@ -348,7 +348,6 @@ class TournamentTemplateController extends Controller
         return view('backend.pages.tournaments.templates.generate', compact(
             'tournament',
             'type',
-            'presets',
             'templates',
             'templatePersonImages',
             'xiRoster',
@@ -996,9 +995,25 @@ class TournamentTemplateController extends Controller
              * decoded back out to become the saved poster — so every downloaded
              * poster was a preview-grade re-encode carrying a .png extension.
              */
-            $rendered = $renderService->renderWithPreview($template, $data, (bool) $hasMatchData);
+            // Live preview (re-rendered as fields are edited) is free and gets only the
+            // on-screen image; "Generate" is one poster charge and gets the lossless PNG.
+            $isLive = $request->boolean('live') && ! $request->boolean('save_poster');
+            $render = fn () => $renderService->renderWithPreview($template, $data, (bool) $hasMatchData);
+            $rendered = $isLive ? app(\App\Services\Credits\PosterMeter::class)->suspended($render) : $render();
             $base64Image = $rendered['preview'];
             $renderedPath = $rendered['path'];
+
+            if ($isLive) {
+                Storage::disk('public')->delete($renderedPath);
+
+                return response()->json([
+                    'success' => true,
+                    'image' => $base64Image,
+                    'download_url' => null,
+                    'poster_id' => null,
+                    'poster_type' => $template->type,
+                ]);
+            }
 
             // Save poster to storage and database (only when explicitly requested)
             $shouldSave = $request->boolean('save_poster', false);
@@ -1242,21 +1257,47 @@ class TournamentTemplateController extends Controller
      */
     public function applyPreset(Tournament $tournament, Request $request)
     {
-        $service = new TemplatePresetService();
+        $service = app(TemplatePresetService::class);
 
         $validated = $request->validate([
-            'preset' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys($service->all()))],
+            'preset' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys($service->available()))],
+            'theme' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Poster\Presets\PresetThemes::all()))],
         ]);
 
-        $template = $service->apply($tournament, $validated['preset']);
+        $template = $service->apply($tournament, $validated['preset'], $validated['theme'] ?? null, $request->user());
 
         return redirect()
             ->route('admin.tournaments.templates.generate', [
                 'tournament' => $tournament->id,
                 'type' => $template->type,
+                'template' => $template->id,
             ])
-            ->with('success', "\"{$template->name}\" was added. Open the editor to change any of it.");
+            ->with('success', "\"{$template->name}\" was added. Pick it below to generate, or open the editor to change any of it.");
     }
+
+    /** The designs for one poster type, with their thumbnails, for the picker. */
+    public function presets(Tournament $tournament, Request $request)
+    {
+        $type = (string) $request->query('type');
+        $theme = (string) $request->query('theme', TemplatePresetService::DEFAULT_THEME);
+        $credits = app(\App\Services\Credits\CreditService::class);
+        $charges = $tournament->organization && $credits->charges($tournament->organization);
+
+        return response()->json([
+            'themes' => collect(\App\Services\Poster\Presets\PresetThemes::all())->map(fn ($t) => ['key' => $t['key'], 'name' => $t['name'], 'from' => $t['from'], 'to' => $t['to'], 'accent' => $t['accent']])->values(),
+            'presets' => collect(app(TemplatePresetService::class)->available($type ?: null, $theme))->map(fn ($p) => [
+                'key' => $p['key'],
+                'name' => $p['name'],
+                'description' => $p['description'],
+                'type' => $p['type'],
+                'themed' => $p['themed'],
+                'size' => $p['canvas_width'] . ' × ' . $p['canvas_height'],
+                'price' => $p['is_premium'] && $charges ? $credits->format($p['credit_cost']) : null,
+                'thumb' => route('admin.presets.thumb', ['key' => $p['key'], 'theme' => $p['themed'] ? $theme : 'own']),
+            ])->values(),
+        ]);
+    }
+
 
     /**
      * Store a new template
@@ -1730,70 +1771,8 @@ class TournamentTemplateController extends Controller
         $copyNum = $existingCopies + 1;
         $newName = $baseName . ' (Copy ' . $copyNum . ')';
 
-        $newTemplate = $template->replicate();
-        $newTemplate->name = $newName;
-        $newTemplate->is_default = false;
-
-        // Copy background image if exists
-        if ($template->background_image && Storage::disk('public')->exists($template->background_image)) {
-            $ext = pathinfo($template->background_image, PATHINFO_EXTENSION);
-            $newPath = 'tournament_templates/' . uniqid('bg_') . '.' . $ext;
-            Storage::disk('public')->copy($template->background_image, $newPath);
-            $newTemplate->background_image = $newPath;
-        }
-
-        // Copy every uploaded-image file the template references and remap the
-        // paths in BOTH overlay_images AND layout_json. Uploaded-image layers embed
-        // an `imagePath`; previously only plain-string overlay entries were copied,
-        // so object-form overlays (and the layout_json copies) kept the ORIGINAL
-        // paths and rendered blank on the duplicate — the "missing layers" bug.
-        $pathMap = [];
-        $copyPath = function (?string $old) use (&$pathMap) {
-            if (! $old || ! is_string($old)) {
-                return $old;
-            }
-            if (array_key_exists($old, $pathMap)) {
-                return $pathMap[$old];
-            }
-            if (! Storage::disk('public')->exists($old)) {
-                return $pathMap[$old] = $old;
-            }
-            $ext = pathinfo($old, PATHINFO_EXTENSION);
-            $dir = str_contains($old, '/overlays/') ? 'tournament_templates/overlays/' : 'tournament_templates/';
-            $newPath = $dir . uniqid('ov_') . ($ext ? '.' . $ext : '');
-            Storage::disk('public')->copy($old, $newPath);
-            return $pathMap[$old] = $newPath;
-        };
-
-        // overlay_images: array of string paths (legacy) or objects with imagePath.
-        if (is_array($template->overlay_images)) {
-            $newOverlays = [];
-            foreach ($template->overlay_images as $overlay) {
-                if (is_string($overlay)) {
-                    $newOverlays[] = $copyPath($overlay);
-                } elseif (is_array($overlay) && isset($overlay['imagePath'])) {
-                    $overlay['imagePath'] = $copyPath($overlay['imagePath']);
-                    $newOverlays[] = $overlay;
-                } else {
-                    $newOverlays[] = $overlay;
-                }
-            }
-            $newTemplate->overlay_images = $newOverlays;
-        }
-
-        // layout_json: remap any element (e.g. uploadedImage) that embeds imagePath.
-        if (is_array($template->layout_json)) {
-            $layout = $template->layout_json;
-            foreach ($layout as &$el) {
-                if (is_array($el) && ! empty($el['imagePath'])) {
-                    $el['imagePath'] = $copyPath($el['imagePath']);
-                }
-            }
-            unset($el);
-            $newTemplate->layout_json = $layout;
-        }
-
-        $newTemplate->save();
+        // Files are copied, never shared — see TemplateCopier.
+        $newTemplate = app(\App\Services\Poster\TemplateCopier::class)->copy($template, $tournament->id, $newName);
 
         return redirect()
             ->route('admin.tournaments.templates.edit', [$tournament, $newTemplate])

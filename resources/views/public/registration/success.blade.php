@@ -27,6 +27,13 @@
             </div>
             <h1 class="text-3xl font-bold">Thank You!</h1>
             <p class="text-white/90 mt-2">Your {{ $type === 'team' ? 'team registration' : 'application' }} has been submitted.</p>
+            @if(session('registration_reference'))
+                <p class="mt-4 inline-block rounded-lg px-4 py-2" style="background:rgba(255,255,255,0.15);">
+                    <span class="text-white/80 text-sm">Reference number</span>
+                    <strong class="block text-2xl tracking-wider text-white">{{ session('registration_reference') }}</strong>
+                    <span class="text-white/70 text-xs">Quote this if you contact the organizers.</span>
+                </p>
+            @endif
         </div>
 
         <div class="reg-section glass reveal text-center">
@@ -40,17 +47,19 @@
 
             <div class="rounded-lg p-4 mb-6 text-left" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);">
                 <ul class="text-sm text-gray-300 space-y-3">
+                    @if(session('registration_emailed', true))
                     <li class="flex items-start gap-3">
                         <i class="fas fa-envelope text-accent mt-0.5"></i>
                         <span>We've <strong class="text-white">emailed you a confirmation</strong> — check your inbox (and spam).</span>
                     </li>
+                    @endif
                     <li class="flex items-start gap-3">
                         <i class="fas fa-hourglass-half text-accent mt-0.5"></i>
                         <span>Your application is <strong class="text-white">under review</strong> by the organizers.</span>
                     </li>
                     <li class="flex items-start gap-3">
                         <i class="fas fa-bell text-accent mt-0.5"></i>
-                        <span>You'll be notified by email once it's approved.</span>
+                        <span>{{ session('registration_emailed', true) ? "You'll be notified by email once it's approved." : 'The organizers will contact you on your phone once it is approved.' }}</span>
                     </li>
                 </ul>
             </div>

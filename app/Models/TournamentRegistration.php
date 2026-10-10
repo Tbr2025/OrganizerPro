@@ -77,6 +77,16 @@ class TournamentRegistration extends Model
         return $this->belongsTo(Tournament::class);
     }
 
+    /**
+     * Short reference shown to the applicant on the success page and quoted
+     * back to organizers: P-00042 / T-00042. Derived from the id, so it never
+     * needs storing and an organizer can look it up directly.
+     */
+    public function getReferenceAttribute(): string
+    {
+        return ($this->type === 'team' ? 'T' : 'P') . '-' . str_pad((string) $this->id, 5, '0', STR_PAD_LEFT);
+    }
+
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);

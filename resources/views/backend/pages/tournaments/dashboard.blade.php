@@ -310,7 +310,7 @@
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Registrations</p>
         </a>
 
-        @role('Superadmin')
+        @can('template.manage')
         <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
            class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-pink-500 transition text-center group">
             <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center group-hover:scale-110 transition">
@@ -320,9 +320,9 @@
             </div>
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Templates</p>
         </a>
-        @endrole
+        @endcan
 
-        @if(auth()->user()->hasAnyRole(['Superadmin', 'Admin']))
+        @can('template.generate')
         <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}"
            class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-green-500 transition text-center group">
             <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center group-hover:scale-110 transition">
@@ -332,8 +332,104 @@
             </div>
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Generate Poster</p>
         </a>
+        @endcan
+    </div>
+
+    {{-- Seasons: this tournament's place in its series, and starting the next one --}}
+    @php
+        $seasons = $tournament->seasons();
+        $canStartSeason = auth()->user()->can('tournament.create');
+        $isSuperadmin = auth()->user()->hasRole('Superadmin');
+    @endphp
+    @if($canStartSeason || $isSuperadmin || $seasons->count() > 1)
+    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6"
+         x-data="{ open: {{ $errors->has('name') || $errors->has('start_date') || $errors->has('end_date') ? 'true' : 'false' }} }">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">Seasons</h3>
+                @if($tournament->series_id)
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        @foreach($seasons as $s)
+                            <a href="{{ route('admin.tournaments.dashboard', $s) }}"
+                               class="px-3 py-1 rounded-full text-sm {{ $s->id === $tournament->id ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200' }}">
+                                {{ $s->seasonLabel() ?? $s->name }}
+                            </a>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-sm text-gray-500 dark:text-gray-400">This tournament has no seasons yet.</p>
+                @endif
+            </div>
+            @if($canStartSeason)
+                <button type="button" @click="open = true" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Start new season</button>
+            @endif
+        </div>
+
+        @if($canStartSeason)
+        {{-- The popup: what to copy, all ticked by default --}}
+        <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
+            <form method="POST" action="{{ route('admin.tournaments.seasons.store', $tournament) }}" @click.outside="open = false"
+                  class="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-800 p-6 space-y-4">
+                @csrf
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Start Season {{ ($seasons->max('season_number') ?? 1) + 1 }}</h3>
+                @php
+                    $baseName = preg_replace('/\s*[-–—:]?\s*season\s*\d+\s*$/i', '', $tournament->name);
+                    $nextName = $baseName . ' — Season ' . (($seasons->max('season_number') ?? 1) + 1);
+                @endphp
+                <label class="block text-sm">Name
+                    <input name="name" value="{{ old('name', $nextName) }}" required class="form-control mt-1">
+                    @error('name')<span class="text-red-600 text-xs">{{ $message }}</span>@enderror
+                </label>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="block text-sm">Start date<input type="date" name="start_date" value="{{ old('start_date') }}" required class="form-control mt-1">
+                        @error('start_date')<span class="text-red-600 text-xs">{{ $message }}</span>@enderror</label>
+                    <label class="block text-sm">End date<input type="date" name="end_date" value="{{ old('end_date') }}" required class="form-control mt-1">
+                        @error('end_date')<span class="text-red-600 text-xs">{{ $message }}</span>@enderror</label>
+                </div>
+                <fieldset class="space-y-2 text-sm">
+                    <legend class="font-medium text-gray-700 dark:text-gray-300 mb-1">Copy from {{ $tournament->name }}</legend>
+                    <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="teams" checked class="mt-1"> <span><strong>Teams</strong> — names, logos, colours, owners and managers</span></label>
+                    <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="squads" checked class="mt-1">
+                        <span><strong>Players</strong> —
+                        @if($tournament->isAuction())
+                            every approved player returns to the auction pool, approved; teams start empty
+                        @else
+                            each team's squad carries over, approved
+                        @endif
+                        </span></label>
+                    <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="templates" checked class="mt-1"> <span><strong>Poster templates</strong> — with their backgrounds</span></label>
+                    <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="settings" checked class="mt-1"> <span><strong>Settings &amp; forms</strong> — registration form, terms, branding, awards, sponsors</span></label>
+                </fieldset>
+                <p class="text-xs text-gray-500">The new season starts as a draft. Fixtures, results and statistics are never copied.</p>
+                <div class="flex justify-end gap-2">
+                    <button type="button" @click="open = false" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">Cancel</button>
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Create season</button>
+                </div>
+            </form>
+        </div>
+        @endif
+
+        @if($isSuperadmin)
+        {{-- Super Admin: link this tournament into another's series, or unlink --}}
+        <form method="POST" action="{{ route('admin.tournaments.seasons.link', $tournament) }}" class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-end gap-3 text-sm">
+            @csrf
+            <label class="flex flex-col gap-1">Season of
+                <select name="season_of_id" class="form-control">
+                    <option value="">— No series (no seasons) —</option>
+                    @foreach(\App\Models\Tournament::where('organization_id', $tournament->organization_id)->where('id', '!=', $tournament->id)->orderBy('name')->get() as $t)
+                        <option value="{{ $t->id }}" @selected($tournament->series_id && $t->series_id === $tournament->series_id)>{{ $t->name }}{{ $t->seasonLabel() ? ' (' . $t->seasonLabel() . ')' : '' }}</option>
+                    @endforeach
+                </select>
+            </label>
+            <label class="flex flex-col gap-1">Season number
+                <input type="number" name="season_number" min="1" value="{{ $tournament->season_number }}" class="form-control w-28">
+                @error('season_number')<span class="text-red-600 text-xs">{{ $message }}</span>@enderror
+            </label>
+            <button class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600">Save season link</button>
+        </form>
         @endif
     </div>
+    @endif
 
     {{-- Registration Links --}}
     <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">

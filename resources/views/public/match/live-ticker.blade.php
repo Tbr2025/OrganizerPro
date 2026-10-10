@@ -336,6 +336,7 @@
         </div>
     </div>
 
+    @include('backend.pages.auction.partials.echo-init')
     <script>
         const matchId = {{ $match->id }};
         const maxOvers = {{ $match->overs ?? 20 }};
@@ -375,58 +376,49 @@
             return div;
         }
 
-        // Fetch and update scores
+        // Public state (names and scores only). This used to poll the admin-only
+        // /admin/matches/{id}/state, so a logged-out screen stayed at 0/0.
+        const STATE_URL = @json(route('public.live-state', $match));
+        let lastVersion = -1, timer = null, pushOk = false;
+
+        function teamLine(data, teamId) {
+            const inn = Object.values(data.innings || {}).find(i => i.team && i.team.id === teamId);
+            return inn && inn.batted ? inn : null;
+        }
+
         async function fetchScores() {
+            clearTimeout(timer);
             try {
-                const response = await fetch(`/admin/matches/${matchId}/state`);
+                const response = await fetch(STATE_URL, { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                if (!response.ok) throw new Error('HTTP ' + response.status);
                 const data = await response.json();
+                lastVersion = data.version;
 
-                // Update Team A score
-                const teamAScore = `${data.innings1Stats?.runs ?? 0}/${data.innings1Stats?.wickets ?? 0}`;
-                const teamAOvers = `(${data.innings1Stats?.overs ?? '0.0'})`;
-                updateText('team-a-score', teamAScore, true);
-                updateText('team-a-overs', teamAOvers);
+                // Scores by TEAM (team A's box is team A's, whoever batted first).
+                const [teamA, teamB] = data.teams || [];
+                const a = teamA ? teamLine(data, teamA.id) : null;
+                const b = teamB ? teamLine(data, teamB.id) : null;
+                updateText('team-a-score', a ? `${a.runs}/${a.wickets}` : '0/0', true);
+                updateText('team-a-overs', `(${a ? a.overs : '0.0'})`);
+                updateText('team-b-score', b ? `${b.runs}/${b.wickets}` : '0/0', true);
+                updateText('team-b-overs', `(${b ? b.overs : '0.0'})`);
 
-                // Update Team B score
-                const teamBScore = `${data.innings2Stats?.runs ?? 0}/${data.innings2Stats?.wickets ?? 0}`;
-                const teamBOvers = `(${data.innings2Stats?.overs ?? '0.0'})`;
-                updateText('team-b-score', teamBScore, true);
-                updateText('team-b-overs', teamBOvers);
+                updateText('crr', Number(data.score?.run_rate ?? 0).toFixed(2));
 
-                // Determine current innings and update CRR
-                const isSecondInnings = data.currentInnings === 2;
-                const currentRuns = isSecondInnings ? (data.innings2Stats?.runs ?? 0) : (data.innings1Stats?.runs ?? 0);
-                const currentOversNum = isSecondInnings ? (data.innings2Stats?.totalOvers ?? 0) : (data.innings1Stats?.totalOvers ?? 0);
-                const crr = currentOversNum > 0 ? (currentRuns / currentOversNum).toFixed(2) : '0.00';
-                updateText('crr', crr);
-
-                // Show 2nd innings stats
-                if (isSecondInnings && data.innings1Stats?.runs > 0) {
-                    const target = (data.innings1Stats?.runs ?? 0) + 1;
-                    const required = target - (data.innings2Stats?.runs ?? 0);
-                    const oversUsed = data.innings2Stats?.totalOvers ?? 0;
-                    const remainingOvers = maxOvers - oversUsed;
-                    const rrr = remainingOvers > 0 ? (required / remainingOvers).toFixed(2) : '-';
-
+                if (data.chase) {
                     document.getElementById('target-section').classList.remove('hidden');
                     document.getElementById('required-section').classList.remove('hidden');
                     document.getElementById('rrr-section').classList.remove('hidden');
-
-                    updateText('target', target.toString());
-                    updateText('required', required > 0 ? required.toString() : '0');
-                    updateText('rrr', rrr);
+                    updateText('target', String(data.chase.target));
+                    updateText('required', String(data.chase.runs_needed));
+                    updateText('rrr', data.chase.required_run_rate === null ? '-' : Number(data.chase.required_run_rate).toFixed(2));
                 }
 
-                // Update this over
+                // This over
                 const thisOverContainer = document.getElementById('this-over');
                 thisOverContainer.innerHTML = '';
-
-                const currentOverBalls = data.currentOverBalls || [];
-                currentOverBalls.forEach(ball => {
-                    thisOverContainer.appendChild(createBallElement(ball));
-                });
-
-                // Fill remaining with empty balls
+                const currentOverBalls = data.score?.this_over || [];
+                currentOverBalls.forEach(ball => thisOverContainer.appendChild(createBallElement(ball)));
                 const legalBalls = currentOverBalls.filter(b => !b.includes('wd') && !b.includes('nb')).length;
                 for (let i = legalBalls; i < 6; i++) {
                     const emptyBall = document.createElement('div');
@@ -435,82 +427,56 @@
                     thisOverContainer.appendChild(emptyBall);
                 }
 
-                // Update Striker Details
-                if (data.strikerDetails) {
-                    updateText('striker-name', data.strikerDetails.name);
-                    updateText('striker-runs', data.strikerDetails.runs, true);
-                    updateText('striker-balls', data.strikerDetails.balls);
-                    updateText('striker-fours', data.strikerDetails.fours);
-                    updateText('striker-sixes', data.strikerDetails.sixes);
-                    updateText('striker-sr', data.strikerDetails.strikeRate);
-                } else {
-                    updateText('striker-name', '-');
-                    updateText('striker-runs', '0');
-                    updateText('striker-balls', '0');
-                    updateText('striker-fours', '0');
-                    updateText('striker-sixes', '0');
-                    updateText('striker-sr', '0.00');
-                }
+                const s = data.striker, n = data.non_striker, bw = data.bowler;
+                updateText('striker-name', s ? s.name : '-');
+                updateText('striker-runs', s ? s.runs : 0, true);
+                updateText('striker-balls', s ? s.balls : 0);
+                updateText('striker-fours', s ? s.fours : 0);
+                updateText('striker-sixes', s ? s.sixes : 0);
+                updateText('striker-sr', s ? s.strike_rate : '0.00');
+                updateText('non-striker-name', n ? n.name : '-');
+                updateText('non-striker-runs', n ? n.runs : 0);
+                updateText('non-striker-balls', n ? n.balls : 0);
+                updateText('non-striker-fours', n ? n.fours : 0);
+                updateText('non-striker-sixes', n ? n.sixes : 0);
 
-                // Update Non-Striker Details
-                if (data.nonStrikerDetails) {
-                    updateText('non-striker-name', data.nonStrikerDetails.name);
-                    updateText('non-striker-runs', data.nonStrikerDetails.runs);
-                    updateText('non-striker-balls', data.nonStrikerDetails.balls);
-                    updateText('non-striker-fours', data.nonStrikerDetails.fours);
-                    updateText('non-striker-sixes', data.nonStrikerDetails.sixes);
-                } else {
-                    updateText('non-striker-name', '-');
-                    updateText('non-striker-runs', '0');
-                    updateText('non-striker-balls', '0');
-                    updateText('non-striker-fours', '0');
-                    updateText('non-striker-sixes', '0');
-                }
-
-                // Update Partnership
                 if (data.partnership) {
                     updateText('partnership-runs', data.partnership.runs);
                     updateText('partnership-balls', data.partnership.balls);
                 }
 
-                // Update Bowler Details
-                if (data.bowlerDetails) {
-                    updateText('bowler-name', data.bowlerDetails.name);
-                    updateText('bowler-overs', data.bowlerDetails.overs);
-                    updateText('bowler-maidens', data.bowlerDetails.maidens);
-                    updateText('bowler-runs', data.bowlerDetails.runs);
-                    updateText('bowler-wickets', data.bowlerDetails.wickets);
-                    updateText('bowler-economy', data.bowlerDetails.economy);
-                } else {
-                    updateText('bowler-name', '-');
-                    updateText('bowler-overs', '0.0');
-                    updateText('bowler-maidens', '0');
-                    updateText('bowler-runs', '0');
-                    updateText('bowler-wickets', '0');
-                    updateText('bowler-economy', '0.00');
-                }
+                updateText('bowler-name', bw ? bw.name : '-');
+                updateText('bowler-overs', bw ? bw.overs : '0.0');
+                updateText('bowler-maidens', bw ? bw.maidens : 0);
+                updateText('bowler-runs', bw ? bw.runs : 0);
+                updateText('bowler-wickets', bw ? bw.wickets : 0);
+                updateText('bowler-economy', bw ? bw.economy : '0.00');
 
-                // Update Last Wicket
-                if (data.lastWicket) {
+                if (data.last_wicket) {
                     document.getElementById('last-wicket-section').classList.remove('hidden');
-                    updateText('last-wicket-info', `${data.lastWicket.name} ${data.lastWicket.runs} (${data.lastWicket.balls}) - ${data.lastWicket.score}/${data.totalWickets}`);
+                    const w = data.last_wicket;
+                    updateText('last-wicket-info', `${w.name} ${w.runs} (${w.balls}) - ${w.score}/${w.wicket}`);
                 }
 
-                // Update match status
-                if (data.isAllOut) {
-                    updateText('match-status', isSecondInnings ? 'MATCH COMPLETED' : 'INNINGS BREAK');
-                }
-
+                const statusText = { innings_break: 'INNINGS BREAK', completed: data.result ? data.result.text.toUpperCase() : 'MATCH COMPLETED', prematch: 'UPCOMING', cancelled: 'CANCELLED' }[data.status];
+                if (statusText) updateText('match-status', statusText);
             } catch (error) {
                 console.error('Error fetching scores:', error);
+            } finally {
+                // Chained, never stacked: a slow response cannot queue a second
+                // request behind itself. 15 s with push healthy, else 3 s.
+                timer = setTimeout(fetchScores, pushOk ? 15000 : 3000);
             }
         }
 
-        // Initial fetch
         fetchScores();
 
-        // Refresh every 3 seconds
-        setInterval(fetchScores, 3000);
+        window.pushChannel?.('match.' + matchId)?.listen('.score.updated', e => { if (e.version > lastVersion) fetchScores(); });
+        const conn = window.Echo?.connector?.pusher?.connection;
+        conn?.bind('connected', () => { pushOk = true; fetchScores(); });
+        conn?.bind('unavailable', () => { pushOk = false; });
+        conn?.bind('disconnected', () => { pushOk = false; });
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchScores(); });
 
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {

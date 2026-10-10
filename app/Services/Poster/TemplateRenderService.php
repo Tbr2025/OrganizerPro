@@ -3554,7 +3554,9 @@ class TemplateRenderService extends PosterGeneratorService
      */
     public function renderToBase64(TournamentTemplate $template, array $data = [], bool $optimizeForWeb = true, bool $skipBlanks = false): string
     {
-        $path = $this->renderTemplate($template, $data, true, $skipBlanks);
+        // An on-screen preview, deleted below: never charged.
+        $path = app(\App\Services\Credits\PosterMeter::class)
+            ->suspended(fn () => $this->renderTemplate($template, $data, true, $skipBlanks));
         $fullPath = Storage::disk('public')->path($path);
 
         $dataUri = $optimizeForWeb

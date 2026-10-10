@@ -22,6 +22,9 @@ class TournamentTemplate extends Model
         'placeholders',
         'is_default',
         'is_active',
+        'preset_key',
+        'preset_version',
+        'preset_theme',
     ];
 
     protected $casts = [

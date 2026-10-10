@@ -338,6 +338,16 @@ class TournamentSettingsController extends Controller
             'status' => 'required|in:draft,registration,active,completed',
         ]);
 
+        // Credits: leaving draft is publishing, paid once per tournament.
+        if ($tournament->status === 'draft' && $validated['status'] !== 'draft') {
+            $unlockUrl = app(\App\Services\Credits\CreditGate::class)->allows(
+                \App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament, url()->previous(), ['status' => $validated['status']]
+            );
+            if ($unlockUrl) {
+                return redirect($unlockUrl);
+            }
+        }
+
         $tournament->update($validated);
 
         return redirect()->back()->with('success', __('Tournament status updated.'));

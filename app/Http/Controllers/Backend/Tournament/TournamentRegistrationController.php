@@ -39,7 +39,7 @@ class TournamentRegistrationController extends Controller
 
     public function index(Tournament $tournament, Request $request): View
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
 
         // Player and team registrations are shown as SEPARATE pages — never mixed.
         // Default to the players page.
@@ -235,7 +235,7 @@ class TournamentRegistrationController extends Controller
 
     public function show(Tournament $tournament, TournamentRegistration $registration): View
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
 
         // Get approved registered players with linked users for captain selection
         $approvedPlayerUsers = collect();
@@ -282,7 +282,7 @@ class TournamentRegistrationController extends Controller
 
     public function approve(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
 
         if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('This registration has already been processed.');
@@ -328,7 +328,7 @@ class TournamentRegistrationController extends Controller
 
     public function reject(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
 
         if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('This registration has already been processed.');
@@ -350,7 +350,7 @@ class TournamentRegistrationController extends Controller
 
     public function queue(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if (! $registration->isPending()) {
@@ -375,7 +375,7 @@ class TournamentRegistrationController extends Controller
 
     public function cancel(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
 
         if (! $registration->isPending() && ! $registration->isQueued()) {
             $msg = __('Only pending or queued registrations can be cancelled.');
@@ -394,7 +394,7 @@ class TournamentRegistrationController extends Controller
 
     public function unapprove(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if ($registration->status !== 'approved') {
@@ -414,7 +414,7 @@ class TournamentRegistrationController extends Controller
 
     public function forceDelete(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
 
         // If approved team registration, delete the linked ActualTeam first (cascade handles pivot)
         if ($registration->isTeamRegistration() && $registration->isApproved() && $registration->actualTeam) {
@@ -434,7 +434,7 @@ class TournamentRegistrationController extends Controller
 
     public function bulkApprove(Request $request, Tournament $tournament): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
 
         $ids = $request->input('registration_ids', []);
 
@@ -460,7 +460,7 @@ class TournamentRegistrationController extends Controller
      */
     public function updateVerification(Request $request, Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         $allFields = array_values((array) $request->input('all_fields', []));
@@ -521,7 +521,7 @@ class TournamentRegistrationController extends Controller
      */
     public function updateField(Request $request, Tournament $tournament, TournamentRegistration $registration): \Illuminate\Http\JsonResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         $player = $registration->player;
@@ -556,7 +556,7 @@ class TournamentRegistrationController extends Controller
      */
     public function downloadConsent(Tournament $tournament, TournamentRegistration $registration): Response
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->consent_signed_at, 404, 'No signed consent on file for this registration.');
 
@@ -597,7 +597,7 @@ class TournamentRegistrationController extends Controller
      */
     public function resendWelcome(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         if (! $registration->isPlayerRegistration()) {
@@ -629,7 +629,7 @@ class TournamentRegistrationController extends Controller
      */
     public function resendConfirmation(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         $email = $registration->player?->email ?? $registration->captain_email;
@@ -656,7 +656,7 @@ class TournamentRegistrationController extends Controller
      */
     public function sendTempPassword(Request $request, Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         // Team registration: (re)send a temp password to the whole team —
@@ -747,7 +747,7 @@ class TournamentRegistrationController extends Controller
      */
     public function approvePendingChanges(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         $player = $registration->player;
@@ -809,7 +809,7 @@ class TournamentRegistrationController extends Controller
      */
     public function rejectPendingChanges(Tournament $tournament, TournamentRegistration $registration): RedirectResponse
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.edit']);
+        $this->authorizeRegistrations('tournament.edit');
         abort_if($registration->tournament_id !== $tournament->id, 404);
 
         $player = $registration->player;
@@ -875,7 +875,7 @@ class TournamentRegistrationController extends Controller
      */
     public function downloadWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
@@ -922,7 +922,7 @@ class TournamentRegistrationController extends Controller
      */
     public function previewWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
@@ -965,7 +965,7 @@ class TournamentRegistrationController extends Controller
      */
     public function downloadRetainedWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
@@ -1012,7 +1012,7 @@ class TournamentRegistrationController extends Controller
      */
     public function previewRetainedWelcomeCard(Tournament $tournament, TournamentRegistration $registration)
     {
-        $this->checkAuthorization(Auth::user(), ['tournament.view']);
+        $this->authorizeRegistrations('tournament.view');
         abort_if($registration->tournament_id !== $tournament->id, 404);
         abort_if(! $registration->isPlayerRegistration() || ! $registration->player, 404);
 
@@ -1106,5 +1106,20 @@ class TournamentRegistrationController extends Controller
             'total_count' => $totalCount,
             'all_field_keys' => $allFieldKeys,
         ];
+    }
+
+    /**
+     * Registrations are reachable two ways: the general tournament permission,
+     * or `tournament.registrations` alone — which is what lets a role such as
+     * Auction Organizer review and approve registrations without being able to
+     * edit the rest of the tournament.
+     */
+    private function authorizeRegistrations(string $tournamentPermission): void
+    {
+        abort_unless(
+            Auth::user()?->canAny([$tournamentPermission, 'tournament.registrations']),
+            403,
+            'Sorry !! You are unauthorized to perform this action.'
+        );
     }
 }

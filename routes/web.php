@@ -54,7 +54,6 @@ use App\Http\Controllers\Backend\TeamManagerController;
 use App\Http\Controllers\PublicAuctionController;
 use App\Http\Controllers\PublicTeamJoinController;
 use App\Http\Controllers\PublicPlayerController;
-use App\Http\Controllers\PublicTournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentSettingsController;
 use App\Http\Controllers\Backend\Tournament\TournamentRegistrationController;
 use App\Http\Controllers\Backend\Tournament\TournamentGroupController;
@@ -209,13 +208,13 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
      * A player's wall card as a PNG, and the whole pool as a zip. `?result=1` keeps the SOLD
      * stamp and price on the card; without it the card is the player before the hammer fell.
      */
-    Route::get('/auctions/{auction}/cards', [AuctionAdminController::class, 'downloadPlayerCards'])->name('auctions.cards');
+    Route::get('/auctions/{auction}/cards', [AuctionAdminController::class, 'downloadPlayerCards'])->name('auctions.cards')->middleware('credits.posters');
 
     /*
      * Registered BEFORE `cards/{auctionPlayer}`, or the wildcard matches the literal segment
      * "export" and route-model binding 404s looking for an auction player with that id.
      */
-    Route::post('/auctions/{auction}/cards/export', [AuctionAdminController::class, 'startCardExport'])->name('auctions.cards.export');
+    Route::post('/auctions/{auction}/cards/export', [AuctionAdminController::class, 'startCardExport'])->name('auctions.cards.export')->middleware('credits.posters');
     Route::get('/auctions/{auction}/cards/export/{token}', [AuctionAdminController::class, 'cardExportProgress'])->name('auctions.cards.export.progress');
     Route::get('/auctions/{auction}/cards/export/{token}/download', [AuctionAdminController::class, 'cardExportDownload'])->name('auctions.cards.export.download');
     Route::post('/auctions/{auction}/cards/export/{token}/cancel', [AuctionAdminController::class, 'cancelCardExport'])->name('auctions.cards.export.cancel');
@@ -223,9 +222,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Every archive this auction has produced — see AuctionAdminController::cardExports().
     Route::get('/auctions/{auction}/card-exports', [AuctionAdminController::class, 'cardExports'])->name('auctions.card-exports');
     // One player's poster, rendered on the spot — no job, no zip. See playerPoster().
-    Route::get('/auctions/{auction}/poster/{auctionPlayer}', [AuctionAdminController::class, 'playerPoster'])->name('auctions.player-poster');
+    Route::get('/auctions/{auction}/poster/{auctionPlayer}', [AuctionAdminController::class, 'playerPoster'])->name('auctions.player-poster')->middleware('credits.posters');
 
-    Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player');
+    Route::get('/auctions/{auction}/cards/{auctionPlayer}', [AuctionAdminController::class, 'downloadPlayerCard'])->name('auctions.cards.player')->middleware('credits.posters');
     // Broadcast screens picker — the ticker and LED wall had no home in the menu.
     Route::get('/auctions-broadcast', [AuctionAdminController::class, 'liveTickerIndex'])->name('auctions.broadcast');
     // Release held player emails by hand — the safety net when no queue worker is running.
@@ -714,19 +713,20 @@ Route::middleware([])->withoutMiddleware([
 
 Route::get('/auction/{auction}/sold-player', [PublicAuctionController::class, 'soldPlayer']);
 
-// --- Public Tournament Registration Routes ---
-Route::get('/tournament/{tournament}/register', [PublicTournamentRegistrationController::class, 'showForm'])
+// --- Legacy public registration URLs ---
+// The old PublicTournamentRegistrationController form posted straight into
+// tournament_registrations with no open-window check, captcha, throttle or
+// organization. Every URL it answered now hands over to the /t/{slug} flow
+// (Public\RegistrationController), which has all of those. POSTs get a 303 so
+// a stale form lands on the real one instead of silently registering.
+Route::get('/tournament/{tournament}/register', fn ($tournament) => redirect()->route('public.tournament.show', $tournament, 301))
     ->name('public.tournament.register');
-Route::post('/tournament/{tournament}/register/player', [PublicTournamentRegistrationController::class, 'registerPlayer'])
+Route::match(['get', 'post'], '/tournament/{tournament}/register/player', fn ($tournament) => redirect()->route('public.tournament.registration.player', $tournament, request()->isMethod('post') ? 303 : 301))
     ->name('public.tournament.register.player');
-Route::post('/tournament/{tournament}/register/team', [PublicTournamentRegistrationController::class, 'registerTeam'])
+Route::match(['get', 'post'], '/tournament/{tournament}/register/team', fn ($tournament) => redirect()->route('public.tournament.registration.team', $tournament, request()->isMethod('post') ? 303 : 301))
     ->name('public.tournament.register.team');
-Route::get('/tournament/{tournament}/register/success', [PublicTournamentRegistrationController::class, 'success'])
+Route::get('/tournament/{tournament}/register/success', fn ($tournament) => redirect()->route('public.tournament.show', $tournament, 301))
     ->name('public.tournament.registration.success');
-
-// Redirect old /tournament/ URLs to new /t/ URLs for player & team registration
-Route::get('/tournament/{tournament}/register/player', fn ($tournament) => redirect()->route('public.tournament.registration.player', $tournament, 301));
-Route::get('/tournament/{tournament}/register/team', fn ($tournament) => redirect()->route('public.tournament.registration.team', $tournament, 301));
 
 // --- Public Team Join (Invite Link) Routes ---
 Route::get('/join/{invite_code}', [PublicTeamJoinController::class, 'showForm'])
@@ -940,7 +940,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
     Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
     Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');
-    Route::get('/matches/{match}/download-posters', [MatchesController::class, 'downloadAllPosters'])->name('matches.download-posters');
+    Route::get('/matches/{match}/download-posters', [MatchesController::class, 'downloadAllPosters'])->name('matches.download-posters')->middleware('credits.posters');
 
     // CricHeroes match report PDF -> AI-drafted blog post. Superadmin only; the gate is in
     // MatchReportController, because these routes spend money at OpenAI.
@@ -948,7 +948,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/report/generate', [MatchReportController::class, 'generate'])->name('matches.report.generate');
     Route::delete('/matches/{match}/report', [MatchReportController::class, 'destroy'])->name('matches.report.destroy');
     Route::get('/ai/models', [MatchReportController::class, 'models'])->name('ai.models');
-    Route::get('/matches/{match}/generate-poster', [MatchesController::class, 'generatePoster'])->name('matches.generate-poster');
+    Route::get('/matches/{match}/generate-poster', [MatchesController::class, 'generatePoster'])->name('matches.generate-poster')->middleware('credits.posters');
     Route::get('/matches/{match}/overs', [MatchesController::class, 'editOvers'])->name('overs.edit');
     Route::post('/matches/{match}/overs', [MatchesController::class, 'updateOvers'])->name('overs.update');
     Route::get('/matches/{match}/balls/create', [BallController::class, 'create'])->name('balls.create');
@@ -958,6 +958,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Option A: Add /admin prefix to match your JS
     Route::post('/matches/{match}/balls/ajax-store', [BallController::class, 'ajaxStore'])
         ->name('balls.ajaxStore');
+    // Walk-in player by name + phone from the scoring screen
+    Route::post('/matches/{match}/quick-player', [\App\Http\Controllers\Backend\MatchQuickPlayerController::class, 'store'])
+        ->name('matches.quick-player');
     Route::get('/matches/{match}/balls/summary', [BallController::class, 'summary'])->name('balls.summary');
     Route::get('/matches/{match}/balls/last', [BallController::class, 'lastBall'])->name('balls.last');
 
@@ -965,6 +968,43 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Live Match Ticker (1920x1080 Broadcast Display)
     Route::get('/matches/{match}/live-ticker', [MatchesController::class, 'liveTicker'])->name('matches.live-ticker');
+
+    // Ready-made designs: thumbnails, and Super Admin's switches
+    Route::get('/presets/thumb/{key}/{theme}', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'thumb'])
+        ->where(['key' => '[a-z0-9_]+', 'theme' => '[a-z]+'])->name('presets.thumb');
+    Route::get('/template-presets', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'index'])->name('template-presets.index');
+    Route::post('/template-presets/{key}', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'update'])
+        ->where('key', '[a-z0-9_]+')->name('template-presets.update');
+
+    // Credits — an organization's wallet and the unlock confirm page
+    Route::get('/credits', [\App\Http\Controllers\Backend\CreditController::class, 'index'])->name('credits.index');
+    Route::post('/credits/topup', [\App\Http\Controllers\Backend\CreditController::class, 'requestTopup'])->name('credits.topup');
+    Route::get('/credits/unlock', [\App\Http\Controllers\Backend\CreditController::class, 'confirmUnlock'])->name('credits.unlock');
+    Route::post('/credits/unlock', [\App\Http\Controllers\Backend\CreditController::class, 'unlock'])->name('credits.unlock.store');
+
+    // Credits — platform controls (Super Admin)
+    Route::prefix('credits/manage')->name('credits.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Backend\CreditAdminController::class, 'index'])->name('manage');
+        Route::post('/grant', [\App\Http\Controllers\Backend\CreditAdminController::class, 'grant'])->name('grant');
+        Route::post('/topups/{topup}/approve', [\App\Http\Controllers\Backend\CreditAdminController::class, 'approveTopup'])->name('topups.approve');
+        Route::post('/topups/{topup}/reject', [\App\Http\Controllers\Backend\CreditAdminController::class, 'rejectTopup'])->name('topups.reject');
+        Route::post('/features/{feature}', [\App\Http\Controllers\Backend\CreditAdminController::class, 'updateFeature'])->name('features.update');
+        Route::post('/settings', [\App\Http\Controllers\Backend\CreditAdminController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/organizations/{organization}/mode', [\App\Http\Controllers\Backend\CreditAdminController::class, 'setBillingMode'])->name('organizations.mode');
+        Route::post('/discounts', [\App\Http\Controllers\Backend\CreditAdminController::class, 'storeDiscount'])->name('discounts.store');
+        Route::post('/discounts/{discount}/toggle', [\App\Http\Controllers\Backend\CreditAdminController::class, 'toggleDiscount'])->name('discounts.toggle');
+    });
+
+    // LED wall operator console
+    Route::get('/matches/{match}/led', [\App\Http\Controllers\Backend\LedConsoleController::class, 'show'])->name('matches.led');
+    Route::get('/led/{display}/state', [\App\Http\Controllers\Backend\LedConsoleController::class, 'state'])->name('led.state');
+    Route::post('/led/{display}/items/{item}/{action}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'action'])
+        ->whereIn('action', ['approve', 'hold', 'skip', 'pin', 'unpin', 'up', 'down'])->name('led.item');
+    Route::post('/led/{display}/push', [\App\Http\Controllers\Backend\LedConsoleController::class, 'push'])->name('led.push');
+    Route::post('/led/{display}/control/{control}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'control'])
+        ->whereIn('control', ['live', 'mode', 'freeze'])->name('led.control');
+    Route::post('/led/{display}/settings', [\App\Http\Controllers\Backend\LedConsoleController::class, 'settings'])->name('led.settings');
+    Route::post('/led/{display}/regenerate', [\App\Http\Controllers\Backend\LedConsoleController::class, 'regenerate'])->name('led.regenerate');
 
     Route::resource('appreciations', MatchAppreciationController::class)->only(['index']);
 
@@ -1239,6 +1279,15 @@ Route::prefix('m/{match:slug}')->name('public.match.')->group(function () {
 
 // Public Live Ticker by Match ID (for easy sharing)
 Route::get('/live/{match}', [MatchPublicController::class, 'liveTicker'])->name('public.live-ticker');
+// Public match state (names and scores only) — what the broadcast ticker polls.
+Route::get('/live/{match}/state.json', [\App\Http\Controllers\Public\LedWallController::class, 'matchState'])
+    ->middleware('throttle:240,1')->name('public.live-state');
+
+// LED wall: the private token is the key. Throttled per IP; a venue's screens share one.
+Route::get('/led/{token}', [\App\Http\Controllers\Public\LedWallController::class, 'show'])
+    ->where('token', '[A-Za-z0-9]{40}')->name('public.led.wall');
+Route::get('/led/{token}/state.json', [\App\Http\Controllers\Public\LedWallController::class, 'state'])
+    ->where('token', '[A-Za-z0-9]{40}')->middleware('throttle:600,1')->name('public.led.state');
 
 // Public Player Dashboard
 Route::get('/player/{player}/dashboard', [PlayerDashboardController::class, 'show'])->name('public.player.dashboard');
@@ -1258,8 +1307,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::put('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'update'])->name('settings.custom-fields.update');
         Route::delete('/settings/custom-fields/{customField}', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'destroy'])->name('settings.custom-fields.destroy');
         Route::post('/settings/custom-fields/{customField}/toggle', [\App\Http\Controllers\Backend\Tournament\TournamentCustomFieldController::class, 'toggle'])->name('settings.custom-fields.toggle');
-        Route::post('/settings/generate-flyer', [TournamentSettingsController::class, 'generateFlyer'])->name('settings.generate-flyer');
+        Route::post('/settings/generate-flyer', [TournamentSettingsController::class, 'generateFlyer'])->name('settings.generate-flyer')->middleware('credits.posters');
         Route::put('/settings/status', [TournamentSettingsController::class, 'updateStatus'])->name('settings.status');
+
+        // Seasons: start the next one (copying teams/squads/templates/settings), or link (Super Admin)
+        Route::post('/seasons', [\App\Http\Controllers\Backend\Tournament\TournamentSeasonController::class, 'store'])->name('seasons.store');
+        Route::post('/seasons/link', [\App\Http\Controllers\Backend\Tournament\TournamentSeasonController::class, 'link'])->name('seasons.link');
 
         // Registrations
         Route::get('/registrations', [TournamentRegistrationController::class, 'index'])->name('registrations.index');
@@ -1287,9 +1340,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/registrations/{registration}/pending-changes/reject', [TournamentRegistrationController::class, 'rejectPendingChanges'])->name('registrations.pending-changes.reject');
         // Welcome card preview & download on registration page
         Route::get('/registrations/{registration}/welcome-card/preview', [TournamentRegistrationController::class, 'previewWelcomeCard'])->name('registrations.welcome-card.preview');
-        Route::get('/registrations/{registration}/welcome-card/download', [TournamentRegistrationController::class, 'downloadWelcomeCard'])->name('registrations.welcome-card.download');
+        Route::get('/registrations/{registration}/welcome-card/download', [TournamentRegistrationController::class, 'downloadWelcomeCard'])->name('registrations.welcome-card.download')->middleware('credits.posters');
         Route::get('/registrations/{registration}/retained-welcome-card/preview', [TournamentRegistrationController::class, 'previewRetainedWelcomeCard'])->name('registrations.retained-welcome-card.preview');
-        Route::get('/registrations/{registration}/retained-welcome-card/download', [TournamentRegistrationController::class, 'downloadRetainedWelcomeCard'])->name('registrations.retained-welcome-card.download');
+        Route::get('/registrations/{registration}/retained-welcome-card/download', [TournamentRegistrationController::class, 'downloadRetainedWelcomeCard'])->name('registrations.retained-welcome-card.download')->middleware('credits.posters');
 
         // Groups
         Route::get('/groups', [TournamentGroupController::class, 'index'])->name('groups.index');
@@ -1314,12 +1367,12 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
          */
         Route::delete('/fixtures/bulk-delete', [TournamentFixtureController::class, 'bulkDestroy'])->name('fixtures.bulk-delete');
         Route::post('/fixtures/bulk-publish', [TournamentFixtureController::class, 'bulkPublish'])->name('fixtures.bulk-publish');
-        Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters');
+        Route::post('/fixtures/bulk-generate-posters', [TournamentFixtureController::class, 'bulkGeneratePosters'])->name('fixtures.bulk-posters')->middleware('credits.posters');
         Route::put('/fixtures/{match}', [TournamentFixtureController::class, 'update'])->name('fixtures.update');
         Route::delete('/fixtures/{match}', [TournamentFixtureController::class, 'destroy'])->name('fixtures.destroy');
         Route::post('/fixtures/{match}/reschedule', [TournamentFixtureController::class, 'reschedule'])->name('fixtures.reschedule');
         Route::post('/fixtures/{match}/cancel', [TournamentFixtureController::class, 'cancel'])->name('fixtures.cancel');
-        Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster');
+        Route::post('/fixtures/{match}/generate-poster', [TournamentFixtureController::class, 'generatePoster'])->name('fixtures.generate-poster')->middleware('credits.posters');
         Route::get('/fixtures/export-csv', [TournamentFixtureController::class, 'exportCsv'])->name('fixtures.export-csv');
 
         // Manage Teams (retain/budget)
@@ -1328,7 +1381,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         // Point Table
         Route::get('/point-table', [PointTableController::class, 'index'])->name('point-table.index');
         Route::post('/point-table/recalculate', [PointTableController::class, 'recalculate'])->name('point-table.recalculate');
-        Route::post('/point-table/generate-poster', [PointTableController::class, 'generatePoster'])->name('point-table.generate-poster');
+        Route::post('/point-table/generate-poster', [PointTableController::class, 'generatePoster'])->name('point-table.generate-poster')->middleware('credits.posters');
         Route::post('/point-table/initialize', [PointTableController::class, 'initialize'])->name('point-table.initialize');
         Route::post('/point-table/qualified', [PointTableController::class, 'updateQualified'])->name('point-table.qualified');
 
@@ -1347,11 +1400,10 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::get('/player-history/{player}', [TournamentPlayerHistoryController::class, 'show'])
             ->whereNumber('player')->name('player-history.show');
 
-        // Template Editor (Superadmin only for CRUD)
-        Route::middleware(['role:Superadmin'])->group(function () {
+        // Template Editor (CRUD) — permission, not role name, so it can be granted
+        Route::middleware(['permission:template.manage'])->group(function () {
             Route::get('/templates/create', [TournamentTemplateController::class, 'create'])->name('templates.create');
             Route::post('/templates', [TournamentTemplateController::class, 'store'])->name('templates.store');
-            Route::post('/templates/apply-preset', [TournamentTemplateController::class, 'applyPreset'])->name('templates.apply-preset');
             Route::put('/templates/{template}', [TournamentTemplateController::class, 'update'])->name('templates.update');
             Route::delete('/templates/{template}', [TournamentTemplateController::class, 'destroy'])->name('templates.destroy');
             Route::post('/templates/{template}/set-default', [TournamentTemplateController::class, 'setDefault'])->name('templates.set-default');
@@ -1368,17 +1420,20 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/{template}/update-background', [TournamentTemplateController::class, 'updateBackground'])->name('templates.update-background');
         });
 
-        // Template listing, viewing, generate & download (Superadmin & Admin)
-        // index/edit have controller middleware allowing only AJAX for Admin
-        Route::middleware(['role:Superadmin|Admin'])->group(function () {
+        // Template listing, viewing, generate & download
+        // index/edit have controller middleware allowing only AJAX without template.manage
+        Route::middleware(['permission:template.generate|template.manage'])->group(function () {
             Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
             Route::get('/templates/{template}/edit', [TournamentTemplateController::class, 'edit'])->name('templates.edit');
             Route::get('/templates/generate', [TournamentTemplateController::class, 'generate'])->name('templates.generate');
-            Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview');
+            // Ready-made designs: anyone who makes posters can start from one.
+            Route::get('/templates/presets', [TournamentTemplateController::class, 'presets'])->name('templates.presets');
+            Route::post('/templates/apply-preset', [TournamentTemplateController::class, 'applyPreset'])->name('templates.apply-preset');
+            Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview')->middleware('credits.posters');
             Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
-            Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download');
+            Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download')->middleware('credits.posters');
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
-            Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster');
+            Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster')->middleware('credits.posters');
             Route::post('/templates/toggle-auto-welcome', [TournamentTemplateController::class, 'toggleAutoWelcome'])->name('templates.toggle-auto-welcome');
             Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
             Route::post('/generated-posters/{poster}/set-match-poster', [TournamentTemplateController::class, 'setMatchPoster'])->name('generated-posters.set-match-poster');
@@ -1409,9 +1464,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::delete('/summary/highlight', [MatchSummaryController::class, 'removeHighlight'])->name('summary.remove-highlight');
         Route::post('/summary/award', [MatchSummaryController::class, 'assignAward'])->name('summary.assign-award');
         Route::delete('/summary/award/{award}', [MatchSummaryController::class, 'removeAward'])->name('summary.remove-award');
-        Route::post('/summary/generate-poster', [MatchSummaryController::class, 'generatePoster'])->name('summary.generate-poster');
-        Route::post('/summary/generate-match-poster', [MatchSummaryController::class, 'generateMatchPoster'])->name('summary.generate-match-poster');
-        Route::post('/summary/generate-award-poster', [MatchSummaryController::class, 'generateAwardPoster'])->name('summary.generate-award-poster');
+        Route::post('/summary/generate-poster', [MatchSummaryController::class, 'generatePoster'])->name('summary.generate-poster')->middleware('credits.posters');
+        Route::post('/summary/generate-match-poster', [MatchSummaryController::class, 'generateMatchPoster'])->name('summary.generate-match-poster')->middleware('credits.posters');
+        Route::post('/summary/generate-award-poster', [MatchSummaryController::class, 'generateAwardPoster'])->name('summary.generate-award-poster')->middleware('credits.posters');
         Route::post('/summary/send', [MatchSummaryController::class, 'send'])->name('summary.send');
         Route::get('/summary/download-poster', [MatchSummaryController::class, 'downloadPoster'])->name('summary.download-poster');
         Route::get('/summary/preview-poster', [MatchSummaryController::class, 'previewPoster'])->name('summary.preview-poster');

@@ -39,15 +39,22 @@ class OrganizationController extends Controller
             'auction_enabled' => 'nullable|boolean',
             'auction_modes' => 'nullable|array',
             'auction_modes.*' => 'in:open,closed,offline',
+            'billing_mode' => 'nullable|in:package,credits',
         ]);
 
         if (! auth()->user()->hasRole('Superadmin')) {
-            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
+            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes'], $validated['billing_mode']);
         }
 
         $validated['auction_enabled'] = $validated['auction_enabled'] ?? false;
+        // New organizations pay per feature in credits unless Super Admin chose the package model.
+        $validated['billing_mode'] = $validated['billing_mode'] ?? 'credits';
 
-        Organization::create($validated);
+        $organization = Organization::create($validated);
+
+        if ($organization->usesCredits()) {
+            app(\App\Services\Credits\CreditService::class)->welcome($organization);
+        }
 
         return redirect()->route('admin.organizations.index')->with('success', 'Organization created successfully.');
     }

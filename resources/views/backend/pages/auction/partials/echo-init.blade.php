@@ -52,7 +52,12 @@
              * show.blade.php retries window.Echo every 100ms forever, which is the shape
              * being avoided here.)
              */
-            window.auctionChannel = function (auctionId) {
+            /**
+             * Echo, created once on first use; null when it failed to load. Shared by
+             * the auction screens (auctionChannel) and the match/LED screens
+             * (pushChannel), so a page that uses both opens one socket.
+             */
+            window.ensureEcho = function () {
                 try {
                     /*
                      * Say so, loudly, when Echo is missing.
@@ -85,11 +90,20 @@
                         conn.bind('disconnected', () => console.warn('[auction] pusher disconnected — polling only.'));
                     }
 
-                    return window.Echo.channel('auction.' + auctionId);
+                    return window.Echo;
                 } catch (e) {
                     console.warn('[auction] live updates unavailable, falling back to polling:', e);
                     return null;
                 }
+            };
+
+            window.auctionChannel = function (auctionId) {
+                return window.ensureEcho()?.channel('auction.' + auctionId) ?? null;
+            };
+
+            /** Any public channel by name ('match.12', 'led.3'), or null. */
+            window.pushChannel = function (name) {
+                return window.ensureEcho()?.channel(name) ?? null;
             };
         </script>
     @else
@@ -98,6 +112,8 @@
             // is `log` with blank keys). Polling carries everything; say so once rather than
             // leaving a silent no-op.
             window.auctionChannel = function () { return null; };
+            window.pushChannel = function () { return null; };
+            window.ensureEcho = function () { return null; };
             console.info('[auction] push disabled — polling only.');
         </script>
     @endif

@@ -274,6 +274,12 @@ class RolesService
             'organization.create',
             'organization.edit',
             'organization.delete',
+            // Platform controls: building templates, and the credit system's
+            // pricing, discounts and wallet adjustments stay with Superadmin.
+            'template.manage',
+            'credits.manage',
+            'discount.manage',
+            'feature.manage',
         ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);
@@ -321,6 +327,24 @@ class RolesService
             // Image templates
             'image-templates.view',
             'image-templates.edit',
+            // Posters from the tournament's templates
+            'template.generate',
+            // Scoring and the LED wall for their matches
+            'scoring.update',
+            'scoring.quick_add_player',
+            'ledwall.operate',
+            // Auctions for their tournaments — still gated per organization
+            // by Organization::isAuctionEnabled() / the credit unlock.
+            'auctions.view',
+            'auction.view',
+            'auction.create',
+            'auction.edit',
+            'auction.delete',
+            'auction.observe',
+            'auction.control',
+            'auction.closed-bids',
+            // Their organization's wallet
+            'credits.view',
         ];
         $roles['organizer'] = $this->createOrSyncRole('Organizer', $organizerPermissions);
 
@@ -351,6 +375,35 @@ class RolesService
             'auction.closed-bids',
         ];
         $roles['auctioneer'] = $this->createOrSyncRole('Auctioneer', $auctioneerPermissions);
+
+        /*
+         * 3c. Auction Organizer — runs a tournament that only needs player
+         * registration, posters and the auction. No fixtures, scoring, LED wall
+         * or tournament settings.
+         *
+         * Registrations come through `tournament.registrations` (accepted by
+         * TournamentRegistrationController alongside tournament.view/edit), so
+         * this role can approve players without editing the tournament itself.
+         */
+        $auctionOrganizerPermissions = [
+            'dashboard.view',
+            'tournament.view',
+            'tournament.registrations',
+            'actual-team.view',
+            'player.create',
+            'player.view',
+            'player.edit',
+            'template.generate',
+            'auctions.view',
+            'auction.view',
+            'auction.create',
+            'auction.edit',
+            'auction.observe',
+            'auction.control',
+            'auction.closed-bids',
+            'credits.view',
+        ];
+        $roles['auction_organizer'] = $this->createOrSyncRole('Auction Organizer', $auctionOrganizerPermissions);
 
         // 4. Team Manager - Can manage their team, create/add players, participate in auctions
         // Assigned to a specific team and can only manage players of that team.
@@ -408,6 +461,9 @@ class RolesService
             'dashboard.view',
             'match.view',
             'match.edit', // Can edit scores
+            'scoring.update',
+            'scoring.quick_add_player',
+            'ledwall.operate',
         ];
         $roles['scorer'] = $this->createOrSyncRole('Scorer', $scorerPermissions);
 

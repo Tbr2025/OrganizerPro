@@ -25,6 +25,10 @@ class AppServiceProvider extends ServiceProvider
             error_reporting(E_ALL & ~E_DEPRECATED);
         }
 
+        // One meter per request/job: the scope opened by credits.posters is read by every
+        // poster service's saveImage() in that request.
+        $this->app->scoped(\App\Services\Credits\PosterMeter::class);
+
         $this->app->singleton(ImageManager::class, function () {
             return new ImageManager(new \Intervention\Image\Drivers\Gd\Driver());
         });

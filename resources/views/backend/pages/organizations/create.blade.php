@@ -21,6 +21,14 @@
                 <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Package & Limits</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {{-- Billing: credits (pay per feature) or the package limits below --}}
+                        <div class="md:col-span-2">
+                            <label for="billing_mode" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Billing</label>
+                            <select name="billing_mode" id="billing_mode" class="form-control mt-1">
+                                <option value="credits" {{ old('billing_mode', 'credits') == 'credits' ? 'selected' : '' }}>{{ app(\App\Services\Credits\CreditService::class)->term() }} — pay per feature</option>
+                                <option value="package" {{ old('billing_mode') == 'package' ? 'selected' : '' }}>Package limits (below)</option>
+                            </select>
+                        </div>
                         {{-- Package Type --}}
                         <div>
                             <label for="package_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Package Type</label>

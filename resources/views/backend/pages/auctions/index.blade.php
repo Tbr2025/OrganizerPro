@@ -37,7 +37,7 @@
                         'placeholder' => 'Search auctions...',
                     ])
                     <div class="flex items-center gap-2">
-                        @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Super Admin') || auth()->user()->hasRole('Admin'))
+                        @if (!auth()->user()->hasRole('Team Manager') || auth()->user()->hasRole('Superadmin') || auth()->user()->hasRole('Admin'))
                             <a href="{{ route('admin.auctions.create') }}" class="btn-primary flex items-center gap-1.5 text-sm">
                                 <iconify-icon icon="lucide:plus" width="16"></iconify-icon>
                                 Create Auction

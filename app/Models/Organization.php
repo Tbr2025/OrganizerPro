@@ -15,6 +15,7 @@ class Organization extends Model
         'max_tournaments',
         'auction_enabled',
         'auction_modes',
+        'billing_mode',
     ];
 
     protected $casts = [
@@ -22,6 +23,17 @@ class Organization extends Model
         'auction_modes' => 'array',
         'max_tournaments' => 'integer',
     ];
+
+    /** Pays per feature with credits (true) or works to the old package limits (false). */
+    public function usesCredits(): bool
+    {
+        return $this->billing_mode === 'credits';
+    }
+
+    public function wallet()
+    {
+        return $this->hasOne(\App\Models\Credits\CreditWallet::class);
+    }
 
     public function locations()
     {
@@ -45,7 +57,8 @@ class Organization extends Model
 
     public function hasReachedTournamentLimit(): bool
     {
-        if (is_null($this->max_tournaments)) {
+        // On credits there is no cap: publishing is what costs.
+        if ($this->usesCredits() || is_null($this->max_tournaments)) {
             return false;
         }
 
@@ -54,7 +67,7 @@ class Organization extends Model
 
     public function remainingTournamentSlots(): ?int
     {
-        if (is_null($this->max_tournaments)) {
+        if ($this->usesCredits() || is_null($this->max_tournaments)) {
             return null;
         }
 
@@ -63,11 +76,16 @@ class Organization extends Model
 
     public function isAuctionEnabled(): bool
     {
-        return $this->auction_enabled;
+        // On credits, auctions are unlocked per tournament (CreditFeature::AUCTION).
+        return $this->usesCredits() || $this->auction_enabled;
     }
 
     public function isAuctionModeAllowed(string $mode): bool
     {
+        if ($this->usesCredits()) {
+            return true;
+        }
+
         if (! $this->auction_enabled) {
             return false;
         }

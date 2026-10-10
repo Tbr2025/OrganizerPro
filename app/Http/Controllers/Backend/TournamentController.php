@@ -300,9 +300,28 @@ class TournamentController extends Controller
             'status' => 'nullable|in:draft,registration,active,completed',
             'type' => 'nullable|in:open,auction',
         ]);
+        $starter = $request->validate([
+            'starter_kit' => 'nullable|boolean',
+            'starter_theme' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Poster\Presets\PresetThemes::all()))],
+        ]);
+
+        $user = auth()->user();
+
+        // Only a Superadmin may create for another organization. Everyone else
+        // creates in their own — the dropdown offers nothing else, but the
+        // posted id was only checked with `exists`, so any org id was accepted.
+        if (! $user->hasRole('Superadmin')) {
+            if ((int) $validated['organization_id'] !== (int) $user->organization_id) {
+                abort(403, 'You can only create tournaments for your own organization.');
+            }
+            if (! empty($validated['zone_id'])
+                && ! Zone::where('id', $validated['zone_id'])->where('organization_id', $user->organization_id)->exists()) {
+                abort(403, 'That zone belongs to another organization.');
+            }
+        }
 
         // Check tournament limit (bypass for Superadmin)
-        if (! auth()->user()->hasRole('Superadmin')) {
+        if (! $user->hasRole('Superadmin')) {
             $organization = Organization::find($validated['organization_id']);
             if ($organization && $organization->hasReachedTournamentLimit()) {
                 return redirect()->back()->withInput()
@@ -333,7 +352,38 @@ class TournamentController extends Controller
         }
         unset($validated['logo_cropped']);
 
-        Tournament::create($validated);
+        // Credits: publishing (any status but draft) is paid once. Save as a draft
+        // and confirm the charge first; the confirm page applies the status.
+        $requestedStatus = $validated['status'];
+        $tournament = Tournament::create(array_merge($validated, ['status' => 'draft']));
+
+        // A ready-made design for every poster type, made the defaults of a tournament
+        // that has none yet. A failure here never loses the tournament.
+        if (! empty($starter['starter_kit'])) {
+            try {
+                app(\App\Services\Poster\TemplatePresetService::class)
+                    ->starterKit($tournament, $starter['starter_theme'] ?? 'midnight', $user);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
+
+        // An Organizer only sees tournaments they are assigned to
+        // (Tournament::scopeForUser), so without this the creator lost sight
+        // of the tournament the moment it was saved.
+        if ($user->hasRole('Organizer') && ! $user->hasAnyRole(['Superadmin', 'Admin'])) {
+            $tournament->organizers()->syncWithoutDetaching([$user->id]);
+        }
+
+        if ($requestedStatus !== 'draft') {
+            $unlockUrl = app(\App\Services\Credits\CreditGate::class)->allows(
+                \App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament, route('admin.tournaments.index'), ['status' => $requestedStatus]
+            );
+            if ($unlockUrl) {
+                return redirect($unlockUrl)->with('success', 'Tournament saved as a draft.');
+            }
+            $tournament->update(['status' => $requestedStatus]);
+        }
 
         return redirect()
             ->route('admin.tournaments.index')
@@ -419,6 +469,18 @@ class TournamentController extends Controller
         }
         unset($validated['logo_cropped']);
 
+        // Credits: leaving draft is publishing, paid once. Hold the status back
+        // until the charge is confirmed; everything else saves now.
+        $publishUrl = null;
+        if ($tournament->status === 'draft' && isset($validated['status']) && $validated['status'] !== 'draft') {
+            $publishUrl = app(\App\Services\Credits\CreditGate::class)->allows(
+                \App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament, route('admin.tournaments.index'), ['status' => $validated['status']]
+            );
+            if ($publishUrl) {
+                unset($validated['status']);
+            }
+        }
+
         $tournament->update($validated);
 
         // Save budget setting to auction (create if needed)
@@ -475,6 +537,10 @@ class TournamentController extends Controller
                     $settingsData
                 );
             }
+        }
+
+        if ($publishUrl) {
+            return redirect($publishUrl)->with('success', 'Changes saved. Confirm publishing to change the status.');
         }
 
         return redirect()

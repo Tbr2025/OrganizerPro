@@ -75,8 +75,8 @@ class TournamentNotificationService
             'playing_team_logo' => $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? ''),
         ];
 
-        return app(\App\Services\Poster\TemplateRenderService::class)
-            ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name)));
+        return app(\App\Services\Credits\PosterMeter::class)->within($tournament, fn () => app(\App\Services\Poster\TemplateRenderService::class)
+                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name))));
     }
 
     /**
@@ -139,8 +139,8 @@ class TournamentNotificationService
                 'playing_team_logo' => $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? ''),
             ];
 
-            $posterPath = app(\App\Services\Poster\TemplateRenderService::class)
-                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name)));
+            $posterPath = app(\App\Services\Credits\PosterMeter::class)->within($tournament, fn () => app(\App\Services\Poster\TemplateRenderService::class)
+                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('welcome-' . \Illuminate\Support\Str::slug($player->name))));
 
             $log = NotificationLog::log(
                 $tournament,
@@ -208,8 +208,8 @@ class TournamentNotificationService
             'playing_team_logo' => $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? ''),
         ];
 
-        return app(\App\Services\Poster\TemplateRenderService::class)
-            ->renderAndSave($template, $data, TemplateRenderService::posterFilename('retained-welcome-' . \Illuminate\Support\Str::slug($player->name)));
+        return app(\App\Services\Credits\PosterMeter::class)->within($tournament, fn () => app(\App\Services\Poster\TemplateRenderService::class)
+                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('retained-welcome-' . \Illuminate\Support\Str::slug($player->name))));
     }
 
     /**
@@ -263,8 +263,8 @@ class TournamentNotificationService
                 'playing_team_logo' => $player->playing_team_name_ref ? '' : ($tournamentTeam?->team_logo ?? ''),
             ];
 
-            $posterPath = app(\App\Services\Poster\TemplateRenderService::class)
-                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('retained-welcome-' . \Illuminate\Support\Str::slug($player->name)));
+            $posterPath = app(\App\Services\Credits\PosterMeter::class)->within($tournament, fn () => app(\App\Services\Poster\TemplateRenderService::class)
+                ->renderAndSave($template, $data, TemplateRenderService::posterFilename('retained-welcome-' . \Illuminate\Support\Str::slug($player->name))));
 
             $log = NotificationLog::log(
                 $tournament,
@@ -333,7 +333,7 @@ class TournamentNotificationService
 
             if (!$flyerPath && class_exists(TournamentFlyerService::class)) {
                 $flyerService = app(TournamentFlyerService::class);
-                $flyerPath = $flyerService->generate($tournament);
+                $flyerPath = ($tournament) ? app(\App\Services\Credits\PosterMeter::class)->within($tournament, fn () => $flyerService->generate($tournament)) : $flyerService->generate($tournament);
             }
 
             if (!$flyerPath) {
@@ -381,7 +381,7 @@ class TournamentNotificationService
         try {
             // Generate poster if not exists
             if (!$match->poster_image) {
-                $posterPath = $this->matchPosterService->generate($match);
+                $posterPath = ($match->tournament) ? app(\App\Services\Credits\PosterMeter::class)->within($match->tournament, fn () => $this->matchPosterService->generate($match)) : $this->matchPosterService->generate($match);
                 $match->update(['poster_image' => $posterPath]);
             }
 
@@ -443,7 +443,7 @@ class TournamentNotificationService
 
             // Generate poster if not exists
             if (!$summary->summary_poster) {
-                $posterPath = $this->matchSummaryService->generate($match);
+                $posterPath = ($match->tournament) ? app(\App\Services\Credits\PosterMeter::class)->within($match->tournament, fn () => $this->matchSummaryService->generate($match)) : $this->matchSummaryService->generate($match);
                 $summary->update(['summary_poster' => $posterPath]);
             }
 
@@ -499,7 +499,7 @@ class TournamentNotificationService
         try {
             // Generate poster if not exists
             if (!$award->poster_image) {
-                $posterPath = $this->awardPosterService->generate($award);
+                $posterPath = ($award->match?->tournament) ? app(\App\Services\Credits\PosterMeter::class)->within($award->match?->tournament, fn () => $this->awardPosterService->generate($award)) : $this->awardPosterService->generate($award);
                 $award->update(['poster_image' => $posterPath]);
             }
 

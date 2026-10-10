@@ -61,6 +61,21 @@ class PlayerFormConfig
         return ['name', 'first_name', 'last_name', 'email', 'mobile_number'];
     }
 
+    /**
+     * Open tournaments register players by phone: the mobile number is the
+     * required contact and email is optional. Auction tournaments keep email
+     * required — their team owners log in and are emailed credentials.
+     *
+     * Email stays a locked field (always shown, not editable after
+     * registration); it is only its *required* flag that changes.
+     */
+    public static function emailOptional(?TournamentSetting $settings): bool
+    {
+        $tournament = $settings?->tournament;
+
+        return $tournament !== null && ! $tournament->isAuction();
+    }
+
     public static function getFieldConfig(?TournamentSetting $settings): array
     {
         $defaults = self::defaultFormFields();
@@ -105,6 +120,10 @@ class PlayerFormConfig
                 $config[$forced]['visible'] = true;
                 $config[$forced]['required'] = true;
             }
+        }
+
+        if (self::emailOptional($settings)) {
+            $config['email']['required'] = false;
         }
 
         // Terms & Conditions: auto-show (and require acceptance) whenever the
@@ -313,8 +332,12 @@ class PlayerFormConfig
         $rules['first_name'] = 'required|string|max:100';
         $rules['last_name'] = 'required|string|max:100';
 
-        // Email - always required
-        $rules['email'] = 'required|email|max:255';
+        // Email — required unless the tournament registers by phone (open
+        // tournaments, see emailOptional()). The mobile number is then the
+        // required contact; its rule is below.
+        $rules['email'] = ($fieldConfig['email']['required'] ?? true)
+            ? 'required|email|max:255'
+            : 'nullable|email|max:255';
 
         // Date of Birth — block future dates and enforce the tournament's
         // configurable minimum / maximum age when set.

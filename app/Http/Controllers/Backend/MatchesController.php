@@ -4,9 +4,10 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActualTeam;
-use App\Models\Ball;
 use App\Models\MatchAppreciation;
 use App\Models\Matches;
+use App\Services\Scoring\BallRecorder;
+use App\Services\Scoring\MatchStateService;
 use App\Models\Player;
 use App\Models\Team;
 use App\Models\Tournament;
@@ -203,198 +204,78 @@ class MatchesController extends Controller
             'tossWinner',
             'matchAwards.player.actualTeam',
             'matchAwards.tournamentAward',
+            'lineups',
         ]);
 
-        // Get current innings from session or default to 1
-        $currentInnings = session('match_innings_' . $match->id, 1);
+        $state = $this->scoringState($match);
+        $snapshot = $state['snapshot'];
+        $live = $snapshot['innings'][$snapshot['current_innings']];
 
-        // Get team player IDs
-        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
-        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+        $battingTeam = (int) $live['batting_team_id'] === (int) $match->team_a_id ? $match->teamA : $match->teamB;
+        $bowlingTeam = (int) $live['bowling_team_id'] === (int) $match->team_a_id ? $match->teamA : $match->teamB;
+        $battingPlayers = $this->lineupFirst($match, $battingTeam);
+        $bowlingPlayers = $this->lineupFirst($match, $bowlingTeam);
 
-        // Get all balls
-        $allBalls = Ball::where('match_id', $match->id)
-            ->orderBy('over')
-            ->orderBy('ball_in_over')
-            ->get();
-
-        // Separate balls by innings (based on batsman team)
-        $innings1Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $innings2Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamBPlayerIds));
-
-        // Calculate innings stats
-        $innings1Stats = $this->calculateInningsStats($innings1Balls);
-        $innings2Stats = $this->calculateInningsStats($innings2Balls);
-
-        // Determine if first innings is complete
-        $matchOversLimit = $match->overs ?? 20;
-        $firstInningsComplete = $innings1Stats['completedOvers'] >= $matchOversLimit ||
-                                $innings1Stats['wickets'] >= 10 ||
-                                ($innings1Balls->isNotEmpty() && $innings2Balls->isNotEmpty());
-
-        // Auto-switch to 2nd innings if 1st is complete and session not set
-        if ($firstInningsComplete && ! session()->has('match_innings_' . $match->id)) {
-            $currentInnings = 2;
-            session(['match_innings_' . $match->id => 2]);
-        }
-
-        // Get current innings balls for display
-        $balls = $currentInnings === 1 ? $innings1Balls : $innings2Balls;
-
-        // Determine batting and bowling teams for current innings
-        if ($currentInnings === 1) {
-            $battingTeam = $match->teamA;
-            $bowlingTeam = $match->teamB;
-            $battingPlayers = $match->teamA->players ?? collect();
-            $bowlingPlayers = $match->teamB->players ?? collect();
-        } else {
-            $battingTeam = $match->teamB;
-            $bowlingTeam = $match->teamA;
-            $battingPlayers = $match->teamB->players ?? collect();
-            $bowlingPlayers = $match->teamA->players ?? collect();
-        }
-
-        // Group by over for breakdown
-        $overs = $balls->groupBy('over');
-
-        $summary = [];
-        foreach ($overs as $overNum => $ballsInOver) {
-            $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_runs');
-            $wickets = $ballsInOver->where('is_wicket', 1)->count();
-
-            $ballSummary = $ballsInOver->map(function ($ball) {
-                if ($ball->is_wicket) {
-                    return 'W';
-                }
-                if ($ball->extra_type === 'wide') {
-                    return ($ball->runs + $ball->extra_runs) . 'wd';
-                }
-                if ($ball->extra_type === 'no_ball') {
-                    return ($ball->runs + $ball->extra_runs) . 'nb';
-                }
-                if ($ball->extra_type === 'bye') {
-                    return ($ball->extra_runs) . 'b';
-                }
-                if ($ball->extra_type === 'leg_bye') {
-                    return ($ball->extra_runs) . 'lb';
-                }
-                return (string) $ball->runs;
-            })->values();
-
-            $summary[] = [
-                'over' => $overNum,
-                'balls' => $ballSummary,
-                'runs' => $overRuns,
-                'wickets' => $wickets,
-            ];
-        }
-
-        // Current innings totals
-        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
-        $totalWickets = $balls->where('is_wicket', 1)->count();
-        $totalOvers = $overs->count();
-
-        // Get IDs of batsmen who are already out in current innings
-        $outBatsmenIds = $balls->where('is_wicket', 1)->pluck('batsman_id')->toArray();
-
-        // Auto-select current striker, non-striker, and bowler
-        $currentStriker = null;
-        $currentNonStriker = null;
-        $currentBowler = null;
-        $needsNewBatsman = false;
-
-        $lastBall = $balls->last();
-        if ($lastBall) {
-            $lastBatsman = $lastBall->batsman_id;
-            $lastBowler = $lastBall->bowler_id;
-
-            $activeBatsmen = $balls->pluck('batsman_id')->unique()
-                ->diff($outBatsmenIds)->values();
-
-            $lastBallRuns = $lastBall->runs + ($lastBall->extra_runs ?? 0);
-            $isEndOfOver = $lastBall->ball_in_over >= 6 && ! in_array($lastBall->extra_type, ['wide', 'no_ball']);
-
-            if ($lastBall->is_wicket) {
-                $needsNewBatsman = true;
-                $currentStriker = null;
-                $currentNonStriker = $activeBatsmen->first();
-            } else {
-                $shouldSwap = ($lastBallRuns % 2 === 1) xor $isEndOfOver;
-                $otherBatsman = $activeBatsmen->filter(fn ($id) => $id !== $lastBatsman)->first();
-
-                if ($shouldSwap) {
-                    $currentNonStriker = $lastBatsman;
-                    // Only set striker to other batsman if they exist and are different
-                    $currentStriker = ($otherBatsman && $otherBatsman !== $lastBatsman) ? $otherBatsman : null;
-                } else {
-                    $currentStriker = $lastBatsman;
-                    // Only set non-striker if they exist and are different
-                    $currentNonStriker = ($otherBatsman && $otherBatsman !== $lastBatsman) ? $otherBatsman : null;
-                }
-            }
-
-            if ($isEndOfOver) {
-                $previousOver = $balls->where('over', $lastBall->over - 1)->first();
-                $currentBowler = $previousOver ? $previousOver->bowler_id : null;
-            } else {
-                $currentBowler = $lastBowler;
-            }
-        }
-
-        return view('backend.pages.matches.show', compact(
-            'match',
-            'summary',
-            'battingPlayers',
-            'bowlingPlayers',
-            'battingTeam',
-            'bowlingTeam',
-            'totalRuns',
-            'totalWickets',
-            'totalOvers',
-            'outBatsmenIds',
-            'currentStriker',
-            'currentNonStriker',
-            'currentBowler',
-            'needsNewBatsman',
-            'currentInnings',
-            'firstInningsComplete',
-            'innings1Stats',
-            'innings2Stats'
-        ));
+        return view('backend.pages.matches.show', [
+            'match' => $match,
+            'summary' => $state['summary'],
+            'battingPlayers' => $battingPlayers,
+            'bowlingPlayers' => $bowlingPlayers,
+            'battingTeam' => $battingTeam,
+            'bowlingTeam' => $bowlingTeam,
+            'totalRuns' => $state['totalRuns'],
+            'totalWickets' => $state['totalWickets'],
+            'totalOvers' => $state['totalOvers'],
+            'runRate' => $state['runRate'],
+            'outBatsmenIds' => $state['outBatsmenIds'],
+            'currentStriker' => $state['currentStriker'],
+            'currentNonStriker' => $state['currentNonStriker'],
+            'currentBowler' => $state['currentBowler'],
+            'needsNewBatsman' => $state['needsNewBatsman'],
+            'currentInnings' => $state['currentInnings'],
+            'firstInningsComplete' => $snapshot['innings'][1]['complete'],
+            'inningsComplete' => $state['inningsComplete'],
+            'isAllOut' => $state['isAllOut'],
+            'innings1Stats' => $state['innings1Stats'],
+            'innings2Stats' => $state['innings2Stats'],
+            'chase' => $snapshot['chase'],
+            'scoreVersion' => $snapshot['score_version'],
+        ]);
     }
 
     /**
-     * Calculate innings statistics
+     * The squad for the scoring dropdowns, with the named playing XI first in
+     * batting order. The rest of the squad stays listed after it, so a
+     * substitute (or a late change nobody updated in the line-up) can still
+     * be picked — hiding them would stop the scorer mid-over.
      */
-    private function calculateInningsStats($balls): array
+    private function lineupFirst(Matches $match, ?ActualTeam $team)
     {
-        if ($balls->isEmpty()) {
-            return ['runs' => 0, 'wickets' => 0, 'overs' => '0.0', 'completedOvers' => 0];
+        $squad = $team?->players ?? collect();
+        $order = $match->lineups
+            ->where('actual_team_id', $team?->id)
+            ->mapWithKeys(fn ($l) => [(int) $l->player_id => (int) ($l->batting_order ?? 999)]);
+
+        if ($order->isEmpty()) {
+            return $squad;
         }
 
-        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
-        $totalWickets = $balls->where('is_wicket', 1)->count();
-
-        $legalBalls = $balls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
-        $completedOvers = floor($legalBalls / 6);
-        $ballsInOver = $legalBalls % 6;
-
-        return [
-            'runs' => $totalRuns,
-            'wickets' => $totalWickets,
-            'overs' => $completedOvers . '.' . $ballsInOver,
-            'completedOvers' => $completedOvers,
-        ];
+        return $squad
+            ->sortBy(fn ($row) => [
+                $order->has((int) $row->player?->id) ? 0 : 1,
+                $order[(int) $row->player?->id] ?? 999,
+                $row->player?->name,
+            ])
+            ->values();
     }
 
     /**
-     * Switch innings
+     * Start the other innings. Stored on the match (not the scorer's session),
+     * so every screen moves with it.
      */
     public function switchInnings(Matches $match)
     {
-        $currentInnings = session('match_innings_' . $match->id, 1);
-        $newInnings = $currentInnings === 1 ? 2 : 1;
-        session(['match_innings_' . $match->id => $newInnings]);
+        $newInnings = app(BallRecorder::class)->switchInnings($match);
 
         return redirect()->route('admin.matches.show', $match)
             ->with('success', 'Switched to ' . ($newInnings === 1 ? '1st' : '2nd') . ' innings.');
@@ -405,252 +286,109 @@ class MatchesController extends Controller
      */
     public function getState(Matches $match)
     {
-        $match->load(['teamA.players.player', 'teamB.players.player']);
+        $match->load(['teamA.players.player', 'teamB.players.player', 'lineups']);
 
-        // Get current innings from session
-        $currentInnings = session('match_innings_' . $match->id, 1);
+        $state = $this->scoringState($match);
+        unset($state['snapshot']);
 
-        // Get team player IDs
-        $teamAPlayerIds = $match->teamA?->players?->pluck('id')->toArray() ?? [];
-        $teamBPlayerIds = $match->teamB?->players?->pluck('id')->toArray() ?? [];
+        return response()->json($state);
+    }
 
-        // Get all balls
-        $allBalls = Ball::where('match_id', $match->id)
-            ->orderBy('over')
-            ->orderBy('ball_in_over')
-            ->get();
+    /**
+     * The scoring page's view of MatchStateService::snapshot(), in the field
+     * names the page (and the live ticker) have always read, plus the
+     * snapshot itself for anything newer.
+     */
+    private function scoringState(Matches $match): array
+    {
+        $snapshot = app(MatchStateService::class)->snapshot($match);
+        $current = $snapshot['current_innings'];
+        $live = $snapshot['innings'][$current];
 
-        // Separate balls by innings
-        $innings1Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamAPlayerIds));
-        $innings2Balls = $allBalls->filter(fn ($b) => in_array($b->batsman_id, $teamBPlayerIds));
+        $inningsLine = fn (array $i) => [
+            'runs' => $i['runs'],
+            'wickets' => $i['wickets'],
+            'overs' => $i['overs'],
+            'completedOvers' => $i['completed_overs'],
+        ];
+        $teamLine = fn (int $teamId) => $snapshot['innings'][1]['batting_team_id'] === $teamId
+            ? $inningsLine($snapshot['innings'][1]) + ['batted' => $snapshot['innings'][1]['balls_bowled'] > 0]
+            : $inningsLine($snapshot['innings'][2]) + ['batted' => $snapshot['innings'][2]['balls_bowled'] > 0];
 
-        // Calculate both innings stats for header display
-        $innings1Stats = $this->calculateInningsStats($innings1Balls);
-        $innings2Stats = $this->calculateInningsStats($innings2Balls);
+        $batters = collect($live['batters'])->keyBy('id');
+        $bowlers = collect($live['bowlers'])->keyBy('id');
+        $batterLine = fn (?int $id) => $id && $batters->has($id) ? [
+            'id' => $id,
+            'name' => $batters[$id]['name'],
+            'runs' => $batters[$id]['runs'],
+            'balls' => $batters[$id]['balls'],
+            'fours' => $batters[$id]['fours'],
+            'sixes' => $batters[$id]['sixes'],
+            'strikeRate' => $batters[$id]['strike_rate'],
+            'isOut' => $batters[$id]['out'],
+        ] : null;
+        $bowlerLine = fn (?int $id) => $id && $bowlers->has($id) ? [
+            'id' => $id,
+            'name' => $bowlers[$id]['name'],
+            'overs' => $bowlers[$id]['overs'],
+            'maidens' => $bowlers[$id]['maidens'],
+            'runs' => $bowlers[$id]['runs'],
+            'wickets' => $bowlers[$id]['wickets'],
+            'economy' => $bowlers[$id]['economy'],
+        ] : null;
 
-        // Filter balls by current innings (based on batsman team)
-        if ($currentInnings === 1) {
-            $balls = $innings1Balls;
-        } else {
-            $balls = $innings2Balls;
+        // Prefer what the scorer last confirmed (stored on the match); fall
+        // back to the replay for matches scored before that was stored.
+        $striker = $match->striker_id ? (int) $match->striker_id : $live['striker_id'];
+        $nonStriker = $match->non_striker_id ? (int) $match->non_striker_id : $live['non_striker_id'];
+        $bowler = $live['bowler_id'];
+        if ($live['balls_bowled'] === 0) {
+            $striker = $nonStriker = $bowler = null;
         }
 
-        // Group by over
-        $overs = $balls->groupBy('over');
+        $summary = array_map(fn ($o) => [
+            'over' => $o['over'],
+            'balls' => $o['balls'],
+            'runs' => $o['runs'],
+            'wickets' => $o['wickets'],
+        ], $live['overs_summary']);
 
-        $summary = [];
-        foreach ($overs as $overNum => $ballsInOver) {
-            $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_runs');
-            $wickets = $ballsInOver->where('is_wicket', 1)->count();
-
-            $ballSummary = $ballsInOver->map(function ($ball) {
-                if ($ball->is_wicket) {
-                    return 'W';
-                }
-                if ($ball->extra_type === 'wide') {
-                    return ($ball->runs + $ball->extra_runs) . 'wd';
-                }
-                if ($ball->extra_type === 'no_ball') {
-                    return ($ball->runs + $ball->extra_runs) . 'nb';
-                }
-                if ($ball->extra_type === 'bye') {
-                    return ($ball->extra_runs) . 'b';
-                }
-                if ($ball->extra_type === 'leg_bye') {
-                    return ($ball->extra_runs) . 'lb';
-                }
-                return (string) $ball->runs;
-            })->values();
-
-            $summary[] = [
-                'over' => $overNum,
-                'balls' => $ballSummary,
-                'runs' => $overRuns,
-                'wickets' => $wickets,
-            ];
-        }
-
-        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
-        $totalWickets = $balls->where('is_wicket', 1)->count();
-        $totalOvers = $overs->count();
-
-        // Get out batsmen for CURRENT innings only
-        $outBatsmenIds = $balls->where('is_wicket', 1)->pluck('batsman_id')->toArray();
-
-        // Calculate current players
-        $currentStriker = null;
-        $currentNonStriker = null;
-        $currentBowler = null;
-        $needsNewBatsman = false;
-
-        $lastBall = $balls->last();
-        if ($lastBall) {
-            $lastBatsman = $lastBall->batsman_id;
-            $lastBowler = $lastBall->bowler_id;
-            $activeBatsmen = $balls->pluck('batsman_id')->unique()
-                ->diff($outBatsmenIds)->values();
-            $lastBallRuns = $lastBall->runs + ($lastBall->extra_runs ?? 0);
-            $isEndOfOver = $lastBall->ball_in_over >= 6 && ! in_array($lastBall->extra_type, ['wide', 'no_ball']);
-
-            if ($lastBall->is_wicket) {
-                $needsNewBatsman = true;
-                $currentStriker = null;
-                $currentNonStriker = $activeBatsmen->first();
-            } else {
-                $shouldSwap = ($lastBallRuns % 2 === 1) xor $isEndOfOver;
-                $otherBatsman = $activeBatsmen->filter(fn ($id) => $id !== $lastBatsman)->first();
-
-                if ($shouldSwap) {
-                    $currentNonStriker = $lastBatsman;
-                    // Only set striker to other batsman if they exist and are different
-                    $currentStriker = ($otherBatsman && $otherBatsman !== $lastBatsman) ? $otherBatsman : null;
-                } else {
-                    $currentStriker = $lastBatsman;
-                    // Only set non-striker if they exist and are different
-                    $currentNonStriker = ($otherBatsman && $otherBatsman !== $lastBatsman) ? $otherBatsman : null;
-                }
-            }
-
-            if ($isEndOfOver) {
-                $previousOver = $balls->where('over', $lastBall->over - 1)->first();
-                $currentBowler = $previousOver ? $previousOver->bowler_id : null;
-            } else {
-                $currentBowler = $lastBowler;
-            }
-        }
-
-        // Current over balls for display
-        $lastOver = collect($summary)->last();
-        $currentOverBalls = $lastOver['balls'] ?? [];
-
-        // Check if innings is complete (all out = 10 wickets)
-        $isAllOut = $totalWickets >= 10;
-        $matchOversLimit = $match->overs ?? 20;
-
-        // Get detailed batsman stats
-        $batsmanStats = [];
-        $batsmanIds = $balls->pluck('batsman_id')->unique();
-        foreach ($batsmanIds as $batsmanId) {
-            $playerBalls = $balls->where('batsman_id', $batsmanId);
-            $runs = $playerBalls->sum('runs');
-            $ballsFaced = $playerBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide']))->count();
-            $fours = $playerBalls->where('runs', 4)->count();
-            $sixes = $playerBalls->where('runs', 6)->count();
-            $strikeRate = $ballsFaced > 0 ? round(($runs / $ballsFaced) * 100, 2) : 0;
-            $isOut = in_array($batsmanId, $outBatsmenIds);
-
-            // Get player name
-            $player = $match->teamA?->players->where('id', $batsmanId)->first()
-                ?? $match->teamB?->players->where('id', $batsmanId)->first();
-
-            $batsmanStats[$batsmanId] = [
-                'id' => $batsmanId,
-                'name' => $player?->player?->name ?? 'Unknown',
-                'runs' => $runs,
-                'balls' => $ballsFaced,
-                'fours' => $fours,
-                'sixes' => $sixes,
-                'strikeRate' => $strikeRate,
-                'isOut' => $isOut,
-            ];
-        }
-
-        // Get detailed bowler stats
-        $bowlerStats = [];
-        $bowlerIds = $balls->pluck('bowler_id')->unique();
-        foreach ($bowlerIds as $bowlerId) {
-            $bowlerBalls = $balls->where('bowler_id', $bowlerId);
-            $runsConceded = $bowlerBalls->sum('runs') + $bowlerBalls->sum('extra_runs');
-            $wickets = $bowlerBalls->where('is_wicket', 1)->count();
-            $legalBalls = $bowlerBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
-            $oversDecimal = floor($legalBalls / 6) + (($legalBalls % 6) / 10);
-            $overs = floor($legalBalls / 6) . '.' . ($legalBalls % 6);
-            $economy = $oversDecimal > 0 ? round($runsConceded / $oversDecimal, 2) : 0;
-
-            // Count maidens (overs with 0 runs - only count complete overs)
-            $maidens = 0;
-            $bowlerOvers = $bowlerBalls->groupBy('over');
-            foreach ($bowlerOvers as $overBalls) {
-                $legalInOver = $overBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide', 'no_ball']))->count();
-                $runsInOver = $overBalls->sum('runs') + $overBalls->sum('extra_runs');
-                if ($legalInOver >= 6 && $runsInOver === 0) {
-                    $maidens++;
-                }
-            }
-
-            // Get player name
-            $player = $match->teamA?->players->where('id', $bowlerId)->first()
-                ?? $match->teamB?->players->where('id', $bowlerId)->first();
-
-            $bowlerStats[$bowlerId] = [
-                'id' => $bowlerId,
-                'name' => $player?->player?->name ?? 'Unknown',
-                'overs' => $overs,
-                'maidens' => $maidens,
-                'runs' => $runsConceded,
-                'wickets' => $wickets,
-                'economy' => $economy,
-            ];
-        }
-
-        // Get striker and non-striker details
-        $strikerDetails = $currentStriker ? ($batsmanStats[$currentStriker] ?? null) : null;
-        $nonStrikerDetails = $currentNonStriker ? ($batsmanStats[$currentNonStriker] ?? null) : null;
-        $bowlerDetails = $currentBowler ? ($bowlerStats[$currentBowler] ?? null) : null;
-
-        // Calculate partnership
-        $partnership = ['runs' => 0, 'balls' => 0];
-        if ($currentStriker || $currentNonStriker) {
-            // Get last wicket index
-            $lastWicketIndex = $balls->search(fn ($b) => $b->is_wicket);
-            $partnershipBalls = $lastWicketIndex !== false
-                ? $balls->slice($lastWicketIndex + 1)
-                : $balls;
-
-            $partnership['runs'] = $partnershipBalls->sum('runs');
-            $partnership['balls'] = $partnershipBalls->filter(fn ($b) => ! in_array($b->extra_type, ['wide']))->count();
-        }
-
-        // Last wicket info
-        $lastWicket = null;
-        $lastWicketBall = $balls->where('is_wicket', 1)->last();
-        if ($lastWicketBall) {
-            $outBatsman = $batsmanStats[$lastWicketBall->batsman_id] ?? null;
-            $lastWicket = [
-                'name' => $outBatsman['name'] ?? 'Unknown',
-                'runs' => $outBatsman['runs'] ?? 0,
-                'balls' => $outBatsman['balls'] ?? 0,
-                'score' => $totalRuns,
-            ];
-        }
-
-        return response()->json([
-            'totalRuns' => $totalRuns,
-            'totalWickets' => $totalWickets,
-            'totalOvers' => $totalOvers,
-            'runRate' => $totalOvers > 0 ? round($totalRuns / $totalOvers, 2) : 0,
-            'currentStriker' => $currentStriker,
-            'currentNonStriker' => $currentNonStriker,
-            'currentBowler' => $currentBowler,
-            'needsNewBatsman' => $needsNewBatsman,
-            'outBatsmenIds' => $outBatsmenIds,
+        return [
+            'totalRuns' => $live['runs'],
+            'totalWickets' => $live['wickets'],
+            'totalOvers' => $live['completed_overs'],
+            'oversDisplay' => $live['overs'],
+            'runRate' => $live['run_rate'],
+            'currentStriker' => $striker,
+            'currentNonStriker' => $nonStriker,
+            'currentBowler' => $bowler,
+            'needsNewBatsman' => $live['needs_new_batter'],
+            'outBatsmenIds' => $live['out_batter_ids'],
             'summary' => $summary,
-            'currentOverBalls' => $currentOverBalls,
-            'currentInnings' => $currentInnings,
-            'isAllOut' => $isAllOut,
-            'matchOversLimit' => $matchOversLimit,
-            // Both innings stats for header display
-            'innings1Stats' => $innings1Stats,
-            'innings2Stats' => $innings2Stats,
-            // Detailed player stats
-            'strikerDetails' => $strikerDetails,
-            'nonStrikerDetails' => $nonStrikerDetails,
-            'bowlerDetails' => $bowlerDetails,
-            'partnership' => $partnership,
-            'lastWicket' => $lastWicket,
-            'batsmanStats' => array_values($batsmanStats),
-            'bowlerStats' => array_values($bowlerStats),
-        ]);
+            'currentOverBalls' => $live['over_complete'] ? [] : $live['this_over'],
+            'currentInnings' => $current,
+            'inningsComplete' => $live['complete'],
+            'matchComplete' => $snapshot['match_complete'],
+            'isAllOut' => $live['wickets'] >= $live['wicket_limit'],
+            'matchOversLimit' => $snapshot['overs_limit'],
+            'innings1Stats' => $inningsLine($snapshot['innings'][1]),
+            'innings2Stats' => $inningsLine($snapshot['innings'][2]),
+            'teamAStats' => $teamLine((int) $match->team_a_id),
+            'teamBStats' => $teamLine((int) $match->team_b_id),
+            'battingTeamId' => $live['batting_team_id'],
+            'strikerDetails' => $batterLine($striker),
+            'nonStrikerDetails' => $batterLine($nonStriker),
+            'bowlerDetails' => $bowlerLine($bowler),
+            'partnership' => $live['partnership'],
+            'lastWicket' => $live['last_wicket'],
+            'batsmanStats' => $batters->map(fn ($b) => $batterLine($b['id']))->values()->all(),
+            'bowlerStats' => $bowlers->map(fn ($b) => $bowlerLine($b['id']))->values()->all(),
+            'target' => $snapshot['target'],
+            'chase' => $snapshot['chase'],
+            'result' => $snapshot['result'],
+            'scoreVersion' => $snapshot['score_version'],
+            'snapshot' => $snapshot,
+        ];
     }
 
     public function edit(Matches $match): View
@@ -795,6 +533,9 @@ class MatchesController extends Controller
             'status' => 'live', // Match goes live when toss is done
         ]);
 
+        // Who bats first follows the toss (until the first ball is bowled).
+        app(BallRecorder::class)->applyToss($match->fresh());
+
         $match->load('tossWinner');
 
         return response()->json([
@@ -873,6 +614,9 @@ class MatchesController extends Controller
                     ];
                 }
             } catch (\Throwable $e) {
+                if ($e instanceof \App\Services\Credits\InsufficientCreditsException) {
+                    throw $e; // out of credits: say so, never hand over a short zip
+                }
                 \Log::error('Failed to generate match poster from template: ' . $e->getMessage());
             }
         }
@@ -897,6 +641,9 @@ class MatchesController extends Controller
                         ];
                     }
                 } catch (\Throwable $e) {
+                    if ($e instanceof \App\Services\Credits\InsufficientCreditsException) {
+                        throw $e; // out of credits: say so, never hand over a short zip
+                    }
                     \Log::error('Failed to generate summary poster from template: ' . $e->getMessage());
                 }
             }
@@ -911,6 +658,9 @@ class MatchesController extends Controller
                     $posterService->generate($match);
                     $match->refresh();
                 } catch (\Throwable $e) {
+                    if ($e instanceof \App\Services\Credits\InsufficientCreditsException) {
+                        throw $e; // out of credits: say so, never hand over a short zip
+                    }
                     \Log::error('Failed to generate enhanced fixture poster: ' . $e->getMessage());
                     // Fallback to legacy poster service
                     try {
@@ -943,6 +693,9 @@ class MatchesController extends Controller
                         $posterPath = $summaryPosterService->generate($match);
                         $summary->update(['summary_poster' => $posterPath]);
                     } catch (\Throwable $e) {
+                        if ($e instanceof \App\Services\Credits\InsufficientCreditsException) {
+                            throw $e; // out of credits: say so, never hand over a short zip
+                        }
                         \Log::error('Failed to generate legacy summary poster: ' . $e->getMessage());
                     }
                 }

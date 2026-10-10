@@ -1093,7 +1093,8 @@ class PlayerController extends Controller
             'available_saturday' => 'nullable|boolean',
             'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
-            'email' => 'required|email|unique:players,email',
+            // Optional on open tournaments (PlayerFormConfig::emailOptional); unique when given.
+            'email' => ($req('email') ? 'required' : 'nullable') . '|email|unique:players,email',
             'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
             'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'mobile_number_full' => [
@@ -1166,14 +1167,16 @@ class PlayerController extends Controller
         $validated['played_ys_ipl_s1'] = $request->boolean('played_ys_ipl_s1');
         $validated['created_by'] = Auth::id();
 
-        // Create or reuse existing user
-        $existingUser = User::where('email', $validated['email'])->first();
+        // Create or reuse existing user. Email may be blank on an open
+        // tournament — never look a user up by a null email.
+        $validated['email'] = ($validated['email'] ?? null) ?: null;
+        $existingUser = $validated['email'] !== null ? User::where('email', $validated['email'])->first() : null;
         $password = null;
 
         if ($existingUser) {
             $user = $existingUser;
         } else {
-            $username = Str::slug(Str::before($validated['email'], '@'), '_');
+            $username = Str::slug($validated['email'] !== null ? Str::before($validated['email'], '@') : $validated['name'], '_');
             if (User::where('username', $username)->exists()) {
                 $username .= '_' . Str::random(5);
             }
@@ -1202,14 +1205,14 @@ class PlayerController extends Controller
         // Now create player
         $player = Player::create($validated);
 
-        // Assign player role if needed
-        if (! $user->hasRole('player')) {
-            $playerRole = Role::firstOrCreate(['name' => 'player']);
-            $user->assignRole($playerRole);
+        // Assign player role if needed. The seeded role is 'Player'; this used
+        // to firstOrCreate a separate lowercase 'player' role nobody else checks.
+        if (! $user->hasRole('Player')) {
+            $user->assignRole(Role::firstOrCreate(['name' => 'Player', 'guard_name' => 'web']));
         }
 
-        // Send welcome email with credentials (only for new users)
-        if ($password) {
+        // Send welcome email with credentials (only for new users with an address)
+        if ($password && $user->email) {
             $user->notify(new CustomVerifyEmail($password));
         }
 
@@ -1703,7 +1706,7 @@ class PlayerController extends Controller
             'available_saturday' => 'nullable|boolean',
             'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
-            'email' => 'required|email|unique:players,email,' . $player->id,
+            'email' => ($req('email') ? 'required' : 'nullable') . '|email|unique:players,email,' . $player->id,
             'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',

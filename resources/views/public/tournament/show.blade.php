@@ -209,6 +209,22 @@
                     <span class="gradient-text">{{ $tournament->name }}</span>
                 </h1>
 
+                {{-- Season switcher: other seasons of this competition (drafts stay hidden) --}}
+                @php
+                    $publicSeasons = $tournament->seasons()->filter(fn ($s) => $s->id === $tournament->id || $s->status !== 'draft');
+                @endphp
+                @if($publicSeasons->count() > 1)
+                    <nav class="flex flex-wrap justify-center gap-2 mb-6" aria-label="Seasons">
+                        @foreach($publicSeasons as $s)
+                            <a href="{{ route('public.tournament.show', $s->slug) }}"
+                               @if($s->id === $tournament->id) aria-current="page" @endif
+                               class="px-4 py-1.5 rounded-full text-sm font-semibold {{ $s->id === $tournament->id ? 'bg-white text-gray-900' : 'bg-white/10 text-white hover:bg-white/20' }}">
+                                {{ $s->seasonLabel() ?? $s->name }}
+                            </a>
+                        @endforeach
+                    </nav>
+                @endif
+
                 {{-- Description --}}
                 @if($settings?->description)
                     <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto mb-6 leading-relaxed">

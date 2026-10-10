@@ -153,7 +153,10 @@
                 // If toss winner elected to BOWL, the other team bats first
                 $firstBattingTeamId = $match->team_a_id; // Default: Team A bats first
 
-                if ($match->toss_winner_team_id && $match->toss_decision) {
+                if ($match->batting_first_team_id) {
+                    // Fixed from the toss when scoring started (BallRecorder::applyToss).
+                    $firstBattingTeamId = $match->batting_first_team_id;
+                } elseif ($match->toss_winner_team_id && $match->toss_decision) {
                     if ($match->toss_decision === 'bat') {
                         $firstBattingTeamId = $match->toss_winner_team_id;
                     } else {
@@ -325,18 +328,13 @@
             @endif
 
             <!-- Target Info (2nd innings) -->
-            @if(($currentInnings ?? 1) == 2 && ($innings1Stats['runs'] ?? 0) > 0)
-                @php
-                    $target = ($innings1Stats['runs'] ?? 0) + 1;
-                    $required = $target - ($innings2Stats['runs'] ?? 0);
-                    $remainingOvers = ($match->overs ?? 20) - (float)str_replace('.', '', $innings2Stats['overs'] ?? '0.0') / 10;
-                @endphp
-                <div class="mt-4 pt-4 border-t border-white/10 text-center">
+            @if(!empty($chase))
+                <div class="mt-4 pt-4 border-t border-white/10 text-center" id="chaseLine">
                     <p class="text-yellow-400 font-semibold">
-                        Target: {{ $target }} |
-                        Need {{ $required }} runs
-                        @if($remainingOvers > 0)
-                            | RRR: {{ number_format($required / max(0.1, $remainingOvers), 2) }}
+                        Target: {{ $chase['target'] }} |
+                        Need {{ $chase['runs_needed'] }} off {{ $chase['balls_left'] }} balls
+                        @if($chase['required_run_rate'] !== null)
+                            | RRR: {{ number_format($chase['required_run_rate'], 2) }}
                         @endif
                     </p>
                 </div>
@@ -346,7 +344,7 @@
             <div class="mt-6 pt-4 border-t border-white/10">
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-400">Current Over</span>
-                    <span class="text-sm text-gray-400">Run Rate: <span class="text-white font-bold" id="runRate">{{ $totalOvers > 0 ? number_format($totalRuns / $totalOvers, 2) : '0.00' }}</span></span>
+                    <span class="text-sm text-gray-400">Run Rate: <span class="text-white font-bold" id="runRate">{{ number_format($runRate ?? 0, 2) }}</span></span>
                 </div>
                 <div class="flex items-center gap-2 mt-2 flex-wrap" id="currentOverBalls">
                     @php
@@ -405,12 +403,10 @@
                 </div>
 
                 @php
-                    // Check if current innings is complete
-                    $lastOverData = collect($summary)->last();
-                    $legalBallsInLastOver = $lastOverData ? collect($lastOverData['balls'])->filter(fn($b) => !str_contains($b, 'wd') && !str_contains($b, 'nb'))->count() : 0;
-                    $currentInningsComplete = ($totalOvers ?? 0) >= ($match->overs ?? 20) && $legalBallsInLastOver >= 6;
-                    $allWicketsDown = ($totalWickets ?? 0) >= 10;
-                    $inningsComplete = $currentInningsComplete || $allWicketsDown;
+                    // From MatchStateService: overs bowled, all out (by the
+                    // side's size), or — in a chase — the target reached.
+                    $allWicketsDown = $isAllOut ?? false;
+                    $inningsComplete = $inningsComplete ?? false;
                 @endphp
 
                 @if($inningsComplete && ($currentInnings ?? 1) == 1)
@@ -420,7 +416,7 @@
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        1st Innings Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $match->teamA?->name }} scored {{ $innings1Stats['runs'] ?? 0 }}/{{ $innings1Stats['wickets'] ?? 0 }} ({{ $innings1Stats['overs'] ?? '0.0' }} ov)
+                        1st Innings Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $innings1Stats['runs'] ?? 0 }}/{{ $innings1Stats['wickets'] ?? 0 }} ({{ $innings1Stats['overs'] ?? '0.0' }} ov)
                     </p>
                     <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST" class="mt-3">
                         @csrf
@@ -428,7 +424,7 @@
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                             </svg>
-                            Start 2nd Innings ({{ $match->teamB?->name }} batting)
+                            Start 2nd Innings ({{ $bowlingTeam?->name }} batting)
                         </button>
                     </form>
                 </div>
@@ -484,6 +480,9 @@
                                 Striker
                             </span>
                             <span class="text-xs text-gray-500 ml-1">({{ count($outBatsmenIds ?? []) }} out)</span>
+                            @can('scoring.quick_add_player')
+                            <button type="button" onclick="openQuickPlayer('batting', 'batsmanSelect')" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" title="Add a player who is not in the squad">+ Add</button>
+                            @endcan
                         </label>
                         <select id="batsmanSelect" class="form-control {{ !isset($currentStriker) && count($summary ?? []) > 0 ? 'ring-2 ring-yellow-400' : '' }}">
                             <option value="">Select Striker</option>
@@ -512,6 +511,9 @@
                                 <span class="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
                                 Non-Striker
                             </span>
+                            @can('scoring.quick_add_player')
+                            <button type="button" onclick="openQuickPlayer('batting', 'nonStrikerSelect')" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" title="Add a player who is not in the squad">+ Add</button>
+                            @endcan
                         </label>
                         <select id="nonStrikerSelect" class="form-control">
                             <option value="">Select Non-Striker</option>
@@ -540,6 +542,9 @@
                                 <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                                 Bowler
                             </span>
+                            @can('scoring.quick_add_player')
+                            <button type="button" onclick="openQuickPlayer('bowling', 'bowlerSelect')" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" title="Add a player who is not in the squad">+ Add</button>
+                            @endcan
                         </label>
                         <select id="bowlerSelect" class="form-control">
                             <option value="">Select Bowler</option>
@@ -733,6 +738,15 @@
                     Sync Score Now
                 </button>
                 @endif
+                @can('ledwall.operate')
+                <a href="{{ route('admin.matches.led', $match) }}"
+                   class="w-full flex items-center justify-center px-4 py-3 bg-gray-900 hover:bg-black text-white font-semibold rounded-xl transition">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                    LED Wall Console
+                </a>
+                @endcan
                 <a href="{{ route('admin.matches.summary.edit', $match) }}"
                    class="w-full flex items-center justify-center px-4 py-3 bg-purple-500 hover:bg-purple-600 text-white font-semibold rounded-xl transition">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -917,8 +931,30 @@
                     <option value="hit_wicket">Hit Wicket</option>
                 </select>
             </div>
+            <!-- Run out: either batter can be out, and runs completed still count -->
+            <div id="runOutSection" class="grid grid-cols-2 gap-3" style="display:none">
+                <div>
+                    <label for="runOutBatter" class="block text-sm font-medium mb-1">Who is out</label>
+                    <select id="runOutBatter" class="form-control">
+                        <option value="striker">Striker</option>
+                        <option value="non_striker">Non-striker</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="runOutRuns" class="block text-sm font-medium mb-1">Runs completed</label>
+                    <select id="runOutRuns" class="form-control">
+                        @foreach([0, 1, 2, 3] as $r)
+                            <option value="{{ $r }}">{{ $r }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
             <div id="fielderSection">
-                <label class="block text-sm font-medium mb-1">Fielder (if applicable)</label>
+                <label class="block text-sm font-medium mb-1">Fielder (if applicable)
+                    @can('scoring.quick_add_player')
+                            <button type="button" onclick="openQuickPlayer('bowling', 'fielderSelect')" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" title="Add a player who is not in the squad">+ Add</button>
+                            @endcan
+                </label>
                 <select id="fielderSelect" class="form-control">
                     <option value="">Select Fielder</option>
                     @foreach($bowlingPlayers as $player)
@@ -943,7 +979,18 @@
         <input type="hidden" id="extraType" value="">
         <div class="space-y-4">
             <p class="text-sm text-gray-600 dark:text-gray-400" id="extraDescription">How many runs?</p>
-            <div class="grid grid-cols-5 gap-2">
+            <!-- No-ball: runs off the bat; the no-ball's own run is added automatically -->
+            <div class="grid grid-cols-6 gap-2 hidden" id="noBallRunsGrid">
+                @foreach([0, 1, 2, 3, 4, 6] as $run)
+                    <button type="button" onclick="confirmNoBall({{ $run }})"
+                            class="run-btn h-14 rounded-xl font-bold text-xl
+                            {{ $run === 4 ? 'bg-yellow-500 hover:bg-yellow-600 text-white' : ($run === 6 ? 'bg-purple-600 hover:bg-purple-700 text-white' :
+                               'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600') }}">
+                        {{ $run }}
+                    </button>
+                @endforeach
+            </div>
+            <div class="grid grid-cols-5 gap-2" id="extraRunsGrid">
                 @foreach([1, 2, 3, 4, 5] as $run)
                     <button type="button" onclick="confirmExtra({{ $run }})"
                             class="run-btn h-14 rounded-xl font-bold text-xl
@@ -983,6 +1030,52 @@
 </div>
 @endif
 
+
+@can('scoring.quick_add_player')
+@php
+    $qpCountry = $match->tournament?->settings?->default_phone_country
+        ?: ($match->tournament?->settings?->default_country ?: config('settings.default_country', 'IN'));
+    $qpDial = config('countries.dial_codes.' . $qpCountry, '+91');
+    $qpDialCodes = collect(config('countries.dial_codes', []))->unique()->sort()->values();
+@endphp
+<!-- Quick-add player: a walk-in player by name + phone, without leaving the match -->
+<div id="quickPlayerModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[60]">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-1">Add player</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            To <strong id="qpTeamName"></strong>. They are added to the squad and can play straight away.
+        </p>
+        <form id="quickPlayerForm" class="space-y-3" onsubmit="submitQuickPlayer(event)">
+            <div>
+                <label for="qpName" class="block text-sm font-medium mb-1">Name <span class="text-red-500">*</span></label>
+                <input id="qpName" type="text" class="form-control" maxlength="100" required autocomplete="off">
+            </div>
+            <div>
+                <label for="qpPhone" class="block text-sm font-medium mb-1">Phone <span class="text-red-500">*</span></label>
+                <div class="flex gap-2">
+                    <select id="qpCode" class="form-control" style="max-width:7rem">
+                        @foreach($qpDialCodes as $dial)
+                            <option value="{{ $dial }}" {{ $dial === $qpDial ? 'selected' : '' }}>{{ $dial }}</option>
+                        @endforeach
+                    </select>
+                    <input id="qpPhone" type="tel" inputmode="tel" class="form-control flex-1" pattern="[0-9\s\-()]{6,20}" required autocomplete="off">
+                </div>
+            </div>
+            <p id="qpError" class="hidden text-sm text-red-600"></p>
+            <div id="qpCandidates" class="hidden rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm">
+                <p class="font-medium mb-2">A player with this phone already exists. Is it one of them?</p>
+                <div id="qpCandidateList" class="space-y-1"></div>
+                <button type="button" onclick="submitQuickPlayer(null, {force_new: true})" class="mt-2 text-xs underline text-gray-600 dark:text-gray-300">No — add as a new player</button>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="closeQuickPlayer()" class="flex-1 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 font-medium transition">Cancel</button>
+                <button type="submit" id="qpSubmit" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition">Add player</button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 @push('scripts')
 <script>
 const matchId = {{ $match->id }};
@@ -990,7 +1083,109 @@ const csrfToken = '{{ csrf_token() }}';
 const matchOversLimit = {{ $match->overs ?? 20 }};
 const currentInnings = {{ $currentInnings ?? 1 }};
 let currentCompletedOvers = {{ $totalOvers ?? 0 }};
-let isInningsComplete = false;
+let isInningsComplete = {{ ($inningsComplete ?? false) ? 'true' : 'false' }};
+// The score this page is showing. Sent with each ball so a second scorer's
+// change is caught (409) instead of silently stacked on.
+let scoreVersion = {{ (int) ($scoreVersion ?? 0) }};
+
+function newEventId() {
+    if (window.crypto?.randomUUID) return crypto.randomUUID();
+    // RFC4122 v4 from getRandomValues for older browsers.
+    return '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+}
+
+@can('scoring.quick_add_player')
+// ============ QUICK-ADD PLAYER ============
+// Batting side feeds striker + non-striker; bowling side feeds bowler + fielder.
+const quickPlayerTeams = {
+    batting: { id: {{ (int) ($battingTeam?->id ?? 0) }}, name: @json($battingTeam?->name ?? 'batting team'), selects: ['batsmanSelect', 'nonStrikerSelect'] },
+    bowling: { id: {{ (int) ($bowlingTeam?->id ?? 0) }}, name: @json($bowlingTeam?->name ?? 'bowling team'), selects: ['bowlerSelect', 'fielderSelect'] },
+};
+let quickPlayerSide = null;
+let quickPlayerTarget = null;
+
+function openQuickPlayer(side, targetSelectId) {
+    quickPlayerSide = side;
+    quickPlayerTarget = targetSelectId;
+    document.getElementById('qpTeamName').textContent = quickPlayerTeams[side].name;
+    document.getElementById('quickPlayerForm').reset();
+    document.getElementById('qpError').classList.add('hidden');
+    document.getElementById('qpCandidates').classList.add('hidden');
+    const modal = document.getElementById('quickPlayerModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.getElementById('qpName').focus();
+}
+
+function closeQuickPlayer() {
+    const modal = document.getElementById('quickPlayerModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+async function submitQuickPlayer(event, extra = {}) {
+    event?.preventDefault();
+    const errorEl = document.getElementById('qpError');
+    const submitBtn = document.getElementById('qpSubmit');
+    errorEl.classList.add('hidden');
+    submitBtn.disabled = true;
+
+    try {
+        const response = await fetch(`/admin/matches/${matchId}/quick-player`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' },
+            body: JSON.stringify({
+                actual_team_id: quickPlayerTeams[quickPlayerSide].id,
+                name: document.getElementById('qpName').value,
+                mobile_country_code: document.getElementById('qpCode').value,
+                mobile_national_number: document.getElementById('qpPhone').value,
+                ...extra,
+            }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            const firstError = data.errors ? Object.values(data.errors)[0][0] : null;
+            throw new Error(firstError || data.message || 'Could not add the player.');
+        }
+
+        if (data.status === 'match') {
+            const list = document.getElementById('qpCandidateList');
+            list.innerHTML = '';
+            data.candidates.forEach(c => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'block w-full text-left px-3 py-1.5 rounded-lg bg-white dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-gray-600';
+                b.textContent = `Use ${c.name}`;
+                b.onclick = () => submitQuickPlayer(null, { use_player_id: c.id });
+                list.appendChild(b);
+            });
+            document.getElementById('qpCandidates').classList.remove('hidden');
+            return;
+        }
+
+        // Added: make them selectable everywhere their side appears, and
+        // pick them in the dropdown the scorer opened this from.
+        quickPlayerTeams[quickPlayerSide].selects.forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (!select || select.querySelector(`option[value="${data.option.id}"]`)) return;
+            select.add(new Option(data.option.name, data.option.id));
+        });
+        const target = document.getElementById(quickPlayerTarget);
+        if (target) {
+            target.value = data.option.id;
+            target.dispatchEvent(new Event('change'));
+        }
+        closeQuickPlayer();
+    } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.classList.remove('hidden');
+    } finally {
+        submitBtn.disabled = false;
+    }
+}
+@endcan
 
 // ============ TOSS FUNCTIONS ============
 let selectedTossWinner = null;
@@ -1088,20 +1283,6 @@ async function saveToss(decision) {
 // ============ END TOSS FUNCTIONS ============
 
 // Check if innings is complete
-function checkInningsComplete(totalOvers, summary) {
-    if (!summary || summary.length === 0) return false;
-
-    const lastOver = summary[summary.length - 1];
-    // Count legal balls in last over
-    const legalBalls = lastOver.balls.filter(b => !b.includes('wd') && !b.includes('nb')).length;
-
-    // Innings complete if we've finished all overs
-    if (totalOvers >= matchOversLimit && legalBalls >= 6) {
-        return true;
-    }
-    return false;
-}
-
 // Update dropdown options - hide selected player from the other dropdown
 function updateBatsmenDropdowns() {
     const strikerSelect = document.getElementById('batsmanSelect');
@@ -1166,25 +1347,31 @@ function refreshMatchState() {
     })
     .then(response => response.json())
     .then(data => {
-        // Update BOTH innings scores in header
-        if (data.innings1Stats) {
-            document.getElementById('teamAScore').textContent = `${data.innings1Stats.runs}/${data.innings1Stats.wickets}`;
-            document.getElementById('teamAOvers').textContent = `(${data.innings1Stats.overs} ov)`;
-        }
-        if (data.innings2Stats) {
-            const teamBScore = document.getElementById('teamBScore');
-            const teamBOvers = document.getElementById('teamBOvers');
-            if (data.innings2Stats.runs > 0 || data.currentInnings === 2) {
-                teamBScore.innerHTML = `${data.innings2Stats.runs}/${data.innings2Stats.wickets}`;
-                teamBOvers.textContent = `(${data.innings2Stats.overs} ov)`;
+        scoreVersion = data.scoreVersion ?? scoreVersion;
+
+        // Header scores, by TEAM (teamAScore is always team A's box, whoever batted first)
+        [['teamA', data.teamAStats], ['teamB', data.teamBStats]].forEach(([key, stats]) => {
+            const scoreEl = document.getElementById(`${key}Score`);
+            const oversEl = document.getElementById(`${key}Overs`);
+            if (!stats || !scoreEl) return;
+            if (stats.batted) {
+                scoreEl.textContent = `${stats.runs}/${stats.wickets}`;
+                if (oversEl) oversEl.textContent = `(${stats.overs} ov)`;
             } else {
-                teamBScore.innerHTML = '<span class="text-gray-500">Yet to bat</span>';
-                teamBOvers.textContent = '';
+                scoreEl.innerHTML = '<span class="text-gray-500">Yet to bat</span>';
+                if (oversEl) oversEl.textContent = '';
             }
+        });
+
+        // Chase line
+        const chaseLine = document.getElementById('chaseLine');
+        if (chaseLine && data.chase) {
+            const rrr = data.chase.required_run_rate !== null ? ` | RRR: ${Number(data.chase.required_run_rate).toFixed(2)}` : '';
+            chaseLine.querySelector('p').textContent = `Target: ${data.chase.target} | Need ${data.chase.runs_needed} off ${data.chase.balls_left} balls${rrr}`;
         }
 
         // Update run rate
-        document.getElementById('runRate').textContent = data.runRate.toFixed(2);
+        document.getElementById('runRate').textContent = Number(data.runRate).toFixed(2);
 
         // Update current over balls
         updateCurrentOverDisplay(data.currentOverBalls);
@@ -1220,10 +1407,17 @@ function refreshMatchState() {
             document.getElementById('batsmanSelect').classList.remove('ring-2', 'ring-yellow-400');
         }
 
-        // Check if innings is complete (overs done OR all out - 10 wickets)
-        const oversComplete = checkInningsComplete(data.totalOvers, data.summary);
-        isInningsComplete = oversComplete || data.isAllOut;
+        // Overs done, all out, or target reached — decided on the server.
+        const wasComplete = isInningsComplete;
+        isInningsComplete = !!data.inningsComplete;
         currentCompletedOvers = data.totalOvers;
+
+        // The innings just ended: the panel changes (next-innings / result
+        // prompt), so reload once on that transition only.
+        if (isInningsComplete && !wasComplete) {
+            location.reload();
+            return;
+        }
 
         const inningsCompleteAlert = document.getElementById('inningsCompleteAlert');
         if (isInningsComplete) {
@@ -1341,10 +1535,10 @@ function updateOutBatsmen(outIds) {
     });
 }
 
-function recordBall(runs, extraType = null, extraRuns = 0, isWicket = false, dismissalType = null, fielderId = null) {
+function recordBall(runs, extraType = null, extraRuns = 0, isWicket = false, dismissalType = null, fielderId = null, outBatsman = null) {
     // Check if innings is complete
     if (isInningsComplete) {
-        alert(`Innings complete! All ${matchOversLimit} overs have been bowled.`);
+        alert('This innings is complete. Start the next innings to keep scoring.');
         return;
     }
 
@@ -1388,8 +1582,10 @@ function recordBall(runs, extraType = null, extraRuns = 0, isWicket = false, dis
         is_wicket: isWicket ? 1 : 0,
         dismissal_type: dismissalType,
         fielder_id: fielderId,
-        current_striker_user_id: batsmanId,
-        current_non_striker_user_id: nonStrikerId
+        out_batsman: outBatsman,
+        non_striker_id: nonStrikerId,
+        event_uuid: newEventId(),
+        expected_version: scoreVersion,
     };
 
     fetch(`/admin/matches/${matchId}/balls/ajax-store`, {
@@ -1401,14 +1597,17 @@ function recordBall(runs, extraType = null, extraRuns = 0, isWicket = false, dis
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
-    .then(result => {
+    .then(response => response.json().then(result => ({ status: response.status, result })))
+    .then(({ status, result }) => {
         if (result.success) {
+            scoreVersion = result.score_version ?? scoreVersion;
             // Refresh UI without page reload
             refreshMatchState();
         } else {
             alert(result.message || 'Failed to record ball');
             console.error(result.errors);
+            // 409: somebody else scored — show their score before trying again.
+            if (status === 409) refreshMatchState();
         }
     })
     .catch(error => {
@@ -1442,13 +1641,19 @@ function showExtraModal(type) {
 
     const labels = {
         'wide': { title: 'Wide', desc: 'Wide + how many additional runs?' },
-        'no_ball': { title: 'No Ball', desc: 'No Ball + how many runs scored?' },
+        'no_ball': { title: 'No Ball', desc: 'Runs off the bat? (+1 no-ball is added)' },
         'bye': { title: 'Bye', desc: 'How many bye runs?' },
         'leg_bye': { title: 'Leg Bye', desc: 'How many leg bye runs?' }
     };
 
     title.textContent = labels[type]?.title || 'Extra';
     desc.textContent = labels[type]?.desc || 'How many runs?';
+
+    // A no-ball asks for runs off the BAT (credited to the batter); the
+    // no-ball's own run is added on top. Others ask for the extra itself.
+    const isNoBall = type === 'no_ball';
+    document.getElementById('noBallRunsGrid').classList.toggle('hidden', !isNoBall);
+    document.getElementById('extraRunsGrid').classList.toggle('hidden', isNoBall);
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1457,6 +1662,11 @@ function showExtraModal(type) {
 function closeExtraModal() {
     document.getElementById('extraModal').classList.add('hidden');
     document.getElementById('extraModal').classList.remove('flex');
+}
+
+function confirmNoBall(batRuns) {
+    recordBall(batRuns, 'no_ball', 1);
+    closeExtraModal();
 }
 
 function confirmExtra(runs) {
@@ -1468,6 +1678,7 @@ function confirmExtra(runs) {
 function recordWicket() {
     document.getElementById('wicketModal').classList.remove('hidden');
     document.getElementById('wicketModal').classList.add('flex');
+    document.getElementById('dismissalType').dispatchEvent(new Event('change'));
 }
 
 function closeWicketModal() {
@@ -1478,7 +1689,13 @@ function closeWicketModal() {
 function confirmWicket() {
     const dismissalType = document.getElementById('dismissalType').value;
     const fielderId = document.getElementById('fielderSelect').value || null;
-    recordBall(0, null, 0, true, dismissalType, fielderId);
+    if (dismissalType === 'run_out') {
+        const runsCompleted = parseInt(document.getElementById('runOutRuns').value, 10) || 0;
+        const who = document.getElementById('runOutBatter').value;
+        recordBall(runsCompleted, null, 0, true, dismissalType, fielderId, who);
+    } else {
+        recordBall(0, null, 0, true, dismissalType, fielderId);
+    }
     closeWicketModal();
 }
 
@@ -1505,13 +1722,18 @@ function undoLastBall() {
         fetch(`/admin/matches/${matchId}/balls/${ballId}`, {
             method: 'DELETE',
             headers: {
+                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json'
-            }
+            },
+            body: JSON.stringify({ expected_version: scoreVersion }),
         })
         .then(response => response.json())
         .then(result => {
             if (result.success) {
+                scoreVersion = result.score_version ?? scoreVersion;
+                // Undoing out of a finished innings reopens it.
+                if (isInningsComplete) { location.reload(); return; }
                 // Refresh UI without page reload
                 refreshMatchState();
             } else {
@@ -1533,6 +1755,7 @@ function undoLastBall() {
 document.getElementById('dismissalType')?.addEventListener('change', function() {
     const needsFielder = ['caught', 'run_out', 'stumped'].includes(this.value);
     document.getElementById('fielderSection').style.display = needsFielder ? 'block' : 'none';
+    document.getElementById('runOutSection').style.display = this.value === 'run_out' ? 'grid' : 'none';
 });
 
 // Generate poster with selected template

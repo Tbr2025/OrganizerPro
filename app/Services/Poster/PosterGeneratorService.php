@@ -316,6 +316,15 @@ abstract class PosterGeneratorService
         imagepng($image, $fullPath);
         imagedestroy($image);
 
+        // Credits: one poster charge per file a metered request saves (PosterMeter).
+        // Refused → the file goes too, so nothing unpaid is delivered.
+        try {
+            app(\App\Services\Credits\PosterMeter::class)->saved($path);
+        } catch (\App\Services\Credits\InsufficientCreditsException $e) {
+            Storage::disk('public')->delete($path);
+            throw $e;
+        }
+
         return $path;
     }
 

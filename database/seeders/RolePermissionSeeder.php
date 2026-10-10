@@ -59,14 +59,12 @@ class RolePermissionSeeder extends Seeder
             $this->command->info('No users found without roles. Skipping assignment.');
         } else {
             $this->command->info('Assigning a default role to ' . $usersWithoutRoles->count() . ' new user(s)...');
-            $availableRoles = ['Subscriber', 'Player', 'Viewer', 'Contact']; // A safe list of default roles
-
+            // Least-privilege, and the same every run. This used to pick a role
+            // at random — on live that could hand a user Viewer (player.view)
+            // or Player depending on the dice.
             foreach ($usersWithoutRoles as $user) {
-                // This loop now ONLY runs for users who have no roles.
-                // It is safe to assign one.
-                $randomRole = $availableRoles[array_rand($availableRoles)];
-                $user->assignRole($randomRole);
-                $this->command->line("-> Assigned '{$randomRole}' to user: {$user->email}");
+                $user->assignRole('Subscriber');
+                $this->command->line("-> Assigned 'Subscriber' to user: {$user->email}");
             }
         }
 

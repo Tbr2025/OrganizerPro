@@ -16,6 +16,12 @@ class TournamentCalendarController extends Controller
     public function __construct(CalendarFixtureService $calendarService)
     {
         $this->calendarService = $calendarService;
+
+        // Only the group's auth + organizer.access stood in front of this,
+        // and organizer.access scopes WHICH tournament, not whether you may
+        // schedule it.
+        $this->middleware('permission:tournament.view')->only(['index', 'getCalendarJson', 'getUnscheduledJson']);
+        $this->middleware('permission:tournament.edit')->only(['generateSlots', 'autoFill', 'clearSlots']);
     }
 
     /**

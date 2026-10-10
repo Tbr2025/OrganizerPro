@@ -258,6 +258,40 @@ class PermissionService
                     'score.view',
                 ],
             ],
+            [
+                // Poster templates. `generate` renders and downloads posters
+                // from a tournament's templates; `manage` builds, edits and
+                // applies presets to them.
+                'group_name' => 'template',
+                'permissions' => [
+                    'template.generate',
+                    'template.manage',
+                ],
+            ],
+            [
+                'group_name' => 'scoring',
+                'permissions' => [
+                    'scoring.update',
+                    'scoring.quick_add_player',
+                ],
+            ],
+            [
+                'group_name' => 'ledwall',
+                'permissions' => [
+                    'ledwall.operate',
+                ],
+            ],
+            [
+                // Pay-per-feature credits. `view` is an organization's own
+                // wallet; the rest are platform (Superadmin) controls.
+                'group_name' => 'credits',
+                'permissions' => [
+                    'credits.view',
+                    'credits.manage',
+                    'discount.manage',
+                    'feature.manage',
+                ],
+            ],
         ];
 
         return $permissions;

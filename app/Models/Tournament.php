@@ -26,6 +26,8 @@ class Tournament extends Model
         'type',
         'champion_team_id',
         'runner_up_team_id',
+        'series_id',
+        'season_number',
     ];
 
     protected $casts = [
@@ -140,6 +142,25 @@ class Tournament extends Model
         return $this->hasMany(Matches::class);
     }
 
+    /** The competition this season belongs to; null = a tournament without seasons. */
+    public function series(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(TournamentSeries::class, 'series_id');
+    }
+
+    /** Every season of this competition, this one included, in order. */
+    public function seasons()
+    {
+        return $this->series_id
+            ? static::where('series_id', $this->series_id)->orderBy('season_number')->get()
+            : collect([$this]);
+    }
+
+    public function seasonLabel(): ?string
+    {
+        return $this->season_number ? 'Season ' . $this->season_number : null;
+    }
+
     public function actualTeams(): HasMany
     {
         return $this->hasMany(ActualTeam::class);
@@ -239,12 +260,12 @@ class Tournament extends Model
 
     public function getPlayerRegistrationUrlAttribute(): string
     {
-        return route('public.tournament.register.player', $this->slug);
+        return route('public.tournament.registration.player', $this->slug);
     }
 
     public function getTeamRegistrationUrlAttribute(): string
     {
-        return route('public.tournament.register.team', $this->slug);
+        return route('public.tournament.registration.team', $this->slug);
     }
 
     public function getSettingsOrCreateAttribute(): TournamentSetting

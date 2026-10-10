@@ -471,6 +471,16 @@ class AuctionAdminController extends Controller
         $validated['organization_id'] = Tournament::whereKey($validated['tournament_id'])->value('organization_id')
             ?: $validated['organization_id'];
 
+        // Credits: auctions are unlocked once per tournament.
+        $unlockUrl = app(\App\Services\Credits\CreditGate::class)->allows(
+            \App\Models\Credits\CreditFeature::AUCTION,
+            Tournament::findOrFail($validated['tournament_id']),
+            route('admin.auctions.create', ['tournament_id' => $validated['tournament_id']])
+        );
+        if ($unlockUrl) {
+            return redirect($unlockUrl);
+        }
+
         DB::transaction(function () use ($validated, $request) {
 
             // Handle branding uploads
@@ -2752,6 +2762,9 @@ class AuctionAdminController extends Controller
             return back()->with('error', 'This auction has no players to render.');
         }
 
+        // Credits: the whole zip is affordable, or none of it starts.
+        app(\App\Services\Credits\PosterMeter::class)->ensureCanAfford($players->count());
+
         $zipPath = tempnam(sys_get_temp_dir(), 'auction-cards-') . '.zip';
         $zip = new \ZipArchive();
 
@@ -2899,6 +2912,9 @@ class AuctionAdminController extends Controller
                 },
             ], 422);
         }
+
+        // Credits: the whole export is affordable, or it does not start.
+        app(\App\Services\Credits\PosterMeter::class)->ensureCanAfford(count($ids));
 
         /*
          * Sweep this auction's old exports before adding another.

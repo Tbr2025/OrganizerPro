@@ -6,11 +6,12 @@
 <x-breadcrumbs :breadcrumbs="array_filter([
     ['name' => 'Tournaments', 'route' => route('admin.tournaments.index')],
     ['name' => $tournament->name, 'route' => route('admin.tournaments.dashboard', $tournament)],
-    auth()->user()->hasRole('Superadmin') ? ['name' => 'Templates', 'route' => route('admin.tournaments.templates.index', $tournament)] : null,
+    auth()->user()->can('template.manage') ? ['name' => 'Templates', 'route' => route('admin.tournaments.templates.index', $tournament)] : null,
     ['name' => 'Generate Poster']
 ])" />
 
 <div class="max-w-7xl mx-auto">
+    @include('backend.pages.credits.partials.cost-note', ['tournament' => $tournament, 'feature' => \App\Models\Credits\CreditFeature::POSTER])
     {{-- Header --}}
     <div class="relative overflow-hidden bg-gradient-to-br from-purple-700 via-indigo-600 to-purple-800 rounded-2xl p-8 mb-8">
         <div class="absolute inset-0 opacity-10">
@@ -1160,7 +1161,7 @@
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
                     </span>
                     Choose Template
-                    @role('Superadmin')
+                    @can('template.manage')
                     {{-- Managing templates from here, rather than sending the organizer to the
                          template list and back: leaving this page loses the match, side and XI
                          they have already picked. --}}
@@ -1177,7 +1178,7 @@
                             Manage all
                         </a>
                     </span>
-                    @endrole
+                    @endcan
                 </h3>
 
                 <div id="templatesList" class="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1205,7 +1206,7 @@
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 </div>
                             </label>
-                            @role('Superadmin')
+                            @can('template.manage')
                             {{-- Sibling of the label, not inside it, so pressing an action never
                                  also selects the template underneath. --}}
                             <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
@@ -1253,16 +1254,16 @@
                                     </button>
                                 </form>
                             </div>
-                            @endrole
+                            @endcan
                         </div>
                     @empty
                         <div class="col-span-full text-center py-8 text-gray-500">
                             <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6z"/></svg>
                             <p class="text-sm">No templates found for this type.</p>
-                            @role('Superadmin')
+                            @can('template.manage')
                             <a href="{{ route('admin.tournaments.templates.create', ['tournament' => $tournament, 'type' => request('type', 'match_poster')]) }}"
                                class="text-purple-600 hover:underline mt-2 inline-block text-sm">Create a template</a>
-                            @endrole
+                            @endcan
                         </div>
                     @endforelse
                 </div>
@@ -1316,53 +1317,26 @@
                  Applying one creates an ordinary template from an authored layout, so the
                  organizer gets a poster that already looks like something instead of an empty
                  canvas. It is never made the default — see TemplatePresetService::apply(). --}}
-            @role('Superadmin')
-            @if(!empty($presets))
-                <div id="presetSection" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
-                        <span class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 flex items-center justify-center mr-2.5">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                        </span>
-                        Start from a ready-made design
-                    </h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4 ml-9">Adds a new template you can then edit like any other.</p>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        @foreach($presets as $preset)
-                            <div class="preset-card {{ $preset['type'] === $type ? '' : 'hidden' }}" data-preset-type="{{ $preset['type'] }}">
-                                <form method="POST" action="{{ route('admin.tournaments.templates.apply-preset', $tournament) }}">
-                                    @csrf
-                                    <input type="hidden" name="preset" value="{{ $preset['key'] }}">
-                                    <button type="submit"
-                                            class="w-full text-left border-2 border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-emerald-400 hover:shadow-md transition-all group">
-                                        <div class="flex items-start gap-3">
-                                            <span class="w-10 h-10 shrink-0 rounded-lg flex items-center justify-center text-white font-bold text-xs"
-                                                  style="background: {{ $preset['accent'] }}">
-                                                {{ $preset['canvas_width'] }}<span class="opacity-60">×</span>
-                                            </span>
-                                            <div class="min-w-0">
-                                                <p class="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600 transition">
-                                                    {{ $preset['name'] }}
-                                                </p>
-                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
-                                                    {{ $preset['description'] }}
-                                                </p>
-                                                <p class="text-[11px] text-gray-400 mt-1.5">
-                                                    {{ $preset['canvas_width'] }} × {{ $preset['canvas_height'] }} · {{ count($preset['layout']) }} elements
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                </form>
-                            </div>
-                        @endforeach
-                        <p id="presetEmpty" class="col-span-full text-sm text-gray-500 dark:text-gray-400 hidden">
-                            No ready-made design for this poster type yet.
-                        </p>
-                    </div>
-                </div>
-            @endif
-            @endrole
+            {{-- Ready-made designs: pick a design and a theme; applying adds an ordinary
+                 template (with its own copy of the background) that can be edited like any
+                 other. It is never made the default — see TemplatePresetService::apply(). --}}
+            <div id="presetSection" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
+                    <span class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 flex items-center justify-center mr-2.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    </span>
+                    Start from a ready-made design
+                </h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 ml-9">Pick a theme, then a design. It is added as a new template you can edit.</p>
+                <div id="presetThemes" class="flex flex-wrap gap-2 mb-3 ml-9"></div>
+                <div id="presetGrid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+                <p id="presetEmpty" class="text-sm text-gray-500 dark:text-gray-400 hidden">No ready-made design for this poster type yet.</p>
+                <form id="presetApplyForm" method="POST" action="{{ route('admin.tournaments.templates.apply-preset', $tournament) }}" class="hidden">
+                    @csrf
+                    <input type="hidden" name="preset">
+                    <input type="hidden" name="theme">
+                </form>
+            </div>
 
             {{-- Field Visibility Toggles --}}
             <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
@@ -2463,6 +2437,50 @@ function playingXiPanel() {
  * `hidden` class and the page looked like it had failed to load. Split out of updateType so it
  * can also run at first paint, without re-fetching the template list Blade has already drawn.
  */
+// ─── Ready-made designs gallery ─────────────────────────────────────────────
+let presetTheme = 'midnight';
+let presetRequest = 0;
+function escHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+async function loadPresetGallery(type) {
+    const grid = document.getElementById('presetGrid');
+    if (!grid) return;
+    const req = ++presetRequest;
+    const url = `{{ route('admin.tournaments.templates.presets', $tournament) }}?type=${encodeURIComponent(type)}&theme=${encodeURIComponent(presetTheme)}`;
+    let data;
+    try {
+        const r = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!r.ok) return;
+        data = await r.json();
+    } catch (e) { return; }
+    if (req !== presetRequest) return; // a newer tab click won
+
+    const themes = document.getElementById('presetThemes');
+    themes.innerHTML = data.themes.map(t => `<button type="button" data-theme="${escHtml(t.key)}"
+        class="px-2.5 py-1 rounded-full text-xs font-semibold border-2 ${t.key === presetTheme ? 'border-emerald-500' : 'border-transparent'}"
+        style="background:linear-gradient(135deg, ${escHtml(t.from)}, ${escHtml(t.to)}); color:${escHtml(t.accent)}">${escHtml(t.name)}</button>`).join('');
+    themes.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { presetTheme = b.dataset.theme; loadPresetGallery(currentType); }));
+
+    grid.innerHTML = data.presets.map(p => `<button type="button" data-preset="${escHtml(p.key)}"
+        class="text-left border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-emerald-400 hover:shadow-md transition group">
+        <img src="${escHtml(p.thumb)}" alt="" loading="lazy" class="w-full bg-gray-100 dark:bg-gray-900" style="aspect-ratio:4/5;object-fit:contain">
+        <span class="block p-2">
+            <span class="block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600">${escHtml(p.name)}</span>
+            <span class="block text-[11px] text-gray-500 dark:text-gray-400 leading-snug">${escHtml(p.description)}</span>
+            <span class="block text-[11px] mt-1 ${p.price ? 'text-amber-600 font-semibold' : 'text-gray-400'}">${p.price ? escHtml(p.price) : (p.themed ? 'Free' : 'Free · own colours')}</span>
+        </span></button>`).join('');
+    grid.querySelectorAll('button[data-preset]').forEach(b => b.addEventListener('click', () => {
+        const p = data.presets.find(x => x.key === b.dataset.preset);
+        if (p.price && !confirm(`${p.name} is a premium design: ${p.price}, charged once for this tournament. Continue?`)) return;
+        const f = document.getElementById('presetApplyForm');
+        f.elements.preset.value = p.key;
+        f.elements.theme.value = presetTheme;
+        f.submit();
+    }));
+    document.getElementById('presetEmpty').classList.toggle('hidden', data.presets.length > 0);
+}
+
 function syncTypeSections(type) {
     currentType = type;
 
@@ -2486,15 +2504,7 @@ function syncTypeSections(type) {
     const newLink = document.getElementById('newTemplateLink');
     if (newLink) newLink.href = `{{ route('admin.tournaments.templates.create', $tournament) }}?type=${type}`;
 
-    const presetCards = document.querySelectorAll('.preset-card');
-    let presetShown = 0;
-    presetCards.forEach(card => {
-        const match = card.dataset.presetType === type;
-        card.classList.toggle('hidden', !match);
-        if (match) presetShown++;
-    });
-    const presetEmpty = document.getElementById('presetEmpty');
-    if (presetEmpty) presetEmpty.classList.toggle('hidden', presetShown > 0 || presetCards.length === 0);
+    loadPresetGallery(type);
 
     // Show/hide innings selector
     showInningsSelector();
@@ -2636,7 +2646,7 @@ function loadTemplates(type) {
             const container = document.getElementById('templatesList');
             if (data.templates && data.templates.length > 0) {
                 const editBaseUrl = `{{ url('admin/tournaments/' . $tournament->id . '/templates') }}`;
-                const isSuperadmin = {{ auth()->user()->hasRole('Superadmin') ? 'true' : 'false' }};
+                const isSuperadmin = {{ auth()->user()->can('template.manage') ? 'true' : 'false' }};
                 container.innerHTML = data.templates.map((t, i) => `
                     <div class="relative group">
                         <label class="cursor-pointer block">
@@ -3320,6 +3330,8 @@ function generatePreview(saveMode = false, live = false) {
 
     // Add save flag to data
     data.save_poster = saveMode;
+    // Live refreshes are free previews (no download); a click on Generate is the poster.
+    data.live = live ? 1 : 0;
 
     // Determine which button triggered
     const activeBtn = saveMode ? document.getElementById('generateSaveBtn') : document.getElementById('previewBtn');
@@ -3468,8 +3480,9 @@ function generatePreview(saveMode = false, live = false) {
         if (result.success && result.image) {
             document.getElementById('previewImage').src = result.image;
             document.getElementById('previewImage').classList.remove('hidden');
-            document.getElementById('downloadBtn').disabled = false;
-            const statusText = result.poster_id ? 'Saved' : 'Preview';
+            // A live refresh carries no download: click Generate for the poster itself.
+            document.getElementById('downloadBtn').disabled = !result.download_url;
+            const statusText = result.poster_id ? 'Saved' : (result.download_url ? 'Ready' : 'Preview');
             document.getElementById('previewStatus').textContent = statusText;
             document.getElementById('previewStatus').className = 'text-xs text-emerald-500 font-medium';
             generatedImageUrl = result.image;

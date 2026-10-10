@@ -68,6 +68,23 @@ class RenderAuctionCards implements ShouldQueue
 
     public function handle(AuctionCardRenderer $renderer): void
     {
+        // Credits: each card this chunk renders is a poster charge against the
+        // auction's tournament (the export was checked as affordable when it started).
+        $meter = app(\App\Services\Credits\PosterMeter::class);
+        $tournament = AuctionCardExport::find($this->exportId)?->auction?->tournament;
+        if ($tournament) {
+            $meter->begin($tournament);
+        }
+
+        try {
+            $this->renderChunk($renderer);
+        } finally {
+            $meter->end();
+        }
+    }
+
+    private function renderChunk(AuctionCardRenderer $renderer): void
+    {
         $export = AuctionCardExport::find($this->exportId);
 
         // Cancelled, or swept — nothing to do, and re-queueing would resurrect it.

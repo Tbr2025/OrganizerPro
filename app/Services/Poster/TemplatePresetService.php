@@ -2,8 +2,15 @@
 
 namespace App\Services\Poster;
 
+use App\Models\TemplatePreset;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
+use App\Models\User;
+use App\Services\Credits\CreditService;
+use App\Services\Credits\PosterMeter;
+use App\Services\Poster\Presets\PresetLayouts;
+use App\Services\Poster\Presets\PresetThemes;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Ready-made poster designs, as layouts rather than as pictures.
@@ -22,20 +29,68 @@ use App\Models\TournamentTemplate;
  */
 class TemplatePresetService
 {
+    use \App\Services\Poster\Presets\BuildsPresetElements;
+
+    /** The theme a themed design is shown in when none is chosen. */
+    public const DEFAULT_THEME = 'midnight';
+
     /**
      * Every preset, keyed by the slug that identifies it in a request.
      *
-     * @return array<string, array{key:string,type:string,name:string,description:string,canvas_width:int,canvas_height:int,accent:string,layout:list<array<string,mixed>>}>
+     * Two kinds: the original hand-drawn designs (their own colours, no background
+     * — `themed` false) and the PresetLayouts library, drawn in a theme with a
+     * matching background (`themed` true). Super Admin's switches
+     * (template_presets) are merged in: is_active, is_premium, credit_cost.
+     *
+     * @return array<string, array{key:string,type:string,name:string,description:string,canvas_width:int,canvas_height:int,accent:string,layout:list<array<string,mixed>>,themed:bool,version:string,is_active:bool,is_premium:bool,credit_cost:int,sort:int}>
      */
-    public function all(): array
+    public function all(?string $theme = null): array
     {
-        $presets = [
-            $this->stumpsScoreUpdate(),
-            $this->playingLineup(11),
-            $this->playingLineup(12),
-        ];
+        $theme = PresetThemes::find($theme) ?? PresetThemes::find(self::DEFAULT_THEME);
+        $defaultTheme = PresetThemes::find(self::DEFAULT_THEME);
 
-        return collect($presets)->keyBy('key')->all();
+        $presets = [];
+        foreach ([$this->stumpsScoreUpdate(), $this->playingLineup(11), $this->playingLineup(12)] as $p) {
+            $presets[] = $p + ['themed' => false, 'version' => $this->version($p['layout'])];
+        }
+
+        foreach (app(PresetLayouts::class)->all() as $d) {
+            $presets[] = [
+                'key' => $d['key'],
+                'type' => $d['type'],
+                'name' => $d['name'],
+                'description' => $d['description'],
+                'canvas_width' => $d['size'][0],
+                'canvas_height' => $d['size'][1],
+                'accent' => $theme['accent'],
+                'layout' => ($d['build'])($theme),
+                'themed' => true,
+                // Measured in one fixed theme, so the version changes only when the layout does.
+                'version' => $this->version(($d['build'])($defaultTheme)),
+            ];
+        }
+
+        $switches = $this->switches();
+
+        return collect($presets)->map(function (array $p) use ($switches) {
+            $row = $switches[$p['key']] ?? null;
+
+            return $p + [
+                'is_active' => $row?->is_active ?? true,
+                'is_premium' => (bool) ($row?->is_premium ?? false),
+                'credit_cost' => $row?->is_premium ? (int) $row->credit_cost : 0,
+                'sort' => (int) ($row?->sort ?? 0),
+            ];
+        })->keyBy('key')->all();
+    }
+
+    /** Switched-on presets only — what organizers can pick from. */
+    public function available(?string $type = null, ?string $theme = null): array
+    {
+        return collect($this->all($theme))
+            ->filter(fn ($p) => $p['is_active'] && ($type === null || $p['type'] === $type))
+            ->sortBy([['sort', 'asc'], ['themed', 'desc']])
+            ->all();
     }
 
     /** The presets that belong to one template type. */
@@ -44,35 +99,142 @@ class TemplatePresetService
         return collect($this->all())->where('type', $type)->values()->all();
     }
 
-    public function find(string $key): ?array
+    public function find(string $key, ?string $theme = null): ?array
     {
-        return $this->all()[$key] ?? null;
+        return $this->all($theme)[$key] ?? null;
     }
 
     /**
      * Turn a preset into a real template row for this tournament.
      *
-     * Deliberately never `is_default`: applying a design must not silently change which template
-     * the automatic emails and summary jobs already send. The organizer promotes it themselves.
+     * Not the default unless $asDefault (the new-tournament starter kit): applying a design
+     * must not silently change which template the automatic emails and summary jobs already
+     * send. The organizer promotes it themselves.
+     *
+     * A themed design takes the chosen theme's colours and its OWN copy of the matching
+     * background. A premium design is charged once per tournament (re-applying it is free).
      */
-    public function apply(Tournament $tournament, string $key): TournamentTemplate
+    public function apply(Tournament $tournament, string $key, ?string $theme = null, ?User $actor = null, bool $asDefault = false): TournamentTemplate
     {
-        $preset = $this->find($key);
+        $theme = PresetThemes::find($theme) ? $theme : self::DEFAULT_THEME;
+        $preset = $this->find($key, $theme);
 
-        if (! $preset) {
+        if (! $preset || ! $preset['is_active']) {
             throw new \InvalidArgumentException("Unknown template preset [{$key}].");
+        }
+
+        if ($preset['is_premium'] && $preset['credit_cost'] > 0 && $tournament->organization) {
+            app(CreditService::class)->chargeAmount(
+                $tournament->organization, $preset['credit_cost'], 'preset:' . $key, $tournament,
+                "preset:{$tournament->id}:{$key}", $actor
+            );
+        }
+
+        if ($asDefault) {
+            $tournament->templates()->where('type', $preset['type'])->update(['is_default' => false]);
         }
 
         return $tournament->templates()->create([
             'type' => $preset['type'],
-            'name' => $this->uniqueName($tournament, $preset['name']),
+            'name' => $this->uniqueName($tournament, $preset['name'] . ($preset['themed'] ? ' — ' . PresetThemes::find($theme)['name'] : '')),
             'layout_json' => $preset['layout'],
+            'background_image' => $preset['themed'] ? PresetThemes::copyForTemplate($theme, $preset['canvas_width'], $preset['canvas_height']) : null,
             'canvas_width' => $preset['canvas_width'],
             'canvas_height' => $preset['canvas_height'],
             'placeholders' => TournamentTemplate::getDefaultPlaceholders($preset['type']),
-            'is_default' => false,
+            'is_default' => $asDefault,
             'is_active' => true,
+            'preset_key' => $key,
+            'preset_version' => $preset['version'],
+            'preset_theme' => $preset['themed'] ? $theme : null,
         ]);
+    }
+
+    /**
+     * A ready-made set for a new tournament: the first free design of each type, in one
+     * theme, each made the default for its type (a new tournament has no defaults to disturb).
+     *
+     * @return int how many templates were added
+     */
+    public function starterKit(Tournament $tournament, string $theme, ?User $actor = null): int
+    {
+        $added = 0;
+        $byType = collect($this->available(null, $theme))
+            ->filter(fn ($p) => $p['themed'] && ! $p['is_premium'])
+            ->groupBy('type');
+
+        foreach ($byType as $presets) {
+            $this->apply($tournament, $presets->first()['key'], $theme, $actor, asDefault: true);
+            $added++;
+        }
+
+        return $added;
+    }
+
+    /**
+     * A preview picture of a design in a theme, rendered once with sample data and cached on
+     * the public disk (keyed by version, so a changed layout gets a new picture).
+     *
+     * @return string|null path on the public disk
+     */
+    public function thumbnail(string $key, ?string $theme = null): ?string
+    {
+        $theme = PresetThemes::find($theme) ? $theme : self::DEFAULT_THEME;
+        $preset = $this->find($key, $theme);
+        if (! $preset) {
+            return null;
+        }
+
+        $themeKey = $preset['themed'] ? $theme : 'own';
+        $path = "preset-thumbs/{$key}-{$themeKey}-{$preset['version']}.jpg";
+        $disk = Storage::disk('public');
+        if ($disk->exists($path)) {
+            return $path;
+        }
+
+        $background = $preset['themed'] ? PresetThemes::copyForTemplate($theme, $preset['canvas_width'], $preset['canvas_height']) : null;
+        $template = new TournamentTemplate([
+            'type' => $preset['type'], 'name' => $preset['name'], 'layout_json' => $preset['layout'],
+            'canvas_width' => $preset['canvas_width'], 'canvas_height' => $preset['canvas_height'], 'background_image' => $background,
+        ]);
+
+        $renderer = app(TemplateRenderService::class);
+        try {
+            // Never charged: a thumbnail is a picture of the design, not a poster.
+            $png = app(PosterMeter::class)->suspended(
+                fn () => $renderer->renderTemplate($template, $renderer->getSampleData($preset['type'], []), true)
+            );
+            $img = imagecreatefrompng($disk->path($png));
+            $w = 360;
+            $thumb = imagescale($img, $w, (int) round($w * imagesy($img) / imagesx($img)));
+            ob_start();
+            imagejpeg($thumb, null, 82);
+            $disk->put($path, (string) ob_get_clean());
+            imagedestroy($img);
+            imagedestroy($thumb);
+            $disk->delete($png);
+        } finally {
+            if ($background) {
+                $disk->delete($background);
+            }
+        }
+
+        return $path;
+    }
+
+    private function version(array $layout): string
+    {
+        return substr(md5((string) json_encode($layout)), 0, 8);
+    }
+
+    /** @return array<string, TemplatePreset> */
+    private function switches(): array
+    {
+        try {
+            return TemplatePreset::all()->keyBy('key')->all();
+        } catch (\Throwable) {
+            return []; // before the migration has run
+        }
     }
 
     /**
@@ -472,92 +634,5 @@ class TemplatePresetService
                 ]),
             ],
         ];
-    }
-
-    // ---------------------------------------------------------------------
-    // Element builders. These exist so a layout below reads as a layout and
-    // not as forty repetitions of the same fifteen default keys.
-    // ---------------------------------------------------------------------
-
-    protected function text(array $attrs): array
-    {
-        return array_merge([
-            'type' => 'text',
-            'placeholder' => null,
-            'x' => 50,
-            'y' => 50,
-            'rotation' => 0,
-            'opacity' => 100,
-            'zIndex' => 0,
-            'layerName' => null,
-            'hidden' => false,
-            'locked' => false,
-            'text' => '',
-            'fontSize' => 32,
-            'autoSize' => false,
-            'width' => 400,
-            'fontFamily' => 'Montserrat',
-            'fontWeight' => '700',
-            'fontStyle' => 'normal',
-            'underline' => false,
-            'linethrough' => false,
-            'skewX' => 0,
-            'color' => '#14306b',
-            'textAlign' => 'left',
-            'textTransform' => 'none',
-            'shadow' => null,
-            'stroke' => null,
-            'strokeWidth' => 0,
-            'dependsOn' => null,
-        ], $attrs, ['baseFontSize' => $attrs['fontSize'] ?? 32]);
-    }
-
-    protected function image(array $attrs): array
-    {
-        return array_merge([
-            'type' => 'image',
-            'placeholder' => null,
-            'x' => 50,
-            'y' => 50,
-            'rotation' => 0,
-            'opacity' => 100,
-            'zIndex' => 0,
-            'layerName' => null,
-            'hidden' => false,
-            'locked' => false,
-            'width' => 100,
-            'height' => 100,
-            'borderRadius' => 0,
-        ], $attrs);
-    }
-
-    protected function shape(array $attrs): array
-    {
-        return array_merge([
-            'type' => 'shape',
-            'placeholder' => null,
-            'x' => 50,
-            'y' => 50,
-            'rotation' => 0,
-            'opacity' => 100,
-            'zIndex' => 0,
-            'layerName' => null,
-            'hidden' => false,
-            'locked' => false,
-            'shapeType' => 'rect',
-            'iconName' => null,
-            'fill' => 'rgba(255,255,255,0.94)',
-            'fillOpacity' => 1,
-            'stroke' => null,
-            'strokeWidth' => 0,
-            'width' => 200,
-            'height' => 100,
-            'scaleX' => 1,
-            'scaleY' => 1,
-            'rx' => 0,
-            'ry' => 0,
-            'shadow' => null,
-            'borderRadii' => null,
-        ], $attrs);
     }
 }

@@ -76,6 +76,8 @@ class Player extends Model implements MustVerifyEmail
         'status',
         'email_verified_at',
         'created_by',
+        'created_via',
+        'source_match_id',
         'approved_by',
         'user_id',
         'verified_image_path',

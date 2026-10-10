@@ -109,6 +109,15 @@ class AuctionCardRenderer
             throw new \RuntimeException('Could not render the card for ' . ($auctionPlayer->player->name ?? 'this player') . '.' . $hint, 0, $e);
         }
 
+        // Credits: one poster charge per card when a metered scope is open. These are
+        // Chrome renders, so they never pass through PosterGeneratorService::saveImage().
+        try {
+            app(\App\Services\Credits\PosterMeter::class)->saved($path);
+        } catch (\App\Services\Credits\InsufficientCreditsException $e) {
+            @unlink($path);
+            throw $e;
+        }
+
         return $path;
     }
 

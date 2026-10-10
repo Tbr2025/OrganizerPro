@@ -167,6 +167,20 @@
                     @enderror
                 </div>
 
+                {{-- Starter kit: a ready-made design for every poster type, in one theme --}}
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <input type="checkbox" name="starter_kit" value="1" {{ old('starter_kit', '1') ? 'checked' : '' }}>
+                        Start with ready-made poster designs
+                    </label>
+                    <p class="text-xs text-gray-500 mt-1">Welcome cards, match posters, results, awards, flyer, points table and more — ready to generate and edit.</p>
+                    <select name="starter_theme" class="mt-2 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        @foreach(\App\Services\Poster\Presets\PresetThemes::all() as $theme)
+                            <option value="{{ $theme['key'] }}" @selected(old('starter_theme', 'midnight') === $theme['key'])>{{ $theme['name'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
                 {{-- Actions --}}
                 <div class="flex items-center justify-end space-x-3 pt-4">
                     <a href="{{ route('admin.tournaments.index') }}"

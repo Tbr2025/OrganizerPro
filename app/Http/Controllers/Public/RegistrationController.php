@@ -17,6 +17,7 @@ use App\Models\Tournament;
 use App\Models\TournamentRegistration;
 use App\Services\Tournament\RegistrationService;
 use Illuminate\Http\RedirectResponse;
+use App\Support\Phone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -110,31 +111,44 @@ class RegistrationController extends Controller
             }
         }
 
-        // Prevent duplicate registrations: one email per tournament (unless rejected).
-        $existingPlayer = Player::where('email', $request->input('email'))->first();
-        if ($existingPlayer) {
+        // Prevent duplicate registrations: one email — and one phone number —
+        // per tournament (unless rejected). Email can be blank on an open
+        // tournament, and where('email', null) would match every player
+        // without one, so each key is only checked when it was given.
+        $phone = Phone::full($request->input('mobile_country_code'), $request->input('mobile_national_number'));
+        $email = trim((string) $request->input('email'));
+
+        $activeRegistration = null;
+        if ($email !== '' || $phone !== '') {
             $activeRegistration = TournamentRegistration::where('tournament_id', $tournament->id)
-                ->where('player_id', $existingPlayer->id)
                 ->where('type', 'player')
                 ->whereIn('status', ['pending', 'approved', 'queued'])
+                ->whereHas('player', function ($q) use ($email, $phone) {
+                    $q->where(function ($q) use ($email, $phone) {
+                        if ($email !== '') {
+                            $q->orWhere('email', $email);
+                        }
+                        if ($phone !== '') {
+                            $q->orWhere('mobile_number_full', $phone);
+                        }
+                    });
+                })
                 ->first();
+        }
 
-            if ($activeRegistration) {
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', __('You have already registered for this tournament. Your registration is currently :status.', [
-                        'status' => $activeRegistration->status,
-                    ]));
-            }
+        if ($activeRegistration) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', __('You have already registered for this tournament. Your registration is currently :status.', [
+                    'status' => $activeRegistration->status,
+                ]));
         }
 
         // Compose the internal full name from first + last so the locked `name` rule passes.
         $request->merge(['name' => trim($request->input('first_name', '') . ' ' . $request->input('last_name', ''))]);
 
         // Merge country-code + national number into the full number fields.
-        $mobileCode = str_replace('+', '', $request->input('mobile_country_code', ''));
-        $mobileNat = $request->input('mobile_national_number', '');
-        $request->merge(['mobile_number_full' => $mobileCode . $mobileNat]);
+        $request->merge(['mobile_number_full' => $phone]);
 
         $cricCode = str_replace('+', '', $request->input('cricheroes_country_code', ''));
         $cricNat = $request->input('cricheroes_national_number', '');
@@ -248,7 +262,15 @@ class RegistrationController extends Controller
 
             return redirect()->route('public.tournament.registration.player.success', [
                 'tournament' => $tournament->slug,
-            ])->with('success', __('Registration submitted successfully!'));
+            ])->with([
+                'success' => __('Registration submitted successfully!'),
+                'registration_reference' => $registration->reference,
+                'registration_emailed' => ! empty($validated['email']),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Field errors (e.g. "already registered") belong under the field,
+            // not flattened into a generic "Registration failed" banner.
+            throw $e;
         } catch (\Exception $e) {
             return redirect()->back()
                 ->withInput()
@@ -355,7 +377,11 @@ class RegistrationController extends Controller
 
             return redirect()->route('public.tournament.registration.team.success', [
                 'tournament' => $tournament->slug,
-            ])->with('success', __('Team registration submitted successfully!'));
+            ])->with([
+                'success' => __('Team registration submitted successfully!'),
+                'registration_reference' => $registration->reference,
+                'registration_emailed' => ! empty($validated['captain_email']),
+            ]);
         } catch (\Exception $e) {
             return redirect()->back()
                 ->withInput()

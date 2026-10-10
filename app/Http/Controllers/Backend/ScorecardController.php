@@ -85,7 +85,7 @@ class ScorecardController extends Controller
 
         $summary = [];
         foreach ($oversGrouped as $overNum => $ballsInOver) {
-            $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_run');
+            $overRuns = $ballsInOver->sum('runs') + $ballsInOver->sum('extra_runs');
             $wickets = $ballsInOver->where('is_wicket', 1)->count();
 
             $ballSummary = $ballsInOver->map(function ($ball) {
@@ -93,10 +93,10 @@ class ScorecardController extends Controller
                     return 'W';
                 }
                 if ($ball->extra_type === 'wide') {
-                    return ($ball->runs + $ball->extra_run) . 'wd';
+                    return ($ball->runs + $ball->extra_runs) . 'wd';
                 }
                 if ($ball->extra_type === 'no_ball') {
-                    return ($ball->runs + $ball->extra_run) . 'nb';
+                    return ($ball->runs + $ball->extra_runs) . 'nb';
                 }
                 return $ball->runs;
             })->values();
@@ -110,7 +110,7 @@ class ScorecardController extends Controller
         }
 
         // === Match Totals ===
-        $totalRuns = $balls->sum('runs') + $balls->sum('extra_run');
+        $totalRuns = $balls->sum('runs') + $balls->sum('extra_runs');
         $totalWickets = $balls->where('is_wicket', 1)->count();
         $legalBalls = $balls->whereNotIn('extra_type', ['wide', 'no_ball'])->count(); // only legal deliveries
         $totalOvers = floor($legalBalls / 6) . '.' . ($legalBalls % 6);

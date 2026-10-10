@@ -253,27 +253,24 @@
                     $secondBattingTeamName = $secondBattingTeam?->name ?? 'Team B';
                 }
 
+                // A live match has no saved result yet: read it null-safe so
+                // the page shows 0/0 instead of a 500.
+                $res = fn (string $k) => $match->result?->{$k} ?? 0;
+                $aFirst = (bool) $match->result?->team_a_batting_first;
+
                 $firstBattingScore = $inn1
                     ? "{$inn1['total_runs']}/{$inn1['total_wickets']}"
-                    : ($match->result?->team_a_batting_first
-                        ? "{$match->result->team_a_score}/{$match->result->team_a_wickets}"
-                        : "{$match->result->team_b_score}/{$match->result->team_b_wickets}");
+                    : ($aFirst ? $res('team_a_score') . '/' . $res('team_a_wickets') : $res('team_b_score') . '/' . $res('team_b_wickets'));
                 $firstBattingOvers = $inn1
                     ? $inn1['overs_played']
-                    : ($match->result?->team_a_batting_first
-                        ? $match->result->team_a_overs
-                        : $match->result->team_b_overs);
+                    : ($aFirst ? $res('team_a_overs') : $res('team_b_overs'));
 
                 $secondBattingScore = $inn2
                     ? "{$inn2['total_runs']}/{$inn2['total_wickets']}"
-                    : ($match->result?->team_a_batting_first
-                        ? "{$match->result->team_b_score}/{$match->result->team_b_wickets}"
-                        : "{$match->result->team_a_score}/{$match->result->team_a_wickets}");
+                    : ($aFirst ? $res('team_b_score') . '/' . $res('team_b_wickets') : $res('team_a_score') . '/' . $res('team_a_wickets'));
                 $secondBattingOvers = $inn2
                     ? $inn2['overs_played']
-                    : ($match->result?->team_a_batting_first
-                        ? $match->result->team_b_overs
-                        : $match->result->team_a_overs);
+                    : ($aFirst ? $res('team_b_overs') : $res('team_a_overs'));
             @endphp
 
             {{-- First Innings --}}

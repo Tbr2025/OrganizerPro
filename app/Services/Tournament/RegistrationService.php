@@ -25,8 +25,13 @@ class RegistrationService
     /**
      * Send mail only if the recipient has no permanent bounce on record.
      */
-    protected function safeMail(string $email, \Illuminate\Mail\Mailable $mailable): void
+    protected function safeMail(?string $email, \Illuminate\Mail\Mailable $mailable): void
     {
+        // Players on open tournaments may have registered without an email.
+        if ($email === null || trim($email) === '') {
+            return;
+        }
+
         if (BouncedEmail::isBounced($email)) {
             Log::warning("Skipped email to bounced address: {$email}", ['mailable' => get_class($mailable)]);
             return;
@@ -40,9 +45,27 @@ class RegistrationService
      */
     public function registerPlayer(Tournament $tournament, array $data): TournamentRegistration
     {
-        return DB::transaction(function () use ($tournament, $data) {
+        // Email is optional on open tournaments (PlayerFormConfig::emailOptional);
+        // the phone number is then what identifies a returning player.
+        $email = trim((string) ($data['email'] ?? '')) ?: null;
+        $data['email'] = $email;
+        $phone = $data['mobile_number_full'] ?? null;
+
+        return DB::transaction(function () use ($tournament, $data, $email, $phone) {
+            // Find the returning player first: by email when given, else by
+            // phone within the organization. Never where('email', null) — that
+            // matches every player who registered without one.
+            $player = $email !== null
+                ? Player::where('email', $email)->first()
+                : ($phone
+                    ? Player::where('organization_id', $tournament->organization_id)
+                        ->where('mobile_number_full', $phone)->first()
+                    : null);
+
             // Create user if not exists
-            $user = User::where('email', $data['email'])->first();
+            $user = $email !== null
+                ? User::where('email', $email)->first()
+                : ($player?->user_id ? User::find($player->user_id) : null);
 
             // Holds the plaintext password only when a brand-new account is created,
             // so we can email the player their login credentials.
@@ -53,7 +76,7 @@ class RegistrationService
                 $newUserPassword = $password;
                 $user = User::create([
                     'name' => $data['name'],
-                    'email' => $data['email'],
+                    'email' => $email,
                     'username' => Str::slug($data['name']) . '-' . Str::random(5),
                     'password' => Hash::make($password),
                     'organization_id' => $tournament->organization_id,
@@ -61,8 +84,6 @@ class RegistrationService
             }
 
             // Create player if not exists
-            $player = Player::where('email', $data['email'])->first();
-
             if (!$player) {
                 $player = Player::create([
                     'organization_id' => $tournament->organization_id,
@@ -71,7 +92,7 @@ class RegistrationService
                     'first_name' => $data['first_name'] ?? null,
                     'last_name' => $data['last_name'] ?? null,
                     'date_of_birth' => $data['date_of_birth'] ?? null,
-                    'email' => $data['email'],
+                    'email' => $email,
                     'country' => $data['country'] ?? null,
                     'state' => $data['state'] ?? null,
                     'visa_status' => $data['visa_status'] ?? null,
@@ -188,7 +209,7 @@ class RegistrationService
 
             if ($existingRegistration) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
-                    'email' => ['This player already has an active registration for this tournament.'],
+                    ($email !== null ? 'email' : 'mobile_national_number') => ['This player already has an active registration for this tournament.'],
                 ]);
             }
 
@@ -214,8 +235,9 @@ class RegistrationService
             // Tell the applicant their application is in the queue / under review.
             $this->sendApplicationUnderReviewEmail($tournament, $registration, $data['email'] ?? null, $data['name'] ?? 'Player');
 
-            // Email login credentials only when a new account was just created.
-            if ($newUserPassword) {
+            // Email login credentials only when a new account was just created
+            // (and there is an address to send them to).
+            if ($newUserPassword && $user->email) {
                 try {
                     $this->safeMail($user->email, new \App\Mail\PlayerCredentialsMail($user, $newUserPassword, $tournament));
                 } catch (\Throwable $e) {

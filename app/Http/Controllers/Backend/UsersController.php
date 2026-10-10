@@ -307,7 +307,7 @@ class UsersController extends Controller
 
         foreach ($users as $user) {
             // Skip super admin users
-            if ($user->hasRole('superadmin')) {
+            if ($user->hasRole('Superadmin')) {
                 continue;
             }
 

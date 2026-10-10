@@ -34,7 +34,8 @@ class PlayerStatisticService
         $bowlerIds = $balls->pluck('bowler_id')->unique()->filter();
         $fielderIds = $balls->pluck('fielder_id')->unique()->filter();
 
-        $allTeamUserIds = $batsmanIds->merge($bowlerIds)->merge($fielderIds)->unique();
+        $outIds = $balls->pluck('out_batsman_id')->unique()->filter();
+        $allTeamUserIds = $batsmanIds->merge($bowlerIds)->merge($fielderIds)->merge($outIds)->unique();
 
         // Get ActualTeamUser records with player info
         $teamUsers = ActualTeamUser::with('player')
@@ -102,9 +103,16 @@ class PlayerStatisticService
                 $batsmanStats[$playerId]['sixes']++;
             }
 
-            // Check if out (for batsman dismissals)
-            if ($ball->is_wicket && in_array($ball->dismissal_type, ['bowled', 'caught', 'lbw', 'stumped', 'hit_wicket'])) {
-                $batsmanStats[$playerId]['is_out'] = true;
+        }
+
+        // Who was dismissed: out_batsman_id (a run-out can take the
+        // non-striker), else the striker. Every dismissal counts — run outs
+        // were previously never marked out.
+        foreach ($balls->where('is_wicket', true) as $ball) {
+            $outId = $ball->out_batsman_id ?: $ball->batsman_id;
+            $player = $teamUsers[$outId]->player ?? null;
+            if ($player && isset($batsmanStats[$player->id])) {
+                $batsmanStats[$player->id]['is_out'] = true;
             }
         }
 
@@ -242,7 +250,8 @@ class PlayerStatisticService
             }
 
             // Add runs conceded
-            $runsConceded = $ball->runs + $ball->extra_runs;
+            // Byes and leg-byes are extras the bowler is not charged with.
+            $runsConceded = $ball->runs + (in_array($ball->extra_type, ['wide', 'no_ball'], true) ? $ball->extra_runs : 0);
             $bowlerStats[$playerId]['runs_conceded'] += $runsConceded;
             $bowlerStats[$playerId]['overs'][$overKey]['runs'] += $runsConceded;
 

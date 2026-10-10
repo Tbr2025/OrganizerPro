@@ -87,9 +87,18 @@ class Matches extends Model
         'is_cancelled',
         'cancellation_reason',
         'is_published',
+        // Live scoring state — see MatchStateService / BallController.
+        'current_innings',
+        'batting_first_team_id',
+        'striker_id',
+        'non_striker_id',
+        'current_bowler_id',
+        'score_version',
     ];
 
     protected $casts = [
+        'current_innings' => 'integer',
+        'score_version' => 'integer',
         'match_date' => 'date',
         'poster_sent' => 'boolean',
         'poster_sent_at' => 'datetime',

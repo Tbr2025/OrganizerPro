@@ -9,6 +9,12 @@ use Illuminate\Http\Request;
 
 class AwardTemplateController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('permission:tournament.view')->only(['index']);
+        $this->middleware('permission:tournament.edit')->only(['store', 'destroy']);
+    }
+
     /**
      * List all awards for a tournament
      */
@@ -47,8 +53,12 @@ class AwardTemplateController extends Controller
     /**
      * Delete an award
      */
-    public function destroy(TournamentAward $award)
+    public function destroy(Tournament $tournament, TournamentAward $award)
     {
+        // The route carries the tournament; without this check any award id
+        // could be deleted through any tournament the user can reach.
+        abort_unless((int) $award->tournament_id === (int) $tournament->id, 404);
+
         $tournamentId = $award->tournament_id;
         $award->delete();
 

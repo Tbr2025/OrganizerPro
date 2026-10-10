@@ -613,6 +613,43 @@ class AdminMenuService
             ],
         ]);
 
+        // Ready-made poster designs: Super Admin's on/off, premium and price switches.
+        $this->addMenuItem([
+            'label' => __('Designs'),
+            'icon' => 'feather:layout',
+            'route' => route('admin.template-presets.index'),
+            'active' => Route::is('admin.template-presets.*'),
+            'id' => 'template-presets',
+            'priority' => 26,
+            'permissions' => 'template.manage',
+        ]);
+
+        // Pay-per-feature credits: an organization's wallet, and the platform controls.
+        $this->addMenuItem([
+            'label' => app(\App\Services\Credits\CreditService::class)->term(),
+            'icon' => 'feather:credit-card',
+            'id' => 'credits-submenu',
+            'active' => Route::is('admin.credits.*'),
+            'priority' => 25,
+            'permissions' => ['credits.view', 'credits.manage'],
+            'children' => [
+                [
+                    'label' => __('Wallet'),
+                    'route' => route('admin.credits.index'),
+                    'active' => Route::is('admin.credits.index') || Route::is('admin.credits.unlock'),
+                    'priority' => 10,
+                    'permissions' => 'credits.view',
+                ],
+                [
+                    'label' => __('Manage'),
+                    'route' => route('admin.credits.manage'),
+                    'active' => Route::is('admin.credits.manage'),
+                    'priority' => 20,
+                    'permissions' => 'credits.manage',
+                ],
+            ],
+        ]);
+
         $this->addMenuItem([
             'label' => __('Zones'),
             'icon' => 'feather:map',
