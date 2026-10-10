@@ -18,8 +18,9 @@ use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 /**
- * Open tournaments register players by phone: mobile required, email optional.
- * Auction tournaments keep email required.
+ * The public form requires email and phone on every tournament. Players
+ * added directly (admin, team manager, scorer) may have only a phone — see
+ * Tests\Feature\Auth\PhoneLoginTest.
  */
 class OpenTournamentPhoneRegistrationTest extends TestCase
 {
@@ -34,7 +35,7 @@ class OpenTournamentPhoneRegistrationTest extends TestCase
 
     private function tournament(string $type): Tournament
     {
-        $org = Organization::create(['name' => 'Org']);
+        $org = Organization::create(['name' => 'Org ' . uniqid()]);
         $t = Tournament::create([
             'name' => 'Cup', 'slug' => 'cup-' . uniqid(), 'start_date' => now()->addMonth(),
             'organization_id' => $org->id, 'type' => $type,
@@ -67,42 +68,40 @@ class OpenTournamentPhoneRegistrationTest extends TestCase
     }
 
     #[Test]
-    public function open_tournament_makes_email_optional_and_phone_required(): void
+    public function the_public_form_requires_an_email_and_a_phone_on_every_tournament_type(): void
     {
-        $cfg = PlayerFormConfig::getFieldConfig($this->tournament('open')->settings);
+        foreach (['open', 'auction'] as $type) {
+            $cfg = PlayerFormConfig::getFieldConfig($this->tournament($type)->settings);
+            $rules = PlayerFormConfig::buildValidationRules($cfg);
 
-        $this->assertFalse($cfg['email']['required']);
-        $this->assertTrue($cfg['email']['visible']);
-        $this->assertTrue($cfg['mobile_number']['required']);
-
-        $rules = PlayerFormConfig::buildValidationRules($cfg);
-        $this->assertStringStartsWith('nullable', $rules['email']);
-        $this->assertStringStartsWith('required', $rules['mobile_national_number']);
+            $this->assertTrue($cfg['email']['required'], "{$type}: email required");
+            $this->assertStringStartsWith('required', $rules['email']);
+            $this->assertStringStartsWith('required', $rules['mobile_national_number']);
+        }
     }
 
     #[Test]
-    public function auction_tournament_keeps_email_required(): void
+    public function a_public_registration_without_an_email_is_refused(): void
     {
-        $cfg = PlayerFormConfig::getFieldConfig($this->tournament('auction')->settings);
+        $t = $this->tournament('open');
 
-        $this->assertTrue($cfg['email']['required']);
-        $this->assertStringStartsWith('required', PlayerFormConfig::buildValidationRules($cfg)['email']);
+        $this->from(route('public.tournament.registration.player', $t->slug));
+        $this->register($t)->assertSessionHasErrors('email');
+        $this->assertSame(0, TournamentRegistration::count());
     }
 
     #[Test]
-    public function a_player_registers_on_an_open_tournament_without_an_email(): void
+    public function a_player_registers_publicly_with_email_and_phone(): void
     {
         Mail::fake();
         $t = $this->tournament('open');
 
-        $this->register($t)->assertRedirect(route('public.tournament.registration.player.success', $t->slug))
-            ->assertSessionHas('registration_reference')
-            ->assertSessionHas('registration_emailed', false);
+        $this->register($t, ['email' => 'asif@example.test'])
+            ->assertRedirect(route('public.tournament.registration.player.success', $t->slug))
+            ->assertSessionHas('registration_reference');
 
         $player = Player::where('mobile_number_full', '919876543210')->firstOrFail();
-        $this->assertNull($player->email);
-        $this->assertNull(User::find($player->user_id)->email);
-        $this->assertSame(1, TournamentRegistration::where('tournament_id', $t->id)->count());
+        $this->assertSame('asif@example.test', $player->email);
     }
 
     #[Test]
@@ -111,7 +110,7 @@ class OpenTournamentPhoneRegistrationTest extends TestCase
         $t = $this->tournament('open');
 
         $this->from(route('public.tournament.registration.player', $t->slug));
-        $this->register($t, ['mobile_national_number' => ''])
+        $this->register($t, ['email' => 'asif@example.test', 'mobile_national_number' => ''])
             ->assertSessionHasErrors('mobile_national_number')
             ->assertSessionHasInput('first_name', 'Asif');
 
@@ -124,9 +123,9 @@ class OpenTournamentPhoneRegistrationTest extends TestCase
         Mail::fake();
         $t = $this->tournament('open');
 
-        $this->register($t);
-        // Typed differently: no space, trunk zero.
-        $this->register($t, ['first_name' => 'Other', 'mobile_national_number' => '09876543210'])
+        $this->register($t, ['email' => 'one@example.test']);
+        // Typed differently: no space, trunk zero — and a different email.
+        $this->register($t, ['first_name' => 'Other', 'email' => 'two@example.test', 'mobile_national_number' => '09876543210'])
             ->assertSessionHas('error');
 
         $this->assertSame(1, TournamentRegistration::where('tournament_id', $t->id)->count());
@@ -145,6 +144,11 @@ class OpenTournamentPhoneRegistrationTest extends TestCase
         $service->registerPlayer($t, ['name' => 'B Two', 'email' => '', 'mobile_number_full' => '912222222222']);
 
         $this->assertSame(2, Player::whereNull('email')->count());
+        // Each gets its own phone login id, never a shared one.
+        $this->assertSame(
+            ['911111111111@sportzley.com', '912222222222@sportzley.com'],
+            \App\Models\User::whereIn('id', Player::pluck('user_id'))->orderBy('id')->pluck('email')->all()
+        );
         $this->assertSame(2, TournamentRegistration::where('tournament_id', $t->id)->count());
         $this->assertSame(['A One', 'B Two'], Player::orderBy('id')->pluck('name')->all());
     }

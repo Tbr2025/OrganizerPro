@@ -79,6 +79,17 @@ class LoginController extends Controller
             return $this->redirectByRole();
         }
 
+        // A phone number: players added directly sign in with it (PlayerLogin).
+        // Only when exactly one account owns the number — never a guess.
+        if (\App\Services\Auth\PlayerLogin::looksLikePhone((string) $request->email)) {
+            $user = app(\App\Services\Auth\PlayerLogin::class)->resolve((string) $request->email);
+            if ($user && $user->email && Auth::guard('web')->attempt(['email' => $user->email, 'password' => $request->password], $request->remember)) {
+                session()->flash('success', 'Successfully Logged in!');
+
+                return $this->redirectByRole();
+            }
+        }
+
         session()->flash('error', __('auth.failed'));
 
         return back();

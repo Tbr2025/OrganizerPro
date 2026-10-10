@@ -3,6 +3,13 @@
 return [
 
     /*
+    | Players added directly (admin / team manager / scorer) with a phone and no
+    | email get a login id of <phone digits>@<this domain>. Nothing is ever
+    | emailed to it — see App\Services\Auth\PlayerLogin.
+    */
+    'phone_login_domain' => env('PHONE_LOGIN_DOMAIN', 'sportzley.com'),
+
+    /*
     |--------------------------------------------------------------------------
     | Authentication Defaults
     |--------------------------------------------------------------------------

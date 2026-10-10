@@ -9,11 +9,10 @@ use App\Models\ActualTeamUser;
 use App\Models\Matches;
 use App\Models\Player;
 use App\Models\User;
+use App\Services\Auth\PlayerLogin;
 use App\Support\Phone;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
@@ -74,7 +73,7 @@ class QuickPlayerService
             $player = $existing ?? $this->createPlayer($match, $name, $countryCode, $nationalNumber, $by, $orgId);
 
             if (! $player->user_id) {
-                $player->user_id = $this->createUser($player->name, $player->email, $orgId)->id;
+                $player->user_id = $this->createUser($player->name, $player->email, $orgId, $player->mobile_number_full)->id;
                 $player->save();
             }
 
@@ -105,7 +104,7 @@ class QuickPlayerService
         $name = trim(preg_replace('/\s+/', ' ', $name));
         [$first, $last] = array_pad(explode(' ', $name, 2), 2, null);
 
-        $user = $this->createUser($name, null, $orgId);
+        $user = $this->createUser($name, null, $orgId, Phone::full($countryCode, $national));
 
         return Player::withoutOrganizationScope()->create([
             'organization_id' => $orgId,
@@ -126,17 +125,10 @@ class QuickPlayerService
         ]);
     }
 
-    private function createUser(string $name, ?string $email, int $orgId): User
+    private function createUser(string $name, ?string $email, int $orgId, ?string $phone = null): User
     {
-        // No credentials are sent: a walk-in player has no email to send them
-        // to. The random password only satisfies the column.
-        return User::create([
-            'name' => $name,
-            'email' => $email ?: null,
-            'username' => Str::slug($name) . '-' . Str::lower(Str::random(5)),
-            'password' => Hash::make(Str::random(32)),
-            'organization_id' => $orgId,
-        ]);
+        // A phone-only player signs in with their number; an admin sets the password.
+        return app(PlayerLogin::class)->createUser($name, $email, $phone, $orgId);
     }
 
     private function organizationId(Matches $match): int

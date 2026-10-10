@@ -78,6 +78,8 @@ class QuickAddPlayerTest extends TestCase
         $this->assertSame($this->match->id, (int) $player->source_match_id);
         $this->assertSame($this->scorer->id, (int) $player->created_by);
         $this->assertNull($player->email);
+        // Signs in with the phone once an admin sets a password (PlayerLogin).
+        $this->assertSame('919876543210@sportzley.com', \App\Models\User::find($player->user_id)->email);
 
         // On the tournament squad list for that team.
         $this->assertDatabaseHas('player_actual_team_tournament', [

@@ -71,6 +71,16 @@ class User extends Authenticatable implements MustVerifyEmail
      *
      * @param  string  $token
      */
+    /**
+     * Mail goes to the real address only. A phone-login placeholder
+     * (919876543210@sportzley.com) has no mailbox: returning null makes every
+     * mail notification skip it, while database notifications still arrive.
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        return \App\Services\Auth\PlayerLogin::isPlaceholder($this->email) ? null : $this->email;
+    }
+
     public function sendPasswordResetNotification($token): void
     {
         // Check if the request is for the admin panel

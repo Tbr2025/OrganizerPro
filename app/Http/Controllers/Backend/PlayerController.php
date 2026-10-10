@@ -36,6 +36,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image;
 use Intervention\Image\ImageManager;
+use App\Enums\ActionType;
 use App\Models\ActionLog;
 use App\Traits\HasActionLogTrait;
 use App\Services\Auction\SquadAcquisitionService;
@@ -1093,10 +1094,11 @@ class PlayerController extends Controller
             'available_saturday' => 'nullable|boolean',
             'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
-            // Optional on open tournaments (PlayerFormConfig::emailOptional); unique when given.
-            'email' => ($req('email') ? 'required' : 'nullable') . '|email|unique:players,email',
-            'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10',
-            'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
+            // Added directly by an admin: email is optional, but then the phone is
+            // the login (PlayerLogin), so one of the two is required.
+            'email' => 'nullable|email|unique:players,email|required_without:mobile_national_number',
+            'mobile_country_code' => $req('mobile_number') ? 'required|string|max:10' : 'nullable|string|max:10|required_without:email',
+            'mobile_national_number' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20|required_without:email',
             'mobile_number_full' => [
                 $req('mobile_number') ? 'required' : 'nullable',
                 'numeric',
@@ -1175,8 +1177,14 @@ class PlayerController extends Controller
 
         if ($existingUser) {
             $user = $existingUser;
+        } elseif ($validated['email'] === null) {
+            // Phone only: the login id is the phone placeholder and an admin sets
+            // the password from the player page. No credentials email to send.
+            $user = app(\App\Services\Auth\PlayerLogin::class)->createUser(
+                $validated['name'], null, $validated['mobile_number_full'] ?? null, Auth::user()->organization_id
+            );
         } else {
-            $username = Str::slug($validated['email'] !== null ? Str::before($validated['email'], '@') : $validated['name'], '_');
+            $username = Str::slug(Str::before($validated['email'], '@'), '_');
             if (User::where('username', $username)->exists()) {
                 $username .= '_' . Str::random(5);
             }
@@ -1217,6 +1225,31 @@ class PlayerController extends Controller
         }
 
         return redirect()->route('admin.players.index')->with('success', __('Player created successfully.'));
+    }
+
+    /**
+     * Admin sets (or resets) a player's login password. A player added with only
+     * a phone gets their account here if they have none; they then sign in with
+     * the phone number. No OTP and no email — the admin passes it on.
+     */
+    public function setLoginPassword(Request $request, Player $player): RedirectResponse
+    {
+        $this->checkAuthorization(Auth::user(), ['player.edit']);
+        $data = $request->validate(['password' => 'required|string|min:6|max:100|confirmed']);
+
+        if (! $player->email && ! $player->mobile_number_full) {
+            return back()->withErrors(['password' => __('Add a phone number or email to this player first — it is what they sign in with.')]);
+        }
+
+        $user = app(\App\Services\Auth\PlayerLogin::class)->setPassword($player, $data['password']);
+        $this->storeActionLog(ActionType::UPDATED, ['player_login_password' => $player->id]);
+
+        $id = \App\Services\Auth\PlayerLogin::isPlaceholder($user->email) && $player->mobile_number_full
+            ? '+' . $player->mobile_number_full
+            : $user->email;
+
+        return redirect(route('admin.players.show', $player->id) . '#login-access')
+            ->with('success', __('Password set. They sign in with :id.', ['id' => $id]));
     }
 
     public function show(Player $player): View
@@ -1706,7 +1739,7 @@ class PlayerController extends Controller
             'available_saturday' => 'nullable|boolean',
             'available_sunday' => 'nullable|boolean',
             'played_ys_ipl_s1' => 'nullable|boolean',
-            'email' => ($req('email') ? 'required' : 'nullable') . '|email|unique:players,email,' . $player->id,
+            'email' => 'nullable|email|unique:players,email,' . $player->id,
             'mobile_number_full' => $req('mobile_number') ? 'required|string|max:20' : 'nullable|string|max:20',
             'cricheroes_number_full' => 'nullable|string|max:20',
             'cricheroes_profile_url' => $req('cricheroes_profile_url') ? 'required|url|max:500' : 'nullable|url|max:500',

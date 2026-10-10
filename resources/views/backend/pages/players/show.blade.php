@@ -87,6 +87,36 @@
             </div>
         </div>
 
+        {{-- Login access: players added directly with a phone sign in with it; an admin sets the password. --}}
+        @can('player.edit')
+            @php
+                $loginUser = $player->user_id ? \App\Models\User::find($player->user_id) : null;
+                $phoneLogin = ! $loginUser?->email || \App\Services\Auth\PlayerLogin::isPlaceholder($loginUser?->email);
+            @endphp
+            <div class="mt-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5" id="login-access">
+                <h3 class="font-semibold text-gray-900 dark:text-white">{{ __('Login access') }}</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    @if($phoneLogin)
+                        {{ __('Signs in with phone number :phone and the password you set here.', ['phone' => $player->mobile_number_full ? '+' . $player->mobile_number_full : '—']) }}
+                        @if($loginUser?->email)<span class="block text-xs mt-1">{{ __('Login ID:') }} {{ $loginUser->email }}</span>@endif
+                    @else
+                        {{ __('Signs in with :email (or their phone number). Setting a password here replaces theirs.', ['email' => $loginUser->email]) }}
+                    @endif
+                </p>
+                <form method="POST" action="{{ route('admin.players.login-password', $player->id) }}" class="mt-3 flex flex-wrap items-end gap-3">
+                    @csrf
+                    <label class="flex flex-col gap-1 text-sm">{{ __('New password') }}
+                        <input type="password" name="password" minlength="6" required autocomplete="new-password" class="form-control">
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">{{ __('Repeat') }}
+                        <input type="password" name="password_confirmation" minlength="6" required autocomplete="new-password" class="form-control">
+                    </label>
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">{{ $loginUser ? __('Set password') : __('Create login') }}</button>
+                    @error('password')<p class="w-full text-sm text-red-600">{{ $message }}</p>@enderror
+                </form>
+            </div>
+        @endcan
+
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl overflow-hidden">
 
             {{-- ═══════════════════════════════════════════════════════ --}}

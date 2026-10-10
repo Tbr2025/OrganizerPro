@@ -41,7 +41,7 @@
               {{ __('Email Address') }}
             </label>
             <input autofocus type="text" id="email" name="email" autocomplete="username"
-                   placeholder="{{ __('Enter your email') }}"
+                   placeholder="{{ __('Email, username or phone number') }}"
                    class="dark:bg-dark-900 h-12 w-full rounded-lg border border-gray-200 bg-gray-50/50 px-4 py-3 text-sm text-gray-700 transition-all duration-200 placeholder:text-gray-400 focus:border-brand-500 focus:bg-white focus:outline-hidden focus:ring-4 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800/50 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-500 dark:focus:bg-gray-800"
                    value="{{ old('email') ?? config('app.demo_mode', false) ? 'superadmin@example.com' : '' }}" required>
           </div>

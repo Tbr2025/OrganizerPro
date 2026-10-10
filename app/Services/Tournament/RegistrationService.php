@@ -27,8 +27,8 @@ class RegistrationService
      */
     protected function safeMail(?string $email, \Illuminate\Mail\Mailable $mailable): void
     {
-        // Players on open tournaments may have registered without an email.
-        if ($email === null || trim($email) === '') {
+        // No address, or a phone-login placeholder with no mailbox behind it.
+        if ($email === null || trim($email) === '' || \App\Services\Auth\PlayerLogin::isPlaceholder($email)) {
             return;
         }
 
@@ -45,8 +45,9 @@ class RegistrationService
      */
     public function registerPlayer(Tournament $tournament, array $data): TournamentRegistration
     {
-        // Email is optional on open tournaments (PlayerFormConfig::emailOptional);
-        // the phone number is then what identifies a returning player.
+        // The public form requires an email; this service is also called without
+        // one (imports, direct adds), when the phone identifies the player and
+        // their login id is the phone placeholder (PlayerLogin).
         $email = trim((string) ($data['email'] ?? '')) ?: null;
         $data['email'] = $email;
         $phone = $data['mobile_number_full'] ?? null;
@@ -76,7 +77,7 @@ class RegistrationService
                 $newUserPassword = $password;
                 $user = User::create([
                     'name' => $data['name'],
-                    'email' => $email,
+                    'email' => $email ?? ($phone ? app(\App\Services\Auth\PlayerLogin::class)->placeholderFor($phone) : null),
                     'username' => Str::slug($data['name']) . '-' . Str::random(5),
                     'password' => Hash::make($password),
                     'organization_id' => $tournament->organization_id,

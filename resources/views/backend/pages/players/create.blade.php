@@ -92,10 +92,10 @@
                                     {{-- Player Email (always visible) --}}
                                     <div class="space-y-1">
                                         <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            {{ __('Email Address') }} <span class="text-red-500">*</span>
+                                            {{ __('Email Address') }}
                                         </label>
-                                        <input type="email" name="email" id="email" required value="{{ old('email') }}"
-                                            placeholder="Enter Player Email"
+                                        <input type="email" name="email" id="email" value="{{ old('email') }}"
+                                            placeholder="{{ __('Optional — without it the player signs in with their phone') }}"
                                             class="form-control @error('email') border-red-500 @enderror">
                                         @error('email')
                                             <p class="text-sm text-red-500">{{ $message }}</p>
