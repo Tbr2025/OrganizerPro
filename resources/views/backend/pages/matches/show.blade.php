@@ -68,6 +68,11 @@
             <div class="text-center mb-4">
                 <p class="text-gray-400 text-sm">{{ $match->tournament->name ?? 'Tournament' }}</p>
                 <h2 class="text-xl font-bold mt-1">{{ $match->name ?? 'Match' }}</h2>
+                @can('ledwall.operate')
+                <a href="{{ route('admin.matches.led', $match) }}" class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold">
+                    <iconify-icon icon="lucide:monitor" width="14"></iconify-icon> LED wall console
+                </a>
+                @endcan
 
                 <!-- Toss Section -->
                 <div id="toss-section" class="mt-3">

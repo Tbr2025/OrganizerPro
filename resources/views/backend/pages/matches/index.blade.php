@@ -222,6 +222,9 @@
                                      menu works. They get to look, and to name their XI. --}}
                                 <x-buttons.action-buttons :label="__('Actions')" :show-label="false" align="right">
                                     <x-buttons.action-item :href="route('admin.matches.show', $match)" icon="lucide:eye" :label="__('View')" />
+                                    @can('ledwall.operate')
+                                    <x-buttons.action-item :href="route('admin.matches.led', $match)" icon="lucide:monitor" :label="__('LED wall')" />
+                                    @endcan
                                     {{-- The one thing a team manager may change about a match.
                                          The controller checks they are actually on a side in it. --}}
                                     <x-buttons.action-item :href="route('team-manager.matches.lineup', $match)" icon="lucide:users" :label="__('Playing Squad')" />

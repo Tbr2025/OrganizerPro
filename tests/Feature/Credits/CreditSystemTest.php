@@ -71,6 +71,32 @@ class CreditSystemTest extends TestCase
     // ---- the ledger ---------------------------------------------------------
 
     #[Test]
+    public function the_control_centre_shows_every_tab_with_real_data_and_filters(): void
+    {
+        $this->price(CreditFeature::POSTER, 2);
+        $this->fund(50);
+        $this->credits->charge($this->org, CreditFeature::POSTER, null, 'cc-1');
+        $this->credits->requestTopup($this->org, 100, null, 'UPI-123', 'please', $this->admin);
+        \App\Models\Credits\Discount::create(['name' => 'Launch', 'code' => 'LAUNCH', 'type' => 'percent', 'value' => 10, 'applies_to' => 'features', 'is_active' => true]);
+
+        $super = User::factory()->create()->assignRole('Superadmin');
+        $page = $this->actingAs($super)->get(route('admin.credits.manage', ['tab' => 'topups']))->assertOk();
+        $page->assertSee('control centre')->assertSee('UPI-123')->assertSee('LAUNCH')->assertSee('Adjust balance')
+            ->assertSee('All wallets match their history')->assertSee('Club');
+
+        // Filters narrow the history; unknown tabs fall back to the overview.
+        $this->actingAs($super)->get(route('admin.credits.manage', ['tab' => 'activity', 'type' => 'usage', 'org' => $this->org->id]))->assertOk()->assertSee('Spent');
+        $this->actingAs($super)->get(route('admin.credits.manage', ['tab' => 'organizations', 'mode' => 'credits', 'q' => 'Clu']))->assertOk()->assertSee('Club');
+        $this->actingAs($super)->get(route('admin.credits.manage', ['tab' => 'nonsense']))->assertOk();
+
+        // Approving with a note from the new form.
+        $topup = \App\Models\Credits\CreditTopupRequest::firstOrFail();
+        $this->actingAs($super)->post(route('admin.credits.topups.approve', $topup), ['admin_note' => 'Paid, thanks'])->assertRedirect();
+        $this->assertSame('Paid, thanks', $topup->fresh()->admin_note);
+        $this->assertSame(148, $this->credits->balance($this->org));
+    }
+
+    #[Test]
     public function the_header_balance_and_poster_cost_are_served_and_follow_spending(): void
     {
         $this->price(CreditFeature::POSTER, 3);

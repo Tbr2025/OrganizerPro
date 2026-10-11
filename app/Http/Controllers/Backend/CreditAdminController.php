@@ -33,12 +33,29 @@ class CreditAdminController extends Controller
         $this->middleware('permission:feature.manage')->only(['updateFeature']);
     }
 
+    public const TABS = ['overview', 'organizations', 'topups', 'prices', 'discounts', 'settings', 'activity'];
+
     public function index(Request $request): View
     {
+        $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overview';
+        $since = now()->subDays(30);
+
         $organizations = Organization::orderBy('name')
             ->when($request->filled('q'), fn ($q) => $q->where('name', 'like', '%' . $request->input('q') . '%'))
+            ->when(in_array($request->query('mode'), ['credits', 'package'], true), fn ($q) => $request->query('mode') === 'credits'
+                ? $q->where('billing_mode', 'credits')
+                : $q->where(fn ($q) => $q->whereNull('billing_mode')->orWhere('billing_mode', '!=', 'credits')))
             ->get();
+        $allOrganizations = Organization::orderBy('name')->get(['id', 'name', 'billing_mode']);
         $balances = CreditWallet::pluck('balance', 'organization_id');
+
+        // Per organization: credits used in the last 30 days, and when anything last moved.
+        $perOrg = CreditLedgerEntry::join('credit_wallets', 'credit_wallets.id', '=', 'credit_ledger.wallet_id')
+            ->groupBy('credit_wallets.organization_id')
+            ->selectRaw("credit_wallets.organization_id AS org,
+                SUM(CASE WHEN credit_ledger.type = 'usage' AND credit_ledger.created_at >= ? THEN -credit_ledger.amount ELSE 0 END) AS used30,
+                MAX(credit_ledger.created_at) AS last_at", [$since])
+            ->get()->keyBy('org');
 
         $totals = CreditLedgerEntry::selectRaw("
             SUM(CASE WHEN amount > 0 AND type IN ('purchase') THEN amount ELSE 0 END) AS purchased,
@@ -47,16 +64,49 @@ class CreditAdminController extends Controller
             SUM(CASE WHEN type IN ('refund', 'reversal') THEN amount ELSE 0 END) AS refunded
         ")->first();
 
+        $pending = CreditTopupRequest::with(['organization', 'requester', 'discount'])->where('status', 'pending')->oldest()->get();
+        $creditOrgIds = $allOrganizations->where('billing_mode', 'credits')->pluck('id');
+
+        // Last 14 days of spending, oldest first, for the overview bars.
+        $daily = CreditLedgerEntry::where('type', 'usage')->where('created_at', '>=', now()->subDays(13)->startOfDay())
+            ->selectRaw('DATE(created_at) AS d, SUM(-amount) AS credits')->groupBy('d')->pluck('credits', 'd');
+        $days = collect(range(13, 0))->map(fn ($i) => now()->subDays($i)->toDateString())
+            ->mapWithKeys(fn ($d) => [$d => (int) ($daily[$d] ?? 0)]);
+
+        $activity = CreditLedgerEntry::with(['wallet.organization', 'creator'])
+            ->when($request->filled('org'), fn ($q) => $q->whereHas('wallet', fn ($w) => $w->where('organization_id', $request->integer('org'))))
+            ->when(in_array($request->query('type'), ['purchase', 'usage', 'refund', 'adjustment', 'promo', 'reversal'], true), fn ($q) => $q->where('type', $request->query('type')))
+            ->latest('id')->paginate(25, ['*'], 'page')->withQueryString();
+
+        $rate = (float) ($this->credits->setting('money_per_credit') ?: 0);
+
         return view('backend.pages.credits.manage', [
+            'tab' => $tab,
             'organizations' => $organizations,
+            'allOrganizations' => $allOrganizations,
             'balances' => $balances,
-            'pending' => CreditTopupRequest::with(['organization', 'requester', 'discount'])->where('status', 'pending')->oldest()->get(),
+            'perOrg' => $perOrg,
+            'pending' => $pending,
+            'processed' => CreditTopupRequest::with(['organization', 'requester'])->where('status', '!=', 'pending')->latest('processed_at')->limit(20)->get(),
             'features' => CreditFeature::orderBy('sort')->get(),
             'discounts' => Discount::withCount('redemptions')->latest('id')->get(),
-            'recent' => CreditLedgerEntry::with(['wallet.organization', 'creator'])->latest('id')->limit(30)->get(),
+            'recent' => CreditLedgerEntry::with(['wallet.organization', 'creator'])->latest('id')->limit(8)->get(),
+            'activity' => $activity,
             'usageByFeature' => CreditLedgerEntry::where('type', 'usage')->groupBy('feature_key')
-                ->selectRaw('feature_key, COUNT(*) AS times, SUM(-amount) AS credits')->get(),
+                ->selectRaw('feature_key, COUNT(*) AS times, SUM(-amount) AS credits')->orderByDesc('credits')->get(),
+            'days' => $days,
             'totals' => $totals,
+            'kpis' => [
+                'held' => (int) CreditWallet::whereIn('organization_id', $creditOrgIds)->sum('balance'),
+                'used30' => (int) $perOrg->sum('used30'),
+                'pending' => $pending->count(),
+                'pendingValue' => (float) $pending->sum('price'),
+                'creditOrgs' => $creditOrgIds->count(),
+                'orgs' => $allOrganizations->count(),
+                'received' => (float) CreditTopupRequest::where('status', 'approved')->sum('price'),
+            ],
+            'rate' => $rate,
+            'currency' => (string) ($this->credits->setting('currency') ?: ''),
             'mismatches' => $this->credits->reconcile(),
             'settings' => collect(['money_per_credit', 'currency', 'term_singular', 'term_plural', 'welcome_credits', 'topup_instructions'])
                 ->mapWithKeys(fn ($k) => [$k => $this->credits->setting($k)]),
