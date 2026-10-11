@@ -613,7 +613,7 @@ class AdminMenuService
             ],
         ]);
 
-        // Ready-made poster designs: Super Admin's on/off, premium and price switches.
+        // Ready-made poster designs: Super Admin's on/off and price in credits.
         $this->addMenuItem([
             'label' => __('Designs'),
             'icon' => 'feather:layout',

@@ -16,7 +16,7 @@ use Illuminate\View\View;
 
 /**
  * Design thumbnails (anyone who makes posters) and Super Admin's switches for
- * each ready-made design: on/off, premium and price, order.
+ * each ready-made design: on/off, price in credits (0 = free), order.
  */
 class TemplatePresetController extends Controller
 {
@@ -61,7 +61,8 @@ class TemplatePresetController extends Controller
 
         TemplatePreset::updateOrCreate(['key' => $key], [
             'is_active' => $request->boolean('is_active'),
-            'is_premium' => $request->boolean('is_premium'),
+            // A design with a price is charged for; 0 is free. No separate switch.
+            'is_premium' => (int) ($data['credit_cost'] ?? 0) > 0,
             'credit_cost' => (int) ($data['credit_cost'] ?? 0),
             'sort' => (int) ($data['sort'] ?? 0),
         ]);

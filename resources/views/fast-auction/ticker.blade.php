@@ -2,6 +2,7 @@
 
 @section('title', 'Ticker · ' . $boot['auctionName'])
 @section('screen', 'ticker')
+@section('transparent', '1')
 
 @section('switch')
     <x-auction.mode-switch :to="route('public.auction.ticker', $boot['auctionId'])"

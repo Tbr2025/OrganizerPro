@@ -205,11 +205,18 @@ class PresetLibraryTest extends TestCase
 
         $super = User::factory()->create()->assignRole('Superadmin');
         $this->actingAs($super)->get(route('admin.template-presets.index'))->assertOk()->assertSee('Spotlight');
-        $this->actingAs($super)->post(route('admin.template-presets.update', 'welcome_split'), ['is_active' => 1, 'is_premium' => 1, 'credit_cost' => 3])->assertRedirect();
+        $this->actingAs($super)->post(route('admin.template-presets.update', 'welcome_split'), ['is_active' => 1, 'credit_cost' => 3])->assertRedirect();
 
         $p = $this->presets->find('welcome_split');
         $this->assertTrue($p['is_premium']);
         $this->assertSame(3, $p['credit_cost']);
+
+        // A price of 0 makes it free again: there is no separate premium switch.
+        $this->actingAs($super)->post(route('admin.template-presets.update', 'welcome_split'), ['is_active' => 1, 'credit_cost' => 0])->assertRedirect();
+        $p = $this->presets->find('welcome_split');
+        $this->assertFalse($p['is_premium']);
+        $this->assertSame(0, $p['credit_cost']);
+        $this->actingAs($super)->get(route('admin.template-presets.index'))->assertDontSee('>Premium<', false);
     }
 
     #[Test]

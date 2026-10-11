@@ -25,7 +25,10 @@
     <title>@yield('title', 'Fast Auction')</title>
     @vite(['resources/css/fast-auction.css', 'resources/js/fast-auction/main.js'])
 </head>
-<body class="bg-slate-950">
+{{-- The ticker is a broadcast overlay: the page stays see-through so OBS / vMix keys
+     everything except the band itself. --}}
+<body class="@hasSection('transparent') bg-transparent @else bg-slate-950 @endif"
+      @hasSection('transparent') style="background: transparent" @endif>
     <div id="fast-auction" data-screen="@yield('screen')"></div>
 
     {{-- The snapshot, the URLs and the role context, written once by the server. A cold bundle

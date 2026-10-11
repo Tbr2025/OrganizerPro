@@ -2472,7 +2472,7 @@ async function loadPresetGallery(type) {
         </span></button>`).join('');
     grid.querySelectorAll('button[data-preset]').forEach(b => b.addEventListener('click', () => {
         const p = data.presets.find(x => x.key === b.dataset.preset);
-        if (p.price && !confirm(`${p.name} is a premium design: ${p.price}, charged once for this tournament. Continue?`)) return;
+        if (p.price && !confirm(`${p.name} costs ${p.price}, charged once for this tournament. Continue?`)) return;
         const f = document.getElementById('presetApplyForm');
         f.elements.preset.value = p.key;
         f.elements.theme.value = presetTheme;

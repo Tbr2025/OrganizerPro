@@ -122,9 +122,13 @@ onUnmounted(() => rt?.stop());
 .ticker {
     display: flex;
     align-items: stretch;
-    height: 100vh;
-    min-height: 64px;
-    background: #05060a;
+    /* A band along the bottom of a transparent page, so it can be laid over video. */
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: clamp(64px, 10vh, 120px);
+    background: rgba(5, 6, 10, .92);
     color: #fff;
     font-family: ui-sans-serif, system-ui, sans-serif;
     overflow: hidden;
