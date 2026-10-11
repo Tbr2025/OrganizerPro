@@ -106,9 +106,8 @@ class TournamentController extends Controller
         } elseif ($sortBy === 'start_date') {
             $query->orderByDesc('start_date');
         } else {
-            // Default: active/registration first, then latest created
-            $query->orderByRaw("FIELD(status, 'registration', 'active', 'ongoing', 'draft', 'completed')")
-                  ->latest();
+            // Default: most recently added or edited first, oldest last.
+            $query->latest('updated_at')->latest('id');
         }
 
         $tournaments = $query->paginate(12);

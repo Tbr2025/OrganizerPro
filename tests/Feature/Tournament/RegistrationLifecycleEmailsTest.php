@@ -17,6 +17,14 @@ class RegistrationLifecycleEmailsTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Approval gives the player the Player role, so the roles must exist.
+        app(\App\Services\PermissionService::class)->createPermissions();
+        app(\App\Services\RolesService::class)->createPredefinedRoles();
+    }
+
     private function tournament(): Tournament
     {
         $org = Organization::create(['name' => 'Org']);
@@ -51,10 +59,10 @@ class RegistrationLifecycleEmailsTest extends TestCase
             'name' => 'Asif', 'email' => 'asif@x.test',
         ]);
 
-        // Assert approval invokes the welcome/greeting card sender (the actual
-        // poster rendering is exercised elsewhere; here we verify the wiring).
+        // Approval renders the welcome/greeting card and attaches it to the
+        // approval email (rendering is exercised elsewhere; this is the wiring).
         $this->mock(TournamentNotificationService::class)
-            ->shouldReceive('sendWelcomeCard')->once()->andReturn(true);
+            ->shouldReceive('generateWelcomeCard')->once()->andReturn(null);
 
         $approver = User::factory()->create();
         $service->approvePlayerRegistration($registration, $approver->id);

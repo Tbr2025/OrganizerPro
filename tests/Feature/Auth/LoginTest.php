@@ -11,6 +11,13 @@ class LoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // No CAPTCHA in tests: the real check needs Cloudflare.
+        config(['turnstile.secret_key' => null]);
+    }
+
     #[Test]
     public function user_can_view_login_form(): void
     {

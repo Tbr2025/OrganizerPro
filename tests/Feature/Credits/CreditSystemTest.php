@@ -71,6 +71,23 @@ class CreditSystemTest extends TestCase
     // ---- the ledger ---------------------------------------------------------
 
     #[Test]
+    public function the_wallet_opens_for_accounts_without_an_organization(): void
+    {
+        // Superadmin belongs to no organization: lands on one, can switch.
+        $super = User::factory()->create(['organization_id' => null])->assignRole('Superadmin');
+        $this->actingAs($super)->get(route('admin.credits.index'))->assertOk()->assertSee('Club');
+
+        // An admin with no organization manages credits, so sees every wallet.
+        $platformAdmin = User::factory()->create(['organization_id' => null])->assignRole('Admin');
+        $this->actingAs($platformAdmin)->get(route('admin.credits.index'))->assertOk()->assertSee('Club');
+
+        // Anyone else not linked to one is told why, not shown a bare 403.
+        $loose = User::factory()->create(['organization_id' => null])->assignRole('Organizer');
+        $this->actingAs($loose)->get(route('admin.credits.index'))
+            ->assertRedirect(route('admin.dashboard'))->assertSessionHas('error');
+    }
+
+    #[Test]
     public function every_feature_starts_free_and_package_organizations_never_pay(): void
     {
         $this->assertSame(0, CreditFeature::sum('cost'), 'Nothing is charged until Super Admin sets a price');
@@ -307,7 +324,11 @@ class CreditSystemTest extends TestCase
         $this->fund(9);
 
         $this->get(route('admin.credits.index'))->assertOk()->assertSee('9')->assertSee('Generate a poster');
-        $this->get(route('admin.credits.manage'))->assertForbidden();
+        // Admins run credits too; organizers only see their own wallet.
+        $this->get(route('admin.credits.manage'))->assertOk();
+        $organizer = User::factory()->create(['organization_id' => $this->org->id])->assignRole('Organizer');
+        $this->actingAs($organizer)->get(route('admin.credits.index'))->assertOk();
+        $this->actingAs($organizer)->get(route('admin.credits.manage'))->assertForbidden();
 
         $super = User::factory()->create()->assignRole('Superadmin');
         $this->actingAs($super)->get(route('admin.credits.manage'))->assertOk()->assertSee('Club')->assertSee('All');

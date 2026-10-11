@@ -143,7 +143,7 @@
                 <option value="auction" @selected(request('type') === 'auction')>Auction</option>
             </select>
             <select name="sort_by" class="form-control rounded-xl w-auto min-w-[170px]">
-                <option value="default" @selected(request('sort_by', 'default') === 'default')>Sort: Default</option>
+                <option value="default" @selected(request('sort_by', 'default') === 'default')>Sort: Recently added / edited</option>
                 <option value="created_newest" @selected(request('sort_by') === 'created_newest')>Created: Newest</option>
                 <option value="created_oldest" @selected(request('sort_by') === 'created_oldest')>Created: Oldest</option>
                 <option value="updated_newest" @selected(request('sort_by') === 'updated_newest')>Updated: Newest</option>

@@ -274,12 +274,9 @@ class RolesService
             'organization.create',
             'organization.edit',
             'organization.delete',
-            // Platform controls: building templates, and the credit system's
-            // pricing, discounts and wallet adjustments stay with Superadmin.
+            // Platform controls: building templates stays with Superadmin.
+            // Admins run the credit system alongside Superadmin.
             'template.manage',
-            'credits.manage',
-            'discount.manage',
-            'feature.manage',
         ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);

@@ -22,6 +22,14 @@ class ApprovalNeverBreaksTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Approval gives the player the Player role, so the roles must exist.
+        app(\App\Services\PermissionService::class)->createPermissions();
+        app(\App\Services\RolesService::class)->createPredefinedRoles();
+    }
+
     #[Test]
     public function approving_a_player_succeeds_even_when_card_generation_runs(): void
     {
@@ -57,6 +65,6 @@ class ApprovalNeverBreaksTest extends TestCase
         // Player marked approved + their user gets the Player role.
         $player = $registration->fresh()->player;
         $this->assertSame('approved', $player->status);
-        $this->assertTrue($player->user->hasRole('player'));
+        $this->assertTrue($player->user->hasRole('Player'));
     }
 }

@@ -1,9 +1,14 @@
 <aside
     x-data="{
         isHovered: false,
+        isDesktop: window.matchMedia('(min-width: 1024px)').matches,
         sidebarBg: '',
         init() {
             this.updateBg();
+            // On phones and tablets the toggle opens a full drawer; only the
+            // desktop sidebar collapses to icons.
+            const mq = window.matchMedia('(min-width: 1024px)');
+            mq.addEventListener('change', e => { this.isDesktop = e.matches; this.isHovered = false; });
             const observer = new MutationObserver(() => this.updateBg());
             observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         },
@@ -14,7 +19,7 @@
             this.sidebarBg = htmlHasDark ? darkBg : liteBg;
         },
         get isMinified() {
-            return sidebarToggle && !this.isHovered;
+            return this.isDesktop && sidebarToggle && !this.isHovered && !teamManagerLayout;
         }
     }"
     x-init="init()"
@@ -24,10 +29,10 @@
         '-translate-x-full lg:translate-x-0': !sidebarToggle,
         'lg:w-[80px]': sidebarToggle && !isHovered && !teamManagerLayout,
         'lg:w-[280px]': !sidebarToggle || isHovered || teamManagerLayout,
-        'app-sidebar-minified': sidebarToggle && !isHovered && !teamManagerLayout
+        'app-sidebar-minified': isMinified
     }"
-    @mouseenter="isHovered = true"
-    @mouseleave="isHovered = false"
+    @pointerenter="if ($event.pointerType === 'mouse') isHovered = true"
+    @pointerleave="if ($event.pointerType === 'mouse') isHovered = false"
     class="sidebar fixed left-0 top-0 z-10 flex h-screen w-[280px] flex-col overflow-y-hidden border-r border-gray-200 dark:border-gray-800/50 shadow-sm bg-white dark:bg-dark-sidebar lg:static"
     style="transition: width 200ms ease-out, transform 200ms ease-out;"
     id="appSidebar">

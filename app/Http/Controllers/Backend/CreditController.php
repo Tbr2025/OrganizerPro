@@ -12,6 +12,7 @@ use App\Models\Organization;
 use App\Models\Tournament;
 use App\Services\Credits\CreditService;
 use App\Services\Credits\InsufficientCreditsException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -45,7 +46,7 @@ class CreditController extends Controller
             'unlocks' => CreditFeatureUnlock::where('organization_id', $org->id)->latest('id')->limit(50)->get(),
             'topups' => CreditTopupRequest::where('organization_id', $org->id)->latest('id')->limit(20)->get(),
             'credits' => $this->credits,
-            'organizations' => Auth::user()->hasRole('Superadmin') ? Organization::orderBy('name')->get() : collect(),
+            'organizations' => Auth::user()->can('credits.manage') ? Organization::orderBy('name')->get() : collect(),
             'breadcrumbs' => ['title' => $this->credits->term()],
         ]);
     }
@@ -141,11 +142,24 @@ class CreditController extends Controller
     private function organization(Request $request): Organization
     {
         $user = Auth::user();
-        if ($user->hasRole('Superadmin') && $request->filled('org')) {
-            return Organization::findOrFail($request->integer('org'));
-        }
-        abort_unless($user->organization_id, 403, 'You are not part of an organization.');
+        if ($user->can('credits.manage')) {
+            // Whoever runs credits sees every wallet: open the one picked,
+            // else their own, else the first — the page has a switcher.
+            $org = $request->filled('org')
+                ? Organization::findOrFail($request->integer('org'))
+                : Organization::find($user->organization_id) ?? Organization::orderBy('name')->first();
+            if (! $org) {
+                throw new HttpResponseException(redirect()->route('admin.credits.manage'));
+            }
 
-        return Organization::findOrFail($user->organization_id);
+            return $org;
+        }
+
+        if (! $user->organization_id || ! ($org = Organization::find($user->organization_id))) {
+            throw new HttpResponseException(redirect()->route('admin.dashboard')
+                ->with('error', 'Your account is not linked to an organization yet, so it has no ' . strtolower($this->credits->term()) . ' wallet. Ask Sportzley to link it.'));
+        }
+
+        return $org;
     }
 }
