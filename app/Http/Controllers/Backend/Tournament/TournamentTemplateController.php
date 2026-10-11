@@ -462,8 +462,12 @@ class TournamentTemplateController extends Controller
                     $matchData = [
                         'team_a_name' => $firstTeam?->name,
                         'team_b_name' => $secondTeam?->name,
-                        'team_a_short_name' => $firstTeam?->short_name ?? $firstTeam?->name,
-                        'team_b_short_name' => $secondTeam?->short_name ?? $secondTeam?->name,
+                        // No short name saved (or an empty one): a real code, never the
+                        // full name, which overflows a slot sized for "RST".
+                        'team_a_short_name' => $firstTeam?->short_name ?: $firstTeam?->compact_code,
+                        'team_b_short_name' => $secondTeam?->short_name ?: $secondTeam?->compact_code,
+                        'team_a_code' => $firstTeam?->compact_code,
+                        'team_b_code' => $secondTeam?->compact_code,
                         'team_a_logo' => $firstTeam?->team_logo,
                         'team_b_logo' => $secondTeam?->team_logo,
                         'team_a_sponsor_logo' => $firstTeam?->sponsor_logo,
@@ -609,7 +613,7 @@ class TournamentTemplateController extends Controller
                     $inningsView = (int) $request->input('innings', 1);
                     if ($inningsView === 2) {
                         $swapKeys = [
-                            'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
+                            'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name', 'team_a_code' => 'team_b_code',
                             'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',
                             'team_a_score_wickets' => 'team_b_score_wickets',
                             'team_a_runs' => 'team_b_runs', 'team_a_wickets' => 'team_b_wickets',
@@ -1703,6 +1707,8 @@ class TournamentTemplateController extends Controller
             'playing_team_logo' => '[Playing Team Logo]',
             'team_a_name', 'team_a_short_name' => 'Team Alpha',
             'team_b_name', 'team_b_short_name' => 'Team Beta',
+            'team_a_code' => 'TA',
+            'team_b_code' => 'TB',
             'team_a_logo', 'team_b_logo' => '[Team Logo]',
             'team_a_score' => '150/6 (20.0)',
             'team_b_score' => '145/8 (20.0)',

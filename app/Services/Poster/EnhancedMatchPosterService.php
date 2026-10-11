@@ -458,7 +458,8 @@ class EnhancedMatchPosterService extends PosterGeneratorService
             'tournament_logo' => $settings?->logo ?? '',
 
             'team_a_name' => $leftTeam?->name ?? 'TBD',
-            'team_a_short_name' => $leftTeam?->short_name ?? $leftTeam?->name ?? 'TBD',
+            'team_a_short_name' => $leftTeam?->short_name ?: ($leftTeam?->compact_code ?? 'TBD'),
+            'team_a_code' => $leftTeam?->compact_code ?? 'TBD',
             'team_a_logo' => $leftTeam?->team_logo ?? '',
             'team_a_location' => $leftTeam?->location ?? '',
             'team_a_captain_image' => $leftTeam?->captain_image ?? '',
@@ -466,7 +467,8 @@ class EnhancedMatchPosterService extends PosterGeneratorService
             'team_a_color' => $leftTeam?->primary_color ?? $this->teamAColor,
 
             'team_b_name' => $rightTeam?->name ?? 'TBD',
-            'team_b_short_name' => $rightTeam?->short_name ?? $rightTeam?->name ?? 'TBD',
+            'team_b_short_name' => $rightTeam?->short_name ?: ($rightTeam?->compact_code ?? 'TBD'),
+            'team_b_code' => $rightTeam?->compact_code ?? 'TBD',
             'team_b_logo' => $rightTeam?->team_logo ?? '',
             'team_b_location' => $rightTeam?->location ?? '',
             'team_b_captain_image' => $rightTeam?->captain_image ?? '',

@@ -163,6 +163,7 @@ class TournamentTemplate extends Model
             // Who played. A team's name is its identity in the fixture list and the point table.
             'team_a_name', 'team_b_name',
             'team_a_short_name', 'team_b_short_name',
+            'team_a_code', 'team_b_code',
             'lineup_team_name', 'lineup_team_short_name',
             'opponent_team_name', 'opponent_team_short_name',
         ];
@@ -280,6 +281,7 @@ class TournamentTemplate extends Model
                 // Team A
                 'team_a_name',
                 'team_a_short_name',
+                'team_a_code',
                 'team_a_logo',
                 'team_a_location',
                 'team_a_captain_name',
@@ -288,6 +290,7 @@ class TournamentTemplate extends Model
                 // Team B
                 'team_b_name',
                 'team_b_short_name',
+                'team_b_code',
                 'team_b_logo',
                 'team_b_location',
                 'team_b_captain_name',
@@ -311,6 +314,7 @@ class TournamentTemplate extends Model
                 // Team A
                 'team_a_name',
                 'team_a_short_name',
+                'team_a_code',
                 'team_a_logo',
                 'team_a_score',
                 'team_a_score_wickets',
@@ -320,6 +324,7 @@ class TournamentTemplate extends Model
                 // Team B
                 'team_b_name',
                 'team_b_short_name',
+                'team_b_code',
                 'team_b_logo',
                 'team_b_score',
                 'team_b_score_wickets',
@@ -385,6 +390,7 @@ class TournamentTemplate extends Model
                 // Team A
                 'team_a_name',
                 'team_a_short_name',
+                'team_a_code',
                 'team_a_logo',
                 'team_a_score',
                 'team_a_score_wickets',
@@ -395,6 +401,7 @@ class TournamentTemplate extends Model
                 // Team B
                 'team_b_name',
                 'team_b_short_name',
+                'team_b_code',
                 'team_b_logo',
                 'team_b_score',
                 'team_b_score_wickets',
@@ -524,10 +531,12 @@ class TournamentTemplate extends Model
                 // a line-up poster is always "our XI against them".
                 'team_a_name',
                 'team_a_short_name',
+                'team_a_code',
                 'team_a_logo',
                 'team_a_sponsor_logo',
                 'team_b_name',
                 'team_b_short_name',
+                'team_b_code',
                 'team_b_logo',
                 'team_b_sponsor_logo',
                 // Whose XI this is. Resolved from the picked side, so a layout can caption

@@ -2619,11 +2619,13 @@ class TemplateRenderService extends PosterGeneratorService
             // Team A placeholders
             'team_a_name' => 'Mountrich Cricket Club',
             'team_a_short_name' => 'MCC',
+            'team_a_code' => 'MCC',
             'team_a_location' => 'Ernakulam',
             'team_a_captain_name' => 'Captain Alpha',
             // Team B placeholders
             'team_b_name' => 'Canadian Cricket Club',
             'team_b_short_name' => 'CCC',
+            'team_b_code' => 'CCC',
             'team_b_location' => 'Kottayam',
             'team_b_captain_name' => 'Captain Beta',
             // Scores

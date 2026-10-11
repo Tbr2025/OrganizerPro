@@ -915,7 +915,8 @@ class MatchesController extends Controller
 
             // Team A = left side team (based on current innings view)
             'team_a_name' => $leftTeam?->name ?? 'Team A',
-            'team_a_short_name' => $leftTeam?->short_name ?? strtoupper(substr($leftTeam?->name ?? 'TMA', 0, 3)),
+            'team_a_short_name' => $leftTeam?->short_name ?: ($leftTeam?->compact_code ?? 'TMA'),
+            'team_a_code' => $leftTeam?->compact_code ?? 'TMA',
             'team_a_logo' => $leftTeam?->team_logo ?? null,
             'team_a_location' => $leftTeam?->location ?? '',
             'team_a_captain_name' => $leftCaptain['name'] ?? '',
@@ -924,7 +925,8 @@ class MatchesController extends Controller
 
             // Team B = right side team
             'team_b_name' => $rightTeam?->name ?? 'Team B',
-            'team_b_short_name' => $rightTeam?->short_name ?? strtoupper(substr($rightTeam?->name ?? 'TMB', 0, 3)),
+            'team_b_short_name' => $rightTeam?->short_name ?: ($rightTeam?->compact_code ?? 'TMB'),
+            'team_b_code' => $rightTeam?->compact_code ?? 'TMB',
             'team_b_logo' => $rightTeam?->team_logo ?? null,
             'team_b_location' => $rightTeam?->location ?? '',
             'team_b_captain_name' => $rightCaptain['name'] ?? '',

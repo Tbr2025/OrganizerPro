@@ -162,6 +162,7 @@
                                     data-team-a-captain-name="{{ $match->teamA?->captain?->name ?? '' }}"
                                     data-team-b-captain-name="{{ $match->teamB?->captain?->name ?? '' }}"
                                     data-date="{{ $match->match_date?->format('M d, Y') }}"
+                                    data-iso="{{ $match->match_date?->format('Y-m-d') }}"
                                     data-time="{{ $match->start_time ? \Carbon\Carbon::parse($match->start_time)->format('h:i A') : '' }}"
                                     data-venue="{{ $match->ground?->name ?? $match->venue }}"
                                     data-stage="{{ $match->stage }}"
@@ -189,6 +190,7 @@
                         @endforeach
                     </select>
 
+                    <p id="matchAutoNote" class="hidden text-xs text-purple-600 dark:text-purple-300 mt-2"></p>
                     @if($matches->isEmpty())
                         <p class="text-sm text-gray-500 mt-2">No matches found. <a href="{{ route('admin.tournaments.fixtures.index', $tournament) }}" class="text-purple-600 hover:underline">Create fixtures first</a>.</p>
                     @endif
@@ -2483,8 +2485,41 @@ async function loadPresetGallery(type) {
     document.getElementById('presetEmpty').classList.toggle('hidden', data.presets.length > 0);
 }
 
+/**
+ * Pick a match for the poster so its teams, date and venue fill in without a
+ * search: the next match still to be played for a match poster, the latest
+ * finished one for a result. Never overrides a match already chosen.
+ */
+function autoPickMatch(type) {
+    const select = document.getElementById('matchSelect');
+    const note = document.getElementById('matchAutoNote');
+    if (!select || select.value || !['match_poster', 'match_summary'].includes(type)) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const opts = [...select.options].filter(o => o.value);
+    const byDate = (a, b) => (a.dataset.iso || '').localeCompare(b.dataset.iso || '');
+    let pick;
+    if (type === 'match_summary') {
+        pick = opts.filter(o => o.dataset.status === 'completed').sort(byDate).pop();
+    } else {
+        const ahead = opts.filter(o => o.dataset.status !== 'completed' && (o.dataset.iso || '') >= today).sort(byDate);
+        pick = ahead[0] || opts.filter(o => o.dataset.status !== 'completed').sort(byDate).pop() || [...opts].sort(byDate).pop();
+    }
+    if (!pick) return;
+    select.value = pick.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    if (note) {
+        note.textContent = (type === 'match_summary' || pick.dataset.status === 'completed' ? 'Latest finished match picked' : 'Next match picked')
+            + ' — teams, date and venue fill in from it. Choose another match above to change it.';
+        note.classList.remove('hidden');
+    }
+}
+document.getElementById('matchSelect')?.addEventListener('change', e => {
+    if (e.isTrusted) document.getElementById('matchAutoNote')?.classList.add('hidden');
+});
+
 function syncTypeSections(type) {
     currentType = type;
+    setTimeout(() => autoPickMatch(type), 0);
 
     // Show/hide data selection sections
     document.getElementById('matchSelection').classList.toggle('hidden', !['match_poster', 'match_summary'].includes(type));
@@ -4002,6 +4037,8 @@ setTimeout(() => {
                 }, 1000);
             }
         }
+    } else if (!paramMatchId && ['match_poster', 'match_summary'].includes(currentType)) {
+        autoPickMatch(currentType);
     } else if (paramMatchId && ['match_poster', 'match_summary'].includes(currentType)) {
         const matchSelect = document.getElementById('matchSelect');
         if (matchSelect) {
