@@ -67,14 +67,28 @@
                      * carried on polling with nothing to explain why. An ad blocker or
                      * privacy extension blocking js.pusher.com is the usual cause.
                      */
-                    if (typeof Echo === 'undefined') {
+                    /*
+                     * echo.iife.js declares `var Echo` at the top level, which makes
+                     * window.Echo the *class*. Checking `!window.Echo` therefore found
+                     * it already "set" and handed back the class — `.channel` is not a
+                     * function, and every page subscribing to push threw on load (the
+                     * LED console died before any of its buttons were wired). Keep the
+                     * class aside, then make window.Echo the connected instance.
+                     */
+                    if (window.Echo && typeof window.Echo.channel === 'function') {
+                        return window.Echo;
+                    }
+                    if (typeof window.EchoClass !== 'function' && typeof window.Echo === 'function') {
+                        window.EchoClass = window.Echo;
+                    }
+                    if (typeof window.EchoClass !== 'function') {
                         console.warn('[auction] Echo failed to load from ' + '{{ asset('js/push/echo.iife.js') }}'
                             + ' and from the CDN fallback — live updates are off, polling only.');
                         return null;
                     }
 
-                    if (!window.Echo) {
-                        window.Echo = new Echo({
+                    {
+                        window.Echo = new window.EchoClass({
                             broadcaster: 'pusher',
                             key: @json($pusherKey),
                             cluster: @json($pusherCluster),

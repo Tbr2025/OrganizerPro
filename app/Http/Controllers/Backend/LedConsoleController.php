@@ -13,6 +13,7 @@ use App\Services\LedWall\WallState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -52,7 +53,8 @@ class LedConsoleController extends Controller
                 'name' => 'LED wall — ' . $match->name,
                 'token' => LedDisplay::newToken(),
                 'mode' => 'auto',
-                'settings' => LedDisplay::DEFAULT_SETTINGS,
+                // Reuse: the tournament's last wall, else the default preset.
+                'settings' => \App\Models\LedPreset::startingSettings($match->tournament),
                 'created_by' => $request->user()->id,
             ]);
 
@@ -62,6 +64,8 @@ class LedConsoleController extends Controller
             'wallUrl' => route('public.led.wall', $display->token),
             'panels' => LedDisplay::PANELS,
             'fillers' => LedDisplay::FILLERS,
+            'presets' => \App\Models\LedPreset::availableTo($match->tournament?->organization_id)->get(),
+            'canPlatformPresets' => $request->user()->can('feature.manage'),
             'breadcrumbs' => [
                 'title' => __('LED wall'),
                 'items' => [
@@ -156,7 +160,84 @@ class LedConsoleController extends Controller
     public function settings(Request $request, LedDisplay $display): JsonResponse
     {
         $this->authorizeDisplay($display);
+        $v = $this->validatedSettings($request);
 
+        $display->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? [], $v)]);
+        \App\Events\LedDisplayChanged::announce($display->id);
+
+        // "Use for every match in this tournament": the other walls take it too.
+        $others = 0;
+        if ($request->boolean('apply_to_tournament')) {
+            foreach (LedDisplay::where('tournament_id', $display->tournament_id)->whereKeyNot($display->id)->whereNull('revoked_at')->get() as $other) {
+                $other->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $other->settings ?? [], $v)]);
+                \App\Events\LedDisplayChanged::announce($other->id);
+                $others++;
+            }
+        }
+
+        return response()->json(['ok' => true, 'others' => $others]);
+    }
+
+    /** Save the current settings as a preset: the platform's (Super Admin) or this organization's. */
+    public function savePreset(Request $request, LedDisplay $display): JsonResponse
+    {
+        $this->authorizeDisplay($display);
+        $data = $request->validate([
+            'name' => 'required|string|max:80',
+            'platform' => 'boolean',
+            'is_default' => 'boolean',
+        ]);
+        $platform = $request->boolean('platform');
+        abort_if($platform && ! $request->user()->can('feature.manage'), 403, 'Only Super Admin saves presets for everyone.');
+        $orgId = $platform ? null : $display->tournament?->organization_id;
+
+        $preset = DB::transaction(function () use ($request, $display, $data, $orgId) {
+            if ($request->boolean('is_default')) {
+                \App\Models\LedPreset::where('organization_id', $orgId)->update(['is_default' => false]);
+            }
+
+            return \App\Models\LedPreset::updateOrCreate(
+                ['organization_id' => $orgId, 'name' => $data['name']],
+                ['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? []), 'is_default' => $request->boolean('is_default'), 'created_by' => $request->user()->id],
+            );
+        });
+
+        return response()->json(['ok' => true, 'preset' => $preset->only('id', 'name', 'is_default', 'organization_id')]);
+    }
+
+    /** Put a preset's settings on this wall. */
+    public function applyPreset(Request $request, LedDisplay $display, \App\Models\LedPreset $preset): JsonResponse
+    {
+        $this->authorizeDisplay($display);
+        $this->authorizePreset($request, $preset, $display, false);
+
+        $display->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $preset->settings ?? [])]);
+        \App\Events\LedDisplayChanged::announce($display->id);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function deletePreset(Request $request, LedDisplay $display, \App\Models\LedPreset $preset): JsonResponse
+    {
+        $this->authorizeDisplay($display);
+        $this->authorizePreset($request, $preset, $display, true);
+        $preset->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    private function authorizePreset(Request $request, \App\Models\LedPreset $preset, LedDisplay $display, bool $changing): void
+    {
+        if ($preset->isPlatform()) {
+            abort_if($changing && ! $request->user()->can('feature.manage'), 403);
+
+            return;
+        }
+        abort_unless((int) $preset->organization_id === (int) $display->tournament?->organization_id, 403);
+    }
+
+    private function validatedSettings(Request $request): array
+    {
         $v = $request->validate([
             'rotation_seconds' => 'required|integer|min:5|max:300',
             'panel_seconds' => 'required|integer|min:3|max:60',
@@ -172,10 +253,7 @@ class LedConsoleController extends Controller
         $v['reduced_motion'] = $request->boolean('reduced_motion');
         $v['fillers'] = array_values($v['fillers'] ?? []);
 
-        $display->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? [], $v)]);
-        \App\Events\LedDisplayChanged::announce($display->id);
-
-        return response()->json(['ok' => true]);
+        return $v;
     }
 
     /** New private link: every screen on the old one stops (404) at its next poll. */

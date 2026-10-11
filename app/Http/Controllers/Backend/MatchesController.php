@@ -37,7 +37,7 @@ class MatchesController extends Controller
 
         $this->middleware('permission:match.edit')->only([
             'create', 'store', 'edit', 'update', 'destroy', 'bulkDelete', 'reorder',
-            'goLive', 'cancelMatch', 'saveToss', 'switchInnings',
+            'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring',
             'editOvers', 'updateOvers', 'addAppreciation', 'generatePoster',
         ]);
     }
@@ -235,6 +235,11 @@ class MatchesController extends Controller
             'currentInnings' => $state['currentInnings'],
             'firstInningsComplete' => $snapshot['innings'][1]['complete'],
             'inningsComplete' => $state['inningsComplete'],
+            'overComplete' => $state['overComplete'],
+            'lastOverBowler' => $state['lastOverBowler'],
+            'inningsBreak' => $state['inningsBreak'],
+            'target' => $state['target'],
+            'naturalResult' => $state['naturalResult'],
             'isAllOut' => $state['isAllOut'],
             'innings1Stats' => $state['innings1Stats'],
             'innings2Stats' => $state['innings2Stats'],
@@ -273,12 +278,42 @@ class MatchesController extends Controller
      * Start the other innings. Stored on the match (not the scorer's session),
      * so every screen moves with it.
      */
-    public function switchInnings(Matches $match)
+    public function switchInnings(Request $request, Matches $match)
     {
-        $newInnings = app(BallRecorder::class)->switchInnings($match);
+        $to = $request->integer('to') ?: null;
+        try {
+            $newInnings = app(BallRecorder::class)->switchInnings($match, $to);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->route('admin.matches.show', $match)->with('error', collect($e->errors())->flatten()->first());
+        }
 
         return redirect()->route('admin.matches.show', $match)
-            ->with('success', 'Switched to ' . ($newInnings === 1 ? '1st' : '2nd') . ' innings.');
+            ->with('success', $newInnings === 2 ? 'Innings break — 2nd innings is ready to start.' : 'Back to the 1st innings.');
+    }
+
+    /** End the match from the scorer's page: result, shortened, or abandoned. */
+    public function endMatch(Request $request, Matches $match)
+    {
+        $data = $request->validate([
+            'outcome' => 'required|in:' . implode(',', \App\Services\Scoring\MatchFinisher::OUTCOMES),
+            'reason' => 'nullable|string|max:80',
+        ]);
+
+        try {
+            $summary = app(\App\Services\Scoring\MatchFinisher::class)->end($match, $data['outcome'], $data['reason'] ?? null);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->route('admin.matches.show', $match)->with('error', collect($e->errors())->flatten()->first());
+        }
+
+        return redirect()->route('admin.matches.show', $match)->with('success', 'Match ended: ' . $summary);
+    }
+
+    /** Undo "End match" to keep scoring. */
+    public function reopenScoring(Matches $match)
+    {
+        app(\App\Services\Scoring\MatchFinisher::class)->reopen($match);
+
+        return redirect()->route('admin.matches.show', $match)->with('success', 'Scoring reopened.');
     }
 
     /**
@@ -368,6 +403,15 @@ class MatchesController extends Controller
             'currentOverBalls' => $live['over_complete'] ? [] : $live['this_over'],
             'currentInnings' => $current,
             'inningsComplete' => $live['complete'],
+            // An over has just ended: the scorer must choose the next bowler,
+            // who cannot be the one who bowled it.
+            'overComplete' => $live['over_complete'] && $live['balls_bowled'] > 0 && ! $live['complete'],
+            'lastOverBowler' => $live['overs_summary'] === [] ? null : (end($live['overs_summary'])['bowler_id'] ?? null),
+            // Innings 1 is over and the chase has not started.
+            'inningsBreak' => $current === 2 && $snapshot['innings'][2]['balls_bowled'] === 0 && ! $snapshot['match_complete'],
+            'target' => $snapshot['target'],
+            // The chase settled it: "End match" can just record that.
+            'naturalResult' => $snapshot['result'] !== null && $snapshot['result']['type'] !== 'manual',
             'matchComplete' => $snapshot['match_complete'],
             'isAllOut' => $live['wickets'] >= $live['wicket_limit'],
             'matchOversLimit' => $snapshot['overs_limit'],

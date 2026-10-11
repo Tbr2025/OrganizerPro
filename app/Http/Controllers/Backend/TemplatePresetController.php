@@ -23,7 +23,9 @@ class TemplatePresetController extends Controller
     public function __construct(private readonly TemplatePresetService $presets)
     {
         $this->middleware('permission:template.generate|template.manage')->only('thumb');
-        $this->middleware('permission:template.manage')->except('thumb');
+        // The catalogue's on/off and prices are platform controls, not a
+        // tournament's own designs (template.manage).
+        $this->middleware('permission:feature.manage')->except('thumb');
     }
 
     public function thumb(string $key, string $theme)

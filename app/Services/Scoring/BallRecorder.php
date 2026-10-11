@@ -69,6 +69,13 @@ class BallRecorder
             if (! empty($input['fielder_id'])) {
                 $this->assertOnTeam([(int) $input['fielder_id']], $innings['bowling_team_id'], 'fielder_id', 'The fielder must be from the fielding side.');
             }
+            // A bowler may not bowl two overs in a row.
+            if ($innings['over_complete'] && $innings['balls_bowled'] > 0) {
+                $lastOver = end($innings['overs_summary']) ?: [];
+                if ((int) ($lastOver['bowler_id'] ?? 0) === $bowler) {
+                    $this->fail('bowler_id', 'This bowler bowled the last over. Choose a different bowler for the new over.');
+                }
+            }
             if ($striker === $nonStriker) {
                 $this->fail('non_striker_id', 'Striker and non-striker cannot be the same player.');
             }
@@ -167,11 +174,23 @@ class BallRecorder
     }
 
     /** Start the other innings. */
-    public function switchInnings(Matches $match): int
+    /**
+     * Move to an innings. With $to, idempotent: a double click (or a second
+     * scorer) lands on the same innings instead of flipping back. Without it,
+     * the old toggle.
+     */
+    public function switchInnings(Matches $match, ?int $to = null): int
     {
-        $next = DB::transaction(function () use ($match) {
+        $from = (int) $match->current_innings;
+        $next = DB::transaction(function () use ($match, $to) {
             $match = Matches::whereKey($match->id)->lockForUpdate()->firstOrFail();
-            $next = (int) $match->current_innings === 2 ? 1 : 2;
+            if ($match->scoring_ended_at) {
+                $this->fail('innings_complete', 'The match has been ended. Reopen scoring to change innings.');
+            }
+            $next = in_array($to, [1, 2], true) ? $to : ((int) $match->current_innings === 2 ? 1 : 2);
+            if ($next === (int) $match->current_innings) {
+                return $next;
+            }
 
             $match->forceFill([
                 'current_innings' => $next,
@@ -184,7 +203,8 @@ class BallRecorder
             return $next;
         });
 
-        $this->announce($match);
+        $this->announce($match, fn (Matches $m) => $next === 2 && $from !== 2
+            ? app(LedQueueService::class)->onInningsBreak($m) : null);
 
         return $next;
     }

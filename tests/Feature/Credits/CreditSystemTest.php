@@ -71,6 +71,24 @@ class CreditSystemTest extends TestCase
     // ---- the ledger ---------------------------------------------------------
 
     #[Test]
+    public function the_header_balance_and_poster_cost_are_served_and_follow_spending(): void
+    {
+        $this->price(CreditFeature::POSTER, 3);
+        $this->fund(10);
+
+        $this->getJson(route('admin.credits.balance'))->assertOk()
+            ->assertJson(['show' => true, 'balance' => 10, 'label' => '10 Credits', 'charges' => true, 'poster_cost' => 3, 'poster_label' => '3 Credits']);
+
+        $this->credits->charge($this->org, CreditFeature::POSTER, null, 'k1');
+        $this->getJson(route('admin.credits.balance'))->assertJson(['balance' => 7]);
+
+        // A package-plan organization sees no pill.
+        $this->org->update(['billing_mode' => 'package']);
+        $this->getJson(route('admin.credits.balance'))->assertJson(['show' => false]);
+        $this->get(route('admin.dashboard'))->assertOk()->assertSee(route('admin.credits.balance'), false);
+    }
+
+    #[Test]
     public function the_wallet_opens_for_accounts_without_an_organization(): void
     {
         // Superadmin belongs to no organization: lands on one, can switch.

@@ -191,6 +191,88 @@ class LiveScoringTest extends TestCase
     }
 
     #[Test]
+    public function the_scorer_ends_an_innings_early_and_a_double_click_does_not_flip_it_back(): void
+    {
+        $this->match->update(['overs' => 20]);
+        $this->toss($this->lions, 'bat');
+        foreach (range(1, 6) as $_) {
+            $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => 2])->assertOk();
+        }
+
+        foreach ([1, 2] as $_) {
+            $this->actingAs($this->scorer)->post(route('admin.matches.switchInnings', $this->match), ['to' => 2])->assertRedirect();
+        }
+        $this->assertSame(2, (int) $this->match->fresh()->current_innings);
+
+        $state = $this->state();
+        $this->assertTrue($state['inningsBreak']);
+        $this->assertSame(13, $state['target']);
+        $html = $this->actingAs($this->scorer)->get(route('admin.matches.show', $this->match))->assertOk()->getContent();
+        $this->assertStringContainsString('Innings break', $html);
+        $this->assertStringContainsString('need 13 to win', $html);
+
+        // The chase starts with the first ball; the break is over.
+        $this->ball(['tigers', 1], ['tigers', 2], ['lions', 1], ['runs' => 1])->assertOk();
+        $this->assertFalse($this->state()['inningsBreak']);
+    }
+
+    #[Test]
+    public function the_scorer_ends_or_abandons_a_match_and_can_reopen_it(): void
+    {
+        $this->match->update(['overs' => 20]);
+        $this->toss($this->lions, 'bat');
+        foreach (range(1, 3) as $_) {
+            $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => 4])->assertOk();
+        }
+
+        // Rain: abandoned, no result, nothing more can be scored.
+        $this->actingAs($this->scorer)->post(route('admin.matches.endMatch', $this->match), ['outcome' => 'abandoned', 'reason' => 'Rain'])
+            ->assertRedirect()->assertSessionHas('success');
+        $match = $this->match->fresh();
+        $this->assertNotNull($match->scoring_ended_at);
+        $this->assertSame('completed', $match->status);
+        $this->assertSame('no_result', $match->result->result_type);
+        $this->assertSame('Match abandoned (Rain) — no result', $match->result->result_summary);
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertStatus(422);
+        $this->assertTrue($this->state()['matchComplete']);
+
+        // Reopen, then end it with a winner chosen by the scorer.
+        $this->actingAs($this->scorer)->post(route('admin.matches.reopenScoring', $this->match))->assertRedirect();
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertOk();
+        $this->actingAs($this->scorer)->post(route('admin.matches.endMatch', $this->match), ['outcome' => 'team_a'])->assertRedirect();
+        $result = $this->match->fresh()->result;
+        $this->assertSame($this->lions->id, (int) $result->winner_team_id);
+        $this->assertSame('runs', $result->result_type);
+        $this->assertSame(12, (int) $result->margin);
+
+        // "Use the scored result" needs a finished chase.
+        $this->actingAs($this->scorer)->post(route('admin.matches.reopenScoring', $this->match));
+        $this->actingAs($this->scorer)->post(route('admin.matches.endMatch', $this->match), ['outcome' => 'auto'])->assertSessionHas('error');
+    }
+
+    #[Test]
+    public function after_an_over_the_scorer_picks_a_new_bowler_who_did_not_bowl_it(): void
+    {
+        $this->match->update(['overs' => 5]);
+        $this->toss($this->lions, 'bat');
+        foreach (range(1, 6) as $_) {
+            $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertOk();
+        }
+
+        $state = $this->state();
+        $this->assertTrue($state['overComplete']);
+        $this->assertNull($state['currentBowler'], 'Nobody is guessed for the new over');
+        $this->assertSame($this->squad['tigers'][1], $state['lastOverBowler']);
+
+        // Same bowler again: refused. A different one: fine, and mid-over he stays.
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertStatus(422)->assertJsonValidationErrors('bowler_id');
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 2])->assertOk();
+        $state = $this->state();
+        $this->assertFalse($state['overComplete']);
+        $this->assertSame($this->squad['tigers'][2], $state['currentBowler']);
+    }
+
+    #[Test]
     public function the_scoring_page_renders_before_during_and_after_an_innings(): void
     {
         $this->actingAs($this->scorer)->get(route('admin.matches.show', $this->match))->assertOk();

@@ -471,11 +471,15 @@
 
         fetchScores();
 
-        window.pushChannel?.('match.' + matchId)?.listen('.score.updated', e => { if (e.version > lastVersion) fetchScores(); });
-        const conn = window.Echo?.connector?.pusher?.connection;
-        conn?.bind('connected', () => { pushOk = true; fetchScores(); });
-        conn?.bind('unavailable', () => { pushOk = false; });
-        conn?.bind('disconnected', () => { pushOk = false; });
+        try {
+            window.pushChannel?.('match.' + matchId)?.listen('.score.updated', e => { if (e.version > lastVersion) fetchScores(); });
+            const conn = window.Echo?.connector?.pusher?.connection;
+            conn?.bind('connected', () => { pushOk = true; fetchScores(); });
+            conn?.bind('unavailable', () => { pushOk = false; });
+            conn?.bind('disconnected', () => { pushOk = false; });
+        } catch (e) {
+            console.warn('[ticker] live updates unavailable, polling only:', e);
+        }
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchScores(); });
 
         // Keyboard shortcuts

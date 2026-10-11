@@ -94,9 +94,12 @@ class Matches extends Model
         'non_striker_id',
         'current_bowler_id',
         'score_version',
+        'scoring_ended_at',
+        'end_reason',
     ];
 
     protected $casts = [
+        'scoring_ended_at' => 'datetime',
         'current_innings' => 'integer',
         'score_version' => 'integer',
         'match_date' => 'date',

@@ -274,9 +274,7 @@ class RolesService
             'organization.create',
             'organization.edit',
             'organization.delete',
-            // Platform controls: building templates stays with Superadmin.
-            // Admins run the credit system alongside Superadmin.
-            'template.manage',
+            // Admins run the credit system and edit their tournaments' designs.
         ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);
@@ -326,6 +324,8 @@ class RolesService
             'image-templates.edit',
             // Posters from the tournament's templates
             'template.generate',
+            // ...and edit their tournaments' designs, ready-made ones included
+            'template.manage',
             // Scoring and the LED wall for their matches
             'scoring.update',
             'scoring.quick_add_player',
@@ -391,6 +391,7 @@ class RolesService
             'player.view',
             'player.edit',
             'template.generate',
+            'template.manage',
             'auctions.view',
             'auction.view',
             'auction.create',

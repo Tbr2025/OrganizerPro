@@ -42,6 +42,7 @@
             class="w-full items-center justify-between gap-4 px-5 py-1 shadow-theme-md lg:flex lg:justify-end lg:px-0 lg:shadow-none">
             <div class="flex items-center gap-1">
 
+                @include('backend.layouts.partials.credits-pill')
                 @include('backend.layouts.partials.notifications')
                 @php echo ld_apply_filters('dark_mode_toggler_before_button', ''); @endphp
                 <button id="darkModeToggle"

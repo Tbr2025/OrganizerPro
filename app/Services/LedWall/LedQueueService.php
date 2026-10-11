@@ -34,6 +34,15 @@ class LedQueueService
 {
     private const EVENT_PANELS = ['wicket', 'boundary', 'last_over', 'innings_summary', 'result'];
 
+    /** Between innings the wall rotates the first innings' story, not the live strip. */
+    private const BREAK_PANELS = ['innings_summary', 'top_batting', 'top_bowling', 'tournament_batting', 'tournament_bowling', 'sponsor'];
+
+    /** After the match: the result, then who starred. */
+    private const AFTER_PANELS = ['result', 'top_batting', 'top_bowling', 'sponsor'];
+
+    /** Seconds of live score between break / after-match panels. */
+    private const BREAK_GAP_SECONDS = 4;
+
     public function __construct(private readonly WallState $wall) {}
 
     /** The item on screen now (null = live scoreboard), advancing the queue if due. */
@@ -276,7 +285,9 @@ class LedQueueService
             return false;
         }
 
-        $rotation = (int) $display->setting('rotation_seconds');
+        $rotation = in_array($this->phase($display), ['innings_break', 'completed'], true)
+            ? self::BREAK_GAP_SECONDS
+            : (int) $display->setting('rotation_seconds');
         $lastEnded = $display->queue()->max('ends_at');
         $lastBall = $display->match_id ? Ball::where('match_id', $display->match_id)->max('created_at') : null;
         $since = collect([$lastEnded, $lastBall, $display->updated_at])->filter()->map(fn ($t) => Carbon::parse($t))->max();
@@ -286,7 +297,11 @@ class LedQueueService
 
     private function queueFiller(LedDisplay $display, CarbonInterface $now): ?LedQueueItem
     {
-        $fillers = array_values(array_intersect(LedDisplay::FILLERS, (array) $display->setting('fillers')));
+        $fillers = match ($this->phase($display)) {
+            'innings_break' => self::BREAK_PANELS,
+            'completed' => self::AFTER_PANELS,
+            default => array_values(array_intersect(LedDisplay::FILLERS, (array) $display->setting('fillers'))),
+        };
         if ($fillers === []) {
             return null;
         }
@@ -326,11 +341,59 @@ class LedQueueService
             'batter_card' => $state && $state['striker'] ? ['batter' => $state['striker']] : null,
             'bowler_card' => $state && $state['bowler'] ? ['bowler' => $state['bowler']] : null,
             'last_over' => $state && $state['last_over'] ? ['over' => $state['last_over']] : null,
-            'innings_summary' => $state ? ['innings' => $state['innings'][$state['current_innings']] ?? null] : null,
+            'innings_summary' => $state ? ['innings' => $state['innings'][$this->summaryInnings($state)] ?? null] : null,
             'result' => $state && $state['result'] ? ['result' => $state['result']] : null,
             // Live panels draw from the state the screen already holds.
             default => [],
         };
+    }
+
+    /** prematch | live | innings_break | completed | cancelled — from the wall's own state. */
+    private function phase(LedDisplay $display): ?string
+    {
+        return $display->match ? ($this->wall->forMatch($display->match)['status'] ?? null) : null;
+    }
+
+    /** The innings worth summarising: the one just finished while the next has not begun. */
+    private function summaryInnings(array $state): int
+    {
+        $n = (int) $state['current_innings'];
+        $current = $state['innings'][$n] ?? null;
+
+        return $n === 2 && ! ($current['batted'] ?? false) ? 1 : $n;
+    }
+
+    /** The scorer ended the innings: put its summary up first thing in the break. */
+    public function onInningsBreak(Matches $match): void
+    {
+        $this->queueForMatch($match, 'innings_summary', 'Innings break');
+    }
+
+    /** The scorer ended the match: the result goes up. */
+    public function onMatchEnd(Matches $match): void
+    {
+        $this->queueForMatch($match, 'result', 'Result');
+    }
+
+    private function queueForMatch(Matches $match, string $panel, string $label): void
+    {
+        foreach (LedDisplay::where('match_id', $match->id)->whereNull('revoked_at')->get() as $display) {
+            DB::transaction(function () use ($display, $panel, $label) {
+                $display = LedDisplay::whereKey($display->id)->lockForUpdate()->firstOrFail();
+                $payload = $this->panelPayload($display, $panel);
+                if ($payload === null) {
+                    return;
+                }
+                // A filler on screen gives way.
+                $display->queue()->where('status', 'showing')->where('source', 'auto')
+                    ->whereNotIn('panel', self::EVENT_PANELS)->update(['status' => 'shown', 'ends_at' => now()]);
+                $this->add($display, $panel, $payload, $label, [
+                    'show_seconds' => (int) $display->setting('event_seconds'),
+                    'status' => $display->setting('require_approval') ? 'held' : 'queued',
+                ]);
+            });
+            $this->changed($display);
+        }
     }
 
     /**

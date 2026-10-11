@@ -58,6 +58,72 @@ class LedWallTest extends TestCase
     }
 
     #[Test]
+    public function presets_are_saved_applied_and_reused_by_new_matches(): void
+    {
+        $this->settings(['rotation_seconds' => 45, 'theme' => 'royal']);
+
+        // The scorer's organization saves a preset and makes it the default.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.presets.store', $this->display), ['name' => 'Final night', 'is_default' => true])->assertOk();
+        $preset = \App\Models\LedPreset::where('name', 'Final night')->firstOrFail();
+        $this->assertSame($this->tournament->organization_id, $preset->organization_id);
+        $this->assertSame(45, $preset->settings['rotation_seconds']);
+
+        // Only Super Admin saves a preset for everyone.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.presets.store', $this->display), ['name' => 'Global', 'platform' => true])->assertForbidden();
+
+        // Applying puts the preset on the wall.
+        $this->settings(['rotation_seconds' => 10, 'theme' => 'dark']);
+        $this->actingAs($this->scorer)->postJson(route('admin.led.presets.apply', [$this->display, $preset]))->assertOk();
+        $this->assertSame('royal', $this->display->fresh()->setting('theme'));
+
+        // A new match in the same tournament starts with this tournament's last setup.
+        $next = \App\Models\Matches::create([
+            'tournament_id' => $this->tournament->id, 'name' => 'Second', 'slug' => 'second-' . uniqid(),
+            'team_a_id' => $this->lions->id, 'team_b_id' => $this->tigers->id, 'status' => 'upcoming', 'overs' => 5,
+        ]);
+        $this->actingAs($this->scorer)->get(route('admin.matches.led', $next))->assertOk()->assertSee('Final night');
+        $this->assertSame(45, LedDisplay::where('match_id', $next->id)->firstOrFail()->setting('rotation_seconds'));
+
+        // "Use for every match in this tournament" updates the other walls.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.settings', $this->display), array_merge(LedDisplay::DEFAULT_SETTINGS, [
+            'rotation_seconds' => 30, 'theme' => 'dark', 'apply_to_tournament' => true,
+        ]))->assertOk()->assertJson(['others' => 1]);
+        $this->assertSame(30, LedDisplay::where('match_id', $next->id)->firstOrFail()->setting('rotation_seconds'));
+    }
+
+    #[Test]
+    public function the_innings_break_rotates_the_first_innings_story_and_the_end_shows_the_result(): void
+    {
+        $this->match->update(['overs' => 20]);
+        $this->settings(['air_delay_seconds' => 0]);
+        foreach ([4, 6, 1] as $r) {
+            $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => $r])->assertOk();
+        }
+
+        $this->actingAs($this->scorer)->post(route('admin.matches.switchInnings', $this->match), ['to' => 2])->assertRedirect();
+        $summary = $this->queued('innings_summary');
+        $this->assertNotNull($summary, 'Ending the innings puts its summary up');
+        $this->assertSame(11, $summary->payload['innings']['runs'], 'The finished innings, not the empty chase');
+
+        $this->assertSame('innings_break', $this->wall()['state']['status']);
+
+        // The boundaries already queued air first, then the summary, then the
+        // break keeps rotating its own panels (never the empty chase).
+        $seen = collect(range(1, 14))->map(function () { $this->travel(6)->seconds(); return $this->wall()['now']['panel']; });
+        $this->assertContains('innings_summary', $seen, 'Seen: ' . $seen->implode(','));
+        $this->assertTrue($seen->contains(fn ($p) => in_array($p, ['top_batting', 'top_bowling'], true)), 'Break panels rotate: ' . $seen->implode(','));
+        $this->assertNotContains('partnership', $seen);
+
+        // Abandoned: the result goes up.
+        $this->actingAs($this->scorer)->post(route('admin.matches.endMatch', $this->match), ['outcome' => 'abandoned', 'reason' => 'Rain']);
+        $this->assertNotNull($this->queued('result'));
+        $this->travel(60)->seconds();
+        $w = $this->wall();
+        $this->assertSame('completed', $w['state']['status']);
+        $this->assertSame('Match abandoned (Rain) — no result', $w['state']['result']['text']);
+    }
+
+    #[Test]
     public function the_wall_opens_by_its_token_without_a_login_and_shows_the_score(): void
     {
         $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => 2])->assertOk();

@@ -938,6 +938,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/reorder', [MatchesController::class, 'reorder'])->name('matches.reorder');
     Route::get('/matches/{match}/state', [MatchesController::class, 'getState'])->name('matches.state');
     Route::post('/matches/{match}/switch-innings', [MatchesController::class, 'switchInnings'])->name('matches.switchInnings');
+    Route::post('/matches/{match}/end-match', [MatchesController::class, 'endMatch'])->name('matches.endMatch');
+    Route::post('/matches/{match}/reopen-scoring', [MatchesController::class, 'reopenScoring'])->name('matches.reopenScoring');
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
     Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
     Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');
@@ -979,6 +981,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
 
     // Credits — an organization's wallet and the unlock confirm page
     Route::get('/credits', [\App\Http\Controllers\Backend\CreditController::class, 'index'])->name('credits.index');
+    Route::get('/credits/balance', [\App\Http\Controllers\Backend\CreditController::class, 'balance'])->name('credits.balance');
     Route::post('/credits/topup', [\App\Http\Controllers\Backend\CreditController::class, 'requestTopup'])->name('credits.topup');
     Route::get('/credits/unlock', [\App\Http\Controllers\Backend\CreditController::class, 'confirmUnlock'])->name('credits.unlock');
     Route::post('/credits/unlock', [\App\Http\Controllers\Backend\CreditController::class, 'unlock'])->name('credits.unlock.store');
@@ -1005,6 +1008,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/led/{display}/control/{control}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'control'])
         ->whereIn('control', ['live', 'mode', 'freeze'])->name('led.control');
     Route::post('/led/{display}/settings', [\App\Http\Controllers\Backend\LedConsoleController::class, 'settings'])->name('led.settings');
+    Route::post('/led/{display}/presets', [\App\Http\Controllers\Backend\LedConsoleController::class, 'savePreset'])->name('led.presets.store');
+    Route::post('/led/{display}/presets/{preset}/apply', [\App\Http\Controllers\Backend\LedConsoleController::class, 'applyPreset'])->name('led.presets.apply');
+    Route::delete('/led/{display}/presets/{preset}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'deletePreset'])->name('led.presets.destroy');
     Route::post('/led/{display}/regenerate', [\App\Http\Controllers\Backend\LedConsoleController::class, 'regenerate'])->name('led.regenerate');
 
     Route::resource('appreciations', MatchAppreciationController::class)->only(['index']);

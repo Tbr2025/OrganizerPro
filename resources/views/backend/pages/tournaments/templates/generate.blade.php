@@ -1456,6 +1456,8 @@
                         Download
                     </button>
                 </div>
+                {{-- What Generate & Save will spend, from the same balance as the header pill. --}}
+                <p id="posterCostTip" class="hidden px-4 pb-3 -mt-1 text-xs text-amber-700 dark:text-amber-300"></p>
             </div>
         </div>
     </div>
@@ -3305,6 +3307,18 @@ function schedulePreviewRefresh(delay = 600) {
     }, delay);
 }
 
+function showPosterCostTip(c) {
+    const tip = document.getElementById('posterCostTip');
+    if (!tip || !c || !c.show || !c.charges || !c.poster_cost) { tip?.classList.add('hidden'); return; }
+    const short = c.balance < c.poster_cost;
+    tip.textContent = short
+        ? `Generate & Save costs ${c.poster_label} — your balance is ${c.label}. Top up on the Credits page first. Preview is free.`
+        : `Generate & Save uses ${c.poster_label} per poster (balance ${c.label}). Preview and download of a saved poster are free.`;
+    tip.className = 'px-4 pb-3 -mt-1 text-xs ' + (short ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-amber-700 dark:text-amber-300');
+}
+window.addEventListener('credits:loaded', e => showPosterCostTip(e.detail));
+if (window.creditBalance) showPosterCostTip(window.creditBalance);
+
 function generatePreview(saveMode = false, live = false) {
     const data = getSelectedData();
 
@@ -3491,6 +3505,8 @@ function generatePreview(saveMode = false, live = false) {
             if (result.poster_id && result.download_url) {
                 addPosterToGallery(result);
             }
+            // Something was spent: the header pill and the tip re-read the balance.
+            if (saveMode && !live) window.dispatchEvent(new Event('credits:changed'));
             // There is now something on screen worth keeping up to date.
             livePreviewArmed = true;
         } else if (live) {

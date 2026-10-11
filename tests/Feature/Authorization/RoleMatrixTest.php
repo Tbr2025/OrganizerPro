@@ -48,7 +48,7 @@ class RoleMatrixTest extends TestCase
         $user->assignRole($role);
 
         // An Organizer only reaches tournaments they are assigned to.
-        if ($role === 'Organizer') {
+        if (in_array($role, ['Organizer', 'Auction Organizer'], true)) {
             $this->tournament->organizers()->attach($user->id);
         }
 
@@ -80,9 +80,12 @@ class RoleMatrixTest extends TestCase
     {
         return [
             'Superadmin' => ['Superadmin', 200],
-            'Admin' => ['Admin', 403],
-            'Organizer' => ['Organizer', 403],
-            'Auction Organizer' => ['Auction Organizer', 403],
+            // They edit their own tournaments' designs, ready-made ones included.
+            'Admin' => ['Admin', 200],
+            'Organizer' => ['Organizer', 200],
+            'Auction Organizer' => ['Auction Organizer', 200],
+            'Team Manager' => ['Team Manager', 302], // sent to their own dashboard
+            'Scorer' => ['Scorer', 403],
         ];
     }
 

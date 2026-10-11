@@ -28,6 +28,18 @@
         </div>
     </div>
 
+    {{-- How it works: short, so an operator new to the console knows what each control does. --}}
+    <div class="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 text-sm text-indigo-900 dark:text-indigo-100">
+        <p class="font-semibold mb-1">{{ __('How this works') }}</p>
+        <ul class="list-disc ml-5 space-y-0.5">
+            <li>{{ __('The big screen shows the wall link (Open wall). The preview below is exactly what that screen shows, and every change here reaches it within 1–2 seconds.') }}</li>
+            <li><strong>{{ __('Auto') }}</strong> — {{ __('the wall changes screens by itself: wickets, boundaries, end of over, innings break and result, plus your chosen stats between balls. The live score always comes back.') }}</li>
+            <li><strong>{{ __('Manual') }}</strong> — {{ __('the wall stays on the live score. Nothing changes until you press a Show now button.') }}</li>
+            <li><strong>{{ __('Show now') }}</strong> — {{ __('puts that screen up straight away, then goes back to the live score.') }}</li>
+            <li><strong>{{ __('Freeze') }}</strong> — {{ __('keeps the current screen up until you press Unfreeze.') }} <strong>{{ __('Back to live score') }}</strong> — {{ __('clears whatever is showing.') }}</li>
+        </ul>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {{-- Now showing + preview --}}
         <div class="lg:col-span-2 space-y-4">
@@ -51,7 +63,8 @@
             </div>
 
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                <h3 class="font-semibold text-gray-800 dark:text-white mb-2">{{ __('Show now') }}</h3>
+                <h3 class="font-semibold text-gray-800 dark:text-white">{{ __('Show now') }}</h3>
+                <p class="text-xs text-gray-500 mb-3">{{ __('Tap a screen to put it on the wall now. It shows for the "Match moment time" below, then the live score returns.') }}</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach($panels as $key => $label)
                         <button type="button" onclick="led.push(@js($key))" class="px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-100">{{ $label }}</button>
@@ -76,7 +89,7 @@
     </div>
 
     {{-- Settings --}}
-    <form id="settingsForm" class="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm" onsubmit="led.saveSettings(event)">
+    <form id="settingsForm" class="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 grid grid-cols-2 md:grid-cols-4 gap-4 items-end text-sm" onsubmit="led.saveSettings(event)">
         <h3 class="col-span-full font-semibold text-gray-800 dark:text-white">{{ __('Settings') }}</h3>
         <label class="flex flex-col gap-1">{{ __('Score shows between panels (s)') }}<input name="rotation_seconds" type="number" min="5" max="300" class="form-control"></label>
         <label class="flex flex-col gap-1">{{ __('Filler panel time (s)') }}<input name="panel_seconds" type="number" min="3" max="60" class="form-control"></label>
@@ -99,8 +112,40 @@
                 <label class="flex items-center gap-2"><input type="checkbox" name="fillers[]" value="{{ $f }}"> {{ $panels[$f] ?? $f }}</label>
             @endforeach
         </fieldset>
+        <label class="col-span-full flex items-center gap-2"><input name="apply_to_tournament" type="checkbox" value="1"> {{ __('Use these settings for every match in this tournament') }}</label>
         <div class="col-span-full"><button class="px-4 py-2 rounded-lg bg-indigo-600 text-white">{{ __('Save settings') }}</button> <span id="savedNote" class="text-green-600 hidden">{{ __('Saved') }}</span></div>
     </form>
+
+    {{-- Presets: saved setups reused across matches and tournaments. --}}
+    <div class="mt-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-sm">
+        <h3 class="font-semibold text-gray-800 dark:text-white">{{ __('Presets') }}</h3>
+        <p class="text-xs text-gray-500 mb-3">
+            {{ __('A preset is a saved setup — timings, stats to rotate and theme. Apply one to this match, or save the settings above as a preset to reuse on other matches and tournaments. New matches start with the tournament\'s last setup, or the default preset.') }}
+            @if($canPlatformPresets) {{ __('Presets marked "for everyone" are offered to every organization.') }} @endif
+        </p>
+        <div class="flex flex-wrap items-end gap-2">
+            <label class="flex flex-col gap-1">{{ __('Preset') }}
+                <select id="presetSelect" class="form-control min-w-[220px]">
+                    @forelse($presets as $p)
+                        <option value="{{ $p->id }}" data-platform="{{ $p->isPlatform() ? 1 : 0 }}">{{ $p->name }}{{ $p->isPlatform() ? ' · ' . __('for everyone') : '' }}{{ $p->is_default ? ' · ' . __('default') : '' }}</option>
+                    @empty
+                        <option value="">{{ __('No presets yet') }}</option>
+                    @endforelse
+                </select>
+            </label>
+            <button type="button" onclick="led.applyPreset()" class="px-3 py-2 rounded-lg bg-indigo-600 text-white" @disabled($presets->isEmpty())>{{ __('Apply to this match') }}</button>
+            <button type="button" onclick="led.deletePreset()" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600" @disabled($presets->isEmpty())>{{ __('Delete') }}</button>
+            <span class="mx-2 h-8 w-px bg-gray-200 dark:bg-gray-700"></span>
+            <label class="flex flex-col gap-1">{{ __('Save current settings as') }}
+                <input id="presetName" type="text" maxlength="80" class="form-control" placeholder="{{ __('e.g. Final night') }}">
+            </label>
+            <label class="flex items-center gap-2"><input id="presetDefault" type="checkbox"> {{ __('Default for new matches') }}</label>
+            @if($canPlatformPresets)
+                <label class="flex items-center gap-2"><input id="presetPlatform" type="checkbox"> {{ __('For everyone') }}</label>
+            @endif
+            <button type="button" onclick="led.savePreset()" class="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 dark:border-indigo-700 dark:text-indigo-300">{{ __('Save preset') }}</button>
+        </div>
+    </div>
 </div>
 @endsection
 
@@ -166,8 +211,14 @@ const led = (() => {
         }
     }
 
-    window.pushChannel?.('led.{{ $display->id }}')?.listen('.led.changed', load);
-    window.pushChannel?.('match.{{ $match->id }}')?.listen('.score.updated', load);
+    // Push only speeds things up; if it fails the 2 s poll carries on, and the
+    // buttons below must never depend on it.
+    try {
+        window.pushChannel?.('led.{{ $display->id }}')?.listen('.led.changed', load);
+        window.pushChannel?.('match.{{ $match->id }}')?.listen('.score.updated', load);
+    } catch (e) {
+        console.warn('[led] live updates unavailable, polling only:', e);
+    }
     load();
 
     return {
@@ -183,8 +234,34 @@ const led = (() => {
                 event_seconds: +f.elements.event_seconds.value, air_delay_seconds: +f.elements.air_delay_seconds.value,
                 require_approval: f.elements.require_approval.checked, reduced_motion: f.elements.reduced_motion.checked,
                 theme: f.elements.theme.value, fillers: [...f.querySelectorAll('input[name="fillers[]"]:checked')].map(c => c.value),
+                apply_to_tournament: f.elements.apply_to_tournament.checked,
             };
-            post('/settings', body).then(j => { if (j.ok) { const n = document.getElementById('savedNote'); n.classList.remove('hidden'); setTimeout(() => n.classList.add('hidden'), 2000); } });
+            post('/settings', body).then(j => {
+                if (!j.ok) return;
+                const n = document.getElementById('savedNote');
+                n.textContent = j.others ? `Saved — also applied to ${j.others} other match${j.others === 1 ? '' : 'es'}` : 'Saved';
+                n.classList.remove('hidden'); setTimeout(() => n.classList.add('hidden'), 3000);
+            });
+        },
+        applyPreset() {
+            const id = document.getElementById('presetSelect').value;
+            if (!id) return;
+            // The form re-reads the wall's settings after the preset lands.
+            post(`/presets/${id}/apply`).then(j => { if (j.ok) { settingsLoaded = false; load(); } });
+        },
+        deletePreset() {
+            const sel = document.getElementById('presetSelect');
+            if (!sel.value || !confirm('Delete the preset "' + sel.selectedOptions[0].textContent.trim() + '"?')) return;
+            fetch(base + '/presets/' + sel.value, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf } })
+                .then(r => r.ok ? location.reload() : r.json().then(j => alert(j.message || 'That did not work.')));
+        },
+        savePreset() {
+            const name = document.getElementById('presetName').value.trim();
+            if (!name) { alert('Give the preset a name.'); return; }
+            post('/presets', {
+                name, is_default: document.getElementById('presetDefault').checked,
+                platform: !!document.getElementById('presetPlatform')?.checked,
+            }).then(j => { if (j.ok) location.reload(); });
         },
     };
 })();

@@ -181,6 +181,7 @@ class WallState
     {
         $winner = $r['winner_team_id'] ? ($teams[$r['winner_team_id']] ?? null) : null;
         $text = match ($r['type']) {
+            'manual' => $r['text'],
             'tie' => 'Match tied',
             'wickets' => ($winner['name'] ?? 'Winner') . " won by {$r['margin']} " . ($r['margin'] === 1 ? 'wicket' : 'wickets'),
             default => ($winner['name'] ?? 'Winner') . " won by {$r['margin']} " . ($r['margin'] === 1 ? 'run' : 'runs'),

@@ -83,7 +83,8 @@ class MatchStateService
             : null;
 
         // Innings 1 is over once it is complete OR the chase has started.
-        $innings[1]['complete'] = $innings[1]['complete'] || $innings[2]['balls_bowled'] > 0;
+        // ...or the scorer has ended it and moved on to the chase.
+        $innings[1]['complete'] = $innings[1]['complete'] || $innings[2]['balls_bowled'] > 0 || (int) $match->current_innings === 2;
         if ($target !== null && $innings[2]['runs'] >= $target) {
             $innings[2]['complete'] = true;
         }
@@ -104,6 +105,23 @@ class MatchStateService
         }
 
         $result = $innings[2]['complete'] ? $this->result($innings, $target) : null;
+
+        // Ended by the scorer (shortened, abandoned, called off): their outcome
+        // stands, and the innings in play are closed.
+        if ($match->scoring_ended_at) {
+            $result ??= [
+                'winner_team_id' => $match->winner_team_id ? (int) $match->winner_team_id : null,
+                'type' => 'manual',
+                'margin' => 0,
+                'text' => (string) ($match->end_reason ?: 'Match ended'),
+            ];
+            $innings[1]['complete'] = $innings[2]['complete'] = true;
+        }
+
+        // Once decided there is nothing left to chase.
+        if ($result !== null) {
+            $chase = null;
+        }
 
         return [
             'match_id' => (int) $match->id,
@@ -300,16 +318,11 @@ class MatchStateService
         }
         unset($b);
 
-        // Bowler for the next ball: the same one mid-over; after an over, the
-        // one who bowled the over before (the likely change back), which the
-        // scorer confirms.
+        // Bowler for the next ball: the same one mid-over. After an over the
+        // scorer picks the next bowler, so nothing is guessed for them.
         $currentBowler = null;
-        if ($lastBall) {
+        if ($lastBall && ! $overEnded) {
             $currentBowler = (int) $lastBall->bowler_id;
-            if ($overEnded) {
-                $previous = $overs[intdiv($legal, 6) - 1]['bowler_id'] ?? null;
-                $currentBowler = $previous !== null && $previous !== (int) $lastBall->bowler_id ? $previous : null;
-            }
         }
 
         $complete = $legal >= $maxBalls || $wickets >= $wicketLimit;

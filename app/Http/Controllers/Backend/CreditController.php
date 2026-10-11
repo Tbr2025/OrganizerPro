@@ -51,6 +51,32 @@ class CreditController extends Controller
         ]);
     }
 
+    /**
+     * The balance for the header pill and the cost tips beside paid actions
+     * (Generate & Save). Read on page load and again after anything is spent.
+     */
+    public function balance(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $user = Auth::user();
+        $org = $user->organization_id ? Organization::find($user->organization_id) : null;
+        if (! $org || ! $org->usesCredits()) {
+            return response()->json(['show' => false, 'manage_url' => $user->can('credits.manage') ? route('admin.credits.manage') : null]);
+        }
+
+        $balance = $this->credits->balance($org);
+        $poster = $this->credits->quote($org, CreditFeature::POSTER);
+
+        return response()->json([
+            'show' => true,
+            'balance' => $balance,
+            'label' => $this->credits->format($balance),
+            'charges' => $this->credits->charges($org),
+            'poster_cost' => $poster['cost'],
+            'poster_label' => $poster['cost'] > 0 ? $this->credits->format($poster['cost']) : null,
+            'url' => route('admin.credits.index'),
+        ]);
+    }
+
     public function requestTopup(Request $request): RedirectResponse
     {
         $org = $this->organization($request);

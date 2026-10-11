@@ -393,6 +393,9 @@
             </div>
             <div class="p-6">
                 <!-- Select Batsmen & Bowler -->
+                <div id="overAlert" class="mb-4 p-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-xl {{ ($overComplete ?? false) ? '' : 'hidden' }}">
+                    <p class="text-blue-800 dark:text-blue-200 text-sm font-medium">Over complete — choose the next bowler. The bowler who just bowled cannot bowl this over.</p>
+                </div>
                 <div id="wicketAlert" class="mb-4 p-3 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-xl {{ ($needsNewBatsman ?? false) ? '' : 'hidden' }}">
                     <p class="text-yellow-800 dark:text-yellow-200 text-sm font-medium flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +422,7 @@
                         1st Innings Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $innings1Stats['runs'] ?? 0 }}/{{ $innings1Stats['wickets'] ?? 0 }} ({{ $innings1Stats['overs'] ?? '0.0' }} ov)
                     </p>
                     <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST" class="mt-3">
-                        @csrf
+                        @csrf <input type="hidden" name="to" value="2">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
@@ -456,21 +459,81 @@
                 </div>
                 @endif
 
-                <!-- Switch Innings Button (manual) -->
-                <div class="mb-4 flex items-center justify-between">
-                    <span class="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        Currently scoring: <strong class="text-indigo-600">{{ $battingTeam?->name ?? 'Team' }}</strong> batting
-                    </span>
-                    <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST">
-                        @csrf
-                        <button type="submit" class="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-                            </svg>
-                            Switch Innings
-                        </button>
-                    </form>
-                </div>
+                {{-- Innings and match controls. Explicit targets (to=2 / to=1): a
+                     double click no longer flips the innings back. --}}
+                @php
+                    $ended = (bool) $match->scoring_ended_at;
+                    $inn = (int) ($currentInnings ?? 1);
+                @endphp
+                @if($ended)
+                    <div class="mb-4 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
+                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">Match ended — {{ $match->end_reason }}</p>
+                        <p class="text-xs text-gray-500 mt-1">No more balls can be scored. Reopen scoring if it was ended by mistake.</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <a href="{{ route('admin.matches.summary.edit', $match) }}" class="px-3 py-2 text-sm rounded-lg bg-purple-600 text-white">View Summary &amp; Poster</a>
+                            <form method="POST" action="{{ route('admin.matches.reopenScoring', $match) }}" onsubmit="return confirm('Reopen scoring for this match?')">@csrf
+                                <button class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600">Reopen scoring</button>
+                            </form>
+                        </div>
+                    </div>
+                @else
+                    @if($inningsBreak ?? false)
+                        <div class="mb-4 p-4 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
+                            <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Innings break — {{ $battingTeam?->name }} need {{ $target }} to win.</p>
+                            <p class="text-xs text-amber-800 dark:text-amber-200 mt-1">The LED wall is showing the innings summary and top performers. Pick the openers and bowler below, then score the first ball to start the chase.</p>
+                        </div>
+                    @endif
+                    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-sm font-medium text-gray-600 dark:text-gray-400">
+                            {{ $inn === 1 ? '1st' : '2nd' }} innings: <strong class="text-indigo-600">{{ $battingTeam?->name ?? 'Team' }}</strong> batting
+                        </span>
+                        <div class="flex flex-wrap gap-2">
+                            @if($inn === 1)
+                                <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST"
+                                      onsubmit="return confirm('End the 1st innings now and start the innings break?')">
+                                    @csrf <input type="hidden" name="to" value="2">
+                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">End 1st innings</button>
+                                </form>
+                            @elseif($inningsBreak ?? false)
+                                <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST"
+                                      onsubmit="return confirm('Go back to the 1st innings? Use this only if it was ended by mistake.')">
+                                    @csrf <input type="hidden" name="to" value="1">
+                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600">Back to 1st innings</button>
+                                </form>
+                            @endif
+                            <button type="button" onclick="openEndMatch()" class="text-sm px-3 py-1.5 rounded-lg bg-gray-800 text-white hover:bg-gray-900 dark:bg-gray-700">End match</button>
+                            <button type="button" onclick="openEndMatch('abandoned')" class="text-sm px-3 py-1.5 rounded-lg border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300">Abandon (rain etc.)</button>
+                        </div>
+                    </div>
+
+                    {{-- End match --}}
+                    <div id="endMatchModal" class="hidden fixed inset-0 z-99999 flex items-center justify-center bg-black/50 p-4" onclick="if (event.target === this) closeEndMatch()">
+                        <form method="POST" action="{{ route('admin.matches.endMatch', $match) }}" class="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 p-5 space-y-3 text-sm">
+                            @csrf
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">End match</h3>
+                            <p class="text-xs text-gray-500">Saves the result, updates the points table and shows the result on the LED wall. You can reopen scoring afterwards.</p>
+                            @if($naturalResult ?? false)
+                                <label class="flex items-center gap-2"><input type="radio" name="outcome" value="auto" checked> Use the scored result</label>
+                            @endif
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="team_a" @checked(!($naturalResult ?? false))> {{ $match->teamA?->name }} won</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="team_b"> {{ $match->teamB?->name }} won</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="tie"> Tie</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="no_result"> No result</label>
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="abandoned"> Abandoned</label>
+                            <label id="abandonReason" class="hidden flex-col gap-1">Reason
+                                <select name="reason" class="form-control">
+                                    @foreach(\App\Services\Scoring\MatchFinisher::ABANDON_REASONS as $r)
+                                        <option value="{{ $r }}">{{ $r }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <div class="flex justify-end gap-2 pt-2">
+                                <button type="button" onclick="closeEndMatch()" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600">Cancel</button>
+                                <button type="submit" class="px-3 py-2 rounded-lg bg-gray-900 text-white dark:bg-indigo-600">End match</button>
+                            </div>
+                        </form>
+                    </div>
+                @endif
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div>
@@ -1084,6 +1147,13 @@ const matchOversLimit = {{ $match->overs ?? 20 }};
 const currentInnings = {{ $currentInnings ?? 1 }};
 let currentCompletedOvers = {{ $totalOvers ?? 0 }};
 let isInningsComplete = {{ ($inningsComplete ?? false) ? 'true' : 'false' }};
+document.addEventListener('DOMContentLoaded', () => {
+    applyOverEnd(@json((bool) ($overComplete ?? false)), @json($lastOverBowler ?? null));
+    document.getElementById('bowlerSelect')?.addEventListener('change', () => {
+        document.getElementById('overAlert')?.classList.add('hidden');
+        document.getElementById('bowlerSelect').classList.remove('ring-2', 'ring-blue-400');
+    });
+});
 // The score this page is showing. Sent with each ball so a second scorer's
 // change is caught (409) instead of silently stacked on.
 let scoreVersion = {{ (int) ($scoreVersion ?? 0) }};
@@ -1396,6 +1466,7 @@ function refreshMatchState() {
         if (data.currentBowler) {
             document.getElementById('bowlerSelect').value = data.currentBowler;
         }
+        applyOverEnd(!!data.overComplete, data.lastOverBowler);
 
         // Show/hide wicket alert
         const wicketAlert = document.getElementById('wicketAlert');
@@ -1534,6 +1605,55 @@ function updateOutBatsmen(outIds) {
         });
     });
 }
+
+/**
+ * End of an over: the next bowler is the scorer's choice, and the one who
+ * just bowled is greyed out (no two overs in a row). Mid-over the select is
+ * left alone, so a refresh never overwrites what the scorer picked.
+ */
+function applyOverEnd(overDone, lastBowler) {
+    const select = document.getElementById('bowlerSelect');
+    Array.from(select.options).forEach(o => {
+        if (o.dataset.lastOver) {
+            o.disabled = false;
+            o.textContent = o.dataset.label;
+            delete o.dataset.lastOver;
+        }
+        if (overDone && lastBowler && o.value && parseInt(o.value) === parseInt(lastBowler)) {
+            o.dataset.lastOver = '1';
+            o.dataset.label = o.textContent;
+            o.disabled = true;
+            o.textContent += ' (bowled last over)';
+        }
+    });
+    if (overDone && (!select.value || select.selectedOptions[0]?.disabled)) {
+        select.value = '';
+    }
+    const needsBowler = overDone && !select.value;
+    document.getElementById('overAlert')?.classList.toggle('hidden', !needsBowler);
+    select.classList.toggle('ring-2', needsBowler);
+    select.classList.toggle('ring-blue-400', needsBowler);
+}
+
+function openEndMatch(outcome) {
+    const modal = document.getElementById('endMatchModal');
+    if (!modal) return;
+    if (outcome) {
+        const r = modal.querySelector(`input[name="outcome"][value="${outcome}"]`);
+        if (r) r.checked = true;
+    }
+    syncAbandonReason();
+    modal.classList.remove('hidden');
+}
+function closeEndMatch() { document.getElementById('endMatchModal')?.classList.add('hidden'); }
+function syncAbandonReason() {
+    const modal = document.getElementById('endMatchModal');
+    const abandoned = modal?.querySelector('input[name="outcome"]:checked')?.value === 'abandoned';
+    const box = document.getElementById('abandonReason');
+    box?.classList.toggle('hidden', !abandoned);
+    box?.classList.toggle('flex', abandoned);
+}
+document.addEventListener('change', e => { if (e.target.name === 'outcome') syncAbandonReason(); });
 
 function recordBall(runs, extraType = null, extraRuns = 0, isWicket = false, dismissalType = null, fielderId = null, outBatsman = null) {
     // Check if innings is complete

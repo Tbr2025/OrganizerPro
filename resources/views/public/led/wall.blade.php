@@ -98,6 +98,7 @@
   const P = {
     scoreboard(st) {
       if (!st) return `<div class="center h1">No match on this screen yet</div>`;
+      if (st.status === 'innings_break') return P.innings_break(st);
       const s = st.score, b = st.batting || {};
       const chase = st.chase ? `<div class="h2" style="margin-top:24px">Need <span style="color:var(--accent)">${esc(st.chase.runs_needed)}</span> off ${esc(st.chase.balls_left)} balls · RRR ${esc(st.chase.required_run_rate ?? '-')}</div>` : '';
       const result = st.result ? `<div class="h1" style="color:var(--good);margin-top:24px">${esc(st.result.text)}</div>` : '';
@@ -105,6 +106,19 @@
         <div class="big">${esc(s.runs)}/${esc(s.wickets)}</div>
         <div class="h2 mut">${esc(s.overs)} overs · Run rate ${esc(s.run_rate)}</div>${chase}${result}</div></div>
         <div style="margin-top:36px">${balls(s.this_over)}</div>`;
+    },
+    // Between innings: the total to chase, not the chasing side's empty 0/0.
+    innings_break(st) {
+      const first = (st.innings || {})[1] || {}, team = first.team || {};
+      const target = st.chase ? st.chase.target : (first.runs ?? 0) + 1;
+      return `<div class="center">
+        <div class="h2" style="color:var(--accent);letter-spacing:.2em">INNINGS BREAK</div>
+        <div class="row" style="justify-content:center;margin-top:24px">${img(team.logo, 'logo')}<div>
+          <div class="h2 mut">${esc(team.name || '')}</div>
+          <div class="big">${esc(first.runs ?? 0)}/${esc(first.wickets ?? 0)}</div>
+          <div class="h2 mut">${esc(first.overs ?? '0.0')} overs</div></div></div>
+        <div class="h1" style="margin-top:32px">${esc(st.batting?.name || 'Chasing side')} need <span style="color:var(--accent)">${esc(target)}</span> to win</div>
+      </div>`;
     },
     wicket(st, p) {
       const w = p.wicket || {};
@@ -190,6 +204,13 @@
   // ---- ticker strip (always on) ----
   function ticker(st) {
     if (!st) return '';
+    if (st.status === 'innings_break') {
+      const first = (st.innings || {})[1] || {};
+      const target = st.chase ? st.chase.target : (first.runs ?? 0) + 1;
+      return `<div><div class="sm">Innings break</div><div class="score">${esc(first.team?.short || '')} ${esc(first.runs ?? 0)}/${esc(first.wickets ?? 0)}</div></div>
+        <div><div class="sm">Overs</div><div>${esc(first.overs ?? '0.0')}</div></div>
+        <div style="border-right:none"><div class="sm">Target</div><div>${esc(st.batting?.short || st.batting?.name || '')} need ${esc(target)}</div></div>`;
+    }
     const s = st.score;
     const bat = p => p ? `<span class="${p.on_strike ? 'strike' : ''}">${esc(p.name)}${p.on_strike ? '*' : ''} ${esc(p.runs)} (${esc(p.balls)})</span>` : '';
     const target = st.chase ? `<div><div class="sm">Need</div><div>${esc(st.chase.runs_needed)} off ${esc(st.chase.balls_left)}</div></div>` : '';
@@ -264,13 +285,18 @@
   schedule(data.next_check_ms || 3000);
 
   // ---- push: nudges only ----
-  const matchCh = data.state ? window.pushChannel?.('match.' + data.state.match_id) : null;
-  matchCh?.listen('.score.updated', e => { if (!data.state || e.version > data.state.version) refresh(); });
-  window.pushChannel?.('led.' + data.display.id)?.listen('.led.changed', () => refresh());
-  const conn = window.Echo?.connector?.pusher?.connection;
-  conn?.bind('connected', () => { pushOk = true; refresh(); });
-  conn?.bind('unavailable', () => { pushOk = false; schedule(3000); });
-  conn?.bind('disconnected', () => { pushOk = false; schedule(3000); });
+  try {
+    const matchCh = data.state ? window.pushChannel?.('match.' + data.state.match_id) : null;
+    matchCh?.listen('.score.updated', e => { if (!data.state || e.version > data.state.version) refresh(); });
+    window.pushChannel?.('led.' + data.display.id)?.listen('.led.changed', () => refresh());
+    const conn = window.Echo?.connector?.pusher?.connection;
+    conn?.bind('connected', () => { pushOk = true; refresh(); });
+    conn?.bind('unavailable', () => { pushOk = false; schedule(3000); });
+    conn?.bind('disconnected', () => { pushOk = false; schedule(3000); });
+  } catch (e) {
+    // Push is a speed-up only; the poll keeps the wall right without it.
+    console.warn('[led] live updates unavailable, polling only:', e);
+  }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
   window.addEventListener('online', refresh);
 })();

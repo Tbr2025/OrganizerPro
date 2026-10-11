@@ -621,7 +621,7 @@ class AdminMenuService
             'active' => Route::is('admin.template-presets.*'),
             'id' => 'template-presets',
             'priority' => 26,
-            'permissions' => 'template.manage',
+            'permissions' => 'feature.manage',
         ]);
 
         // Pay-per-feature credits: an organization's wallet, and the platform controls.
