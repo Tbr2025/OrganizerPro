@@ -83,6 +83,15 @@
             box-shadow: 0 0 30px rgba(255, 210, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
         }
 
+        /* LED console panels, laid over the video above the strip (see #overlay). */
+        #overlay:empty { display: none; }
+        .ov { animation: slide-in 0.45s ease-out; max-width: 1240px; margin: 0 auto 14px; }
+        .ov-word { font-size: 96px; line-height: 1; font-weight: 700; letter-spacing: 6px; }
+        .ov table { width: 100%; border-collapse: collapse; font-size: 26px; }
+        .ov th { font-size: 16px; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: 2px; text-align: left; padding: 6px 14px; }
+        .ov td { padding: 8px 14px; border-top: 1px solid rgba(255,255,255,.08); color: #fff; }
+        .ov .n { text-align: right; font-weight: 700; }
+
         /* Stat box styling */
         .stat-box {
             background: rgba(255,255,255,0.05);
@@ -128,6 +137,9 @@
 
         <!-- Main Ticker Container - Bottom of screen -->
         <div class="fixed bottom-0 left-0 right-0 p-6">
+            <!-- What the LED console puts up (wicket, boundary, cards, stats), above the strip. -->
+            <div id="overlay"></div>
+
             <!-- Scoreboard Card -->
             <div class="glass rounded-2xl overflow-hidden glow-border slide-in">
                 <!-- Top Gold Bar -->
@@ -385,6 +397,118 @@
             return div;
         }
 
+        // ---- LED console panels ----
+        // The console decides what airs; the ticker shows the same panel above its
+        // strip for that panel's time, then clears. Freeze never applies here.
+        const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const logoImg = src => src ? `<img src="${esc(src)}" alt="" class="h-20 w-20 object-contain rounded-full bg-white/10 p-1">` : '';
+        const ballRow = list => (list || []).map(b => {
+            const el = createBallElement(String(b));
+            el.classList.replace('w-8', 'w-12'); el.classList.replace('h-8', 'h-12'); el.classList.add('text-lg');
+            return el.outerHTML;
+        }).join('');
+        const card = (inner, accent = '#facc15') => `<div class="ov glass rounded-2xl overflow-hidden glow-border"><div class="h-1.5" style="background:${accent}"></div><div class="px-8 py-5">${inner}</div></div>`;
+        const head = t => `<p class="text-yellow-400 text-xl font-bold oswald uppercase tracking-wider mb-2">${esc(t)}</p>`;
+        const rows = (title, cols, list) => card(head(title) + `<table><tr>${cols.map((c, i) => `<th class="${i ? 'n' : ''}">${esc(c[0])}</th>`).join('')}</tr>`
+            + (list || []).slice(0, 5).map(r => `<tr>${cols.map((c, i) => `<td class="${i ? 'n' : ''}">${i ? esc(c[1](r)) : esc(r.name) + (r.team ? ` <span class="text-white/50 text-lg">${esc(r.team)}</span>` : '')}</td>`).join('')}</tr>`).join('') + '</table>');
+        const BAT = [['Player'], ['Runs', r => r.runs], ['Balls', r => r.balls ?? r.innings ?? ''], ['SR', r => r.strike_rate ?? '']];
+        const BOWL = [['Player'], ['Wkts', r => r.wickets], ['Runs', r => r.best ?? r.runs ?? ''], ['Econ', r => r.economy ?? '']];
+
+        const OVERLAY = {
+            wicket(p, st) {
+                const w = p.wicket || {};
+                return card(`<div class="flex items-center gap-8"><span class="ov-word oswald text-red-500">WICKET</span><div>
+                    <p class="text-white text-4xl font-bold oswald">${esc(w.name)} ${esc(w.runs)} <span class="text-white/60">(${esc(w.balls)})</span></p>
+                    <p class="text-white/60 text-2xl mt-1">${esc(w.how_out || '')}</p></div>
+                    <p class="ml-auto text-yellow-400 text-3xl font-bold oswald">${esc(p.team?.short || '')} ${esc(p.score || '')}</p></div>`, '#ef4444');
+            },
+            boundary(p) {
+                const six = p.runs === 6, colour = six ? '#a855f7' : '#3b82f6';
+                return card(`<div class="flex items-center gap-8"><span class="ov-word oswald" style="color:${colour}">${six ? 'SIX' : 'FOUR'}</span><div>
+                    <p class="text-white text-4xl font-bold oswald">${esc(p.batter?.name || '')}</p>
+                    <p class="text-white/60 text-2xl mt-1">${esc(p.batter?.runs ?? '')} (${esc(p.batter?.balls ?? '')})</p></div>
+                    <p class="ml-auto text-yellow-400 text-3xl font-bold oswald">${esc(p.score || '')}</p></div>`, colour);
+            },
+            last_over(p) {
+                const o = p.over || {};
+                return card(`<div class="flex items-center gap-8"><div>${head('End of over ' + (o.over ?? '') + (o.bowler ? ' · ' + o.bowler : ''))}
+                    <div class="flex gap-2">${ballRow(o.balls)}</div></div>
+                    <div class="ml-auto text-right"><p class="text-white text-4xl font-bold oswald">${esc(o.runs)} runs · ${esc(o.wickets)} ${o.wickets === 1 ? 'wkt' : 'wkts'}</p>
+                    <p class="text-white/60 text-2xl mt-1">${esc(p.score || '')}</p></div></div>`);
+            },
+            batter_card(p, st) {
+                const b = p.batter || st?.striker || {};
+                return card(`<div class="flex items-center gap-8"><div>${head('Batting')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p></div>
+                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.runs)} <span class="text-white/60 text-3xl">(${esc(b.balls)})</span></p>
+                    <p class="text-white/70 text-2xl">4s ${esc(b.fours)} · 6s ${esc(b.sixes)} · SR ${esc(b.strike_rate)}</p></div>`);
+            },
+            bowler_card(p, st) {
+                const b = p.bowler || st?.bowler || {};
+                return card(`<div class="flex items-center gap-8"><div>${head('Bowling')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p></div>
+                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.wickets)}-${esc(b.runs)}</p>
+                    <p class="text-white/70 text-2xl">${esc(b.overs)} ov · ${esc(b.maidens)} m · Econ ${esc(b.economy)}</p></div>`);
+            },
+            partnership(p, st) {
+                const pt = p.partnership || st?.partnership || {}, a = p.striker || st?.striker, b = p.non_striker || st?.non_striker;
+                const who = x => x ? `${esc(x.name)} ${esc(x.runs)} (${esc(x.balls)})` : '';
+                return card(`<div class="flex items-center gap-8"><div>${head('Partnership')}<p class="text-white text-6xl font-bold oswald">${esc(pt.runs)} <span class="text-white/60 text-3xl">(${esc(pt.balls)})</span></p></div>
+                    <p class="ml-auto text-white text-3xl oswald">${who(a)}${a && b ? ' &nbsp;·&nbsp; ' : ''}${who(b)}</p></div>`);
+            },
+            innings_summary(p) {
+                const i = p.innings || {};
+                const bat = (i.batters || []).filter(b => b.balls > 0 || b.runs > 0).sort((x, y) => y.runs - x.runs).slice(0, 3);
+                const bowl = (i.bowlers || []).slice().sort((x, y) => y.wickets - x.wickets || x.runs - y.runs).slice(0, 3);
+                return card(`<div class="flex items-baseline justify-between">${head(i.team?.name || 'Innings')}
+                    <p class="text-white text-4xl font-bold oswald">${esc(i.runs)}/${esc(i.wickets)} <span class="text-white/60 text-2xl">(${esc(i.overs)})</span></p></div>
+                    <div class="flex gap-10"><table><tr><th>Batting</th><th class="n">R</th><th class="n">B</th></tr>
+                    ${bat.map(b => `<tr><td>${esc(b.name)}${b.out ? '' : '*'}</td><td class="n">${esc(b.runs)}</td><td class="n">${esc(b.balls)}</td></tr>`).join('')}</table>
+                    <table><tr><th>Bowling</th><th class="n">W-R</th><th class="n">O</th></tr>
+                    ${bowl.map(b => `<tr><td>${esc(b.name)}</td><td class="n">${esc(b.wickets)}-${esc(b.runs)}</td><td class="n">${esc(b.overs)}</td></tr>`).join('')}</table></div>`);
+            },
+            top_batting: p => rows('Top batting — this match', BAT, p.rows),
+            top_bowling: p => rows('Top bowling — this match', BOWL, p.rows),
+            tournament_batting: p => rows('Top run scorers — tournament', BAT, p.rows),
+            tournament_bowling: p => rows('Top wicket takers — tournament', [BOWL[0], BOWL[1], ['Best', r => r.best ?? r.runs ?? ''], BOWL[3]], p.rows),
+            result(p, st) {
+                const r = p.result || st?.result || {};
+                return card(`<div class="flex items-center justify-center gap-6">${logoImg(r.winner?.logo)}<p class="text-green-400 text-5xl font-bold oswald uppercase">${esc(r.text)}</p></div>`, '#22c55e');
+            },
+            sponsor(p) {
+                return card(`${head('Our sponsors')}<div class="flex flex-wrap items-center justify-center gap-10">${(p.sponsors || []).map(x => x.image ? `<img src="${esc(x.image)}" alt="" class="max-h-24 max-w-[320px] object-contain">` : '').join('')}</div>`);
+            },
+            prematch(p, st) {
+                const [a, b] = st?.teams || [];
+                return card(`<div class="flex items-center justify-center gap-10">${logoImg(a?.logo)}<p class="text-white text-4xl font-bold oswald">${esc(a?.name)}</p>
+                    <span class="text-white/50 text-3xl oswald">vs</span><p class="text-white text-4xl font-bold oswald">${esc(b?.name)}</p>${logoImg(b?.logo)}</div>
+                    ${st?.match?.toss ? `<p class="text-center text-yellow-400 text-2xl mt-3">${esc(st.match.toss)}</p>` : ''}`);
+            },
+        };
+
+        let shownOverlay = null, overlayTimer = null, ledChannel = null;
+        function drawOverlay(data) {
+            const o = data.overlay || {};
+            const box = document.getElementById('overlay');
+            const key = o.item_id ? o.item_id + ':' + data.version : null;
+            if (key !== shownOverlay) {
+                let html = '';
+                if (o.item_id && OVERLAY[o.panel]) {
+                    try { html = OVERLAY[o.panel](o.payload || {}, data); } catch (e) { html = ''; }
+                }
+                box.innerHTML = html;
+                shownOverlay = key;
+            }
+            // Clear it on time, and ask what comes next.
+            clearTimeout(overlayTimer);
+            if (o.item_id && o.ends_in_ms) {
+                overlayTimer = setTimeout(() => { box.innerHTML = ''; shownOverlay = null; fetchScores(); }, o.ends_in_ms + 150);
+            }
+            // The console nudges this channel the moment it puts something up.
+            if (o.display_id && !ledChannel) {
+                ledChannel = window.pushChannel?.('led.' + o.display_id) || null;
+                ledChannel?.listen('.led.changed', () => fetchScores());
+            }
+        }
+
         // Public state (names and scores only). This used to poll the admin-only
         // /admin/matches/{id}/state, so a logged-out screen stayed at 0/0.
         const STATE_URL = @json(route('public.live-state', $match));
@@ -469,6 +593,8 @@
 
                 const statusText = { innings_break: 'INNINGS BREAK', completed: data.result ? data.result.text.toUpperCase() : 'MATCH COMPLETED', prematch: 'UPCOMING', cancelled: 'CANCELLED' }[data.status];
                 if (statusText) updateText('match-status', statusText);
+
+                drawOverlay(data);
             } catch (error) {
                 console.error('Error fetching scores:', error);
             } finally {

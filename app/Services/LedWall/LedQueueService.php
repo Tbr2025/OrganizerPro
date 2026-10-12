@@ -89,6 +89,44 @@ class LedQueueService
     }
 
     /**
+     * What the broadcast ticker lays over the video: the panel on the match's LED
+     * wall, on the same clock — but never frozen. Freeze is for the big screen; on
+     * the ticker a panel goes after its own time (or sooner, if the operator ends
+     * it) and the score strip carries on. Ticking here also means the ticker
+     * follows the console with no wall screen open.
+     *
+     * @return array{display_id:?int, item_id:?int, panel:string, payload:?array, ends_in_ms:?int}
+     */
+    public function forTicker(Matches $match, ?CarbonInterface $now = null): array
+    {
+        $now ??= now();
+        $display = LedDisplay::where('match_id', $match->id)->whereNull('revoked_at')->latest('id')->first();
+        $none = ['display_id' => $display?->id, 'item_id' => null, 'panel' => 'scoreboard', 'payload' => null, 'ends_in_ms' => null];
+
+        $item = $display ? $this->tick($display, $now) : null;
+        if (! $item || ! $item->shown_at || $item->panel === 'scoreboard') {
+            return $none;
+        }
+
+        // Its own time from when it went up — a frozen wall's open-ended hold,
+        // or the fresh time an unfreeze gives it, never stretches it here.
+        $ends = $item->shown_at->copy()->addSeconds(max(3, $item->show_seconds));
+        if ($item->ends_at && $item->ends_at->lt($ends)) {
+            $ends = $item->ends_at;
+        }
+        if ($ends->lte($now)) {
+            return $none;
+        }
+
+        return array_merge($none, [
+            'item_id' => $item->id,
+            'panel' => $item->panel,
+            'payload' => $item->payload,
+            'ends_in_ms' => (int) $now->diffInMilliseconds($ends, false),
+        ]);
+    }
+
+    /**
      * A delivery was recorded: queue the moments it made, on every live
      * display of this match. Called after the ball is committed.
      */

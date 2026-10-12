@@ -328,6 +328,58 @@ class LedWallTest extends TestCase
     }
 
     #[Test]
+    public function the_ticker_shows_what_the_console_puts_up_but_is_never_frozen(): void
+    {
+        $this->settings(['panel_seconds' => 8, 'air_delay_seconds' => 0, 'rotation_seconds' => 600]);
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => 1])->assertOk();
+        $ticker = fn () => $this->getJson(route('public.live-state', $this->match))->assertOk()->json('overlay');
+
+        $this->assertNull($ticker()['item_id'], 'Nothing up: just the strip');
+        $this->assertSame($this->display->id, $ticker()['display_id']);
+
+        // Show now: the ticker carries the same panel and its data.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.push', $this->display), ['panel' => 'top_batting'])->assertOk();
+        auth()->logout();
+        $o = $ticker();
+        $this->assertSame('top_batting', $o['panel']);
+        $this->assertNotEmpty($o['payload']['rows']);
+        $this->assertGreaterThan(0, $o['ends_in_ms']);
+        $this->assertStringNotContainsString($this->display->fresh()->token, json_encode($o));
+
+        // Frozen: the wall holds it, the ticker lets it go on time.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.control', [$this->display, 'freeze']), ['frozen' => true])->assertOk();
+        $this->travel(30)->seconds();
+        $this->assertSame('top_batting', $this->wall()['now']['panel'], 'The wall stays frozen');
+        $this->assertNull($ticker()['item_id'], 'The ticker is never frozen');
+
+        // Unfreezing does not bring it back to the ticker.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.control', [$this->display, 'freeze']), ['frozen' => false])->assertOk();
+        auth()->logout();
+        $this->assertNull($ticker()['item_id']);
+
+        // A match moment airs on the ticker too, with no wall screen open.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.control', [$this->display, 'live']))->assertOk();
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['is_wicket' => 1, 'dismissal_type' => 'bowled'])->assertOk();
+        auth()->logout();
+        $this->assertSame('wicket', $ticker()['panel']);
+
+        // Back to live score clears it.
+        $this->actingAs($this->scorer)->postJson(route('admin.led.control', [$this->display, 'live']))->assertOk();
+        auth()->logout();
+        $this->assertNull($ticker()['item_id']);
+    }
+
+    #[Test]
+    public function the_ticker_without_an_led_display_is_just_the_strip(): void
+    {
+        $this->display->delete();
+        auth()->logout();
+        $o = $this->getJson(route('public.live-state', $this->match))->assertOk()->json('overlay');
+        $this->assertSame(['display_id' => null, 'item_id' => null, 'panel' => 'scoreboard', 'payload' => null, 'ends_in_ms' => null], $o);
+        $this->get(route('public.live-ticker', $this->match))->assertOk()->assertSee('id="overlay"', false);
+    }
+
+    #[Test]
     public function pinned_items_air_first_and_items_can_be_reordered(): void
     {
         $this->settings(['require_approval' => true]);

@@ -50,7 +50,9 @@ class LedWallController extends Controller
     {
         abort_if($match->is_published === false && ! auth()->check(), 404);
 
-        return response()->json($this->wall->forMatch($match))->header('Cache-Control', 'no-store');
+        // `overlay`: the LED console's current panel, which the ticker shows above its strip.
+        return response()->json($this->wall->forMatch($match) + ['overlay' => $this->queue->forTicker($match)])
+            ->header('Cache-Control', 'no-store');
     }
 
     private function themeVars(string $theme): ?array
