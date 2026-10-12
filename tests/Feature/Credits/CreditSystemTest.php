@@ -121,10 +121,6 @@ class CreditSystemTest extends TestCase
         $super = User::factory()->create(['organization_id' => null])->assignRole('Superadmin');
         $this->actingAs($super)->get(route('admin.credits.index'))->assertOk()->assertSee('Club');
 
-        // An admin with no organization manages credits, so sees every wallet.
-        $platformAdmin = User::factory()->create(['organization_id' => null])->assignRole('Admin');
-        $this->actingAs($platformAdmin)->get(route('admin.credits.index'))->assertOk()->assertSee('Club');
-
         // Anyone else not linked to one is told why, not shown a bare 403.
         $loose = User::factory()->create(['organization_id' => null])->assignRole('Organizer');
         $this->actingAs($loose)->get(route('admin.credits.index'))
@@ -409,8 +405,16 @@ class CreditSystemTest extends TestCase
         $this->fund(9);
 
         $this->get(route('admin.credits.index'))->assertOk()->assertSee('9')->assertSee('Generate a poster');
-        // Admins run credits too; organizers only see their own wallet.
-        $this->get(route('admin.credits.manage'))->assertOk();
+        // Running credits is Super Admin's alone; an Admin sees their own wallet
+        // and can still buy credits for it.
+        $this->get(route('admin.credits.manage'))->assertForbidden();
+        $this->get(route('admin.credits.index', ['org' => 999999]))->assertOk()->assertSee('Club');
+        $this->post(route('admin.credits.topup'), ['credits' => 100, 'payment_reference' => 'UPI-9'])->assertRedirect();
+        $this->assertDatabaseHas('credit_topup_requests', ['organization_id' => $this->org->id, 'credits' => 100, 'requested_by' => $this->admin->id, 'status' => 'pending']);
+        $pending = CreditTopupRequest::latest('id')->first();
+        $this->post(route('admin.credits.topups.approve', $pending))->assertForbidden();
+        $this->assertSame(9, $this->balance());
+        $this->assertFalse($this->admin->can('discount.manage') || $this->admin->can('feature.manage'));
         $organizer = User::factory()->create(['organization_id' => $this->org->id])->assignRole('Organizer');
         $this->actingAs($organizer)->get(route('admin.credits.index'))->assertOk();
         $this->actingAs($organizer)->get(route('admin.credits.manage'))->assertForbidden();

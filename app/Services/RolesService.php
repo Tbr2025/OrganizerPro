@@ -274,7 +274,12 @@ class RolesService
             'organization.create',
             'organization.edit',
             'organization.delete',
-            // Admins run the credit system and edit their tournaments' designs.
+            // The credit system is Super Admin's: wallets, grants, top-up approvals,
+            // prices and discounts. Admins keep credits.view — their own wallet and
+            // top-up requests.
+            'credits.manage',
+            'discount.manage',
+            'feature.manage',
         ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);
