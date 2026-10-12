@@ -69,11 +69,18 @@ class BallRecorder
             if (! empty($input['fielder_id'])) {
                 $this->assertOnTeam([(int) $input['fielder_id']], $innings['bowling_team_id'], 'fielder_id', 'The fielder must be from the fielding side.');
             }
-            // A bowler may not bowl two overs in a row.
-            if ($innings['over_complete'] && $innings['balls_bowled'] > 0) {
+            // A new over: not the bowler of the last one, and not past the quota.
+            $newOver = $innings['balls_bowled'] === 0 || $innings['over_complete'];
+            if ($newOver && $innings['balls_bowled'] > 0) {
                 $lastOver = end($innings['overs_summary']) ?: [];
                 if ((int) ($lastOver['bowler_id'] ?? 0) === $bowler) {
                     $this->fail('bowler_id', 'This bowler bowled the last over. Choose a different bowler for the new over.');
+                }
+            }
+            if ($newOver) {
+                $figures = collect($innings['bowlers'])->firstWhere('id', $bowler);
+                if ($figures && $figures['overs_count'] >= $before['bowler_quota']) {
+                    $this->fail('bowler_id', "This bowler has bowled their {$before['bowler_quota']} overs — the most allowed in this match.");
                 }
             }
             if ($striker === $nonStriker) {
@@ -116,13 +123,27 @@ class BallRecorder
                 $runOut = $type === 'run_out';
                 $data['out_batsman_id'] = $runOut && ($input['out_batsman'] ?? null) === 'non_striker' ? $nonStriker : $striker;
 
-                // Only a run-out happens with runs being taken; every other
-                // dismissal ends the delivery (stumped off a wide keeps the wide).
+                // Only dismissals the Laws allow off this delivery: a no-ball,
+                // bye or free hit can only be a run-out; a wide also allows
+                // stumped and hit wicket.
+                $delivery = $data['extra_type'] ?? 'legal';
+                $allowed = MatchStateService::DISMISSALS_ON[$delivery];
+                if ($innings['free_hit']) {
+                    $allowed = array_values(array_intersect($allowed, MatchStateService::DISMISSALS_ON['free_hit']));
+                }
+                if (! in_array($type, $allowed, true)) {
+                    $what = $innings['free_hit'] ? 'a free hit' : match ($delivery) {
+                        'wide' => 'a wide', 'no_ball' => 'a no-ball', 'bye' => 'a bye', 'leg_bye' => 'a leg bye', default => 'this ball',
+                    };
+                    $this->fail('dismissal_type', 'A batter cannot be out ' . str_replace('_', ' ', $type) . " off {$what}. Only: " . implode(', ', array_map(fn ($t) => str_replace('_', ' ', $t), $allowed)) . '.');
+                }
+
+                // Only a run-out happens with runs being taken; the others end
+                // the delivery (a wide keeps its penalty run).
                 if (! $runOut) {
                     $data['runs'] = 0;
-                    if (! ($type === 'stumped' && $data['extra_type'] === 'wide')) {
-                        $data['extra_type'] = null;
-                        $data['extra_runs'] = 0;
+                    if ($data['extra_type'] === 'wide') {
+                        $data['extra_runs'] = 1;
                     }
                 }
                 if (! in_array($type, ['caught', 'run_out', 'stumped'], true)) {

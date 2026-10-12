@@ -67,6 +67,7 @@ class Matches extends Model
         'name',
         'slug',
         'overs',
+        'bowler_overs_limit',
         'team_a_id',
         'team_b_id',
         'match_date',

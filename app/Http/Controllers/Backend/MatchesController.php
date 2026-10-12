@@ -37,7 +37,7 @@ class MatchesController extends Controller
 
         $this->middleware('permission:match.edit')->only([
             'create', 'store', 'edit', 'update', 'destroy', 'bulkDelete', 'reorder',
-            'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring',
+            'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring', 'setBowlerLimit',
             'editOvers', 'updateOvers', 'addAppreciation', 'generatePoster',
         ]);
     }
@@ -245,6 +245,15 @@ class MatchesController extends Controller
             'innings2Stats' => $state['innings2Stats'],
             'chase' => $snapshot['chase'],
             'scoreVersion' => $snapshot['score_version'],
+            'freeHit' => $state['freeHit'],
+            'bowlerQuota' => $state['bowlerQuota'],
+            'crease' => [
+                'striker' => $state['strikerDetails'],
+                'nonStriker' => $state['nonStrikerDetails'],
+                'bowlers' => $state['bowlerStats'],
+                'partnership' => $state['partnership'],
+                'lastWicket' => $state['lastWicket'],
+            ],
         ]);
     }
 
@@ -316,6 +325,19 @@ class MatchesController extends Controller
         return redirect()->route('admin.matches.show', $match)->with('success', 'Scoring reopened.');
     }
 
+    /** Local playing rules: most overs one bowler may bowl (blank = a fifth of the innings). */
+    public function setBowlerLimit(Request $request, Matches $match)
+    {
+        $data = $request->validate(['bowler_overs_limit' => 'nullable|integer|min:1|max:' . max(1, (int) ($match->overs ?: 20))]);
+
+        $match->forceFill([
+            'bowler_overs_limit' => $data['bowler_overs_limit'] ?? null,
+            'score_version' => (int) $match->score_version + 1,
+        ])->save();
+
+        return redirect()->route('admin.matches.show', $match)->with('success', 'Bowler limit saved: ' . app(MatchStateService::class)->bowlerQuota($match) . ' overs each.');
+    }
+
     /**
      * Get match state as JSON for AJAX updates
      */
@@ -370,6 +392,7 @@ class MatchesController extends Controller
             'runs' => $bowlers[$id]['runs'],
             'wickets' => $bowlers[$id]['wickets'],
             'economy' => $bowlers[$id]['economy'],
+            'oversCount' => $bowlers[$id]['overs_count'],
         ] : null;
 
         // Prefer what the scorer last confirmed (stored on the match); fall
@@ -425,6 +448,9 @@ class MatchesController extends Controller
             'bowlerDetails' => $bowlerLine($bowler),
             'partnership' => $live['partnership'],
             'lastWicket' => $live['last_wicket'],
+            // The next ball is a free hit (after a no-ball): only a run-out counts.
+            'freeHit' => $live['free_hit'],
+            'bowlerQuota' => $snapshot['bowler_quota'],
             'batsmanStats' => $batters->map(fn ($b) => $batterLine($b['id']))->values()->all(),
             'bowlerStats' => $bowlers->map(fn ($b) => $bowlerLine($b['id']))->values()->all(),
             'target' => $snapshot['target'],

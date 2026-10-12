@@ -30,6 +30,16 @@ class MatchStateService
     /** Dismissals the bowler is credited with. Run out (and retirements) are not. */
     public const BOWLER_WICKETS = ['bowled', 'caught', 'lbw', 'stumped', 'hit_wicket'];
 
+    /** Dismissals possible off each kind of delivery (Laws 21, 22, 23; free hit = run out only). */
+    public const DISMISSALS_ON = [
+        'legal' => ['bowled', 'caught', 'lbw', 'run_out', 'stumped', 'hit_wicket'],
+        'wide' => ['run_out', 'stumped', 'hit_wicket'],
+        'no_ball' => ['run_out'],
+        'bye' => ['run_out'],
+        'leg_bye' => ['run_out'],
+        'free_hit' => ['run_out'],
+    ];
+
     /** Smallest named line-up taken as the side's real size (see wicketLimit()). */
     public const MIN_LINEUP = 5;
 
@@ -77,6 +87,7 @@ class MatchStateService
                 $names,
             );
         }
+        $quota = $this->bowlerQuota($match);
 
         $target = $innings[1]['balls_bowled'] > 0 || (int) $match->current_innings === 2
             ? $innings[1]['runs'] + 1
@@ -127,6 +138,7 @@ class MatchStateService
             'match_id' => (int) $match->id,
             'score_version' => (int) ($match->score_version ?? 0),
             'overs_limit' => intdiv($maxBalls, 6),
+            'bowler_quota' => $quota,
             'batting_first_team_id' => $firstTeamId,
             'current_innings' => $current,
             'innings' => $innings,
@@ -168,6 +180,9 @@ class MatchStateService
         $nonStriker = null;
         $lastBall = null;
         $overEnded = false;
+        // The delivery after a no-ball is a free hit, and stays one through
+        // any wides or no-balls until a legal ball is bowled.
+        $freeHit = false;
 
         $name = fn ($id) => $id ? ($names[$id]['name'] ?? 'Unknown') : null;
         $batter = function ($id) use (&$batters, $name) {
@@ -249,6 +264,9 @@ class MatchStateService
             if (! isset($overs[$overNumber])) {
                 $overs[$overNumber] = ['over' => $overNumber, 'bowler_id' => $bowlerId, 'balls' => [], 'runs' => 0, 'wickets' => 0];
             }
+            // Whoever bowled the last ball of the over (a mid-over change for
+            // injury hands the over on) is the one barred from the next.
+            $overs[$overNumber]['bowler_id'] = $bowlerId;
             $overs[$overNumber]['balls'][] = $this->label($ball);
             $overs[$overNumber]['runs'] += $bat + $extra;
 
@@ -298,10 +316,17 @@ class MatchStateService
                 [$striker, $nonStriker] = [$nonStriker, $striker];
             }
 
+            if ($type === 'no_ball') {
+                $freeHit = true;
+            } elseif ($isLegal) {
+                $freeHit = false;
+            }
+
             $lastBall = $ball;
         }
 
         foreach ($bowlers as &$b) {
+            $b['overs_count'] = count($b['overs_bowled']);
             foreach ($b['overs_bowled'] as $over) {
                 if ($over['legal'] >= 6 && $over['conceded'] === 0) {
                     $b['maidens']++;
@@ -368,6 +393,7 @@ class MatchStateService
             'bowler_id' => $currentBowler,
             'out_batter_ids' => $outIds,
             'over_complete' => $overEnded,
+            'free_hit' => $freeHit && ! $complete,
             'needs_new_batter' => ! $complete && $lastBall !== null && ($striker === null || $nonStriker === null),
             'complete' => $complete,
         ];
@@ -434,6 +460,18 @@ class MatchStateService
             : $match->lineups()->where('actual_team_id', $teamId)->count();
 
         return $lineup >= self::MIN_LINEUP ? $lineup - 1 : 10;
+    }
+
+    /**
+     * Most overs one bowler may bowl: the match's own setting, else a fifth
+     * of the innings rounded up (T20 = 4, 10 overs = 2, 6 overs = 2).
+     */
+    public function bowlerQuota(Matches $match): int
+    {
+        $overs = max(1, (int) ($match->overs ?: 20));
+        $set = (int) ($match->bowler_overs_limit ?? 0);
+
+        return $set > 0 ? min($set, $overs) : (int) ceil($overs / 5);
     }
 
     private function inningsFromTeam(?int $teamId, int $first, int $second): ?int

@@ -273,6 +273,70 @@ class LiveScoringTest extends TestCase
     }
 
     #[Test]
+    public function only_the_dismissals_the_laws_allow_off_a_wide_or_no_ball_are_taken(): void
+    {
+        $this->toss($this->lions, 'bat');
+        $bat = fn (array $extra) => $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], $extra);
+
+        // Caught off a no-ball is not out.
+        $bat(['extra_type' => 'no_ball', 'extra_runs' => 1, 'is_wicket' => 1, 'dismissal_type' => 'caught'])
+            ->assertStatus(422)->assertJsonValidationErrors('dismissal_type');
+        // Bowled off a wide is not out either.
+        $bat(['extra_type' => 'wide', 'extra_runs' => 1, 'is_wicket' => 1, 'dismissal_type' => 'bowled'])
+            ->assertStatus(422)->assertJsonValidationErrors('dismissal_type');
+        $this->assertSame(0, Ball::count());
+
+        // Stumped off a wide is out, and the wide still counts.
+        $bat(['extra_type' => 'wide', 'extra_runs' => 1, 'is_wicket' => 1, 'dismissal_type' => 'stumped', 'fielder_id' => $this->squad['tigers'][2]])->assertOk();
+        $ball = Ball::latest('id')->first();
+        $this->assertSame(['wide', 1, 'stumped'], [$ball->extra_type, (int) $ball->extra_runs, $ball->dismissal_type]);
+        $state = $this->state();
+        $this->assertSame([1, 1, '0.0'], [$state['totalRuns'], $state['totalWickets'], $state['oversDisplay']]);
+    }
+
+    #[Test]
+    public function the_ball_after_a_no_ball_is_a_free_hit_until_a_legal_ball(): void
+    {
+        $this->toss($this->lions, 'bat');
+        $bat = fn (array $extra = []) => $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], $extra);
+
+        $bat(['extra_type' => 'no_ball', 'extra_runs' => 1])->assertOk();
+        $this->assertTrue($this->state()['freeHit']);
+
+        // A wide on the free hit: the free hit carries on.
+        $bat(['extra_type' => 'wide', 'extra_runs' => 1])->assertOk();
+        $this->assertTrue($this->state()['freeHit']);
+
+        // Bowled on a free hit is not out; run out is.
+        $bat(['is_wicket' => 1, 'dismissal_type' => 'bowled'])->assertStatus(422)->assertJsonValidationErrors('dismissal_type');
+        $bat(['runs' => 1, 'is_wicket' => 1, 'dismissal_type' => 'run_out', 'out_batsman' => 'non_striker'])->assertOk();
+        $state = $this->state();
+        $this->assertFalse($state['freeHit'], 'A legal ball ends the free hit');
+        $this->assertSame([3, 1], [$state['totalRuns'], $state['totalWickets']]); // nb + wd + 1 run
+    }
+
+    #[Test]
+    public function a_bowler_cannot_bowl_more_than_the_match_quota(): void
+    {
+        $this->match->update(['overs' => 5]); // a fifth of 5 overs = 1 each
+        $this->toss($this->lions, 'bat');
+        $over = function (int $bowler) {
+            foreach (range(1, 6) as $_) {
+                $this->ball(['lions', 1], ['lions', 2], ['tigers', $bowler])->assertOk();
+            }
+        };
+        $over(1);
+        $over(2);
+        $this->assertSame(1, $this->state()['bowlerQuota']);
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertStatus(422)->assertJsonValidationErrors('bowler_id');
+
+        // Local rules: two overs each.
+        $this->actingAs($this->scorer)->post(route('admin.matches.bowlerLimit', $this->match), ['bowler_overs_limit' => 2])->assertSessionHas('success');
+        $this->ball(['lions', 1], ['lions', 2], ['tigers', 1])->assertOk();
+        $this->assertSame(2, $this->state()['bowlerQuota']);
+    }
+
+    #[Test]
     public function the_scoring_page_renders_before_during_and_after_an_innings(): void
     {
         $this->actingAs($this->scorer)->get(route('admin.matches.show', $this->match))->assertOk();

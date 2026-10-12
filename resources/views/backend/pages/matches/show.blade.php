@@ -345,10 +345,27 @@
                 </div>
             @endif
 
+            {{-- At the crease: the two batters, the bowler, the stand. Filled by refreshMatchState(). --}}
+            <div id="creasePanel" class="mt-6 pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm {{ ($crease['striker'] ?? null) || ($crease['nonStriker'] ?? null) ? '' : 'hidden' }}">
+                <div class="rounded-xl bg-white/5 p-3 space-y-1.5">
+                    <p class="text-[11px] uppercase tracking-wider text-gray-400">Batting</p>
+                    <div class="flex justify-between gap-2"><span id="creaseStrikerName" class="font-semibold truncate"></span><span id="creaseStrikerLine" class="tabular-nums text-gray-200"></span></div>
+                    <div class="flex justify-between gap-2"><span id="creaseNonStrikerName" class="truncate text-gray-300"></span><span id="creaseNonStrikerLine" class="tabular-nums text-gray-400"></span></div>
+                    <p class="text-xs text-gray-400 pt-1">Partnership <span id="creasePartnership" class="text-gray-200 tabular-nums"></span></p>
+                </div>
+                <div class="rounded-xl bg-white/5 p-3 space-y-1.5">
+                    <p class="text-[11px] uppercase tracking-wider text-gray-400">Bowling <span class="normal-case tracking-normal">· max {{ $bowlerQuota }} ov each</span></p>
+                    <div class="flex justify-between gap-2"><span id="creaseBowlerName" class="font-semibold truncate">—</span><span id="creaseBowlerLine" class="tabular-nums text-gray-200"></span></div>
+                    <p class="text-xs text-gray-400 pt-1">Last wicket <span id="creaseLastWicket" class="text-gray-200"></span></p>
+                </div>
+            </div>
+
             <!-- Current Over Display -->
             <div class="mt-6 pt-4 border-t border-white/10">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm text-gray-400">Current Over</span>
+                    <span class="text-sm text-gray-400 flex items-center gap-2">This over
+                        <span id="freeHitBadge" class="{{ ($freeHit ?? false) ? '' : 'hidden' }} px-2 py-0.5 rounded-full bg-amber-400 text-black text-[11px] font-bold uppercase tracking-wide animate-pulse">Free hit</span>
+                    </span>
                     <span class="text-sm text-gray-400">Run Rate: <span class="text-white font-bold" id="runRate">{{ number_format($runRate ?? 0, 2) }}</span></span>
                 </div>
                 <div class="flex items-center gap-2 mt-2 flex-wrap" id="currentOverBalls">
@@ -775,6 +792,19 @@
                     <span class="text-gray-500">Overs</span>
                     <span class="font-medium">{{ $match->overs ?? '20' }}</span>
                 </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Max overs per bowler</span>
+                    <span class="font-medium">{{ $bowlerQuota }}{{ $match->bowler_overs_limit ? '' : ' (standard)' }}</span>
+                </div>
+                @can('match.edit')
+                <form method="POST" action="{{ route('admin.matches.bowlerLimit', $match) }}" class="flex items-center gap-2 pt-1">
+                    @csrf
+                    <input type="number" name="bowler_overs_limit" min="1" max="{{ $match->overs ?: 20 }}" value="{{ $match->bowler_overs_limit }}"
+                           placeholder="{{ (int) ceil(max(1, (int) ($match->overs ?: 20)) / 5) }}" class="form-control !py-1 w-20 text-sm" aria-label="Max overs per bowler">
+                    <button class="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600">Set limit</button>
+                </form>
+                <p class="text-xs text-gray-400">Standard is a fifth of the overs, rounded up. Change it only for local playing rules; leave blank for standard.</p>
+                @endcan
             </div>
         </div>
 
@@ -942,7 +972,7 @@
                     @forelse($battingPlayers as $player)
                         @if($player->player)
                             @php
-                                $isOut = in_array($player->user_id, $outBatsmenIds ?? []);
+                                $isOut = in_array($player->id, $outBatsmenIds ?? []);
                             @endphp
                             <li class="flex items-center justify-between text-sm py-1 {{ $isOut ? 'opacity-50' : '' }}">
                                 <span class="{{ $isOut ? 'line-through text-red-500' : '' }}">
@@ -999,6 +1029,18 @@
                     <option value="hit_wicket">Hit Wicket</option>
                 </select>
             </div>
+            <div id="freeHitNote" class="hidden p-2.5 rounded-lg bg-amber-50 text-amber-800 text-sm dark:bg-amber-900/30 dark:text-amber-200">
+                Free hit — the batter can only be out run out.
+            </div>
+            <!-- Off a wide or no-ball: only the dismissals the Laws allow -->
+            <div id="deliverySection">
+                <label for="wicketDelivery" class="block text-sm font-medium mb-1">Delivery</label>
+                <select id="wicketDelivery" class="form-control">
+                    <option value="legal">Legal ball</option>
+                    <option value="wide">Wide (+1 wide)</option>
+                    <option value="no_ball">No-ball (+1 no-ball)</option>
+                </select>
+            </div>
             <!-- Run out: either batter can be out, and runs completed still count -->
             <div id="runOutSection" class="grid grid-cols-2 gap-3" style="display:none">
                 <div>
@@ -1018,7 +1060,7 @@
                 </div>
             </div>
             <div id="fielderSection">
-                <label class="block text-sm font-medium mb-1">Fielder (if applicable)
+                <label class="block text-sm font-medium mb-1">Fielder / keeper
                     @can('scoring.quick_add_player')
                             <button type="button" onclick="openQuickPlayer('bowling', 'fielderSelect')" class="ml-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" title="Add a player who is not in the squad">+ Add</button>
                             @endcan
@@ -1058,6 +1100,18 @@
                     </button>
                 @endforeach
             </div>
+            <!-- Wide: the penalty run plus anything run or a boundary (wd+4 = 5 wides) -->
+            <div class="grid grid-cols-5 gap-2 hidden" id="wideRunsGrid">
+                @foreach([0, 1, 2, 3, 4] as $run)
+                    <button type="button" onclick="confirmExtra({{ 1 + $run }})"
+                            class="run-btn h-14 rounded-xl font-bold text-base
+                            {{ $run === 4 ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
+                               'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600' }}">
+                        {{ $run === 0 ? 'Wd' : 'Wd+' . $run }}
+                    </button>
+                @endforeach
+            </div>
+            <!-- Byes / leg byes: runs taken (4 = to the boundary) -->
             <div class="grid grid-cols-5 gap-2" id="extraRunsGrid">
                 @foreach([1, 2, 3, 4, 5] as $run)
                     <button type="button" onclick="confirmExtra({{ $run }})"
@@ -1152,9 +1206,20 @@ const matchOversLimit = {{ $match->overs ?? 20 }};
 const currentInnings = {{ $currentInnings ?? 1 }};
 let currentCompletedOvers = {{ $totalOvers ?? 0 }};
 let isInningsComplete = {{ ($inningsComplete ?? false) ? 'true' : 'false' }};
+// Cricket rules the page needs between refreshes.
+let freeHit = @json((bool) ($freeHit ?? false));
+const bowlerQuota = {{ (int) ($bowlerQuota ?? 4) }};
+let bowlerStats = @json($crease['bowlers'] ?? []);
 document.addEventListener('DOMContentLoaded', () => {
+    renderCrease({
+        strikerDetails: @json($crease['striker'] ?? null),
+        nonStrikerDetails: @json($crease['nonStriker'] ?? null),
+        partnership: @json($crease['partnership'] ?? null),
+        lastWicket: @json($crease['lastWicket'] ?? null),
+    });
     applyOverEnd(@json((bool) ($overComplete ?? false)), @json($lastOverBowler ?? null));
     document.getElementById('bowlerSelect')?.addEventListener('change', () => {
+        renderBowlerLine();
         document.getElementById('overAlert')?.classList.add('hidden');
         document.getElementById('bowlerSelect').classList.remove('ring-2', 'ring-blue-400');
     });
@@ -1471,6 +1536,10 @@ function refreshMatchState() {
         if (data.currentBowler) {
             document.getElementById('bowlerSelect').value = data.currentBowler;
         }
+        freeHit = !!data.freeHit;
+        document.getElementById('freeHitBadge')?.classList.toggle('hidden', !freeHit);
+        bowlerStats = data.bowlerStats || [];
+        renderCrease(data);
         applyOverEnd(!!data.overComplete, data.lastOverBowler);
 
         // Show/hide wicket alert
@@ -1612,24 +1681,27 @@ function updateOutBatsmen(outIds) {
 }
 
 /**
- * End of an over: the next bowler is the scorer's choice, and the one who
- * just bowled is greyed out (no two overs in a row). Mid-over the select is
- * left alone, so a refresh never overwrites what the scorer picked.
+ * The bowler list. Each name carries its figures (O-M-R-W). At the end of an
+ * over the next bowler is the scorer's choice: the one who just bowled is
+ * barred (no two overs in a row) and so is anyone who has bowled their
+ * quota. Mid-over the selection is left alone, so a refresh never overwrites
+ * what the scorer picked.
  */
 function applyOverEnd(overDone, lastBowler) {
     const select = document.getElementById('bowlerSelect');
+    if (!select) return;
+    const figures = Object.fromEntries((bowlerStats || []).map(b => [String(b.id), b]));
     Array.from(select.options).forEach(o => {
-        if (o.dataset.lastOver) {
-            o.disabled = false;
-            o.textContent = o.dataset.label;
-            delete o.dataset.lastOver;
-        }
-        if (overDone && lastBowler && o.value && parseInt(o.value) === parseInt(lastBowler)) {
-            o.dataset.lastOver = '1';
-            o.dataset.label = o.textContent;
-            o.disabled = true;
-            o.textContent += ' (bowled last over)';
-        }
+        if (!o.value) return;
+        o.dataset.name ??= o.textContent.trim();
+        const f = figures[o.value];
+        const atQuota = f && f.oversCount >= bowlerQuota;
+        const bowledLast = lastBowler && parseInt(o.value) === parseInt(lastBowler);
+        let label = o.dataset.name + (f ? `  ·  ${f.overs}-${f.maidens}-${f.runs}-${f.wickets}` : '');
+        if (overDone && bowledLast) label += '  (bowled last over)';
+        else if (overDone && atQuota) label += `  (${bowlerQuota} overs done)`;
+        o.textContent = label;
+        o.disabled = !!(overDone && (bowledLast || atQuota));
     });
     if (overDone && (!select.value || select.selectedOptions[0]?.disabled)) {
         select.value = '';
@@ -1638,6 +1710,37 @@ function applyOverEnd(overDone, lastBowler) {
     document.getElementById('overAlert')?.classList.toggle('hidden', !needsBowler);
     select.classList.toggle('ring-2', needsBowler);
     select.classList.toggle('ring-blue-400', needsBowler);
+    renderBowlerLine();
+}
+
+/** Batters, partnership and last wicket under the score. */
+function renderCrease(data) {
+    const panel = document.getElementById('creasePanel');
+    if (!panel) return;
+    const s = data.strikerDetails, n = data.nonStrikerDetails;
+    panel.classList.toggle('hidden', !s && !n);
+    const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    const line = b => b ? `${b.runs} (${b.balls})` + (b.fours || b.sixes ? `  ${b.fours}×4 ${b.sixes}×6` : '') : '';
+    set('creaseStrikerName', s ? `${s.name} *` : '—');
+    set('creaseStrikerLine', line(s));
+    set('creaseNonStrikerName', n ? n.name : '—');
+    set('creaseNonStrikerLine', line(n));
+    const p = data.partnership;
+    set('creasePartnership', p ? `${p.runs} (${p.balls})` : '—');
+    const w = data.lastWicket;
+    set('creaseLastWicket', w ? `${w.name} ${w.runs} (${w.balls}) — ${w.score}/${w.wicket}` : '—');
+}
+
+/** The selected bowler's figures, so the scorer sees them while picking. */
+function renderBowlerLine() {
+    const id = document.getElementById('bowlerSelect')?.value;
+    const f = (bowlerStats || []).find(b => String(b.id) === String(id));
+    const opt = document.getElementById('bowlerSelect')?.selectedOptions[0];
+    const nameEl = document.getElementById('creaseBowlerName');
+    const lineEl = document.getElementById('creaseBowlerLine');
+    if (!nameEl || !lineEl) return;
+    nameEl.textContent = id ? (opt?.dataset.name || opt?.textContent || '—') : '—';
+    lineEl.textContent = f ? `${f.overs}-${f.maidens}-${f.runs}-${f.wickets}  ·  Econ ${Number(f.economy).toFixed(2)}` : (id ? 'yet to bowl' : '');
 }
 
 function openEndMatch(outcome) {
@@ -1765,8 +1868,8 @@ function showExtraModal(type) {
     document.getElementById('extraType').value = type;
 
     const labels = {
-        'wide': { title: 'Wide', desc: 'Wide + how many additional runs?' },
-        'no_ball': { title: 'No Ball', desc: 'Runs off the bat? (+1 no-ball is added)' },
+        'wide': { title: 'Wide', desc: 'One wide is added. Pick extra runs taken (Wd+4 = wide to the boundary, 5 wides).' },
+        'no_ball': { title: 'No Ball', desc: 'Runs off the bat? One no-ball run is added, and the next ball is a free hit.' },
         'bye': { title: 'Bye', desc: 'How many bye runs?' },
         'leg_bye': { title: 'Leg Bye', desc: 'How many leg bye runs?' }
     };
@@ -1777,8 +1880,10 @@ function showExtraModal(type) {
     // A no-ball asks for runs off the BAT (credited to the batter); the
     // no-ball's own run is added on top. Others ask for the extra itself.
     const isNoBall = type === 'no_ball';
+    const isWide = type === 'wide';
     document.getElementById('noBallRunsGrid').classList.toggle('hidden', !isNoBall);
-    document.getElementById('extraRunsGrid').classList.toggle('hidden', isNoBall);
+    document.getElementById('wideRunsGrid').classList.toggle('hidden', !isWide);
+    document.getElementById('extraRunsGrid').classList.toggle('hidden', isNoBall || isWide);
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1803,7 +1908,9 @@ function confirmExtra(runs) {
 function recordWicket() {
     document.getElementById('wicketModal').classList.remove('hidden');
     document.getElementById('wicketModal').classList.add('flex');
-    document.getElementById('dismissalType').dispatchEvent(new Event('change'));
+    document.getElementById('wicketDelivery').value = 'legal';
+    document.getElementById('fielderSelect').value = '';
+    syncWicketForm();
 }
 
 function closeWicketModal() {
@@ -1813,15 +1920,49 @@ function closeWicketModal() {
 
 function confirmWicket() {
     const dismissalType = document.getElementById('dismissalType').value;
+    const delivery = document.getElementById('wicketDelivery').value;
     const fielderId = document.getElementById('fielderSelect').value || null;
-    if (dismissalType === 'run_out') {
-        const runsCompleted = parseInt(document.getElementById('runOutRuns').value, 10) || 0;
-        const who = document.getElementById('runOutBatter').value;
-        recordBall(runsCompleted, null, 0, true, dismissalType, fielderId, who);
+    if (['caught', 'stumped'].includes(dismissalType) && !fielderId) {
+        alert(dismissalType === 'caught' ? 'Choose who took the catch.' : 'Choose the wicket-keeper.');
+        return;
+    }
+    const runs = dismissalType === 'run_out' ? (parseInt(document.getElementById('runOutRuns').value, 10) || 0) : 0;
+    const who = dismissalType === 'run_out' ? document.getElementById('runOutBatter').value : null;
+    if (delivery === 'wide') {
+        // Runs run on a wide are wides, not the batter's.
+        recordBall(0, 'wide', 1 + runs, true, dismissalType, fielderId, who);
+    } else if (delivery === 'no_ball') {
+        recordBall(runs, 'no_ball', 1, true, dismissalType, fielderId, who);
     } else {
-        recordBall(0, null, 0, true, dismissalType, fielderId);
+        recordBall(runs, null, 0, true, dismissalType, fielderId, who);
     }
     closeWicketModal();
+}
+
+/**
+ * Keep the wicket form to what can actually happen: on a free hit only a
+ * run-out; off a no-ball only a run-out; off a wide run out, stumped or hit
+ * wicket.
+ */
+const deliveriesFor = {
+    bowled: ['legal'], caught: ['legal'], lbw: ['legal'],
+    stumped: ['legal', 'wide'], hit_wicket: ['legal', 'wide'],
+    run_out: ['legal', 'wide', 'no_ball'],
+};
+function syncWicketForm() {
+    const type = document.getElementById('dismissalType');
+    Array.from(type.options).forEach(o => { o.disabled = freeHit && o.value !== 'run_out'; });
+    if (type.selectedOptions[0]?.disabled) type.value = 'run_out';
+    document.getElementById('freeHitNote').classList.toggle('hidden', !freeHit);
+
+    const allowed = deliveriesFor[type.value] || ['legal'];
+    const delivery = document.getElementById('wicketDelivery');
+    Array.from(delivery.options).forEach(o => { o.hidden = o.disabled = !allowed.includes(o.value); });
+    if (delivery.selectedOptions[0]?.disabled) delivery.value = 'legal';
+    document.getElementById('deliverySection').classList.toggle('hidden', allowed.length < 2);
+
+    document.getElementById('fielderSection').style.display = ['caught', 'run_out', 'stumped'].includes(type.value) ? 'block' : 'none';
+    document.getElementById('runOutSection').style.display = type.value === 'run_out' ? 'grid' : 'none';
 }
 
 function undoLastBall() {
@@ -1876,12 +2017,7 @@ function undoLastBall() {
     });
 }
 
-// Show/hide fielder based on dismissal type
-document.getElementById('dismissalType')?.addEventListener('change', function() {
-    const needsFielder = ['caught', 'run_out', 'stumped'].includes(this.value);
-    document.getElementById('fielderSection').style.display = needsFielder ? 'block' : 'none';
-    document.getElementById('runOutSection').style.display = this.value === 'run_out' ? 'grid' : 'none';
-});
+document.getElementById('dismissalType')?.addEventListener('change', syncWicketForm);
 
 // Generate poster with selected template
 function generatePoster() {
