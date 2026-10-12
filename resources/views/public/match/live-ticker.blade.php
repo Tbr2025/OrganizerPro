@@ -19,6 +19,15 @@
             overflow: hidden;
         }
         .oswald { font-family: 'Oswald', sans-serif; }
+        /* ?bg=green|black for tools that cannot key a transparent page
+           (chroma key on a hardware mixer, a plain TV). Transparent by default. */
+        @php $bg = ['green' => '#00b140', 'black' => '#000000'][is_string(request()->query('bg')) ? request()->query('bg') : ''] ?? null; @endphp
+        @if($bg)
+        html, body { background: {{ $bg }} !important; background-color: {{ $bg }} !important; }
+        @endif
+        /* The keyboard hint is for whoever sets the screen up, not for viewers. */
+        .setup-hint { animation: hint-out 1s ease 6s forwards; }
+        @keyframes hint-out { to { opacity: 0; } }
 
         /* IPL Style Gradients */
         .ipl-gradient {
@@ -325,7 +334,7 @@
                     <div id="match-status" class="text-yellow-400 font-medium oswald text-sm mx-auto">
                         {{ $match->overs ?? 20 }} OVERS MATCH
                     </div>
-                    <div class="text-white/30 text-xs">
+                    <div class="text-white/30 text-xs setup-hint">
                         Press R to refresh • F for fullscreen
                     </div>
                 </div>

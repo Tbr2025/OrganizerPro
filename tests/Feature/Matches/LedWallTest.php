@@ -173,6 +173,20 @@ class LedWallTest extends TestCase
     }
 
     #[Test]
+    public function the_ticker_is_transparent_by_default_with_green_and_black_options_and_the_console_links_it(): void
+    {
+        auth()->logout();
+        $url = route('public.live-ticker', $this->match);
+        $this->get($url)->assertOk()->assertSee('background: transparent', false)->assertDontSee('#00b140', false);
+        $this->get($url . '?bg=green')->assertOk()->assertSee('#00b140', false);
+        $this->get($url . '?bg=black')->assertOk()->assertSee('background: #000000', false);
+        $this->get($url . '?bg[]=x')->assertOk();
+
+        $this->actingAs($this->scorer)->get(route('admin.matches.led', $this->match))->assertOk()
+            ->assertSee('Score ticker for live video')->assertSee($url . '?bg=green', false);
+    }
+
+    #[Test]
     public function the_public_ticker_state_works_logged_out(): void
     {
         $this->ball(['lions', 1], ['lions', 2], ['tigers', 1], ['runs' => 6])->assertOk();

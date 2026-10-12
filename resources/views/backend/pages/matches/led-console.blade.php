@@ -28,11 +28,30 @@
         </div>
     </div>
 
+    {{-- The score strip for live video (OBS / vMix), separate from the big screen. --}}
+    @php $tickerUrl = route('public.live-ticker', $match); @endphp
+    <div class="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 text-sm">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <p class="font-semibold text-gray-800 dark:text-white">{{ __('Score ticker for live video') }}</p>
+                <p class="text-xs text-gray-500 mt-0.5 max-w-2xl">{{ __('A score strip to lay over your video stream. In OBS or vMix add it as a Browser Source, 1920 × 1080: everything except the strip is see-through. Opened in a normal browser tab the empty part looks white — that is expected. If your mixer cannot use transparency, use the green-screen or black version.') }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                @foreach([[__('Transparent'), $tickerUrl], [__('Green screen'), $tickerUrl . '?bg=green'], [__('Black'), $tickerUrl . '?bg=black']] as [$label, $url])
+                    <span class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                        <a href="{{ $url }}" target="_blank" rel="noopener" class="px-3 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800">{{ $label }}</a>
+                        <button type="button" onclick="navigator.clipboard?.writeText(@js($url)); this.textContent='{{ __('Copied') }}'" class="px-2 py-1.5 border-l border-gray-300 dark:border-gray-600 text-xs text-indigo-600">{{ __('Copy') }}</button>
+                    </span>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
     {{-- How it works: short, so an operator new to the console knows what each control does. --}}
     <div class="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 text-sm text-indigo-900 dark:text-indigo-100">
         <p class="font-semibold mb-1">{{ __('How this works') }}</p>
         <ul class="list-disc ml-5 space-y-0.5">
-            <li>{{ __('The big screen shows the wall link (Open wall). The preview below is exactly what that screen shows, and every change here reaches it within 1–2 seconds.') }}</li>
+            <li>{{ __('This page runs the big LED screen / TV at the ground. Open wall gives the screen\'s link (no sign-in needed on the TV). The preview below is exactly what that screen shows, and every change here reaches it within 1–2 seconds.') }}</li>
             <li><strong>{{ __('Auto') }}</strong> — {{ __('the wall changes screens by itself: wickets, boundaries, end of over, innings break and result, plus your chosen stats between balls. The live score always comes back.') }}</li>
             <li><strong>{{ __('Manual') }}</strong> — {{ __('the wall stays on the live score. Nothing changes until you press a Show now button.') }}</li>
             <li><strong>{{ __('Show now') }}</strong> — {{ __('puts that screen up straight away, then goes back to the live score.') }}</li>
