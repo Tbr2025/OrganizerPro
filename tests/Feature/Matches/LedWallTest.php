@@ -183,7 +183,8 @@ class LedWallTest extends TestCase
         $this->get($url . '?bg[]=x')->assertOk();
 
         $this->actingAs($this->scorer)->get(route('admin.matches.led', $this->match))->assertOk()
-            ->assertSee('Score ticker for live video')->assertSee($url . '?bg=green', false);
+            ->assertSee('Score ticker for live video')->assertSee($url . '?bg=green', false)
+            ->assertSee('Enter scores')->assertSee(route('admin.matches.show', $this->match), false);
     }
 
     #[Test]

@@ -19,6 +19,10 @@
             <p class="text-sm text-gray-500 dark:text-gray-400" id="scoreLine">…</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+            {{-- Scores are entered on the match page; the console only decides what the screen shows. --}}
+            <a href="{{ route('admin.matches.show', $match) }}" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 font-semibold">
+                <iconify-icon icon="lucide:pencil-line" width="16"></iconify-icon>{{ __('Enter scores') }}
+            </a>
             <a href="{{ $wallUrl }}" target="_blank" rel="noopener" class="px-3 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">{{ __('Open wall') }}</a>
             <button type="button" onclick="navigator.clipboard?.writeText(@js($wallUrl)); this.textContent='{{ __('Copied') }}'" class="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600">{{ __('Copy wall link') }}</button>
             <form method="POST" action="{{ route('admin.led.regenerate', $display) }}" onsubmit="return confirm('{{ __('Create a new link? Screens on the current link will stop.') }}')">
@@ -51,6 +55,7 @@
     <div class="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 text-sm text-indigo-900 dark:text-indigo-100">
         <p class="font-semibold mb-1">{{ __('How this works') }}</p>
         <ul class="list-disc ml-5 space-y-0.5">
+            <li><strong>{{ __('Enter scores') }}</strong> — {{ __('scores are entered on the match\'s scoring page (green button above). This console only decides what the screen shows.') }}</li>
             <li>{{ __('This page runs the big LED screen / TV at the ground. Open wall gives the screen\'s link (no sign-in needed on the TV). The preview below is exactly what that screen shows, and every change here reaches it within 1–2 seconds.') }}</li>
             <li><strong>{{ __('Auto') }}</strong> — {{ __('the wall changes screens by itself: wickets, boundaries, end of over, innings break and result, plus your chosen stats between balls. The live score always comes back.') }}</li>
             <li><strong>{{ __('Manual') }}</strong> — {{ __('the wall stays on the live score. Nothing changes until you press a Show now button.') }}</li>
