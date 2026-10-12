@@ -22,7 +22,7 @@ use Throwable;
  */
 class MatchFinisher
 {
-    public const OUTCOMES = ['auto', 'team_a', 'team_b', 'tie', 'no_result', 'abandoned'];
+    public const OUTCOMES = ['auto', 'team_a', 'team_b', 'tie', 'draw', 'no_result', 'abandoned'];
 
     public const ABANDON_REASONS = ['Rain', 'Bad light', 'Wet ground', 'Time ran out', 'Other'];
 
@@ -37,9 +37,9 @@ class MatchFinisher
 
             $teamA = (int) $match->team_a_id;
             $teamB = (int) $match->team_b_id;
-            $line = fn (int $team) => collect($s['innings'])->first(fn ($i) => (int) $i['batting_team_id'] === $team);
-            $a = $line($teamA);
-            $b = $line($teamB);
+            // A side's runs across all its innings; wickets and overs of its latest.
+            $a = $s['teams'][$teamA] ?? null;
+            $b = $s['teams'][$teamB] ?? null;
 
             [$type, $winner, $margin] = match ($outcome) {
                 'auto' => $s['result'] && $s['result']['type'] !== 'manual'
@@ -47,6 +47,7 @@ class MatchFinisher
                     : throw ValidationException::withMessages(['outcome' => 'The match is not over yet — choose who won, a tie, or no result.']),
                 'team_a', 'team_b' => $this->winnerBy($outcome === 'team_a' ? $teamA : $teamB, $s),
                 'tie' => ['tie', null, 0],
+                'draw' => ['draw', null, 0],
                 'no_result', 'abandoned' => ['no_result', null, 0],
             };
 
@@ -104,14 +105,14 @@ class MatchFinisher
     /** Winner chosen by the scorer: by wickets if they batted second, else by runs. */
     private function winnerBy(int $winner, array $s): array
     {
-        $second = $s['innings'][2];
-        $first = $s['innings'][1];
+        $last = $s['innings'][$s['total_innings']];
+        $loser = (int) $last['batting_team_id'] === $winner ? (int) $last['bowling_team_id'] : (int) $last['batting_team_id'];
 
-        if ((int) $second['batting_team_id'] === $winner) {
-            return ['wickets', $winner, max(0, $second['wicket_limit'] - $second['wickets'])];
+        if ((int) $last['batting_team_id'] === $winner && $last['balls_bowled'] > 0) {
+            return ['wickets', $winner, max(0, $last['wicket_limit'] - $last['wickets'])];
         }
 
-        return ['runs', $winner, max(0, $first['runs'] - $second['runs'])];
+        return ['runs', $winner, max(0, ($s['teams'][$winner]['runs'] ?? 0) - ($s['teams'][$loser]['runs'] ?? 0))];
     }
 
     private function afterEnd(Matches $match): void

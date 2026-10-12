@@ -515,7 +515,7 @@
         let lastVersion = -1, timer = null, pushOk = false;
 
         function teamLine(data, teamId) {
-            const inn = Object.values(data.innings || {}).find(i => i.team && i.team.id === teamId);
+            const inn = Object.values(data.innings || {}).filter(i => i.team && i.team.id === teamId && i.batted).pop();
             return inn && inn.batted ? inn : null;
         }
 
@@ -531,9 +531,11 @@
                 const [teamA, teamB] = data.teams || [];
                 const a = teamA ? teamLine(data, teamA.id) : null;
                 const b = teamB ? teamLine(data, teamB.id) : null;
-                updateText('team-a-score', a ? `${a.runs}/${a.wickets}` : '0/0', true);
+                // Two innings each: the side's innings in turn, "245/10 & 180/6".
+                const agg = id => (data.innings_per_team || 1) > 1 ? (data.team_scores || []).find(t => t.team && t.team.id === id)?.display : null;
+                updateText('team-a-score', teamA && agg(teamA.id) ? agg(teamA.id) : (a ? `${a.runs}/${a.wickets}` : '0/0'), true);
                 updateText('team-a-overs', `(${a ? a.overs : '0.0'})`);
-                updateText('team-b-score', b ? `${b.runs}/${b.wickets}` : '0/0', true);
+                updateText('team-b-score', teamB && agg(teamB.id) ? agg(teamB.id) : (b ? `${b.runs}/${b.wickets}` : '0/0'), true);
                 updateText('team-b-overs', `(${b ? b.overs : '0.0'})`);
 
                 updateText('crr', Number(data.score?.run_rate ?? 0).toFixed(2));
@@ -591,7 +593,8 @@
                     updateText('last-wicket-info', `${w.name} ${w.runs} (${w.balls}) - ${w.score}/${w.wicket}`);
                 }
 
-                const statusText = { innings_break: 'INNINGS BREAK', completed: data.result ? data.result.text.toUpperCase() : 'MATCH COMPLETED', prematch: 'UPCOMING', cancelled: 'CANCELLED' }[data.status];
+                const statusText = { innings_break: data.break?.text ? 'INNINGS BREAK · ' + data.break.text.toUpperCase() : 'INNINGS BREAK', completed: data.result ? data.result.text.toUpperCase() : 'MATCH COMPLETED', prematch: 'UPCOMING', cancelled: 'CANCELLED',
+                    live: (data.in_powerplay ? 'POWERPLAY · ' : '') + `${data.match?.overs_limit ?? maxOvers} OVERS MATCH` + ((data.total_innings || 2) > 2 ? ` · INNINGS ${data.current_innings} OF ${data.total_innings}` : '') }[data.status];
                 if (statusText) updateText('match-status', statusText);
 
                 drawOverlay(data);

@@ -941,6 +941,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/matches/{match}/end-match', [MatchesController::class, 'endMatch'])->name('matches.endMatch');
     Route::post('/matches/{match}/reopen-scoring', [MatchesController::class, 'reopenScoring'])->name('matches.reopenScoring');
     Route::post('/matches/{match}/bowler-limit', [MatchesController::class, 'setBowlerLimit'])->name('matches.bowlerLimit');
+    Route::post('/matches/{match}/format', [MatchesController::class, 'updateFormat'])->name('matches.format');
     Route::post('/matches/{match}/toss', [MatchesController::class, 'saveToss'])->name('matches.saveToss');
     Route::post('/matches/{match}/go-live', [MatchesController::class, 'goLive'])->name('matches.goLive');
     Route::post('/matches/{match}/cancel', [MatchesController::class, 'cancelMatch'])->name('matches.cancel');

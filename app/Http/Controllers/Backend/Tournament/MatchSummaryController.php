@@ -560,7 +560,7 @@ class MatchSummaryController extends Controller
     {
         $request->validate([
             'template_id' => 'required|integer',
-            'innings' => 'nullable|integer|in:1,2',
+            'innings' => 'nullable|integer|between:1,' . (2 * \App\Services\Scoring\MatchStateService::MAX_INNINGS_PER_TEAM),
         ]);
 
         try {
@@ -594,7 +594,7 @@ class MatchSummaryController extends Controller
     {
         $request->validate([
             'template_id' => 'required|integer',
-            'innings' => 'nullable|integer|in:1,2',
+            'innings' => 'nullable|integer|between:1,' . (2 * \App\Services\Scoring\MatchStateService::MAX_INNINGS_PER_TEAM),
             'award_id' => 'required|integer',
         ]);
 
@@ -1155,7 +1155,7 @@ class MatchSummaryController extends Controller
     {
         // buildMatchData() already outputs team_a = first batting team
         // Only swap when viewing innings 2 (second batting team as team_a)
-        if ($innings === 2) {
+        if ($innings % 2 === 0) {
             $swapKeys = [
                 'team_a_name' => 'team_b_name', 'team_a_short_name' => 'team_b_short_name',
                 'team_a_logo' => 'team_b_logo', 'team_a_score' => 'team_b_score',

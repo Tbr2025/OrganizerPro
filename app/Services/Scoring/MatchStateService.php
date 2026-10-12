@@ -43,6 +43,9 @@ class MatchStateService
     /** Smallest named line-up taken as the side's real size (see wicketLimit()). */
     public const MIN_LINEUP = 5;
 
+    /** Most innings one side may have (a four-day style match is two). */
+    public const MAX_INNINGS_PER_TEAM = 4;
+
     public function snapshot(Matches $match): array
     {
         $match->loadMissing(['teamA.players.player', 'teamB.players.player', 'lineups']);
@@ -62,49 +65,66 @@ class MatchStateService
     {
         $firstTeamId = (int) ($match->batting_first_team_id ?: $match->team_a_id);
         $secondTeamId = (int) ($firstTeamId === (int) $match->team_a_id ? $match->team_b_id : $match->team_a_id);
-        $teamFor = fn (int $innings) => $innings === 1 ? $firstTeamId : $secondTeamId;
+        // The sides bat in turn: 1st, 3rd… innings are the side batting first.
+        $teamFor = fn (int $innings) => $innings % 2 === 1 ? $firstTeamId : $secondTeamId;
         $maxBalls = max(1, (int) ($match->overs ?: 20)) * 6;
+        $total = $this->totalInnings($match);
+        $powerplays = $this->powerplays($match);
 
         // Old rows may lack `innings`; place them by the batsman's team, as the
         // pre-innings-column code did.
-        $byInnings = [1 => [], 2 => []];
+        $byInnings = array_fill_keys(range(1, $total), []);
         foreach ($balls as $ball) {
             $innings = $ball->innings ?: $this->inningsFromTeam($names[$ball->batsman_id]['team_id'] ?? null, $firstTeamId, $secondTeamId);
-            if ($innings === 1 || $innings === 2) {
+            if (isset($byInnings[$innings])) {
                 $byInnings[$innings][] = $ball;
             }
         }
 
         $innings = [];
-        foreach ([1, 2] as $n) {
+        foreach (range(1, $total) as $n) {
             $innings[$n] = $this->innings(
                 $n,
                 $byInnings[$n],
                 $teamFor($n),
-                $teamFor($n === 1 ? 2 : 1),
+                $teamFor($n + 1),
                 $this->wicketLimit($match, $teamFor($n)),
                 $maxBalls,
                 $names,
+                $powerplays,
             );
         }
         $quota = $this->bowlerQuota($match);
+        $current = min($total, max(1, (int) $match->current_innings));
 
-        $target = $innings[1]['balls_bowled'] > 0 || (int) $match->current_innings === 2
-            ? $innings[1]['runs'] + 1
-            : null;
+        // An innings is over once it is complete, the scorer has moved on, or a
+        // later one has begun.
+        foreach ($innings as $n => &$inn) {
+            $later = collect($innings)->filter(fn ($i, $k) => $k > $n && $i['balls_bowled'] > 0)->isNotEmpty();
+            $inn['complete'] = $inn['complete'] || $later || $current > $n;
+        }
+        unset($inn);
 
-        // Innings 1 is over once it is complete OR the chase has started.
-        // ...or the scorer has ended it and moved on to the chase.
-        $innings[1]['complete'] = $innings[1]['complete'] || $innings[2]['balls_bowled'] > 0 || (int) $match->current_innings === 2;
-        if ($target !== null && $innings[2]['runs'] >= $target) {
-            $innings[2]['complete'] = true;
+        // The side batting last chases: everything the other side made, less what
+        // it made itself in its earlier innings. 1 innings each = 1st innings + 1.
+        $last = $innings[$total];
+        $chaserId = $last['batting_team_id'];
+        $runsOf = fn (int $teamId, ?int $before = null) => collect($innings)
+            ->filter(fn ($i, $k) => $i['batting_team_id'] === $teamId && ($before === null || $k < $before))->sum('runs');
+        $lastReached = $innings[$total - 1]['balls_bowled'] > 0 || $current === $total;
+        $target = $lastReached ? $runsOf($teamFor($total + 1)) - $runsOf($chaserId, $total) + 1 : null;
+
+        // Behind with no innings left to bat? Then the side batting last has won
+        // by an innings and need not bat at all.
+        $inningsWin = $target !== null && $target <= 0 && $innings[$total - 1]['complete'] && $last['balls_bowled'] === 0;
+        if ($target !== null && $last['runs'] >= max(1, $target)) {
+            $innings[$total]['complete'] = true;
         }
 
-        $current = in_array((int) $match->current_innings, [1, 2], true) ? (int) $match->current_innings : 1;
         $live = $innings[$current];
 
         $chase = null;
-        if ($current === 2 && $target !== null) {
+        if ($current === $total && $target !== null && $target > 0) {
             $ballsLeft = max(0, $maxBalls - $live['legal_balls']);
             $need = max(0, $target - $live['runs']);
             $chase = [
@@ -115,7 +135,11 @@ class MatchStateService
             ];
         }
 
-        $result = $innings[2]['complete'] ? $this->result($innings, $target) : null;
+        $result = match (true) {
+            $inningsWin => ['winner_team_id' => $chaserId, 'type' => 'innings', 'margin' => 1 - $target],
+            $innings[$total]['complete'] && $target !== null => $this->result($innings, $total, $target),
+            default => null,
+        };
 
         // Ended by the scorer (shortened, abandoned, called off): their outcome
         // stands, and the innings in play are closed.
@@ -126,7 +150,10 @@ class MatchStateService
                 'margin' => 0,
                 'text' => (string) ($match->end_reason ?: 'Match ended'),
             ];
-            $innings[1]['complete'] = $innings[2]['complete'] = true;
+            foreach ($innings as &$inn) {
+                $inn['complete'] = true;
+            }
+            unset($inn);
         }
 
         // Once decided there is nothing left to chase.
@@ -134,19 +161,31 @@ class MatchStateService
             $chase = null;
         }
 
+        // Between innings: the one just finished is done, the next has no ball yet.
+        $break = $result === null && (
+            ($current > 1 && $live['balls_bowled'] === 0)
+            || ($live['complete'] && $current < $total)
+        );
+
         return [
             'match_id' => (int) $match->id,
             'score_version' => (int) ($match->score_version ?? 0),
             'overs_limit' => intdiv($maxBalls, 6),
             'bowler_quota' => $quota,
+            'innings_per_team' => intdiv($total, 2),
+            'total_innings' => $total,
+            'players_per_team' => $match->players_per_team ? (int) $match->players_per_team : null,
+            'powerplays' => $powerplays,
+            'in_powerplay' => $this->inPowerplay($powerplays, intdiv($live['legal_balls'], 6) + 1) && ! $live['complete'],
             'batting_first_team_id' => $firstTeamId,
             'current_innings' => $current,
+            'innings_break' => $break,
             'innings' => $innings,
             'teams' => [
-                $firstTeamId => $this->teamLine($innings[1]),
-                $secondTeamId => $this->teamLine($innings[2]),
+                $firstTeamId => $this->teamLine($innings, $firstTeamId),
+                $secondTeamId => $this->teamLine($innings, $secondTeamId),
             ],
-            'target' => $target,
+            'target' => $target !== null && $target > 0 ? $target : null,
             'chase' => $chase,
             'result' => $result,
             'match_complete' => $result !== null,
@@ -159,10 +198,53 @@ class MatchStateService
         ];
     }
 
+    /** Innings in the match: two sides × innings each (1 = limited overs). */
+    public function totalInnings(Matches $match): int
+    {
+        return 2 * min(self::MAX_INNINGS_PER_TEAM, max(1, (int) ($match->innings_per_team ?: 1)));
+    }
+
+    /**
+     * Powerplay over ranges, cleaned: within the innings, in order, no overlap.
+     *
+     * @return array<int, array{from:int, to:int}>
+     */
+    public function powerplays(Matches $match): array
+    {
+        $overs = max(1, (int) ($match->overs ?: 20));
+        $out = [];
+        foreach ((array) ($match->powerplays ?? []) as $p) {
+            $from = max(1, (int) ($p['from'] ?? 0));
+            $to = min($overs, (int) ($p['to'] ?? 0));
+            if ($to >= $from) {
+                $out[] = ['from' => $from, 'to' => $to];
+            }
+        }
+        usort($out, fn ($a, $b) => $a['from'] <=> $b['from']);
+
+        return array_values(array_filter($out, function ($p) use (&$end) {
+            $ok = $p['from'] > ($end ?? 0);
+            $end = $ok ? $p['to'] : $end;
+
+            return $ok;
+        }));
+    }
+
+    private function inPowerplay(array $powerplays, int $over): bool
+    {
+        foreach ($powerplays as $p) {
+            if ($over >= $p['from'] && $over <= $p['to']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @param  array<int, Ball>  $balls
      */
-    private function innings(int $number, array $balls, int $battingTeamId, int $bowlingTeamId, int $wicketLimit, int $maxBalls, array $names): array
+    private function innings(int $number, array $balls, int $battingTeamId, int $bowlingTeamId, int $wicketLimit, int $maxBalls, array $names, array $powerplays = []): array
     {
         $runs = 0;
         $wickets = 0;
@@ -174,6 +256,7 @@ class MatchStateService
         $overs = [];
         $outIds = [];
         $partnership = ['runs' => 0, 'balls' => 0];
+        $powerplay = ['runs' => 0, 'wickets' => 0, 'legal_balls' => 0];
 
         // Who is where, replayed delivery by delivery.
         $striker = null;
@@ -322,6 +405,12 @@ class MatchStateService
                 $freeHit = false;
             }
 
+            if ($this->inPowerplay($powerplays, $overNumber)) {
+                $powerplay['runs'] += $bat + $extra;
+                $powerplay['wickets'] += $ball->is_wicket ? 1 : 0;
+                $powerplay['legal_balls'] += $isLegal ? 1 : 0;
+            }
+
             $lastBall = $ball;
         }
 
@@ -386,6 +475,7 @@ class MatchStateService
             'overs_summary' => $overList,
             'this_over' => $overList === [] ? [] : (end($overList)['balls'] ?? []),
             'partnership' => $partnership,
+            'powerplay' => $powerplays === [] ? null : $powerplay + ['overs' => $this->overs($powerplay['legal_balls'])],
             'last_wicket' => $lastWicket,
             'last_ball_id' => $lastBall?->id,
             'striker_id' => $striker,
@@ -455,6 +545,11 @@ class MatchStateService
      */
     private function wicketLimit(Matches $match, int $teamId): int
     {
+        // The scorer's setting wins: an 8-a-side match is all out at 7.
+        if ((int) $match->players_per_team >= 2) {
+            return (int) $match->players_per_team - 1;
+        }
+
         $lineup = $match->relationLoaded('lineups')
             ? $match->lineups->where('actual_team_id', $teamId)->count()
             : $match->lineups()->where('actual_team_id', $teamId)->count();
@@ -484,38 +579,44 @@ class MatchStateService
         };
     }
 
-    private function teamLine(array $innings): array
+    /** A side's line: its innings added up (one innings each = that innings). */
+    private function teamLine(array $innings, int $teamId): array
     {
+        $own = collect($innings)->where('batting_team_id', $teamId)->filter(fn ($i) => $i['balls_bowled'] > 0);
+        $latest = $own->last();
+
         return [
-            'runs' => $innings['runs'],
-            'wickets' => $innings['wickets'],
-            'overs' => $innings['overs'],
-            'extras' => $innings['extras']['total'],
-            'batted' => $innings['balls_bowled'] > 0,
+            'runs' => $own->sum('runs'),
+            'wickets' => $latest['wickets'] ?? 0,
+            'overs' => $latest['overs'] ?? '0.0',
+            'extras' => $own->sum(fn ($i) => $i['extras']['total']),
+            'batted' => $own->isNotEmpty(),
+            // Each innings in turn, e.g. "245 & 180/6".
+            'innings' => $own->map(fn ($i) => ['number' => $i['number'], 'runs' => $i['runs'], 'wickets' => $i['wickets'], 'overs' => $i['overs'], 'complete' => $i['complete']])->values()->all(),
         ];
     }
 
-    private function result(array $innings, int $target): array
+    private function result(array $innings, int $total, int $target): array
     {
-        $first = $innings[1];
-        $second = $innings[2];
+        $last = $innings[$total];
+        $other = $innings[$total - 1]['batting_team_id'];
 
-        if ($second['runs'] >= $target) {
-            $margin = max(0, $second['wicket_limit'] - $second['wickets']);
+        if ($last['runs'] >= $target) {
+            $margin = max(0, $last['wicket_limit'] - $last['wickets']);
 
-            return ['winner_team_id' => $second['batting_team_id'], 'type' => 'wickets', 'margin' => $margin];
+            return ['winner_team_id' => $last['batting_team_id'], 'type' => 'wickets', 'margin' => $margin];
         }
 
-        if ($second['runs'] === $target - 1) {
+        if ($last['runs'] === $target - 1) {
             return ['winner_team_id' => null, 'type' => 'tie', 'margin' => 0];
         }
 
-        return ['winner_team_id' => $first['batting_team_id'], 'type' => 'runs', 'margin' => $target - 1 - $second['runs']];
+        return ['winner_team_id' => $other, 'type' => 'runs', 'margin' => $target - 1 - $last['runs']];
     }
 
     private function topBatters(array $innings): array
     {
-        return collect($innings[1]['batters'])->concat($innings[2]['batters'])
+        return $this->merged($innings, 'batters', ['runs', 'balls', 'fours', 'sixes'])
             ->filter(fn ($b) => $b['balls'] > 0 || $b['runs'] > 0)
             ->sortBy([['runs', 'desc'], ['balls', 'asc']])
             ->take(3)->values()->all();
@@ -523,9 +624,39 @@ class MatchStateService
 
     private function topBowlers(array $innings): array
     {
-        return collect($innings[1]['bowlers'])->concat($innings[2]['bowlers'])
+        return $this->merged($innings, 'bowlers', ['legal_balls', 'runs', 'wickets', 'maidens', 'wides', 'no_balls'])
             ->sortBy([['wickets', 'desc'], ['runs', 'asc'], ['legal_balls', 'desc']])
             ->take(3)->values()->all();
+    }
+
+    /** One row per player across every innings, figures added up. */
+    private function merged(array $innings, string $key, array $sum): Collection
+    {
+        $rows = [];
+        foreach ($innings as $i) {
+            foreach ($i[$key] as $r) {
+                if (! isset($rows[$r['id']])) {
+                    $rows[$r['id']] = $r;
+
+                    continue;
+                }
+                foreach ($sum as $f) {
+                    $rows[$r['id']][$f] += $r[$f];
+                }
+                $rows[$r['id']]['out'] = $r['out'] ?? null;
+            }
+        }
+
+        return collect($rows)->map(function ($r) use ($key) {
+            if ($key === 'bowlers') {
+                $r['overs'] = $this->overs($r['legal_balls']);
+                $r['economy'] = $r['legal_balls'] > 0 ? round($r['runs'] / ($r['legal_balls'] / 6), 2) : 0.0;
+            } else {
+                $r['strike_rate'] = $r['balls'] > 0 ? round($r['runs'] / $r['balls'] * 100, 2) : 0.0;
+            }
+
+            return $r;
+        });
     }
 
     /**

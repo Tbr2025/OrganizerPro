@@ -53,7 +53,10 @@
             <!-- Status Badge & Innings -->
             <div class="absolute top-4 right-4 flex items-center gap-2">
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase bg-indigo-500">
-                    {{ $currentInnings ?? 1 }}{{ $currentInnings == 1 ? 'st' : 'nd' }} Inn
+                    {{ \App\Http\Controllers\Backend\MatchesController::ordinal((int) ($currentInnings ?? 1)) }} Inn{{ ($totalInnings ?? 2) > 2 ? ' of ' . $totalInnings : '' }}
+                </span>
+                <span id="powerplayBadge" class="{{ ($inPowerplay ?? false) ? '' : 'hidden' }} inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase bg-amber-400 text-black">
+                    Powerplay
                 </span>
                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase
                     {{ $match->status === 'live' ? 'bg-red-500 animate-pulse' : ($match->status === 'completed' ? 'bg-green-500' : 'bg-yellow-500') }}">
@@ -175,11 +178,9 @@
                 // Check if Team A bats first
                 $teamABatsFirst = $firstBattingTeamId == $match->team_a_id;
 
-                // Map innings stats to teams based on batting order
-                // If Team A bats first: Team A = innings1, Team B = innings2
-                // If Team B bats first: Team B = innings1, Team A = innings2
-                $teamAStats = $teamABatsFirst ? ($innings1Stats ?? []) : ($innings2Stats ?? []);
-                $teamBStats = $teamABatsFirst ? ($innings2Stats ?? []) : ($innings1Stats ?? []);
+                // Each side's score from MatchStateService: its innings added up.
+                $teamAStats = $teamAStats ?? [];
+                $teamBStats = $teamBStats ?? [];
 
                 // Fallback to match_results when no ball data exists
                 $hasBallData = ($teamAStats['runs'] ?? 0) > 0 || ($teamBStats['runs'] ?? 0) > 0;
@@ -211,17 +212,15 @@
                 $rightId = $teamABatsFirst ? 'teamB' : 'teamA';
 
                 // Determine which team is currently batting (for live scoring highlight)
-                $currentBattingTeamId = ($currentInnings ?? 1) == 1
-                    ? $firstBattingTeamId
-                    : (($firstBattingTeamId == $match->team_a_id) ? $match->team_b_id : $match->team_a_id);
+                $currentBattingTeamId = $battingTeam?->id ?? $firstBattingTeamId;
 
                 $isLeftBatting = $currentBattingTeamId == $leftTeam?->id;
                 $isRightBatting = $currentBattingTeamId == $rightTeam?->id;
 
                 // Check if team has batted yet
                 if ($hasBallData) {
-                    $leftHasBatted = ($currentInnings ?? 1) >= 1;
-                    $rightHasBatted = ($currentInnings ?? 1) >= 2;
+                    $leftHasBatted = true;
+                    $rightHasBatted = ($rightStats['batted'] ?? false) || ($currentInnings ?? 1) >= 2;
                 } else {
                     $leftHasBatted = ($leftStats['runs'] ?? 0) > 0 || ($leftStats['wickets'] ?? 0) > 0;
                     $rightHasBatted = ($rightStats['runs'] ?? 0) > 0 || ($rightStats['wickets'] ?? 0) > 0;
@@ -246,11 +245,11 @@
                     @elseif(!$leftHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
                     @else
-                        <span class="text-xs text-yellow-400/70">1st Innings</span>
+                        <span class="text-xs text-yellow-400/70">{{ count($leftStats['innings'] ?? []) > 1 ? 'Total ' . ($leftStats['runs'] ?? 0) : '1st Innings' }}</span>
                     @endif
                     <div class="text-3xl font-black mt-2" id="{{ $leftId }}Score">
                         @if($leftHasBatted || ($leftStats['runs'] ?? 0) > 0)
-                            {{ $leftStats['runs'] ?? 0 }}/{{ $leftStats['wickets'] ?? 0 }}
+                            {{ count($leftStats['innings'] ?? []) > 1 ? $leftStats['display'] : ($leftStats['runs'] ?? 0) . '/' . ($leftStats['wickets'] ?? 0) }}
                         @else
                             <span class="text-gray-500">-</span>
                         @endif
@@ -285,11 +284,11 @@
                     @elseif(!$rightHasBatted)
                         <span class="text-xs text-gray-500 italic">Yet to bat</span>
                     @else
-                        <span class="text-xs text-blue-400/70">2nd Innings</span>
+                        <span class="text-xs text-blue-400/70">{{ count($rightStats['innings'] ?? []) > 1 ? 'Total ' . ($rightStats['runs'] ?? 0) : '2nd Innings' }}</span>
                     @endif
                     <div class="text-3xl font-black mt-2" id="{{ $rightId }}Score">
                         @if($rightHasBatted || ($rightStats['runs'] ?? 0) > 0)
-                            {{ $rightStats['runs'] ?? 0 }}/{{ $rightStats['wickets'] ?? 0 }}
+                            {{ count($rightStats['innings'] ?? []) > 1 ? $rightStats['display'] : ($rightStats['runs'] ?? 0) . '/' . ($rightStats['wickets'] ?? 0) }}
                         @else
                             <span class="text-gray-500">-</span>
                         @endif
@@ -414,6 +413,8 @@
                 </h3>
             </div>
             <div class="p-6">
+                @include('backend.pages.matches.partials.format-panel')
+
                 <!-- Select Batsmen & Bowler -->
                 <div id="overAlert" class="mb-4 p-3 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-xl {{ ($overComplete ?? false) ? '' : 'hidden' }}">
                     <p class="text-blue-800 dark:text-blue-200 text-sm font-medium">Over complete — choose the next bowler. The bowler who just bowled cannot bowl this over.</p>
@@ -434,33 +435,42 @@
                     $inningsComplete = $inningsComplete ?? false;
                 @endphp
 
-                @if($inningsComplete && ($currentInnings ?? 1) == 1)
-                <!-- First Innings Complete - Start 2nd Innings -->
+                @php
+                    // Innings in this match (2 × innings each) and where we are in them.
+                    $ord = fn (int $n) => \App\Http\Controllers\Backend\MatchesController::ordinal($n);
+                    $inn = (int) ($currentInnings ?? 1);
+                    $lastInnings = (int) ($totalInnings ?? 2);
+                    $isLastInnings = $inn >= $lastInnings;
+                    $ended = (bool) $match->scoring_ended_at;
+                @endphp
+
+                @if($inningsComplete && ! $isLastInnings && ! ($matchComplete ?? false))
+                <!-- An innings complete - start the next -->
                 <div class="mb-4 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-xl">
                     <p class="text-blue-800 dark:text-blue-200 text-sm font-medium flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        1st Innings Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $innings1Stats['runs'] ?? 0 }}/{{ $innings1Stats['wickets'] ?? 0 }} ({{ $innings1Stats['overs'] ?? '0.0' }} ov)
+                        {{ $ord($inn) }} Innings Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $totalRuns }}/{{ $totalWickets }} ({{ $totalOvers }} ov)
                     </p>
                     <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST" class="mt-3">
-                        @csrf <input type="hidden" name="to" value="2">
+                        @csrf <input type="hidden" name="to" value="{{ $inn + 1 }}">
                         <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
                             </svg>
-                            Start 2nd Innings ({{ $bowlingTeam?->name }} batting)
+                            Start {{ $ord($inn + 1) }} Innings ({{ $bowlingTeam?->name }} batting)
                         </button>
                     </form>
                 </div>
-                @elseif($inningsComplete && ($currentInnings ?? 1) == 2)
-                <!-- Second Innings Complete - Match Over -->
+                @elseif($inningsComplete && ($isLastInnings || ($matchComplete ?? false)))
+                <!-- Last innings complete (or won by an innings) - Match Over -->
                 <div id="inningsCompleteAlert" class="mb-4 p-4 bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 rounded-xl">
                     <p class="text-green-800 dark:text-green-200 text-sm font-medium flex items-center">
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
-                        Match Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $totalRuns }}/{{ $totalWickets }} ({{ $innings2Stats['overs'] ?? '0.0' }} ov)
+                        Match Complete{{ $allWicketsDown ? ' (All Out)' : '' }}! {{ $battingTeam?->name }} scored {{ $totalRuns }}/{{ $totalWickets }} ({{ $totalOvers }} ov)
                     </p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         <a href="{{ route('admin.matches.summary.edit', $match) }}" class="inline-flex items-center px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition">
@@ -481,12 +491,8 @@
                 </div>
                 @endif
 
-                {{-- Innings and match controls. Explicit targets (to=2 / to=1): a
-                     double click no longer flips the innings back. --}}
-                @php
-                    $ended = (bool) $match->scoring_ended_at;
-                    $inn = (int) ($currentInnings ?? 1);
-                @endphp
+                {{-- Innings and match controls. Explicit targets (to=n): a double
+                     click lands on the same innings instead of flipping back. --}}
                 @if($ended)
                     <div class="mb-4 p-4 rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800">
                         <p class="text-sm font-semibold text-gray-800 dark:text-gray-100">Match ended — {{ $match->end_reason }}</p>
@@ -501,26 +507,34 @@
                 @else
                     @if($inningsBreak ?? false)
                         <div class="mb-4 p-4 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700">
-                            <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Innings break — {{ $battingTeam?->name }} need {{ $target }} to win.</p>
-                            <p class="text-xs text-amber-800 dark:text-amber-200 mt-1">The LED wall is showing the innings summary and top performers. Pick the openers and bowler below, then score the first ball to start the chase.</p>
+                            @php
+                                // Before the last innings: the target. Before any other: the lead.
+                                $batAgg = (int) (($battingTeam?->id === $match->team_a_id ? $teamAStats : $teamBStats)['runs'] ?? 0);
+                                $fieldAgg = (int) (($battingTeam?->id === $match->team_a_id ? $teamBStats : $teamAStats)['runs'] ?? 0);
+                                $standing = $isLastInnings
+                                    ? ($target ? "need {$target} to win" : '')
+                                    : ($batAgg === $fieldAgg ? 'scores level' : ($batAgg > $fieldAgg ? 'lead by ' . ($batAgg - $fieldAgg) : 'trail by ' . ($fieldAgg - $batAgg)));
+                            @endphp
+                            <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Innings break — {{ $battingTeam?->name }} {{ $standing }}.</p>
+                            <p class="text-xs text-amber-800 dark:text-amber-200 mt-1">The LED wall is showing the innings summary and top performers. Pick the openers and bowler below, then score the first ball to start the {{ $ord($inn) }} innings.</p>
                         </div>
                     @endif
                     <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
                         <span class="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {{ $inn === 1 ? '1st' : '2nd' }} innings: <strong class="text-indigo-600">{{ $battingTeam?->name ?? 'Team' }}</strong> batting
+                            {{ $ord($inn) }} innings{{ $lastInnings > 2 ? ' of ' . $lastInnings : '' }}: <strong class="text-indigo-600">{{ $battingTeam?->name ?? 'Team' }}</strong> batting
                         </span>
                         <div class="flex flex-wrap gap-2">
-                            @if($inn === 1)
+                            @if(($inningsBreak ?? false) && $inn > 1)
                                 <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST"
-                                      onsubmit="return confirm('End the 1st innings now and start the innings break?')">
-                                    @csrf <input type="hidden" name="to" value="2">
-                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">End 1st innings</button>
+                                      onsubmit="return confirm('Go back to the {{ $ord($inn - 1) }} innings? Use this only if it was ended by mistake.')">
+                                    @csrf <input type="hidden" name="to" value="{{ $inn - 1 }}">
+                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600">Back to {{ $ord($inn - 1) }} innings</button>
                                 </form>
-                            @elseif($inningsBreak ?? false)
+                            @elseif(! $isLastInnings)
                                 <form action="{{ route('admin.matches.switchInnings', $match) }}" method="POST"
-                                      onsubmit="return confirm('Go back to the 1st innings? Use this only if it was ended by mistake.')">
-                                    @csrf <input type="hidden" name="to" value="1">
-                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600">Back to 1st innings</button>
+                                      onsubmit="return confirm('End the {{ $ord($inn) }} innings now and start the innings break?')">
+                                    @csrf <input type="hidden" name="to" value="{{ $inn + 1 }}">
+                                    <button type="submit" class="text-sm px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">{{ $inn % 2 === 0 || $lastInnings === 2 ? 'End ' . $ord($inn) . ' innings' : 'End / declare ' . $ord($inn) . ' innings' }}</button>
                                 </form>
                             @endif
                             <button type="button" onclick="openEndMatch()" class="text-sm px-3 py-1.5 rounded-lg bg-gray-800 text-white hover:bg-gray-900 dark:bg-gray-700">End match</button>
@@ -540,6 +554,9 @@
                             <label class="flex items-center gap-2"><input type="radio" name="outcome" value="team_a" @checked(!($naturalResult ?? false))> {{ $match->teamA?->name }} won</label>
                             <label class="flex items-center gap-2"><input type="radio" name="outcome" value="team_b"> {{ $match->teamB?->name }} won</label>
                             <label class="flex items-center gap-2"><input type="radio" name="outcome" value="tie"> Tie</label>
+                            @if(($totalInnings ?? 2) > 2)
+                            <label class="flex items-center gap-2"><input type="radio" name="outcome" value="draw"> Draw (time ran out)</label>
+                            @endif
                             <label class="flex items-center gap-2"><input type="radio" name="outcome" value="no_result"> No result</label>
                             <label class="flex items-center gap-2"><input type="radio" name="outcome" value="abandoned"> Abandoned</label>
                             <label id="abandonReason" class="hidden flex-col gap-1">Reason
@@ -793,17 +810,23 @@
                     <span class="font-medium">{{ $match->overs ?? '20' }}</span>
                 </div>
                 <div class="flex justify-between">
+                    <span class="text-gray-500">Innings per team</span>
+                    <span class="font-medium">{{ $match->innings_per_team ?: 1 }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Players per team</span>
+                    <span class="font-medium">{{ $match->players_per_team ?: '11 (standard)' }}</span>
+                </div>
+                <div class="flex justify-between">
                     <span class="text-gray-500">Max overs per bowler</span>
                     <span class="font-medium">{{ $bowlerQuota }}{{ $match->bowler_overs_limit ? '' : ' (standard)' }}</span>
                 </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Powerplay</span>
+                    <span class="font-medium">{{ collect($match->powerplays ?? [])->map(fn ($p) => 'overs ' . $p['from'] . '–' . $p['to'])->implode(', ') ?: 'None' }}</span>
+                </div>
                 @can('match.edit')
-                <form method="POST" action="{{ route('admin.matches.bowlerLimit', $match) }}" class="flex items-center gap-2 pt-1">
-                    @csrf
-                    <input type="number" name="bowler_overs_limit" min="1" max="{{ $match->overs ?: 20 }}" value="{{ $match->bowler_overs_limit }}"
-                           placeholder="{{ (int) ceil(max(1, (int) ($match->overs ?: 20)) / 5) }}" class="form-control !py-1 w-20 text-sm" aria-label="Max overs per bowler">
-                    <button class="px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-600">Set limit</button>
-                </form>
-                <p class="text-xs text-gray-400">Standard is a fifth of the overs, rounded up. Change it only for local playing rules; leave blank for standard.</p>
+                <p class="text-xs text-gray-400">Change these under <a href="#matchFormat" onclick="document.getElementById('matchFormat').open = true" class="underline">Match format</a> in the scoring panel.</p>
                 @endcan
             </div>
         </div>
@@ -1495,7 +1518,8 @@ function refreshMatchState() {
             const oversEl = document.getElementById(`${key}Overs`);
             if (!stats || !scoreEl) return;
             if (stats.batted) {
-                scoreEl.textContent = `${stats.runs}/${stats.wickets}`;
+                // Two innings each: "245/10 & 180/6".
+                scoreEl.textContent = (stats.innings || []).length > 1 ? stats.display : `${stats.runs}/${stats.wickets}`;
                 if (oversEl) oversEl.textContent = `(${stats.overs} ov)`;
             } else {
                 scoreEl.innerHTML = '<span class="text-gray-500">Yet to bat</span>';
@@ -1538,6 +1562,7 @@ function refreshMatchState() {
         }
         freeHit = !!data.freeHit;
         document.getElementById('freeHitBadge')?.classList.toggle('hidden', !freeHit);
+        document.getElementById('powerplayBadge')?.classList.toggle('hidden', !data.inPowerplay);
         bowlerStats = data.bowlerStats || [];
         renderCrease(data);
         applyOverEnd(!!data.overComplete, data.lastOverBowler);

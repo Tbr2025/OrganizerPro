@@ -194,11 +194,10 @@ class BallRecorder
         $this->announce($match, fn (Matches $m) => app(LedQueueService::class)->onUndo($m, (int) $ball->id));
     }
 
-    /** Start the other innings. */
     /**
      * Move to an innings. With $to, idempotent: a double click (or a second
      * scorer) lands on the same innings instead of flipping back. Without it,
-     * the old toggle.
+     * the next innings (or back one from the last, the old toggle).
      */
     public function switchInnings(Matches $match, ?int $to = null): int
     {
@@ -208,7 +207,12 @@ class BallRecorder
             if ($match->scoring_ended_at) {
                 $this->fail('innings_complete', 'The match has been ended. Reopen scoring to change innings.');
             }
-            $next = in_array($to, [1, 2], true) ? $to : ((int) $match->current_innings === 2 ? 1 : 2);
+            $total = app(MatchStateService::class)->totalInnings($match);
+            $now = (int) $match->current_innings;
+            if ($to !== null && ($to < 1 || $to > $total)) {
+                $this->fail('innings', "This match has {$total} innings.");
+            }
+            $next = $to ?? ($now < $total ? $now + 1 : $now - 1);
             if ($next === (int) $match->current_innings) {
                 return $next;
             }
@@ -224,7 +228,8 @@ class BallRecorder
             return $next;
         });
 
-        $this->announce($match, fn (Matches $m) => $next === 2 && $from !== 2
+        // Every step forward is a break: the wall puts up the innings just played.
+        $this->announce($match, fn (Matches $m) => $next > $from
             ? app(LedQueueService::class)->onInningsBreak($m) : null);
 
         return $next;

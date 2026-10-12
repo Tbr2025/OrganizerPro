@@ -37,7 +37,7 @@ class MatchesController extends Controller
 
         $this->middleware('permission:match.edit')->only([
             'create', 'store', 'edit', 'update', 'destroy', 'bulkDelete', 'reorder',
-            'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring', 'setBowlerLimit',
+            'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring', 'setBowlerLimit', 'updateFormat',
             'editOvers', 'updateOvers', 'addAppreciation', 'generatePoster',
         ]);
     }
@@ -247,6 +247,12 @@ class MatchesController extends Controller
             'scoreVersion' => $snapshot['score_version'],
             'freeHit' => $state['freeHit'],
             'bowlerQuota' => $state['bowlerQuota'],
+            'totalInnings' => $state['totalInnings'],
+            'inPowerplay' => $state['inPowerplay'],
+            'teamAStats' => $state['teamAStats'],
+            'teamBStats' => $state['teamBStats'],
+            'matchComplete' => $state['matchComplete'],
+            'scoringStarted' => collect($snapshot['innings'])->contains(fn ($i) => $i['balls_bowled'] > 0),
             'crease' => [
                 'striker' => $state['strikerDetails'],
                 'nonStriker' => $state['nonStrikerDetails'],
@@ -296,8 +302,74 @@ class MatchesController extends Controller
             return redirect()->route('admin.matches.show', $match)->with('error', collect($e->errors())->flatten()->first());
         }
 
+        $from = (int) $match->current_innings;
+
         return redirect()->route('admin.matches.show', $match)
-            ->with('success', $newInnings === 2 ? 'Innings break — 2nd innings is ready to start.' : 'Back to the 1st innings.');
+            ->with('success', $newInnings > $from
+                ? 'Innings break — the ' . self::ordinal($newInnings) . ' innings is ready to start.'
+                : 'Back to the ' . self::ordinal($newInnings) . ' innings.');
+    }
+
+    /**
+     * The match format, set in the scoring area before the first ball: innings
+     * each, overs, players a side, bowler limit and powerplays. Changeable
+     * mid-match (rain, a late arrival) but never below what has been played.
+     */
+    public function updateFormat(Request $request, Matches $match)
+    {
+        $data = $request->validate([
+            'overs' => 'required|integer|min:1|max:90',
+            'innings_per_team' => 'required|integer|min:1|max:' . MatchStateService::MAX_INNINGS_PER_TEAM,
+            'players_per_team' => 'nullable|integer|min:2|max:15',
+            'bowler_overs_limit' => 'nullable|integer|min:1|lte:overs',
+            'powerplays' => 'nullable|array|max:3',
+            'powerplays.*.from' => 'nullable|integer|min:1|lte:overs',
+            'powerplays.*.to' => 'nullable|integer|min:1|lte:overs',
+        ], [
+            'bowler_overs_limit.lte' => 'A bowler cannot bowl more overs than the innings has.',
+            'powerplays.*.from.lte' => 'A powerplay must fall inside the innings.',
+            'powerplays.*.to.lte' => 'A powerplay must fall inside the innings.',
+        ]);
+
+        $snapshot = app(MatchStateService::class)->snapshot($match);
+        $played = collect($snapshot['innings'])->filter(fn ($i) => $i['balls_bowled'] > 0);
+        $errors = [];
+        if ($played->isNotEmpty() && 2 * (int) $data['innings_per_team'] < max($played->keys()->max(), (int) $match->current_innings)) {
+            $errors['innings_per_team'] = 'More innings have already been played than that.';
+        }
+        $live = $snapshot['innings'][$snapshot['current_innings']];
+        if ((int) $data['overs'] * 6 < $live['legal_balls']) {
+            $errors['overs'] = "{$live['overs']} overs have already been bowled this innings.";
+        }
+        if (! empty($data['players_per_team']) && $played->max('wickets') >= (int) $data['players_per_team']) {
+            $errors['players_per_team'] = 'More wickets have already fallen than that side has players.';
+        }
+        if ($errors) {
+            return back()->withErrors($errors)->withInput();
+        }
+
+        $powerplays = collect($data['powerplays'] ?? [])
+            ->filter(fn ($p) => ! empty($p['from']) && ! empty($p['to']))
+            ->map(fn ($p) => ['from' => (int) min($p['from'], $p['to']), 'to' => (int) max($p['from'], $p['to'])])
+            ->values()->all();
+
+        $match->forceFill([
+            'overs' => (int) $data['overs'],
+            'innings_per_team' => (int) $data['innings_per_team'],
+            'players_per_team' => $data['players_per_team'] ?? null,
+            'bowler_overs_limit' => $data['bowler_overs_limit'] ?? null,
+            'powerplays' => $powerplays ?: null,
+            'score_version' => (int) $match->score_version + 1,
+        ])->save();
+        \App\Events\MatchScoreUpdated::announce($match->id, (int) $match->score_version);
+
+        return redirect()->route('admin.matches.show', $match)->with('success', 'Match format saved.');
+    }
+
+    /** 1st, 2nd, 3rd, 4th… */
+    public static function ordinal(int $n): string
+    {
+        return $n . (in_array($n % 100, [11, 12, 13], true) ? 'th' : ([1 => 'st', 2 => 'nd', 3 => 'rd'][$n % 10] ?? 'th'));
     }
 
     /** End the match from the scorer's page: result, shortened, or abandoned. */
@@ -368,9 +440,21 @@ class MatchesController extends Controller
             'overs' => $i['overs'],
             'completedOvers' => $i['completed_overs'],
         ];
-        $teamLine = fn (int $teamId) => $snapshot['innings'][1]['batting_team_id'] === $teamId
-            ? $inningsLine($snapshot['innings'][1]) + ['batted' => $snapshot['innings'][1]['balls_bowled'] > 0]
-            : $inningsLine($snapshot['innings'][2]) + ['batted' => $snapshot['innings'][2]['balls_bowled'] > 0];
+        // A side's score: its innings added up ("245 & 180/6" when it bats twice).
+        $teamLine = function (int $teamId) use ($snapshot) {
+            $t = $snapshot['teams'][$teamId];
+            $latest = collect($snapshot['innings'])->where('batting_team_id', $teamId)->where('balls_bowled', '>', 0)->last();
+
+            return [
+                'runs' => $t['runs'],
+                'wickets' => $t['wickets'],
+                'overs' => $t['overs'],
+                'completedOvers' => $latest['completed_overs'] ?? 0,
+                'batted' => $t['batted'],
+                'innings' => $t['innings'],
+                'display' => collect($t['innings'])->map(fn ($i) => $i['runs'] . '/' . $i['wickets'])->implode(' & '),
+            ];
+        };
 
         $batters = collect($live['batters'])->keyBy('id');
         $bowlers = collect($live['bowlers'])->keyBy('id');
@@ -430,8 +514,11 @@ class MatchesController extends Controller
             // who cannot be the one who bowled it.
             'overComplete' => $live['over_complete'] && $live['balls_bowled'] > 0 && ! $live['complete'],
             'lastOverBowler' => $live['overs_summary'] === [] ? null : (end($live['overs_summary'])['bowler_id'] ?? null),
-            // Innings 1 is over and the chase has not started.
-            'inningsBreak' => $current === 2 && $snapshot['innings'][2]['balls_bowled'] === 0 && ! $snapshot['match_complete'],
+            // An innings is over and the next has not started.
+            'inningsBreak' => $snapshot['innings_break'] && $current > 1,
+            'totalInnings' => $snapshot['total_innings'],
+            'inPowerplay' => $snapshot['in_powerplay'],
+            'powerplay' => $live['powerplay'],
             'target' => $snapshot['target'],
             // The chase settled it: "End match" can just record that.
             'naturalResult' => $snapshot['result'] !== null && $snapshot['result']['type'] !== 'manual',
@@ -915,7 +1002,8 @@ class MatchesController extends Controller
         // For innings 1: first batting team on left (team_a placeholder)
         // For innings 2: second batting team on left (swap)
         $swapTeams = false;
-        if ($innings === 2) {
+        // Even innings (2nd, 4th…) are the side batting second.
+        if ($innings % 2 === 0) {
             $swapTeams = true;
         }
 

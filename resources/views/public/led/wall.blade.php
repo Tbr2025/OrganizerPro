@@ -102,22 +102,26 @@
       const s = st.score, b = st.batting || {};
       const chase = st.chase ? `<div class="h2" style="margin-top:24px">Need <span style="color:var(--accent)">${esc(st.chase.runs_needed)}</span> off ${esc(st.chase.balls_left)} balls · RRR ${esc(st.chase.required_run_rate ?? '-')}</div>` : '';
       const result = st.result ? `<div class="h1" style="color:var(--good);margin-top:24px">${esc(st.result.text)}</div>` : '';
-      return `<div class="row">${img(b.logo, 'logo')}<div><div class="h2 mut">${esc(b.name || '')}</div>
+      const pp = st.in_powerplay ? ' · <span style="color:var(--accent)">POWERPLAY</span>' : '';
+      const agg = (st.innings_per_team || 1) > 1 ? `<div class="h2 mut" style="margin-top:16px">${(st.team_scores || []).map(t => esc(t.team?.short || '') + ' ' + esc(t.display || '-')).join(' &nbsp;·&nbsp; ')}</div>` : '';
+      return `<div class="row">${img(b.logo, 'logo')}<div><div class="h2 mut">${esc(b.name || '')}${(st.total_innings || 2) > 2 ? ' · innings ' + esc(st.current_innings) : ''}${pp}</div>
         <div class="big">${esc(s.runs)}/${esc(s.wickets)}</div>
-        <div class="h2 mut">${esc(s.overs)} overs · Run rate ${esc(s.run_rate)}</div>${chase}${result}</div></div>
+        <div class="h2 mut">${esc(s.overs)} overs · Run rate ${esc(s.run_rate)}</div>${agg}${chase}${result}</div></div>
         <div style="margin-top:36px">${balls(s.this_over)}</div>`;
     },
-    // Between innings: the total to chase, not the chasing side's empty 0/0.
+    // Between innings: the innings just played and where the match stands
+    // ("need 181 to win" before the last innings, else the lead), not an empty 0/0.
     innings_break(st) {
-      const first = (st.innings || {})[1] || {}, team = first.team || {};
+      const first = (st.innings || {})[st.break?.innings || 1] || {}, team = first.team || {};
       const target = st.chase ? st.chase.target : (first.runs ?? 0) + 1;
+      const standing = st.break?.text || `${st.batting?.name || 'Chasing side'} need ${target} to win`;
       return `<div class="center">
         <div class="h2" style="color:var(--accent);letter-spacing:.2em">INNINGS BREAK</div>
         <div class="row" style="justify-content:center;margin-top:24px">${img(team.logo, 'logo')}<div>
           <div class="h2 mut">${esc(team.name || '')}</div>
           <div class="big">${esc(first.runs ?? 0)}/${esc(first.wickets ?? 0)}</div>
           <div class="h2 mut">${esc(first.overs ?? '0.0')} overs</div></div></div>
-        <div class="h1" style="margin-top:32px">${esc(st.batting?.name || 'Chasing side')} need <span style="color:var(--accent)">${esc(target)}</span> to win</div>
+        <div class="h1" style="margin-top:32px;color:var(--accent)">${esc(standing)}</div>
       </div>`;
     },
     wicket(st, p) {
@@ -205,11 +209,12 @@
   function ticker(st) {
     if (!st) return '';
     if (st.status === 'innings_break') {
-      const first = (st.innings || {})[1] || {};
+      const first = (st.innings || {})[st.break?.innings || 1] || {};
       const target = st.chase ? st.chase.target : (first.runs ?? 0) + 1;
+      const standing = st.break?.text || `${st.batting?.short || st.batting?.name || ''} need ${target}`;
       return `<div><div class="sm">Innings break</div><div class="score">${esc(first.team?.short || '')} ${esc(first.runs ?? 0)}/${esc(first.wickets ?? 0)}</div></div>
         <div><div class="sm">Overs</div><div>${esc(first.overs ?? '0.0')}</div></div>
-        <div style="border-right:none"><div class="sm">Target</div><div>${esc(st.batting?.short || st.batting?.name || '')} need ${esc(target)}</div></div>`;
+        <div style="border-right:none"><div class="sm">${st.break && st.break.next_innings < st.total_innings ? 'Next innings' : 'Target'}</div><div>${esc(standing)}</div></div>`;
     }
     const s = st.score;
     const bat = p => p ? `<span class="${p.on_strike ? 'strike' : ''}">${esc(p.name)}${p.on_strike ? '*' : ''} ${esc(p.runs)} (${esc(p.balls)})</span>` : '';

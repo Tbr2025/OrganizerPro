@@ -51,9 +51,9 @@ class WallState
         $live = $s['innings'][$s['current_innings']];
 
         $innings = [];
-        foreach ([1, 2] as $n) {
-            $i = $s['innings'][$n];
+        foreach ($s['innings'] as $n => $i) {
             $innings[$n] = [
+                'number' => $n,
                 'team' => $teams[$i['batting_team_id']] ?? null,
                 'runs' => $i['runs'],
                 'wickets' => $i['wickets'],
@@ -98,6 +98,17 @@ class WallState
             ],
             'teams' => array_values(array_filter($teams)),
             'current_innings' => $s['current_innings'],
+            'total_innings' => $s['total_innings'],
+            'innings_per_team' => $s['innings_per_team'],
+            // Each side's score across its innings: "245/10 & 180/6".
+            'team_scores' => collect($s['teams'])->map(fn ($t, $id) => [
+                'team' => $teams[$id] ?? null,
+                'runs' => $t['runs'],
+                'display' => collect($t['innings'])->map(fn ($i) => $i['runs'] . '/' . $i['wickets'])->implode(' & '),
+            ])->values()->all(),
+            'break' => $this->breakLine($s, $teams),
+            'in_powerplay' => $s['in_powerplay'],
+            'powerplay' => $live['powerplay'],
             'batting' => $teams[$live['batting_team_id']] ?? null,
             'bowling' => $teams[$live['bowling_team_id']] ?? null,
             'score' => [
@@ -184,6 +195,7 @@ class WallState
             'manual' => $r['text'],
             'tie' => 'Match tied',
             'wickets' => ($winner['name'] ?? 'Winner') . " won by {$r['margin']} " . ($r['margin'] === 1 ? 'wicket' : 'wickets'),
+            'innings' => ($winner['name'] ?? 'Winner') . ' won by an innings' . ($r['margin'] > 0 ? " and {$r['margin']} " . ($r['margin'] === 1 ? 'run' : 'runs') : ''),
             default => ($winner['name'] ?? 'Winner') . " won by {$r['margin']} " . ($r['margin'] === 1 ? 'run' : 'runs'),
         };
 
@@ -195,11 +207,39 @@ class WallState
         return match (true) {
             (bool) $match->is_cancelled => 'cancelled',
             $s['match_complete'] => 'completed',
-            $s['innings'][1]['balls_bowled'] === 0 => 'prematch',
-            $s['current_innings'] === 1 && $s['innings'][1]['complete'] => 'innings_break',
-            // Switched to the chase, first ball not yet bowled.
-            $s['current_innings'] === 2 && $s['innings'][2]['balls_bowled'] === 0 => 'innings_break',
+            $s['innings'][1]['balls_bowled'] === 0 && $s['current_innings'] === 1 && ! $s['innings'][1]['complete'] => 'prematch',
+            $s['innings_break'] => 'innings_break',
             default => 'live',
         };
+    }
+
+    /**
+     * Between innings: the innings just played and where the match stands —
+     * "need 181 to win" before the last innings, else who leads and by how much.
+     */
+    private function breakLine(array $s, array $teams): ?array
+    {
+        if (! $s['innings_break']) {
+            return null;
+        }
+
+        $current = $s['current_innings'];
+        $done = $s['innings'][$current]['balls_bowled'] === 0 && $current > 1 ? $current - 1 : $current;
+        $next = $done + 1;
+        $nextTeam = $s['innings'][$next]['batting_team_id'] ?? null;
+        if ($nextTeam === null) {
+            return null;
+        }
+        $otherTeam = $s['innings'][$done]['batting_team_id'] === $nextTeam ? $s['innings'][$next]['bowling_team_id'] : $s['innings'][$done]['batting_team_id'];
+        $name = $teams[$nextTeam]['name'] ?? 'The next side';
+
+        if ($next === $s['total_innings']) {
+            $text = $s['target'] ? "{$name} need {$s['target']} to win" : null;
+        } else {
+            $diff = $s['teams'][$nextTeam]['runs'] - $s['teams'][$otherTeam]['runs'];
+            $text = $diff === 0 ? 'Scores level' : ($diff > 0 ? "{$name} lead by {$diff}" : "{$name} trail by " . -$diff);
+        }
+
+        return ['innings' => $done, 'next_innings' => $next, 'next_team' => $teams[$nextTeam] ?? null, 'text' => $text];
     }
 }

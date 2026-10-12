@@ -398,7 +398,7 @@ class LedQueueService
         $n = (int) $state['current_innings'];
         $current = $state['innings'][$n] ?? null;
 
-        return $n === 2 && ! ($current['batted'] ?? false) ? 1 : $n;
+        return $n > 1 && ! ($current['batted'] ?? false) ? $n - 1 : $n;
     }
 
     /** The scorer ended the innings: put its summary up first thing in the break. */

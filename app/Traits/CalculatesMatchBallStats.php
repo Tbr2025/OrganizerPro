@@ -21,27 +21,24 @@ trait CalculatesMatchBallStats
     protected function calculateBallStats(Matches $match): array
     {
         $snapshot = app(MatchStateService::class)->snapshot($match);
-        $first = $snapshot['innings'][1];
-        $second = $snapshot['innings'][2];
-
-        $line = fn (array $i) => [
-            'runs' => $i['runs'],
-            'wickets' => $i['wickets'],
-            'overs' => round($i['completed_overs'] + ($i['legal_balls'] % 6) / 10, 1), // 10.3 = 10 overs 3 balls
-            'extras' => $i['extras']['total'],
+        $line = fn (int $teamId) => [
+            'runs' => $snapshot['teams'][$teamId]['runs'] ?? 0,
+            'wickets' => $snapshot['teams'][$teamId]['wickets'] ?? 0,
+            'overs' => (float) ($snapshot['teams'][$teamId]['overs'] ?? 0), // "10.3" = 10 overs 3 balls
+            'extras' => $snapshot['teams'][$teamId]['extras'] ?? 0,
         ];
-        $forTeam = fn (int $teamId) => $first['batting_team_id'] === $teamId ? $line($first) : $line($second);
-
-        $hasBallData = $first['balls_bowled'] > 0 || $second['balls_bowled'] > 0;
+        $played = collect($snapshot['innings'])->filter(fn ($i) => $i['balls_bowled'] > 0);
+        $last = $snapshot['innings'][$snapshot['total_innings']];
 
         return [
-            'hasBallData' => $hasBallData,
-            'bothInningsComplete' => $first['balls_bowled'] > 0 && $second['balls_bowled'] > 0,
-            'firstInningsComplete' => $first['balls_bowled'] > 0,
-            'secondInningsStarted' => $second['balls_bowled'] > 0,
-            'teamABattingFirst' => $first['batting_team_id'] === (int) $match->team_a_id,
-            'teamA' => $forTeam((int) $match->team_a_id),
-            'teamB' => $forTeam((int) $match->team_b_id),
+            'hasBallData' => $played->isNotEmpty(),
+            'bothInningsComplete' => $snapshot['match_complete'] || $last['balls_bowled'] > 0,
+            'firstInningsComplete' => $snapshot['innings'][1]['balls_bowled'] > 0,
+            'secondInningsStarted' => $snapshot['innings'][2]['balls_bowled'] > 0,
+            'inningsPlayed' => $played->count(),
+            'teamABattingFirst' => $snapshot['batting_first_team_id'] === (int) $match->team_a_id,
+            'teamA' => $line((int) $match->team_a_id),
+            'teamB' => $line((int) $match->team_b_id),
             // winner_team_id / type (runs|wickets|tie) / margin, once the chase is over.
             'result' => $snapshot['result'],
         ];

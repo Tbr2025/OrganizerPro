@@ -43,11 +43,23 @@ class PlayerStatisticService
             ->get()
             ->keyBy('id');
 
-        // Process batting stats
-        $this->processBattingStats($balls, $teamUsers, $tournament);
+        // Two innings each: every innings is its own innings for a player (a 40
+        // and a 30 are two scores, not a 70), while the match still counts once.
+        $multiInnings = (int) ($match->innings_per_team ?: 1) > 1;
+        $playerIds = $teamUsers->map(fn ($u) => $u->player?->id)->filter()->unique()->values();
+        $matchesBefore = $multiInnings ? PlayerStatistic::where('tournament_id', $tournament->id)
+            ->whereIn('player_id', $playerIds)->pluck('matches', 'player_id') : collect();
 
-        // Process bowling stats
-        $this->processBowlingStats($balls, $teamUsers, $tournament);
+        foreach ($multiInnings ? $balls->groupBy(fn ($b) => (int) ($b->innings ?: 1)) : [$balls] as $inningsBalls) {
+            $this->processBattingStats($inningsBalls, $teamUsers, $tournament);
+            $this->processBowlingStats($inningsBalls, $teamUsers, $tournament);
+        }
+
+        if ($multiInnings) {
+            foreach (PlayerStatistic::where('tournament_id', $tournament->id)->whereIn('player_id', $playerIds)->get() as $stat) {
+                $stat->update(['matches' => (int) ($matchesBefore[$stat->player_id] ?? 0) + 1]);
+            }
+        }
 
         // Process fielding stats
         $this->processFieldingStats($balls, $teamUsers, $tournament);

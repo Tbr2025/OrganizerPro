@@ -44,7 +44,7 @@ class EnhancedMatchPosterService extends PosterGeneratorService
         $teamABatsFirst = $result?->team_a_batting_first ?? true;
 
         // Innings 1: first batting team on left; Innings 2: second batting team on left
-        if ($innings === 2) {
+        if ($innings % 2 === 0) {
             $leftTeam = $teamABatsFirst ? $match->teamB : $match->teamA;
             $rightTeam = $teamABatsFirst ? $match->teamA : $match->teamB;
         } else {

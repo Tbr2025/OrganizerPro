@@ -120,8 +120,12 @@ class PointTableService
         $teamBEntry = $this->getOrCreateEntry($tournament, $match->tournament_group_id, $match->team_b_id);
 
         $quota = (int) ($match->overs ?: ($settings->overs_per_match ?? 20));
-        $teamABalls = $this->ballsForNrr($result->team_a_overs, $result->team_a_wickets, $quota);
-        $teamBBalls = $this->ballsForNrr($result->team_b_overs, $result->team_b_wickets, $quota);
+        $allOut = (int) $match->players_per_team >= 2 ? (int) $match->players_per_team - 1 : 10;
+        // A two-innings match is decided on totals, not rates: it earns points
+        // but adds nothing to net run rate.
+        $countsForNrr = (int) ($match->innings_per_team ?: 1) === 1;
+        $teamABalls = $countsForNrr ? $this->ballsForNrr($result->team_a_overs, $result->team_a_wickets, $quota, $allOut) : 0;
+        $teamBBalls = $countsForNrr ? $this->ballsForNrr($result->team_b_overs, $result->team_b_wickets, $quota, $allOut) : 0;
 
         $balls[$teamAEntry->id]['faced'] = ($balls[$teamAEntry->id]['faced'] ?? 0) + $teamABalls;
         $balls[$teamAEntry->id]['bowled'] = ($balls[$teamAEntry->id]['bowled'] ?? 0) + $teamBBalls;
@@ -130,20 +134,21 @@ class PointTableService
 
         // Update Team A stats
         $teamAEntry->matches_played++;
-        $teamAEntry->runs_scored += $result->team_a_score;
+        $teamAEntry->runs_scored += $countsForNrr ? $result->team_a_score : 0;
         $teamAEntry->overs_faced = $balls[$teamAEntry->id]['faced'] / 6;
-        $teamAEntry->runs_conceded += $result->team_b_score;
+        $teamAEntry->runs_conceded += $countsForNrr ? $result->team_b_score : 0;
         $teamAEntry->overs_bowled = $balls[$teamAEntry->id]['bowled'] / 6;
 
         // Update Team B stats
         $teamBEntry->matches_played++;
-        $teamBEntry->runs_scored += $result->team_b_score;
+        $teamBEntry->runs_scored += $countsForNrr ? $result->team_b_score : 0;
         $teamBEntry->overs_faced = $balls[$teamBEntry->id]['faced'] / 6;
-        $teamBEntry->runs_conceded += $result->team_a_score;
+        $teamBEntry->runs_conceded += $countsForNrr ? $result->team_a_score : 0;
         $teamBEntry->overs_bowled = $balls[$teamBEntry->id]['bowled'] / 6;
 
         // Update win/loss/tie based on result
-        if ($result->result_type === 'tie') {
+        // A draw (two-innings match, time ran out) shares the points like a tie.
+        if (in_array($result->result_type, ['tie', 'draw'], true)) {
             $teamAEntry->tied++;
             $teamBEntry->tied++;
             $teamAEntry->points += $settings->points_per_tie ?? 1;
@@ -216,12 +221,11 @@ class PointTableService
      * rate of 6.20 instead of 4.60 — flattering the side that collapsed and short-changing the
      * side that bowled it out, which moved teams on the same points past each other.
      *
-     * All out is taken as 10 wickets: there is no players-per-side setting to read a smaller
-     * figure from.
+     * All out is the match's players per side less one (10 wickets for eleven a side).
      */
-    private function ballsForNrr($overs, $wickets, int $quota): int
+    private function ballsForNrr($overs, $wickets, int $quota, int $allOut = 10): int
     {
-        if ((int) $wickets >= 10 && $quota > 0) {
+        if ((int) $wickets >= $allOut && $quota > 0) {
             return $quota * 6;
         }
 

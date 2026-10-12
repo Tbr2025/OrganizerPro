@@ -91,6 +91,10 @@ class MatchResult extends Model
             return 'No Result';
         }
 
+        if ($this->result_type === 'draw') {
+            return 'Match Drawn';
+        }
+
         if (! $this->winner_team_id) {
             return 'Result pending';
         }
@@ -105,6 +109,7 @@ class MatchResult extends Model
         return match ($this->result_type) {
             'runs' => "{$winnerName} won by {$margin} runs",
             'wickets' => "{$winnerName} won by {$margin} wickets",
+            'innings' => "{$winnerName} won by an innings" . ($margin ? " and {$margin} runs" : ''),
             'super_over' => "{$winnerName} won via Super Over",
             'dls' => "{$winnerName} won by {$margin} runs (DLS)",
             default => "{$winnerName} won",
