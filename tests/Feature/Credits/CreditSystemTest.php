@@ -213,6 +213,47 @@ class CreditSystemTest extends TestCase
     }
 
     #[Test]
+    public function super_admin_sees_the_prices_the_client_pays_on_their_wallet(): void
+    {
+        $this->price(CreditFeature::POSTER, 20);
+        $this->price(CreditFeature::AUCTION, 2000);
+        $super = User::factory()->create()->assignRole('Superadmin');
+
+        $this->actingAs($super)->get(route('admin.credits.index', ['org' => $this->org->id]))
+            ->assertOk()
+            ->assertSee('20 Credits')
+            ->assertSee('2,000 Credits')
+            ->assertSee('You are never charged');
+
+        // Still free for Super Admin to actually use.
+        $this->assertSame(0, $this->credits->quote($this->org, CreditFeature::POSTER, 1, $super)['cost']);
+    }
+
+    #[Test]
+    public function super_admin_sees_the_balance_of_the_organization_in_view(): void
+    {
+        $this->fund(2000);
+        $super = User::factory()->create()->assignRole('Superadmin');
+        $this->actingAs($super);
+
+        $this->getJson(route('admin.credits.balance'))->assertJson(['show' => false]);
+        $this->getJson(route('admin.credits.balance', ['org' => $this->org->id]))
+            ->assertJson(['show' => true, 'balance' => 2000, 'label' => 'Club · 2,000 Credits']);
+        $this->getJson(route('admin.credits.balance', ['tournament' => $this->tournament->id]))
+            ->assertJson(['show' => true, 'balance' => 2000]);
+
+        // The wallet page hands its organization to the header pill.
+        $this->get(route('admin.credits.index', ['org' => $this->org->id]))
+            ->assertSee(route('admin.credits.balance', ['org' => $this->org->id]), false);
+
+        // An organization's own people never see another wallet through it.
+        $other = Organization::create(['name' => 'Other', 'billing_mode' => 'credits']);
+        $organizer = User::factory()->create(['organization_id' => $this->org->id])->assignRole('Organizer');
+        $this->actingAs($organizer)->getJson(route('admin.credits.balance', ['org' => $other->id]))
+            ->assertJson(['balance' => 2000, 'label' => '2,000 Credits']);
+    }
+
+    #[Test]
     public function the_best_automatic_discount_applies_and_is_recorded(): void
     {
         $this->price(CreditFeature::POSTER, 10);

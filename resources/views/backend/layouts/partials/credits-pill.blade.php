@@ -4,11 +4,21 @@
     page fires `credits:changed` after spending — e.g. Generate & Save.
 --}}
 @canany(['credits.view', 'credits.manage'])
+@php
+    // For whoever runs credits without an organization of their own: which
+    // organization's balance this page is about (see CreditController::balance).
+    $pillContext = [];
+    if (request()->routeIs('admin.credits.index') && isset($org) && $org instanceof \App\Models\Organization) {
+        $pillContext['org'] = $org->id;
+    } elseif ($pillTournament = request()->route('tournament')) {
+        $pillContext['tournament'] = $pillTournament instanceof \App\Models\Tournament ? $pillTournament->id : $pillTournament;
+    }
+@endphp
 <div x-data="{
         c: null,
         async load() {
             try {
-                const r = await fetch('{{ route('admin.credits.balance') }}', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+                const r = await fetch('{{ route('admin.credits.balance', $pillContext) }}', { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (r.ok) { this.c = await r.json(); window.creditBalance = this.c; window.dispatchEvent(new CustomEvent('credits:loaded', { detail: this.c })); }
             } catch (e) {}
         }

@@ -95,10 +95,27 @@ class CreditService
      */
     public function quote(Organization $org, string $featureKey, int $qty = 1, ?User $actor = null): array
     {
+        return $this->priceFor($org, $featureKey, $qty, $this->charges($org, $actor));
+    }
+
+    /**
+     * What the organization's own people pay, whoever is looking. A Superadmin is
+     * never charged, so quote() reads "free" for them; the wallet page shows this
+     * instead so Super Admin sees the price the client actually pays.
+     *
+     * @return array{cost:int, base:int, discount:?Discount, saved:int, free:bool}
+     */
+    public function price(Organization $org, string $featureKey, int $qty = 1): array
+    {
+        return $this->priceFor($org, $featureKey, $qty, $org->usesCredits());
+    }
+
+    private function priceFor(Organization $org, string $featureKey, int $qty, bool $charges): array
+    {
         $feature = $this->feature($featureKey);
         $base = ($feature && $feature->is_active) ? $feature->cost * max(1, $qty) : 0;
 
-        if ($base === 0 || ! $this->charges($org, $actor)) {
+        if ($base === 0 || ! $charges) {
             return ['cost' => 0, 'base' => $base, 'discount' => null, 'saved' => 0, 'free' => true];
         }
 

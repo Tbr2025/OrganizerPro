@@ -58,6 +58,9 @@
     {{-- Prices --}}
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
         <h3 class="font-semibold text-gray-900 dark:text-white mb-3">{{ __('What costs :term', ['term' => $term]) }}</h3>
+        @if($exempt)
+            <p class="-mt-1 mb-3 text-xs text-gray-500">{{ __('These are the prices :org pays. You are never charged when you act on their tournaments as Super Admin.', ['org' => $org->name]) }}</p>
+        @endif
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead><tr class="text-left text-gray-500"><th class="py-2">{{ __('Feature') }}</th><th>{{ __('When') }}</th><th class="text-right">{{ __('Price') }}</th></tr></thead>

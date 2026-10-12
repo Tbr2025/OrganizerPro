@@ -36,7 +36,7 @@ class CreditController extends Controller
         $wallet = $this->credits->wallet($org);
 
         $features = CreditFeature::where('is_active', true)->orderBy('sort')->get()
-            ->map(fn ($f) => ['feature' => $f, 'quote' => $this->credits->quote($org, $f->key)]);
+            ->map(fn ($f) => ['feature' => $f, 'quote' => $this->credits->price($org, $f->key)]);
 
         return view('backend.pages.credits.index', [
             'org' => $org,
@@ -46,6 +46,7 @@ class CreditController extends Controller
             'unlocks' => CreditFeatureUnlock::where('organization_id', $org->id)->latest('id')->limit(50)->get(),
             'topups' => CreditTopupRequest::where('organization_id', $org->id)->latest('id')->limit(20)->get(),
             'credits' => $this->credits,
+            'exempt' => $org->usesCredits() && ! $this->credits->charges($org),
             'organizations' => Auth::user()->can('credits.manage') ? Organization::orderBy('name')->get() : collect(),
             'breadcrumbs' => ['title' => $this->credits->term()],
         ]);
@@ -59,6 +60,19 @@ class CreditController extends Controller
     {
         $user = Auth::user();
         $org = $user->organization_id ? Organization::find($user->organization_id) : null;
+        $own = (bool) $org;
+
+        // Whoever runs credits usually has no organization of their own: show the
+        // wallet of the organization they are looking at — the one picked on the
+        // wallet page, or the owner of the tournament the page is about.
+        if (! $org && $user->can('credits.manage')) {
+            if ($request->filled('org')) {
+                $org = Organization::find($request->integer('org'));
+            } elseif ($request->filled('tournament')) {
+                $org = Tournament::find($request->integer('tournament'))?->organization;
+            }
+        }
+
         if (! $org || ! $org->usesCredits()) {
             return response()->json(['show' => false, 'manage_url' => $user->can('credits.manage') ? route('admin.credits.manage') : null]);
         }
@@ -69,11 +83,11 @@ class CreditController extends Controller
         return response()->json([
             'show' => true,
             'balance' => $balance,
-            'label' => $this->credits->format($balance),
+            'label' => ($own ? '' : $org->name . ' · ') . $this->credits->format($balance),
             'charges' => $this->credits->charges($org),
             'poster_cost' => $poster['cost'],
             'poster_label' => $poster['cost'] > 0 ? $this->credits->format($poster['cost']) : null,
-            'url' => route('admin.credits.index'),
+            'url' => route('admin.credits.index', $own ? [] : ['org' => $org->id]),
         ]);
     }
 
