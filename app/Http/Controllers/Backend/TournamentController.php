@@ -300,7 +300,8 @@ class TournamentController extends Controller
             'type' => 'nullable|in:open,auction',
         ]);
         $starter = $request->validate([
-            'starter_kit' => 'nullable|boolean',
+            'presets' => 'nullable|array',
+            'presets.*' => 'integer',
         ]);
 
         $user = auth()->user();
@@ -355,11 +356,12 @@ class TournamentController extends Controller
         $requestedStatus = $validated['status'];
         $tournament = Tournament::create(array_merge($validated, ['status' => 'draft']));
 
-        // Starting templates: a copy of Super Admin's template library, which also
-        // sets the defaults. A failure here never loses the tournament.
-        if (! empty($starter['starter_kit'])) {
+        // Starting templates: copies of the presets ticked on the form (global and the
+        // organization's own; TemplateLibrary ignores any other). A failure here never
+        // loses the tournament.
+        if (! empty($starter['presets'])) {
             try {
-                app(\App\Services\Poster\TemplateLibrary::class)->copyInto($tournament);
+                app(\App\Services\Poster\TemplateLibrary::class)->copyInto($tournament, $starter['presets']);
             } catch (\Throwable $e) {
                 report($e);
             }

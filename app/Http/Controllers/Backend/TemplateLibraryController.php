@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
-use App\Services\Poster\TemplateCopier;
+use App\Models\User;
+use App\Services\Poster\Presets\PresetThemes;
 use App\Services\Poster\TemplateLibrary;
+use App\Services\Poster\TemplatePresetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,35 +20,53 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
- * Super Admin's template library — the poster templates every new tournament
- * starts with (see TemplateLibrary). Designed in the same drag editor as a
+ * Template presets (see TemplateLibrary): designed in the same drag editor as a
  * tournament's own templates; only the URLs it saves to differ.
  *
- * Also the two ways in and out of a tournament: "Save to library" on one of its
- * templates, and "Add library templates" on a tournament that already exists.
+ * Super Admin manages the global presets and any organization's. Everyone else
+ * with `template.presets` manages their own organization's, and sees the global
+ * ones read-only (they can copy one into their own to change it).
+ *
+ * Ready-made designs come in here as starting points, and a tournament's
+ * template can be saved as a preset; tournaments pick presets when they are
+ * created, when a season starts, or later from their Templates page.
  */
 class TemplateLibraryController extends Controller
 {
-    /** Library files live apart from any tournament's, so a delete can be checked against it. */
+    /** Preset files live apart from any tournament's, so a delete can be checked against it. */
     private const DIR = 'tournament_templates/library';
 
     public function __construct(private readonly TemplateLibrary $library)
     {
-        // Global designs every organization's new tournaments receive: a platform control.
-        $this->middleware('permission:feature.manage');
+        $this->middleware('permission:template.presets');
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $user = $request->user();
+        $scope = $this->scopeFrom($request, $user);
+        $isSuper = $user->hasRole('Superadmin');
+        $presets = app(TemplatePresetService::class);
+
         return view('backend.pages.template-library.index', [
-            'templates' => $this->library->query()->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()->groupBy('type'),
+            'scope' => $scope,
+            'scopeParam' => $scope ?? 'global',
+            'scopeName' => $scope ? Organization::find($scope)?->name : __('Global'),
+            'organizations' => $isSuper ? Organization::orderBy('name')->get(['id', 'name']) : collect(),
+            'isSuper' => $isSuper,
+            'templates' => $this->library->scope($scope)->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()->groupBy('type'),
+            // Shown read-only under an organization's own: what its tournaments are offered too.
+            'global' => $scope !== null ? $this->library->scope(null)->orderBy('type')->orderBy('name')->get()->groupBy('type') : collect(),
             'types' => TournamentTemplate::TYPES,
-            'breadcrumbs' => ['title' => __('Template library')],
+            'readyMade' => collect($presets->all())->sortBy([['type', 'asc'], ['sort', 'asc']])->groupBy('type'),
+            'themes' => PresetThemes::all(),
+            'breadcrumbs' => ['title' => __('Template presets')],
         ]);
     }
 
     public function create(Request $request): View
     {
+        $scope = $this->scopeFrom($request, $request->user());
         $type = $request->get('type', TournamentTemplate::TYPE_WELCOME_CARD);
         abort_unless(in_array($type, TournamentTemplate::TYPES, true), 404);
         [$defaultCanvasWidth, $defaultCanvasHeight] = TournamentTemplate::defaultCanvas($type);
@@ -56,69 +77,68 @@ class TemplateLibraryController extends Controller
             'placeholders' => TournamentTemplate::getDefaultPlaceholders($type),
             'defaultCanvasWidth' => $defaultCanvasWidth,
             'defaultCanvasHeight' => $defaultCanvasHeight,
-            'editorUrls' => $this->editorUrls(null),
+            'editorUrls' => $this->editorUrls(null, $scope),
         ]);
     }
 
     public function store(Request $request): JsonResponse|RedirectResponse
     {
+        $scope = $this->scopeFrom($request, $request->user());
         $validated = $this->validated($request, creating: true);
-        $validated['tournament_id'] = null;
-        $validated['placeholders'] = TournamentTemplate::getDefaultPlaceholders($validated['type']);
 
-        $template = TournamentTemplate::create($validated);
-        if ($request->boolean('is_default')) {
-            $template->setAsDefault();
-        }
+        $template = TournamentTemplate::create($validated + [
+            'tournament_id' => null,
+            'organization_id' => $scope,
+            'placeholders' => TournamentTemplate::getDefaultPlaceholders($validated['type']),
+            'is_default' => $this->library->needsDefault($scope, $validated['type']),
+            'is_active' => true,
+        ]);
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Library template created.',
+                'message' => 'Preset created.',
                 'redirect' => route('admin.template-library.edit', $template),
             ]);
         }
 
-        return redirect()->route('admin.template-library.index')->with('success', 'Library template created.');
+        return $this->backToScope($template)->with('success', 'Preset created.');
     }
 
-    public function edit(TournamentTemplate $template): View
+    public function edit(Request $request, TournamentTemplate $template): View
     {
-        $this->ensureLibrary($template);
+        $this->authorizeEdit($request, $template);
 
         return view('backend.pages.tournaments.templates.editor', [
             'template' => $template,
             'type' => $template->type,
             'placeholders' => TournamentTemplate::getDefaultPlaceholders($template->type),
-            'editorUrls' => $this->editorUrls($template),
+            'editorUrls' => $this->editorUrls($template, $template->organization_id),
         ]);
     }
 
     public function update(Request $request, TournamentTemplate $template): JsonResponse|RedirectResponse
     {
-        $this->ensureLibrary($template);
+        $this->authorizeEdit($request, $template);
         $validated = $this->validated($request, creating: false);
 
-        // A new background replaces the old file: library files are never shared (TemplateCopier).
+        // A new background replaces the old file: preset files are never shared (TemplateCopier).
         if (isset($validated['background_image']) && $template->background_image) {
             Storage::disk('public')->delete($template->background_image);
         }
 
         $template->update($validated);
-        if ($request->boolean('is_default')) {
-            $template->setAsDefault();
-        }
 
         if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Library template saved. New tournaments get this version.']);
+            return response()->json(['success' => true, 'message' => 'Preset saved. Tournaments created from now on get this version.']);
         }
 
-        return redirect()->route('admin.template-library.index')->with('success', 'Library template saved.');
+        return $this->backToScope($template)->with('success', 'Preset saved.');
     }
 
-    public function destroy(TournamentTemplate $template): RedirectResponse
+    public function destroy(Request $request, TournamentTemplate $template): RedirectResponse
     {
-        $this->ensureLibrary($template);
+        $this->authorizeEdit($request, $template);
 
         if ($template->background_image
             && ! TournamentTemplate::where('background_image', $template->background_image)->where('id', '!=', $template->id)->exists()) {
@@ -126,52 +146,120 @@ class TemplateLibraryController extends Controller
         }
         $template->delete();
 
-        return back()->with('success', 'Removed from the library. Tournaments that already have a copy keep it.');
+        return back()->with('success', 'Preset deleted. Tournaments that already have a copy keep it.');
     }
 
-    public function duplicate(TournamentTemplate $template, TemplateCopier $copier): RedirectResponse
+    /**
+     * A copy to change. Super Admin's stays in the same scope; anyone else's lands in
+     * their own organization — which is how an organization makes a global preset its own.
+     */
+    public function duplicate(Request $request, TournamentTemplate $template): RedirectResponse
     {
-        $this->ensureLibrary($template);
-        $copy = $copier->copy($template, null, $this->library->uniqueName($template->name . ' (Copy)'));
+        $user = $request->user();
+        $this->authorizeView($user, $template);
+        $scope = $user->hasRole('Superadmin') ? $template->organization_id : $this->ownOrganization($user);
 
-        return redirect()->route('admin.template-library.edit', $copy)->with('success', "Duplicated as \"{$copy->name}\".");
+        $name = $template->organization_id === $scope ? $template->name . ' (Copy)' : $template->name;
+        $copy = $this->library->copyAsPreset($template, $scope, $name);
+
+        return redirect()->route('admin.template-library.edit', $copy)->with('success', "Copied as \"{$copy->name}\".");
     }
 
-    public function setDefault(TournamentTemplate $template): RedirectResponse
+    public function setDefault(Request $request, TournamentTemplate $template): RedirectResponse
     {
-        $this->ensureLibrary($template);
-        $template->setAsDefault();
+        $this->authorizeEdit($request, $template);
+        $this->library->makeDefault($template);
 
-        return back()->with('success', "\"{$template->name}\" is now the default for new tournaments.");
+        return back()->with('success', "\"{$template->name}\" is now the default {$this->typeLabel($template)} for new tournaments.");
     }
 
-    public function toggleActive(TournamentTemplate $template): RedirectResponse
+    public function toggleActive(Request $request, TournamentTemplate $template): RedirectResponse
     {
-        $this->ensureLibrary($template);
+        $this->authorizeEdit($request, $template);
         $template->update(['is_active' => ! $template->is_active]);
 
         return back()->with('success', $template->is_active
-            ? "\"{$template->name}\" will be copied into new tournaments."
-            : "\"{$template->name}\" stays in the library but new tournaments will not get it.");
+            ? "\"{$template->name}\" is ticked by default when a tournament is created."
+            : "\"{$template->name}\" is still offered, but no longer ticked by default.");
     }
 
-    /** "Save to library" on a tournament's template: a copy, files and all. */
-    public function saveFromTournament(Tournament $tournament, TournamentTemplate $template): RedirectResponse
+    /** Super Admin: move a preset between global and an organization. */
+    public function move(Request $request, TournamentTemplate $template): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole('Superadmin') && $template->tournament_id === null, 403);
+        $scope = $this->scopeFrom($request, $request->user());
+
+        if ($scope !== $template->organization_id) {
+            $template->update([
+                'organization_id' => $scope,
+                'name' => $this->library->uniqueName($template->name, $scope),
+                'is_default' => $this->library->needsDefault($scope, $template->type),
+            ]);
+        }
+
+        return back()->with('success', "\"{$template->name}\" moved.");
+    }
+
+    /** A ready-made design, added to a scope as a preset to edit. */
+    public function addReadyMade(Request $request, TemplatePresetService $presets): RedirectResponse
+    {
+        $scope = $this->scopeFrom($request, $request->user());
+        $data = $request->validate([
+            'preset' => ['required', 'string', Rule::in(array_keys($presets->all()))],
+            'theme' => ['nullable', 'string', Rule::in(array_keys(PresetThemes::all()))],
+        ]);
+
+        $template = $presets->addAsPreset($data['preset'], $data['theme'] ?? null, $scope);
+
+        return redirect()->route('admin.template-library.edit', $template)
+            ->with('success', "\"{$template->name}\" added to your presets. Change anything, then save.");
+    }
+
+    public function readyMadeThumb(string $key, string $theme, TemplatePresetService $presets)
+    {
+        abort_unless($presets->find($key) !== null, 404);
+        $path = $presets->thumbnail($key, $theme === 'own' ? null : $theme);
+        abort_unless($path, 404);
+
+        return response()->file(Storage::disk('public')->path($path), ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'public, max-age=86400']);
+    }
+
+    public function thumb(Request $request, TournamentTemplate $template)
+    {
+        $this->authorizeView($request->user(), $template);
+        $path = $this->library->thumbnail($template);
+
+        if (! $path) {
+            abort_unless($template->background_image && Storage::disk('public')->exists($template->background_image), 404);
+            $path = $template->background_image;
+        }
+
+        return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => 'private, max-age=86400']);
+    }
+
+    /** "Save as preset" on a tournament's template: a copy, files and all. */
+    public function saveFromTournament(Request $request, Tournament $tournament, TournamentTemplate $template): RedirectResponse
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
-        $copy = $this->library->saveFromTournament($template);
+        $user = $request->user();
+        $this->authorizeTournament($user, $tournament);
+        $scope = $user->hasRole('Superadmin') ? $this->scopeFrom($request, $user) : $this->ownOrganization($user);
 
-        return back()->with('success', "Saved to the template library as \"{$copy->name}\".");
+        $copy = $this->library->saveFromTournament($template, $scope);
+        $where = $scope === null ? 'global presets' : 'presets of ' . (Organization::find($scope)?->name ?? 'the organization');
+
+        return back()->with('success', "Saved to the {$where} as \"{$copy->name}\".");
     }
 
-    /** Copy every active library template into an existing tournament. */
-    public function copyToTournament(Tournament $tournament): RedirectResponse
+    /** Copy the ticked presets into an existing tournament. */
+    public function copyToTournament(Request $request, Tournament $tournament): RedirectResponse
     {
-        $added = count($this->library->copyInto($tournament));
+        $this->authorizeTournament($request->user(), $tournament);
+        $data = $request->validate(['presets' => 'required|array|min:1', 'presets.*' => 'integer']);
 
-        return back()->with('success', $added
-            ? "{$added} library template(s) added to {$tournament->name}."
-            : 'The template library has no active templates yet.');
+        $added = count($this->library->copyInto($tournament, $data['presets']));
+
+        return back()->with('success', "{$added} preset(s) added to {$tournament->name}.");
     }
 
     public function uploadOverlay(Request $request): JsonResponse
@@ -195,17 +283,68 @@ class TemplateLibraryController extends Controller
         return response()->json(['success' => true]);
     }
 
-    private function ensureLibrary(TournamentTemplate $template): void
+    /**
+     * The scope a request works in. Super Admin picks one (`scope`: "global" or an
+     * organization id). Everyone else always works in their own organization.
+     */
+    private function scopeFrom(Request $request, User $user): ?int
     {
-        abort_unless($template->tournament_id === null, 404);
+        if (! $user->hasRole('Superadmin')) {
+            return $this->ownOrganization($user);
+        }
+
+        $scope = (string) $request->input('scope', 'global');
+        if ($scope === 'global' || $scope === '') {
+            return null;
+        }
+        abort_unless(ctype_digit($scope) && Organization::whereKey((int) $scope)->exists(), 404);
+
+        return (int) $scope;
     }
 
-    private function editorUrls(?TournamentTemplate $template): array
+    private function ownOrganization(User $user): int
+    {
+        abort_unless($user->organization_id, 403, 'Your account is not part of an organization, so it has no presets of its own.');
+
+        return (int) $user->organization_id;
+    }
+
+    private function authorizeEdit(Request $request, TournamentTemplate $template): void
+    {
+        abort_if($template->tournament_id !== null, 404);
+        abort_unless($this->library->canEdit($request->user(), $template), 403, 'Only Super Admin can change a global preset. Copy it into your own presets to change it.');
+    }
+
+    private function authorizeView(User $user, TournamentTemplate $template): void
+    {
+        abort_if($template->tournament_id !== null, 404);
+        abort_unless(
+            $user->hasRole('Superadmin') || $template->organization_id === null || (int) $template->organization_id === (int) $user->organization_id,
+            404
+        );
+    }
+
+    private function authorizeTournament(User $user, Tournament $tournament): void
+    {
+        abort_unless($user->hasRole('Superadmin') || (int) $tournament->organization_id === (int) $user->organization_id, 403);
+    }
+
+    private function backToScope(TournamentTemplate $template): RedirectResponse
+    {
+        return redirect()->route('admin.template-library.index', ['scope' => $template->organization_id ?? 'global']);
+    }
+
+    private function typeLabel(TournamentTemplate $template): string
+    {
+        return strtolower(TournamentTemplate::getTypeDisplay($template->type));
+    }
+
+    private function editorUrls(?TournamentTemplate $template, ?int $scope): array
     {
         return [
-            'owner' => __('Template library'),
-            'back' => route('admin.template-library.index'),
-            'save' => $template ? route('admin.template-library.update', $template) : route('admin.template-library.store'),
+            'owner' => __('Template presets'),
+            'back' => route('admin.template-library.index', ['scope' => $scope ?? 'global']),
+            'save' => $template ? route('admin.template-library.update', $template) : route('admin.template-library.store', ['scope' => $scope ?? 'global']),
             'upload_overlay' => route('admin.template-library.upload-overlay'),
             'delete_overlay' => route('admin.template-library.delete-overlay'),
         ];
@@ -223,7 +362,6 @@ class TemplateLibraryController extends Controller
             'overlay_images' => 'nullable|json',
             'canvas_width' => 'nullable|integer|min:540|max:2160',
             'canvas_height' => 'nullable|integer|min:540|max:3840',
-            'is_active' => 'boolean',
         ]);
         // The editor posts its type on every save; a template's type is fixed once made.
         if (! $creating) {

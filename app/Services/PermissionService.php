@@ -260,12 +260,13 @@ class PermissionService
             ],
             [
                 // Poster templates. `generate` renders and downloads posters
-                // from a tournament's templates; `manage` builds, edits and
-                // applies presets to them.
+                // from a tournament's templates; `manage` builds and edits them;
+                // `presets` manages the organization's template presets.
                 'group_name' => 'template',
                 'permissions' => [
                     'template.generate',
                     'template.manage',
+                    'template.presets',
                 ],
             ],
             [

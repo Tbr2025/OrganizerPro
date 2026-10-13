@@ -397,13 +397,18 @@
                             each team's squad carries over, approved
                         @endif
                         </span></label>
-                    <div class="flex items-start gap-2">
+                    <div class="flex items-start gap-2" x-data="{ templatesFrom: 'templates' }">
                         <span class="mt-0.5 w-4 flex-shrink-0"></span>
-                        <div class="space-y-1">
+                        <div class="space-y-1 min-w-0 flex-1">
                             <strong>Poster templates</strong>
-                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="templates" checked class="mt-1"> <span>Copy {{ $tournament->name }}'s, with their backgrounds</span></label>
-                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="library" class="mt-1"> <span>Start from the template library — the latest library designs</span></label>
-                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="" class="mt-1"> <span>None</span></label>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="templates" checked x-model="templatesFrom" class="mt-1"> <span>Copy {{ $tournament->name }}'s, with their backgrounds</span></label>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="library" x-model="templatesFrom" class="mt-1"> <span>Pick from the template presets</span></label>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="" x-model="templatesFrom" class="mt-1"> <span>None</span></label>
+                            <div x-show="templatesFrom === 'library'" x-cloak class="pt-2 max-h-80 overflow-y-auto">
+                                @include('backend.pages.template-library.partials.picker', [
+                                    'presets' => app(\App\Services\Poster\TemplateLibrary::class)->pickerFor(auth()->user(), $tournament),
+                                ])
+                            </div>
                         </div>
                     </div>
                     <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="settings" checked class="mt-1"> <span><strong>Settings &amp; forms</strong> — registration form, terms, branding, awards, sponsors</span></label>

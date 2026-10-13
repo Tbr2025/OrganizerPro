@@ -167,17 +167,15 @@
                     @enderror
                 </div>
 
-                {{-- Starting templates: a copy of the template library --}}
-                @php $libraryCount = app(\App\Services\Poster\TemplateLibrary::class)->count(); @endphp
-                @if($libraryCount > 0)
-                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                        <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            <input type="checkbox" name="starter_kit" value="1" {{ old('starter_kit', '1') ? 'checked' : '' }}>
-                            Start with the template library ({{ $libraryCount }} {{ \Illuminate\Support\Str::plural('template', $libraryCount) }})
-                        </label>
-                        <p class="text-xs text-gray-500 mt-1">A copy of every template in the library, ready to generate and edit. Changing them here never changes the library.</p>
-                    </div>
-                @endif
+                {{-- Starting templates: the presets ticked here are copied in --}}
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Start with these template presets</p>
+                    <p class="text-xs text-gray-500">The ticked presets are copied into the tournament, ready to generate and edit. Changing the copies never changes the presets.</p>
+                    @include('backend.pages.template-library.partials.picker', [
+                        'presets' => app(\App\Services\Poster\TemplateLibrary::class)->pickerFor(auth()->user()),
+                        'orgSelect' => '#organization_id',
+                    ])
+                </div>
 
                 {{-- Actions --}}
                 <div class="flex items-center justify-end space-x-3 pt-4">

@@ -33,6 +33,8 @@ class TournamentSeasonController extends Controller
             'end_date' => 'required|date|after_or_equal:start_date',
             'copy' => 'array',
             'copy.*' => ['nullable', Rule::in(SeasonService::COPY)],
+            'presets' => 'nullable|array',
+            'presets.*' => 'integer',
         ]);
         $data['copy'] = $data['copy'] ?? [];
 

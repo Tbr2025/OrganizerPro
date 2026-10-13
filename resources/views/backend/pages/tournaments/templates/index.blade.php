@@ -40,14 +40,29 @@
                     </svg>
                     New Template
                 </a>
-                @can('feature.manage')
-                    <form method="POST" action="{{ route('admin.template-library.copy-to-tournament', $tournament) }}"
-                          onsubmit="return confirm('Add a copy of every template in the template library to this tournament? Its existing templates and defaults are kept.')">
-                        @csrf
-                        <button class="inline-flex items-center px-3 py-2 sm:px-4 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition whitespace-nowrap">
-                            Add Library Templates
+                @can('template.presets')
+                    <div x-data="{ open: false }">
+                        <button type="button" @click="open = true" class="inline-flex items-center px-3 py-2 sm:px-4 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition whitespace-nowrap">
+                            Add from Presets
                         </button>
-                    </form>
+                        <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @keydown.escape.window="open = false">
+                            <form method="POST" action="{{ route('admin.template-library.copy-to-tournament', $tournament) }}" @click.outside="open = false"
+                                  class="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-gray-900 p-5 space-y-4 text-gray-900 dark:text-white">
+                                @csrf
+                                <div>
+                                    <h3 class="font-semibold">Add template presets to {{ $tournament->name }}</h3>
+                                    <p class="text-xs text-gray-500">Each ticked preset is copied in. Existing templates and defaults are kept.</p>
+                                </div>
+                                @include('backend.pages.template-library.partials.picker', [
+                                    'presets' => app(\App\Services\Poster\TemplateLibrary::class)->pickerFor(auth()->user(), $tournament),
+                                ])
+                                <div class="flex justify-end gap-2">
+                                    <button type="button" @click="open = false" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">Cancel</button>
+                                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Add ticked presets</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                 @endcan
             </div>
         </div>
@@ -345,11 +360,19 @@
                                             </form>
                                         @endif
                                     </div>
-                                    @can('feature.manage')
-                                        <form action="{{ route('admin.template-library.save-from-tournament', [$tournament, $template]) }}" method="POST" class="mt-1">
+                                    @can('template.presets')
+                                        <form action="{{ route('admin.template-library.save-from-tournament', [$tournament, $template]) }}" method="POST" class="mt-1 flex items-center gap-1.5 flex-wrap">
                                             @csrf
-                                            <button type="submit" class="text-xs text-gray-500 hover:text-indigo-700 font-medium" title="Copy this design into the template library that new tournaments start with">
-                                                Save to library
+                                            @role('Superadmin')
+                                                <select name="scope" class="text-[11px] py-0 pl-1 pr-6 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-800">
+                                                    <option value="global">Global</option>
+                                                    @if($tournament->organization_id)
+                                                        <option value="{{ $tournament->organization_id }}">{{ $tournament->organization?->name ?? 'This organization' }}</option>
+                                                    @endif
+                                                </select>
+                                            @endrole
+                                            <button type="submit" class="text-xs text-gray-500 hover:text-indigo-700 font-medium" title="Copy this design into the template presets">
+                                                Save as preset
                                             </button>
                                         </form>
                                     @endcan

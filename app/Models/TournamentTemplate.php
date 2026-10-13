@@ -12,6 +12,7 @@ class TournamentTemplate extends Model
 
     protected $fillable = [
         'tournament_id',
+        'organization_id',
         'type',
         'name',
         'background_image',
@@ -618,6 +619,12 @@ class TournamentTemplate extends Model
     public function tournament(): BelongsTo
     {
         return $this->belongsTo(Tournament::class);
+    }
+
+    /** A preset's organization (null: a global preset). Not used on a tournament's own template. */
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class);
     }
 
     // Scopes

@@ -139,6 +139,30 @@ class TemplatePresetService
         );
     }
 
+    /**
+     * Start a template preset (TemplateLibrary) from a ready-made design: an ordinary
+     * preset in the given scope (null: global) that its owners then edit like any
+     * other. The first preset of a type in a scope becomes that type's default. Never
+     * charged — the design is a starting point, not a poster.
+     */
+    public function addAsPreset(string $key, ?string $theme, ?int $organizationId): TournamentTemplate
+    {
+        $theme = PresetThemes::find($theme) ? $theme : self::DEFAULT_THEME;
+        $preset = $this->find($key, $theme);
+
+        if (! $preset) {
+            throw new \InvalidArgumentException("Unknown template preset [{$key}].");
+        }
+
+        $library = app(TemplateLibrary::class);
+
+        return TournamentTemplate::create(['tournament_id' => null, 'organization_id' => $organizationId] + $this->templateAttributes(
+            $preset, $theme,
+            $library->uniqueName($this->presetName($preset, $theme), $organizationId),
+            $library->needsDefault($organizationId, $preset['type']),
+        ));
+    }
+
     private function presetName(array $preset, string $theme): string
     {
         return $preset['name'] . ($preset['themed'] ? ' — ' . PresetThemes::find($theme)['name'] : '');

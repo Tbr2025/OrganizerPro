@@ -613,15 +613,16 @@ class AdminMenuService
             ],
         ]);
 
-        // Super Admin's template library: the poster templates every new tournament starts with.
+        // Template presets: Super Admin's global ones and each organization's own,
+        // picked from when a tournament or season is created.
         $this->addMenuItem([
-            'label' => __('Template library'),
+            'label' => __('Template presets'),
             'icon' => 'feather:layout',
             'route' => route('admin.template-library.index'),
             'active' => Route::is('admin.template-library.*'),
             'id' => 'template-library',
             'priority' => 26,
-            'permissions' => 'feature.manage',
+            'permissions' => 'template.presets',
         ]);
 
         // Pay-per-feature credits: an organization's wallet, and the platform controls.

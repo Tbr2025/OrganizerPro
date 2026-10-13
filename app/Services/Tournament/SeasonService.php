@@ -32,7 +32,7 @@ use Illuminate\Support\Str;
  */
 class SeasonService
 {
-    /** `templates` copies last season's; `library` copies the template library instead. */
+    /** `templates` copies last season's; `library` copies the ticked template presets instead. */
     public const COPY = ['teams', 'squads', 'templates', 'library', 'settings'];
 
     public function __construct(
@@ -41,7 +41,7 @@ class SeasonService
     ) {}
 
     /**
-     * @param  array{name: string, start_date: string, end_date: string, copy: string[]}  $data
+     * @param  array{name: string, start_date: string, end_date: string, copy: string[], presets?: int[]}  $data
      */
     public function startNextSeason(Tournament $from, array $data, User $by): Tournament
     {
@@ -80,9 +80,9 @@ class SeasonService
             $templateMap = [];
             if (in_array('templates', $copy, true)) {
                 $templateMap = $this->copyTemplates($from, $season);
-            } elseif (in_array('library', $copy, true)) {
-                // Library copies carry their own defaults; last season's default ids map to nothing.
-                $this->library->copyInto($season);
+            } elseif (in_array('library', $copy, true) && ! empty($data['presets'])) {
+                // The presets ticked; they set their own defaults, so last season's default ids map to nothing.
+                $this->library->copyInto($season, $data['presets']);
             }
 
             if (in_array('settings', $copy, true)) {

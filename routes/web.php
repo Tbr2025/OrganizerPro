@@ -974,19 +974,24 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Live Match Ticker (1920x1080 Broadcast Display)
     Route::get('/matches/{match}/live-ticker', [MatchesController::class, 'liveTicker'])->name('matches.live-ticker');
 
-    // Template library: Super Admin's templates that every new tournament starts with
+    // Template presets: global (Super Admin) and per organization, picked when a tournament or season is created
     Route::controller(\App\Http\Controllers\Backend\TemplateLibraryController::class)->group(function () {
         Route::get('/template-library', 'index')->name('template-library.index');
         Route::get('/template-library/create', 'create')->name('template-library.create');
         Route::post('/template-library', 'store')->name('template-library.store');
+        Route::post('/template-library/ready-made', 'addReadyMade')->name('template-library.add-ready-made');
+        Route::get('/template-library/ready-made/{key}/{theme}', 'readyMadeThumb')
+            ->where(['key' => '[a-z0-9_]+', 'theme' => '[a-z]+'])->name('template-library.ready-made-thumb');
         Route::post('/template-library/upload-overlay', 'uploadOverlay')->name('template-library.upload-overlay');
         Route::post('/template-library/delete-overlay', 'deleteOverlay')->name('template-library.delete-overlay');
         Route::get('/template-library/{template}/edit', 'edit')->whereNumber('template')->name('template-library.edit');
+        Route::get('/template-library/{template}/thumb', 'thumb')->whereNumber('template')->name('template-library.thumb');
         Route::put('/template-library/{template}', 'update')->whereNumber('template')->name('template-library.update');
         Route::delete('/template-library/{template}', 'destroy')->whereNumber('template')->name('template-library.destroy');
         Route::post('/template-library/{template}/duplicate', 'duplicate')->whereNumber('template')->name('template-library.duplicate');
         Route::post('/template-library/{template}/set-default', 'setDefault')->whereNumber('template')->name('template-library.set-default');
         Route::post('/template-library/{template}/toggle-active', 'toggleActive')->whereNumber('template')->name('template-library.toggle-active');
+        Route::post('/template-library/{template}/move', 'move')->whereNumber('template')->name('template-library.move');
         Route::post('/tournaments/{tournament}/templates/{template}/save-to-library', 'saveFromTournament')->name('template-library.save-from-tournament');
         Route::post('/tournaments/{tournament}/templates/from-library', 'copyToTournament')->name('template-library.copy-to-tournament');
     });

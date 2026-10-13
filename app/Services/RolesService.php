@@ -331,6 +331,8 @@ class RolesService
             'template.generate',
             // ...and edit their tournaments' designs, ready-made ones included
             'template.manage',
+            // ...and their organization's template presets
+            'template.presets',
             // Scoring and the LED wall for their matches
             'scoring.update',
             'scoring.quick_add_player',
@@ -397,6 +399,7 @@ class RolesService
             'player.edit',
             'template.generate',
             'template.manage',
+            'template.presets',
             'auctions.view',
             'auction.view',
             'auction.create',

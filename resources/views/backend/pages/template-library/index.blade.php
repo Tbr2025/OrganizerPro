@@ -1,58 +1,112 @@
 @extends('backend.layouts.app')
 
 @section('title')
-    {{ __('Template library') }} | {{ config('app.name') }}
+    {{ __('Template presets') }} | {{ config('app.name') }}
 @endsection
 
 @section('admin-content')
-<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" >
+<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" x-data="{ readyMade: false, theme: @js(array_key_first($themes)) }">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
-    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-        <p class="text-sm text-gray-500 dark:text-gray-400 max-w-3xl">
-            {{ __('Every new tournament starts with a copy of each active template here, and a new season can too. Edit a template here and the next tournament gets the edited version; tournaments that already have a copy keep their own. The Default of each type becomes the new tournament\'s default.') }}
-        </p>
+    {{-- Whose presets --}}
+    <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+        <div class="max-w-3xl space-y-1">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ $scope === null ? __('Global presets') : __(':org presets', ['org' => $scopeName]) }}
+            </h2>
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+                @if($scope === null)
+                    {{ __('Offered to every organization when a tournament or season is created. Organizations can copy one into their own presets to change it.') }}
+                @else
+                    {{ __('Offered to :org\'s tournaments, alongside the global presets below. Whoever creates a tournament ticks the ones it should start with.', ['org' => $scopeName]) }}
+                @endif
+                {{ __('Ticked by default and Default (one per poster type) are set here; editing a preset only changes tournaments created afterwards.') }}
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2 items-end">
+            @if($isSuper)
+                <form method="GET" action="{{ route('admin.template-library.index') }}">
+                    <label class="text-xs text-gray-500 block">{{ __('Showing') }}</label>
+                    <select name="scope" onchange="this.form.submit()" class="form-control text-sm mt-1">
+                        <option value="global" @selected($scope === null)>{{ __('Global presets') }}</option>
+                        @foreach($organizations as $org)
+                            <option value="{{ $org->id }}" @selected($scope === $org->id)>{{ $org->name }}</option>
+                        @endforeach
+                    </select>
+                </form>
+            @endif
+            <button type="button" @click="readyMade = !readyMade" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ __('Start from a ready-made design') }}
+            </button>
+        </div>
     </div>
-    <p class="text-xs text-gray-500">{{ __('To bring in a design already made for a tournament, open that tournament\'s Templates page and use "Save to library" on it.') }}</p>
 
+    {{-- Ready-made designs: a starting point that becomes an ordinary, editable preset --}}
+    <div x-show="readyMade" x-cloak class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('Pick a theme, then a design. It is added to these presets and opened in the editor so you can make it your own.') }}</p>
+            <div class="flex flex-wrap gap-1.5">
+                @foreach($themes as $t)
+                    <button type="button" @click="theme = @js($t['key'])"
+                            :class="theme === @js($t['key']) ? 'ring-2 ring-offset-1 ring-indigo-500' : ''"
+                            class="px-2.5 py-1 rounded-full text-xs font-semibold"
+                            style="background:linear-gradient(135deg, {{ $t['from'] }}, {{ $t['to'] }}); color: {{ $t['accent'] }}">{{ $t['name'] }}</button>
+                @endforeach
+            </div>
+        </div>
+        @foreach($readyMade as $type => $list)
+            <div>
+                <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                    @foreach($list as $p)
+                        <form method="POST" action="{{ route('admin.template-library.add-ready-made', ['scope' => $scopeParam]) }}">
+                            @csrf
+                            <input type="hidden" name="preset" value="{{ $p['key'] }}">
+                            <input type="hidden" name="theme" :value="theme">
+                            <button class="w-full text-left rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 transition">
+                                <img loading="lazy" alt="" class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain"
+                                     @if($p['themed'])
+                                         :src="@js(route('admin.template-library.ready-made-thumb', ['key' => $p['key'], 'theme' => '__T__'])).replace('__T__', theme)"
+                                     @else
+                                         src="{{ route('admin.template-library.ready-made-thumb', ['key' => $p['key'], 'theme' => 'own']) }}"
+                                     @endif>
+                                <span class="block p-1.5 text-xs font-medium text-gray-900 dark:text-white truncate">{{ $p['name'] }}</span>
+                            </button>
+                        </form>
+                    @endforeach
+                </div>
+            </div>
+        @endforeach
+    </div>
+
+    {{-- This scope's presets, by poster type --}}
     @foreach($types as $type)
         @php $list = $templates[$type] ?? collect(); @endphp
         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center gap-2 flex-wrap">
                 <div class="min-w-0">
                     <h3 class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</h3>
-                    <p class="text-xs text-gray-500">
-                        @if($list->isEmpty())
-                            {{ __('None — new tournaments get no :type.', ['type' => strtolower(\App\Models\TournamentTemplate::getTypeDisplay($type))]) }}
-                        @else
-                            {{ trans_choice(':n template|:n templates', $list->count(), ['n' => $list->count()]) }}
-                        @endif
-                    </p>
+                    <p class="text-xs text-gray-500">{{ $list->isEmpty() ? __('No presets yet') : trans_choice(':n preset|:n presets', $list->count(), ['n' => $list->count()]) }}</p>
                 </div>
-                <a href="{{ route('admin.template-library.create', ['type' => $type]) }}" class="flex-shrink-0 text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
-                    + {{ __('New template') }}
+                <a href="{{ route('admin.template-library.create', ['type' => $type, 'scope' => $scopeParam]) }}" class="flex-shrink-0 text-sm text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
+                    + {{ __('New preset') }}
                 </a>
             </div>
 
             @if($list->isNotEmpty())
                 <div class="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     @foreach($list as $template)
-                        <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 {{ $template->is_active ? '' : 'opacity-60' }}">
-                            <a href="{{ route('admin.template-library.edit', $template) }}" class="block aspect-square relative overflow-hidden">
-                                @if($template->background_image)
-                                    <img src="{{ $template->background_image_url }}" alt="{{ $template->name }}" loading="lazy" class="w-full h-full object-cover">
-                                @else
-                                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 text-xs text-gray-400">
-                                        {{ __(':n layers', ['n' => count($template->layout_json ?? [])]) }}
-                                    </div>
-                                @endif
-                                <div class="absolute top-2 left-2 flex gap-1">
+                        <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                            <a href="{{ route('admin.template-library.edit', $template) }}" class="block relative">
+                                <img src="{{ route('admin.template-library.thumb', $template) }}" alt="{{ $template->name }}" loading="lazy"
+                                     class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain" onerror="this.style.visibility='hidden'">
+                                <div class="absolute top-2 left-2 flex flex-wrap gap-1">
                                     @if($template->is_default)
                                         <span class="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">{{ __('Default') }}</span>
                                     @endif
-                                    @if(! $template->is_active)
-                                        <span class="bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">{{ __('Not copied') }}</span>
-                                    @endif
+                                    <span class="{{ $template->is_active ? 'bg-indigo-500' : 'bg-gray-500' }} text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                                        {{ $template->is_active ? __('Ticked by default') : __('Not ticked') }}
+                                    </span>
                                 </div>
                             </a>
                             <div class="p-3 space-y-2">
@@ -67,17 +121,29 @@
                                     </form>
                                     @unless($template->is_default)
                                         <form method="POST" action="{{ route('admin.template-library.set-default', $template) }}">@csrf
-                                            <button class="text-green-600 hover:text-green-800">{{ __('Set default') }}</button>
+                                            <button class="text-green-600 hover:text-green-800">{{ __('Make default') }}</button>
                                         </form>
                                     @endunless
                                     <form method="POST" action="{{ route('admin.template-library.toggle-active', $template) }}">@csrf
-                                        <button class="text-gray-600 dark:text-gray-300 hover:text-gray-900">{{ $template->is_active ? __('Don\'t copy') : __('Copy again') }}</button>
+                                        <button class="text-gray-600 dark:text-gray-300 hover:text-gray-900">{{ $template->is_active ? __('Untick by default') : __('Tick by default') }}</button>
                                     </form>
-                                    <form method="POST" action="{{ route('admin.template-library.destroy', $template) }}" onsubmit="return confirm('{{ __('Remove this template from the library? Tournaments that already have a copy keep it.') }}')">
+                                    <form method="POST" action="{{ route('admin.template-library.destroy', $template) }}" onsubmit="return confirm(@js(__('Delete this preset? Tournaments that already have a copy keep it.')))">
                                         @csrf @method('DELETE')
                                         <button class="text-red-600 hover:text-red-800">{{ __('Delete') }}</button>
                                     </form>
                                 </div>
+                                @if($isSuper)
+                                    <form method="POST" action="{{ route('admin.template-library.move', $template) }}" class="flex items-center gap-1.5 text-xs">
+                                        @csrf
+                                        <select name="scope" class="text-xs py-0.5 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-800 flex-1 min-w-0">
+                                            <option value="global" @selected($scope === null)>{{ __('Global') }}</option>
+                                            @foreach($organizations as $org)
+                                                <option value="{{ $org->id }}" @selected($scope === $org->id)>{{ $org->name }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button class="text-gray-600 dark:text-gray-300 hover:text-gray-900 font-medium">{{ __('Move') }}</button>
+                                    </form>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -85,5 +151,34 @@
             @endif
         </div>
     @endforeach
+
+    {{-- Global presets, read-only here: an organization copies one to change it --}}
+    @if($scope !== null && $global->isNotEmpty())
+        <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 p-5 space-y-4">
+            <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">{{ __('Global presets') }}</h3>
+                <p class="text-xs text-gray-500">{{ __('Also offered to :org\'s tournaments. Copy one into your own presets to change it.', ['org' => $scopeName]) }}</p>
+            </div>
+            @foreach($global as $type => $list)
+                <div>
+                    <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                        @foreach($list as $template)
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <img src="{{ route('admin.template-library.thumb', $template) }}" alt="" loading="lazy"
+                                     class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain" onerror="this.style.visibility='hidden'">
+                                <div class="p-1.5 space-y-1">
+                                    <p class="text-xs font-medium text-gray-900 dark:text-white truncate">{{ $template->name }}</p>
+                                    <form method="POST" action="{{ route('admin.template-library.duplicate', $template) }}">@csrf
+                                        <button class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">{{ $isSuper ? __('Duplicate') : __('Copy to my presets') }}</button>
+                                    </form>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 </div>
 @endsection
