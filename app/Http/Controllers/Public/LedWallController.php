@@ -51,7 +51,11 @@ class LedWallController extends Controller
         abort_if($match->is_published === false && ! auth()->check(), 404);
 
         // `overlay`: the LED console's current panel, which the ticker shows above its strip.
-        return response()->json($this->wall->forMatch($match) + ['overlay' => $this->queue->forTicker($match)])
+        // `design`: the ticker's look (colours, size, position, parts), changed live from the console.
+        return response()->json($this->wall->forMatch($match) + [
+            'overlay' => $this->queue->forTicker($match),
+            'design' => \App\Services\LedWall\TickerDesign::forMatch($match),
+        ])
             ->header('Cache-Control', 'no-store');
     }
 

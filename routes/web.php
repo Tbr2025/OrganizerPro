@@ -1010,6 +1010,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     Route::post('/led/{display}/control/{control}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'control'])
         ->whereIn('control', ['live', 'mode', 'freeze'])->name('led.control');
     Route::post('/led/{display}/settings', [\App\Http\Controllers\Backend\LedConsoleController::class, 'settings'])->name('led.settings');
+    Route::post('/led/{display}/ticker', [\App\Http\Controllers\Backend\LedConsoleController::class, 'ticker'])->name('led.ticker');
     Route::post('/led/{display}/presets', [\App\Http\Controllers\Backend\LedConsoleController::class, 'savePreset'])->name('led.presets.store');
     Route::post('/led/{display}/presets/{preset}/apply', [\App\Http\Controllers\Backend\LedConsoleController::class, 'applyPreset'])->name('led.presets.apply');
     Route::delete('/led/{display}/presets/{preset}', [\App\Http\Controllers\Backend\LedConsoleController::class, 'deletePreset'])->name('led.presets.destroy');

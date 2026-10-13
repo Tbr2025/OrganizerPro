@@ -8,14 +8,30 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A saved LED wall setup. Platform presets (organization_id null) come from
- * Super Admin and are offered to every organization; the rest belong to one.
+ * A saved setup: kind 'wall' (the LED wall's timings, rotation, theme) or
+ * 'ticker' (a live-video ticker design, see TickerDesign). Platform presets
+ * (organization_id null) come from Super Admin and are offered to every
+ * organization; the rest belong to one.
  */
 class LedPreset extends Model
 {
-    protected $fillable = ['organization_id', 'name', 'settings', 'is_default', 'created_by'];
+    public const KINDS = ['wall', 'ticker'];
+
+    protected $fillable = ['organization_id', 'kind', 'name', 'settings', 'is_default', 'created_by'];
+
+    protected $attributes = ['kind' => 'wall'];
 
     protected $casts = ['settings' => 'array', 'is_default' => 'boolean'];
+
+    public function scopeWall(Builder $q): Builder
+    {
+        return $q->where('kind', 'wall');
+    }
+
+    public function scopeTicker(Builder $q): Builder
+    {
+        return $q->where('kind', 'ticker');
+    }
 
     /** Platform presets plus this organization's own. */
     public function scopeAvailableTo(Builder $q, ?int $organizationId): Builder
@@ -40,10 +56,16 @@ class LedPreset extends Model
             $previous = json_decode($previous, true);
         }
         $preset = $previous ? null : (
-            self::where('organization_id', $tournament->organization_id)->where('is_default', true)->first()
-            ?? self::whereNull('organization_id')->where('is_default', true)->first()
+            self::wall()->where('organization_id', $tournament->organization_id)->where('is_default', true)->first()
+            ?? self::wall()->whereNull('organization_id')->where('is_default', true)->first()
+        );
+        $settings = array_merge(LedDisplay::DEFAULT_SETTINGS, $previous ?: (array_diff_key($preset?->settings ?? [], ['ticker' => 1])));
+
+        // The ticker: the tournament's last design, else the default ticker template.
+        $settings['ticker'] = \App\Services\LedWall\TickerDesign::normalize(
+            ($previous['ticker'] ?? null) ?: \App\Services\LedWall\TickerDesign::defaultTemplate($tournament->organization_id)
         );
 
-        return array_merge(LedDisplay::DEFAULT_SETTINGS, $previous ?: ($preset?->settings ?? []));
+        return $settings;
     }
 }

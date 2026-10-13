@@ -51,6 +51,98 @@
         </div>
     </div>
 
+    {{-- Ticker design: how the live-video strip looks. Changes show in the preview as you make them; Save puts them on air. --}}
+    @php $td = $tickerDesign; @endphp
+    <details id="tickerDesign" class="mb-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm">
+        <summary class="cursor-pointer select-none p-4 flex flex-wrap items-center gap-2">
+            <span class="font-semibold text-gray-800 dark:text-white">{{ __('Ticker design') }}</span>
+            <span class="text-xs text-gray-500">{{ __('Colours, size, position and what the score ticker shows. Save a design as a template to reuse it.') }}</span>
+        </summary>
+        <div class="px-4 pb-4 grid grid-cols-1 xl:grid-cols-5 gap-4">
+            <form id="tickerForm" class="xl:col-span-2 space-y-4" oninput="ticker.preview()" onsubmit="ticker.save(event)">
+                <fieldset class="grid grid-cols-2 gap-3">
+                    <legend class="col-span-2 font-medium text-gray-700 dark:text-gray-200 mb-1">{{ __('Position & size') }}</legend>
+                    <label class="flex flex-col gap-1">{{ __('Position') }}
+                        <select name="position" class="form-control"><option value="bottom">{{ __('Bottom') }}</option><option value="top">{{ __('Top') }}</option></select></label>
+                    <label class="flex flex-col gap-1">{{ __('Alignment') }}
+                        <select name="align" class="form-control">
+                            <option value="stretch">{{ __('Full width') }}</option><option value="left">{{ __('Left') }}</option>
+                            <option value="center">{{ __('Centre') }}</option><option value="right">{{ __('Right') }}</option>
+                        </select></label>
+                    <label class="flex flex-col gap-1">{{ __('Size') }} <span class="text-xs text-gray-500"><output id="scaleOut"></output>%</span>
+                        <input name="scale" type="range" min="50" max="150" step="5"></label>
+                    <label class="flex flex-col gap-1">{{ __('Width (not full width), px') }}
+                        <input name="width" type="number" min="600" max="1920" class="form-control"></label>
+                    <label class="flex flex-col gap-1">{{ __('From the side, px') }}
+                        <input name="offset_x" type="number" min="0" max="400" class="form-control"></label>
+                    <label class="flex flex-col gap-1">{{ __('From top / bottom, px') }}
+                        <input name="offset_y" type="number" min="0" max="400" class="form-control"></label>
+                    <label class="flex flex-col gap-1">{{ __('Corner roundness') }}
+                        <input name="radius" type="range" min="0" max="40"></label>
+                    <label class="flex flex-col gap-1">{{ __('Background opacity') }}
+                        <input name="opacity" type="range" min="40" max="100"></label>
+                </fieldset>
+
+                <fieldset class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <legend class="col-span-full font-medium text-gray-700 dark:text-gray-200 mb-1">{{ __('Colours') }}</legend>
+                    @foreach(['bg' => __('Background'), 'panel_from' => __('Panel'), 'panel_to' => __('Panel fade'), 'accent_from' => __('Accent bar'), 'accent_to' => __('Accent fade'), 'highlight' => __('Highlight text'), 'text' => __('Text')] as $k => $label)
+                        <label class="flex flex-col gap-1 text-xs">{{ $label }}<input name="{{ $k }}" type="color" class="h-9 w-full rounded border border-gray-300 dark:border-gray-600"></label>
+                    @endforeach
+                    <label class="col-span-full flex items-center gap-2"><input name="team_colours" type="checkbox"> {{ __('Team boxes in each team\'s own colours') }}</label>
+                </fieldset>
+
+                <fieldset class="grid grid-cols-2 gap-2">
+                    <legend class="col-span-2 font-medium text-gray-700 dark:text-gray-200 mb-1">{{ __('Show') }}</legend>
+                    @foreach(['show_stats' => __('Run rate & target'), 'show_this_over' => __('This over'), 'show_players' => __('Batters & bowler row'), 'show_partnership' => __('Partnership'), 'show_bowler' => __('Bowler'), 'show_status' => __('Status line (last wicket)'), 'show_moments' => __('Console moments (wicket, four, cards…)')] as $k => $label)
+                        <label class="flex items-center gap-2"><input name="{{ $k }}" type="checkbox"> {{ $label }}</label>
+                    @endforeach
+                    <label class="col-span-2 flex items-center gap-2">{{ __('Tournament badge') }}
+                        <select name="badge" class="form-control !py-1 min-w-[150px] w-auto"><option value="right">{{ __('Right corner') }}</option><option value="left">{{ __('Left corner') }}</option><option value="hidden">{{ __('Hidden') }}</option></select></label>
+                    <p class="col-span-2 text-xs text-gray-500">{{ __('The badge sits in the top corner, or the bottom corner when the strip is at the top.') }}</p>
+                </fieldset>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">{{ __('Save ticker design') }}</button>
+                    <label class="flex items-center gap-2"><input name="apply_to_tournament" type="checkbox"> {{ __('Use for every match in this tournament') }}</label>
+                    <button type="button" onclick="ticker.reset()" class="text-xs underline text-gray-500">{{ __('Back to standard look') }}</button>
+                    <span id="tickerSaved" class="text-green-600 hidden"></span>
+                </div>
+
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3 space-y-2">
+                    <p class="font-medium text-gray-700 dark:text-gray-200">{{ __('Templates') }} <span class="text-xs font-normal text-gray-500">— {{ __('saved designs, reusable on any match') }}</span></p>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <select id="tickerTemplate" class="form-control min-w-[200px] w-auto">
+                            @forelse($tickerTemplates as $t)
+                                <option value="{{ $t->id }}">{{ $t->name }}{{ $t->is_default ? ' ★' : '' }}{{ $t->isPlatform() ? ' (' . __('for everyone') . ')' : '' }}</option>
+                            @empty
+                                <option value="">{{ __('No templates yet') }}</option>
+                            @endforelse
+                        </select>
+                        <button type="button" onclick="ticker.applyTemplate()" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600" @disabled($tickerTemplates->isEmpty())>{{ __('Load') }}</button>
+                        <button type="button" onclick="ticker.deleteTemplate()" class="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600" @disabled($tickerTemplates->isEmpty())>{{ __('Delete') }}</button>
+                    </div>
+                    <div class="flex flex-wrap items-end gap-2">
+                        <input id="tickerTemplateName" type="text" maxlength="80" class="form-control w-auto" placeholder="{{ __('e.g. Green & gold, top') }}">
+                        <label class="flex items-center gap-1 text-xs"><input id="tickerTemplateDefault" type="checkbox"> {{ __('Default for new matches') }}</label>
+                        @if($canPlatformPresets)<label class="flex items-center gap-1 text-xs"><input id="tickerTemplatePlatform" type="checkbox"> {{ __('For everyone') }}</label>@endif
+                        <button type="button" onclick="ticker.saveTemplate()" class="px-3 py-2 rounded-lg border border-indigo-300 text-indigo-700 dark:border-indigo-700 dark:text-indigo-300">{{ __('Save as template') }}</button>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ __('Load puts the template on air for this match and in the editor. Save as template saves what is in the editor and keeps it under that name.') }}</p>
+                </div>
+            </form>
+
+            <div class="xl:col-span-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs text-gray-500">{{ __('Preview — the live ticker with your changes, before you save') }}</span>
+                    <button type="button" onclick="ticker.sample()" class="text-xs px-2 py-1 rounded border border-gray-300 dark:border-gray-600">{{ __('Show a sample moment') }}</button>
+                </div>
+                <div id="tickerStage" class="relative w-full overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700" style="aspect-ratio:16/9;background:linear-gradient(160deg,#3d6b3d,#1f3a24)">
+                    <iframe id="tickerPreview" src="{{ route('public.live-ticker', $match) }}?preview=1" title="{{ __('Ticker preview') }}" style="border:0;width:1920px;height:1080px;transform-origin:0 0;position:absolute;left:0;top:0"></iframe>
+                </div>
+            </div>
+        </div>
+    </details>
+
     {{-- How it works: short, so an operator new to the console knows what each control does. --}}
     <div class="mb-4 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/20 p-4 text-sm text-indigo-900 dark:text-indigo-100">
         <p class="font-semibold mb-1">{{ __('How this works') }}</p>
@@ -176,6 +268,91 @@
 @push('scripts')
 @include('backend.pages.auction.partials.echo-init')
 <script>
+// Ticker design editor: the form drives the preview by postMessage; Save stores it.
+const ticker = (() => {
+    const base = @json(url('/admin/led/' . $display->id));
+    const csrf = @json(csrf_token());
+    const DEFAULTS = @json(\App\Services\LedWall\TickerDesign::DEFAULTS);
+    const TOGGLES = @json(\App\Services\LedWall\TickerDesign::TOGGLES);
+    const form = () => document.getElementById('tickerForm');
+    const frame = () => document.getElementById('tickerPreview');
+
+    function fill(d) {
+        const f = form();
+        Object.entries(d).forEach(([k, v]) => {
+            const el = f.elements[k];
+            if (!el) return;
+            if (el.type === 'checkbox') el.checked = !!v; else el.value = v;
+        });
+        preview();
+    }
+    function read() {
+        const f = form(), d = {};
+        Object.keys(DEFAULTS).forEach(k => {
+            const el = f.elements[k];
+            if (!el) return;
+            d[k] = el.type === 'checkbox' ? el.checked : (typeof DEFAULTS[k] === 'number' ? +el.value : el.value);
+        });
+        return d;
+    }
+    function preview() {
+        const d = read();
+        document.getElementById('scaleOut').textContent = d.scale;
+        form().elements.width.disabled = d.align === 'stretch';
+        frame().contentWindow?.postMessage({ type: 'ticker-design', design: d }, location.origin);
+    }
+    function fit() {
+        const stage = document.getElementById('tickerStage');
+        frame().style.transform = `scale(${stage.clientWidth / 1920})`;
+    }
+    const send = (path, body) => fetch(base + path, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify(body),
+    }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) alert(j.message || 'That did not work.'); return j; });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fill(@json($tickerDesign));
+        frame().addEventListener('load', preview);
+        fit(); window.addEventListener('resize', fit);
+        document.getElementById('tickerDesign').addEventListener('toggle', fit);
+    });
+
+    return {
+        preview,
+        sample: () => frame().contentWindow?.postMessage({ type: 'ticker-sample' }, location.origin),
+        reset: () => fill(DEFAULTS),
+        save(e) {
+            e.preventDefault();
+            send('/ticker', { ...read(), apply_to_tournament: form().elements.apply_to_tournament.checked }).then(j => {
+                if (!j.ok) return;
+                const n = document.getElementById('tickerSaved');
+                n.textContent = j.others ? `Saved — on air, and on ${j.others} other match${j.others === 1 ? '' : 'es'}` : 'Saved — on air';
+                n.classList.remove('hidden'); setTimeout(() => n.classList.add('hidden'), 4000);
+            });
+        },
+        applyTemplate() {
+            const id = document.getElementById('tickerTemplate').value;
+            if (!id) return;
+            // Loads into the editor and on air (a template is a finished design).
+            send(`/presets/${id}/apply`).then(j => { if (j.ok && j.design) fill(j.design); });
+        },
+        deleteTemplate() {
+            const sel = document.getElementById('tickerTemplate');
+            if (!sel.value || !confirm('Delete the template "' + sel.selectedOptions[0].textContent.trim() + '"?')) return;
+            fetch(base + '/presets/' + sel.value, { method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf } })
+                .then(r => r.ok ? location.reload() : r.json().then(j => alert(j.message || 'That did not work.')));
+        },
+        saveTemplate() {
+            const name = document.getElementById('tickerTemplateName').value.trim();
+            if (!name) { alert('Give the template a name.'); return; }
+            // A template stores the saved design: save first so what you see is what is kept.
+            send('/ticker', read()).then(j => j.ok && send('/presets', {
+                name, kind: 'ticker', is_default: document.getElementById('tickerTemplateDefault').checked,
+                platform: !!document.getElementById('tickerTemplatePlatform')?.checked,
+            })).then(j => { if (j && j.ok) location.reload(); });
+        },
+    };
+})();
+
 const led = (() => {
     const base = @json(url('/admin/led/' . $display->id));
     const csrf = @json(csrf_token());

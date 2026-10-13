@@ -92,6 +92,20 @@
         .ov td { padding: 8px 14px; border-top: 1px solid rgba(255,255,255,.08); color: #fff; }
         .ov .n { text-align: right; font-weight: 700; }
 
+        /* Ticker design (TickerDesign): colours and parts, set from the LED console. */
+        #ticker-card.glass, .ov.glass { background: var(--t-bg, rgba(10,10,30,.95)) !important; }
+        #ticker-card, .ov { border-radius: var(--t-radius, 16px) !important; }
+        #ticker-card .ipl-gradient { background: var(--t-panel, linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)) !important; }
+        #ticker-card .gold-gradient { background: var(--t-accent, linear-gradient(135deg, #f7971e 0%, #ffd200 100%)) !important; }
+        #ticker-card .text-yellow-400, .ov .text-yellow-400 { color: var(--t-highlight, #facc15) !important; }
+        #ticker-card .text-white, .ov .text-white { color: var(--t-text, #fff) !important; }
+        body.t-flat-teams .team-a-gradient, body.t-flat-teams .team-b-gradient { background: var(--t-panel) !important; }
+        body.t-no-stats .t-stat, body.t-no-this-over #ticker-this-over, body.t-no-players #ticker-players,
+        body.t-no-partnership #ticker-partnership, body.t-no-bowler #ticker-bowler, body.t-no-status #ticker-status,
+        body.t-no-moments #overlay, body.t-badge-hidden #ticker-badge { display: none !important; }
+        body.t-top #ticker-wrap { display: flex; flex-direction: column-reverse; }
+        body.t-top .ov { margin: 14px auto 0; }
+
         /* Stat box styling */
         .stat-box {
             background: rgba(255,255,255,0.05);
@@ -102,7 +116,7 @@
 <body>
     <div id="ticker-app">
         <!-- TV Logo - Top Right Corner -->
-        <div class="fixed top-8 right-8 z-50">
+        <div id="ticker-badge" class="fixed top-8 right-8 z-50">
             <div class="flex items-stretch gap-0 rounded-2xl overflow-hidden shadow-2xl" style="box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
                 <!-- LIVE Badge -->
                 <div class="bg-gradient-to-b from-red-500 to-red-700 px-6 py-4 flex items-center justify-center">
@@ -136,12 +150,12 @@
         </div>
 
         <!-- Main Ticker Container - Bottom of screen -->
-        <div class="fixed bottom-0 left-0 right-0 p-6">
+        <div id="ticker-wrap" class="fixed bottom-0 left-0 right-0 p-6">
             <!-- What the LED console puts up (wicket, boundary, cards, stats), above the strip. -->
             <div id="overlay"></div>
 
             <!-- Scoreboard Card -->
-            <div class="glass rounded-2xl overflow-hidden glow-border slide-in">
+            <div id="ticker-card" class="glass rounded-2xl overflow-hidden glow-border slide-in">
                 <!-- Top Gold Bar -->
                 <div class="gold-gradient h-1.5"></div>
 
@@ -205,31 +219,31 @@
                     <!-- Stats Panel -->
                     <div class="ipl-gradient flex-1 px-5 py-3 flex items-center justify-around border-l border-white/10">
                         <!-- Current Run Rate -->
-                        <div class="text-center stat-box rounded-lg px-4 py-2">
+                        <div class="t-stat text-center stat-box rounded-lg px-4 py-2">
                             <p class="text-white/50 text-xs uppercase tracking-wider oswald">CRR</p>
                             <p id="crr" class="text-yellow-400 text-2xl font-bold oswald mt-0.5">0.00</p>
                         </div>
 
                         <!-- Target (shown in 2nd innings) -->
-                        <div id="target-section" class="text-center stat-box rounded-lg px-4 py-2 hidden">
+                        <div id="target-section" class="t-stat text-center stat-box rounded-lg px-4 py-2 hidden">
                             <p class="text-white/50 text-xs uppercase tracking-wider oswald">TARGET</p>
                             <p id="target" class="text-white text-2xl font-bold oswald mt-0.5">-</p>
                         </div>
 
                         <!-- Required -->
-                        <div id="required-section" class="text-center stat-box rounded-lg px-4 py-2 hidden">
+                        <div id="required-section" class="t-stat text-center stat-box rounded-lg px-4 py-2 hidden">
                             <p class="text-white/50 text-xs uppercase tracking-wider oswald">NEED</p>
                             <p id="required" class="text-orange-400 text-2xl font-bold oswald mt-0.5">-</p>
                         </div>
 
                         <!-- Required Run Rate -->
-                        <div id="rrr-section" class="text-center stat-box rounded-lg px-4 py-2 hidden">
+                        <div id="rrr-section" class="t-stat text-center stat-box rounded-lg px-4 py-2 hidden">
                             <p class="text-white/50 text-xs uppercase tracking-wider oswald">RRR</p>
                             <p id="rrr" class="text-red-400 text-2xl font-bold oswald mt-0.5">-</p>
                         </div>
 
                         <!-- This Over -->
-                        <div class="text-center">
+                        <div id="ticker-this-over" class="text-center">
                             <p class="text-white/50 text-xs uppercase tracking-wider oswald mb-1.5">THIS OVER</p>
                             <div id="this-over" class="flex gap-1 justify-center">
                                 <!-- Balls will be populated here -->
@@ -239,7 +253,7 @@
                 </div>
 
                 <!-- Player Stats Bar - IPL Style -->
-                <div class="ipl-gradient border-t border-white/10">
+                <div id="ticker-players" class="ipl-gradient border-t border-white/10">
                     <div class="flex items-stretch">
                         <!-- Batsmen Section -->
                         <div class="flex-1 px-5 py-3 border-r border-white/10">
@@ -290,7 +304,7 @@
                         </div>
 
                         <!-- Partnership -->
-                        <div class="px-4 py-3 border-r border-white/10 min-w-[140px]">
+                        <div id="ticker-partnership" class="px-4 py-3 border-r border-white/10 min-w-[140px]">
                             <p class="text-white/40 text-xs uppercase tracking-wider oswald text-center">Partnership</p>
                             <div class="flex items-center justify-center gap-1 mt-1">
                                 <span id="partnership-runs" class="text-cyan-400 font-black text-xl oswald">0</span>
@@ -301,7 +315,7 @@
                         </div>
 
                         <!-- Bowler Section -->
-                        <div class="flex-1 px-5 py-3">
+                        <div id="ticker-bowler" class="flex-1 px-5 py-3">
                             <div class="flex items-center gap-3">
                                 <div class="flex items-center gap-2">
                                     <span class="w-2 h-2 bg-red-500 rounded-full"></span>
@@ -338,7 +352,7 @@
                 </div>
 
                 <!-- Last Wicket / Match Status Bar -->
-                <div class="ipl-gradient border-t border-white/10 px-5 py-2 flex items-center justify-between">
+                <div id="ticker-status" class="ipl-gradient border-t border-white/10 px-5 py-2 flex items-center justify-between">
                     <div id="last-wicket-section" class="flex items-center gap-2 text-sm hidden">
                         <span class="text-red-400 font-bold oswald">LAST WKT:</span>
                         <span id="last-wicket-info" class="text-white/70">-</span>
@@ -395,6 +409,71 @@
 
             div.textContent = ball;
             return div;
+        }
+
+        // ---- design ----
+        // Colours, size, position and parts from the LED console (TickerDesign).
+        // In the console's preview (?preview=1) a draft arrives by postMessage
+        // and wins over the saved design until the page reloads.
+        const PREVIEW = new URLSearchParams(location.search).has('preview');
+        let draftDesign = null;
+        function rgba(hex, opacity) {
+            const n = parseInt(String(hex).slice(1), 16);
+            return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${opacity / 100})`;
+        }
+        function applyDesign(d) {
+            if (!d) return;
+            const root = document.documentElement.style, body = document.body.classList;
+            root.setProperty('--t-bg', rgba(d.bg, d.opacity));
+            root.setProperty('--t-panel', `linear-gradient(135deg, ${d.panel_from} 0%, ${d.panel_to} 100%)`);
+            root.setProperty('--t-accent', `linear-gradient(135deg, ${d.accent_from} 0%, ${d.accent_to} 100%)`);
+            root.setProperty('--t-highlight', d.highlight);
+            root.setProperty('--t-text', d.text);
+            root.setProperty('--t-radius', d.radius + 'px');
+            body.toggle('t-flat-teams', !d.team_colours);
+            [['stats', 'show_stats'], ['this-over', 'show_this_over'], ['players', 'show_players'], ['partnership', 'show_partnership'],
+             ['bowler', 'show_bowler'], ['status', 'show_status'], ['moments', 'show_moments']].forEach(([cls, key]) => body.toggle('t-no-' + cls, !d[key]));
+            body.toggle('t-badge-hidden', d.badge === 'hidden');
+            body.toggle('t-top', d.position === 'top');
+
+            const badge = document.getElementById('ticker-badge');
+            badge.style.left = d.badge === 'left' ? '32px' : '';
+            badge.style.right = d.badge === 'left' ? 'auto' : '';
+            // The badge takes the corner the strip is not in.
+            badge.style.top = d.position === 'top' ? 'auto' : '';
+            badge.style.bottom = d.position === 'top' ? '32px' : '';
+
+            // Where the strip sits, and its size (scaled from the edge it hugs).
+            const w = document.getElementById('ticker-wrap'), s = d.scale / 100;
+            w.className = 'fixed';
+            Object.assign(w.style, { top: '', bottom: '', left: '', right: '', width: '', padding: '0' });
+            w.style[d.position === 'top' ? 'top' : 'bottom'] = d.offset_y + 'px';
+            const vertical = d.position === 'top' ? 'top' : 'bottom';
+            let translate = '', horizontal = 'center';
+            if (d.align === 'stretch') {
+                // Full width at any size: widen the box by 1/scale so it still spans after scaling.
+                w.style.left = d.offset_x + 'px';
+                w.style.width = `calc((100% - ${2 * d.offset_x}px) / ${s})`;
+                horizontal = 'left';
+            } else {
+                w.style.width = d.width + 'px';
+                if (d.align === 'left') { w.style.left = d.offset_x + 'px'; horizontal = 'left'; }
+                if (d.align === 'right') { w.style.right = d.offset_x + 'px'; horizontal = 'right'; }
+                if (d.align === 'center') { w.style.left = '50%'; translate = 'translateX(-50%) '; }
+            }
+            w.style.transformOrigin = `${horizontal} ${vertical}`;
+            w.style.transform = translate + `scale(${s})`;
+        }
+        applyDesign(@json($design ?? \App\Services\LedWall\TickerDesign::DEFAULTS));
+        if (PREVIEW) {
+            window.addEventListener('message', e => {
+                if (e.origin !== location.origin || !e.data) return;
+                if (e.data.type === 'ticker-design') { draftDesign = e.data.design; applyDesign(draftDesign); }
+                if (e.data.type === 'ticker-sample') {
+                    drawOverlay({ version: -1, overlay: { item_id: -1, panel: 'wicket', ends_in_ms: 8000,
+                        payload: { wicket: { name: 'Sample Batter', runs: 34, balls: 22, how_out: 'c Fielder b Bowler' }, score: '87/3 (9.4)', team: { short: 'TEAM' } } } });
+                }
+            });
         }
 
         // ---- LED console panels ----
@@ -598,6 +677,7 @@
                 if (statusText) updateText('match-status', statusText);
 
                 drawOverlay(data);
+                applyDesign(draftDesign || data.design);
             } catch (error) {
                 console.error('Error fetching scores:', error);
             } finally {

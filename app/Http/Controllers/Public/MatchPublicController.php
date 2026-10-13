@@ -135,6 +135,9 @@ class MatchPublicController extends Controller
             'teamB.players.player',
         ]);
 
-        return view('public.match.live-ticker', compact('match'));
+        // Drawn in its design from the first frame; later changes arrive with the state.
+        $design = \App\Services\LedWall\TickerDesign::forMatch($match);
+
+        return view('public.match.live-ticker', compact('match', 'design'));
     }
 }

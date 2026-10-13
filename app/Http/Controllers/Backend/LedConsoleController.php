@@ -9,6 +9,7 @@ use App\Models\LedDisplay;
 use App\Models\LedQueueItem;
 use App\Models\Matches;
 use App\Services\LedWall\LedQueueService;
+use App\Services\LedWall\TickerDesign;
 use App\Services\LedWall\WallState;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -64,7 +65,9 @@ class LedConsoleController extends Controller
             'wallUrl' => route('public.led.wall', $display->token),
             'panels' => LedDisplay::PANELS,
             'fillers' => LedDisplay::FILLERS,
-            'presets' => \App\Models\LedPreset::availableTo($match->tournament?->organization_id)->get(),
+            'presets' => \App\Models\LedPreset::wall()->availableTo($match->tournament?->organization_id)->get(),
+            'tickerTemplates' => \App\Models\LedPreset::ticker()->availableTo($match->tournament?->organization_id)->get(),
+            'tickerDesign' => TickerDesign::normalize(($display->settings ?? [])['ticker'] ?? TickerDesign::defaultTemplate($match->tournament?->organization_id)),
             'canPlatformPresets' => $request->user()->can('feature.manage'),
             'breadcrumbs' => [
                 'title' => __('LED wall'),
@@ -178,31 +181,59 @@ class LedConsoleController extends Controller
         return response()->json(['ok' => true, 'others' => $others]);
     }
 
-    /** Save the current settings as a preset: the platform's (Super Admin) or this organization's. */
+    /**
+     * The live-video ticker's design for this match — and, with
+     * apply_to_tournament, every other match's in the tournament.
+     */
+    public function ticker(Request $request, LedDisplay $display): JsonResponse
+    {
+        $this->authorizeDisplay($display);
+        $design = TickerDesign::normalize($request->validate(TickerDesign::rules()));
+
+        $targets = $request->boolean('apply_to_tournament')
+            ? LedDisplay::where('tournament_id', $display->tournament_id)->whereNull('revoked_at')->get()
+            : collect([$display]);
+        foreach ($targets as $d) {
+            $d->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $d->settings ?? [], ['ticker' => $design])]);
+            \App\Events\LedDisplayChanged::announce($d->id);
+        }
+
+        return response()->json(['ok' => true, 'others' => $targets->count() - 1, 'design' => $design]);
+    }
+
+    /**
+     * Save a preset: kind 'wall' (this wall's settings) or 'ticker' (this
+     * match's ticker design) — the platform's (Super Admin) or this organization's.
+     */
     public function savePreset(Request $request, LedDisplay $display): JsonResponse
     {
         $this->authorizeDisplay($display);
         $data = $request->validate([
             'name' => 'required|string|max:80',
+            'kind' => 'nullable|in:' . implode(',', \App\Models\LedPreset::KINDS),
             'platform' => 'boolean',
             'is_default' => 'boolean',
         ]);
+        $kind = $data['kind'] ?? 'wall';
+        $settings = $kind === 'ticker'
+            ? TickerDesign::normalize(($display->settings ?? [])['ticker'] ?? null)
+            : array_diff_key(array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? []), ['ticker' => 1]);
         $platform = $request->boolean('platform');
         abort_if($platform && ! $request->user()->can('feature.manage'), 403, 'Only Super Admin saves presets for everyone.');
         $orgId = $platform ? null : $display->tournament?->organization_id;
 
-        $preset = DB::transaction(function () use ($request, $display, $data, $orgId) {
+        $preset = DB::transaction(function () use ($request, $data, $orgId, $kind, $settings) {
             if ($request->boolean('is_default')) {
-                \App\Models\LedPreset::where('organization_id', $orgId)->update(['is_default' => false]);
+                \App\Models\LedPreset::where('kind', $kind)->where('organization_id', $orgId)->update(['is_default' => false]);
             }
 
             return \App\Models\LedPreset::updateOrCreate(
-                ['organization_id' => $orgId, 'name' => $data['name']],
-                ['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? []), 'is_default' => $request->boolean('is_default'), 'created_by' => $request->user()->id],
+                ['organization_id' => $orgId, 'kind' => $kind, 'name' => $data['name']],
+                ['settings' => $settings, 'is_default' => $request->boolean('is_default'), 'created_by' => $request->user()->id],
             );
         });
 
-        return response()->json(['ok' => true, 'preset' => $preset->only('id', 'name', 'is_default', 'organization_id')]);
+        return response()->json(['ok' => true, 'preset' => $preset->only('id', 'kind', 'name', 'is_default', 'organization_id')]);
     }
 
     /** Put a preset's settings on this wall. */
@@ -211,10 +242,14 @@ class LedConsoleController extends Controller
         $this->authorizeDisplay($display);
         $this->authorizePreset($request, $preset, $display, false);
 
-        $display->update(['settings' => array_merge(LedDisplay::DEFAULT_SETTINGS, $preset->settings ?? [])]);
+        // A ticker template changes only the ticker; a wall preset only the wall.
+        $current = array_merge(LedDisplay::DEFAULT_SETTINGS, $display->settings ?? []);
+        $display->update(['settings' => $preset->kind === 'ticker'
+            ? array_merge($current, ['ticker' => TickerDesign::normalize($preset->settings)])
+            : array_merge(LedDisplay::DEFAULT_SETTINGS, array_diff_key($preset->settings ?? [], ['ticker' => 1]), ['ticker' => $current['ticker'] ?? null])]);
         \App\Events\LedDisplayChanged::announce($display->id);
 
-        return response()->json(['ok' => true]);
+        return response()->json(['ok' => true, 'design' => $preset->kind === 'ticker' ? TickerDesign::normalize($preset->settings) : null]);
     }
 
     public function deletePreset(Request $request, LedDisplay $display, \App\Models\LedPreset $preset): JsonResponse
