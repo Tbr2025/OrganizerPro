@@ -139,28 +139,6 @@ class TemplatePresetService
         );
     }
 
-    /**
-     * Put a ready-made design into the template library (TemplateLibrary), where Super Admin
-     * can edit it like any template before new tournaments copy it. Never charged.
-     */
-    public function addToLibrary(string $key, ?string $theme = null): TournamentTemplate
-    {
-        $theme = PresetThemes::find($theme) ? $theme : self::DEFAULT_THEME;
-        $preset = $this->find($key, $theme);
-
-        if (! $preset) {
-            throw new \InvalidArgumentException("Unknown template preset [{$key}].");
-        }
-
-        $library = app(TemplateLibrary::class);
-        // The first design of a type in the library is what new tournaments default to.
-        $asDefault = ! $library->query()->where('type', $preset['type'])->where('is_default', true)->exists();
-
-        return TournamentTemplate::create(['tournament_id' => null] + $this->templateAttributes(
-            $preset, $theme, $library->uniqueName($this->presetName($preset, $theme)), $asDefault
-        ));
-    }
-
     private function presetName(array $preset, string $theme): string
     {
         return $preset['name'] . ($preset['themed'] ? ' — ' . PresetThemes::find($theme)['name'] : '');
@@ -183,27 +161,6 @@ class TemplatePresetService
             'preset_version' => $preset['version'],
             'preset_theme' => $preset['themed'] ? $theme : null,
         ];
-    }
-
-    /**
-     * A ready-made set for a new tournament: the first free design of each type, in one
-     * theme, each made the default for its type (a new tournament has no defaults to disturb).
-     *
-     * @return int how many templates were added
-     */
-    public function starterKit(Tournament $tournament, string $theme, ?User $actor = null): int
-    {
-        $added = 0;
-        $byType = collect($this->available(null, $theme))
-            ->filter(fn ($p) => $p['themed'] && ! $p['is_premium'])
-            ->groupBy('type');
-
-        foreach ($byType as $presets) {
-            $this->apply($tournament, $presets->first()['key'], $theme, $actor, asDefault: true);
-            $added++;
-        }
-
-        return $added;
     }
 
     /**

@@ -613,31 +613,15 @@ class AdminMenuService
             ],
         ]);
 
-        // Super Admin's designs: the template library every new tournament starts
-        // with, and the ready-made designs' on/off and price in credits.
+        // Super Admin's template library: the poster templates every new tournament starts with.
         $this->addMenuItem([
-            'label' => __('Designs'),
+            'label' => __('Template library'),
             'icon' => 'feather:layout',
-            'id' => 'template-presets',
-            'active' => Route::is('admin.template-presets.*') || Route::is('admin.template-library.*'),
+            'route' => route('admin.template-library.index'),
+            'active' => Route::is('admin.template-library.*'),
+            'id' => 'template-library',
             'priority' => 26,
             'permissions' => 'feature.manage',
-            'children' => [
-                [
-                    'label' => __('Template library'),
-                    'route' => route('admin.template-library.index'),
-                    'active' => Route::is('admin.template-library.*'),
-                    'priority' => 10,
-                    'permissions' => 'feature.manage',
-                ],
-                [
-                    'label' => __('Ready-made designs'),
-                    'route' => route('admin.template-presets.index'),
-                    'active' => Route::is('admin.template-presets.*'),
-                    'priority' => 20,
-                    'permissions' => 'feature.manage',
-                ],
-            ],
         ]);
 
         // Pay-per-feature credits: an organization's wallet, and the platform controls.

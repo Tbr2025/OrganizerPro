@@ -14,7 +14,6 @@ use App\Services\Poster\MatchStatsTableData;
 use App\Services\ImageBackgroundRemovalService;
 use App\Services\Poster\FixturesPosterService;
 use App\Services\Poster\TemplateRenderService;
-use App\Services\Poster\TemplatePresetService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -324,14 +323,6 @@ class TournamentTemplateController extends Controller
             ->get();
 
         $autoWelcome = $tournament->settings?->auto_send_welcome_cards ?? true;
-
-        /*
-         * Every ready-made design, not just this tab's.
-         *
-         * The type tabs switch with history.replaceState() rather than a page load, so a list
-         * filtered here would go stale the moment the organizer changed tab. The view renders
-         * them all tagged with their type and shows the matching ones.
-         */
 
         /*
          * Which person images each template draws, keyed by template id.
@@ -1252,56 +1243,6 @@ class TournamentTemplateController extends Controller
             'defaultCanvasHeight'
         ));
     }
-
-    /**
-     * Create a template from a ready-made design.
-     *
-     * Applying a preset is just a create, so it lives beside store() and under the same
-     * Superadmin gate. It never becomes the default template — see TemplatePresetService::apply().
-     */
-    public function applyPreset(Tournament $tournament, Request $request)
-    {
-        $service = app(TemplatePresetService::class);
-
-        $validated = $request->validate([
-            'preset' => ['required', 'string', \Illuminate\Validation\Rule::in(array_keys($service->available()))],
-            'theme' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Poster\Presets\PresetThemes::all()))],
-        ]);
-
-        $template = $service->apply($tournament, $validated['preset'], $validated['theme'] ?? null, $request->user());
-
-        return redirect()
-            ->route('admin.tournaments.templates.generate', [
-                'tournament' => $tournament->id,
-                'type' => $template->type,
-                'template' => $template->id,
-            ])
-            ->with('success', "\"{$template->name}\" was added. Pick it below to generate, or open the editor to change any of it.");
-    }
-
-    /** The designs for one poster type, with their thumbnails, for the picker. */
-    public function presets(Tournament $tournament, Request $request)
-    {
-        $type = (string) $request->query('type');
-        $theme = (string) $request->query('theme', TemplatePresetService::DEFAULT_THEME);
-        $credits = app(\App\Services\Credits\CreditService::class);
-        $charges = $tournament->organization && $credits->charges($tournament->organization);
-
-        return response()->json([
-            'themes' => collect(\App\Services\Poster\Presets\PresetThemes::all())->map(fn ($t) => ['key' => $t['key'], 'name' => $t['name'], 'from' => $t['from'], 'to' => $t['to'], 'accent' => $t['accent']])->values(),
-            'presets' => collect(app(TemplatePresetService::class)->available($type ?: null, $theme))->map(fn ($p) => [
-                'key' => $p['key'],
-                'name' => $p['name'],
-                'description' => $p['description'],
-                'type' => $p['type'],
-                'themed' => $p['themed'],
-                'size' => $p['canvas_width'] . ' × ' . $p['canvas_height'],
-                'price' => $p['is_premium'] && $charges ? $credits->format($p['credit_cost']) : null,
-                'thumb' => route('admin.presets.thumb', ['key' => $p['key'], 'theme' => $p['themed'] ? $theme : 'own']),
-            ])->values(),
-        ]);
-    }
-
 
     /**
      * Store a new template

@@ -301,7 +301,6 @@ class TournamentController extends Controller
         ]);
         $starter = $request->validate([
             'starter_kit' => 'nullable|boolean',
-            'starter_theme' => ['nullable', 'string', \Illuminate\Validation\Rule::in(array_keys(\App\Services\Poster\Presets\PresetThemes::all()))],
         ]);
 
         $user = auth()->user();
@@ -356,19 +355,11 @@ class TournamentController extends Controller
         $requestedStatus = $validated['status'];
         $tournament = Tournament::create(array_merge($validated, ['status' => 'draft']));
 
-        // Starting templates: copies of Super Admin's template library, or — while the
-        // library is empty — a ready-made design for every poster type. Either way they
-        // become the defaults of a tournament that has none yet. A failure here never
-        // loses the tournament.
+        // Starting templates: a copy of Super Admin's template library, which also
+        // sets the defaults. A failure here never loses the tournament.
         if (! empty($starter['starter_kit'])) {
             try {
-                $library = app(\App\Services\Poster\TemplateLibrary::class);
-                if ($library->count() > 0) {
-                    $library->copyInto($tournament);
-                } else {
-                    app(\App\Services\Poster\TemplatePresetService::class)
-                        ->starterKit($tournament, $starter['starter_theme'] ?? 'midnight', $user);
-                }
+                app(\App\Services\Poster\TemplateLibrary::class)->copyInto($tournament);
             } catch (\Throwable $e) {
                 report($e);
             }

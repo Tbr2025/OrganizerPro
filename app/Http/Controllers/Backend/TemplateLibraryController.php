@@ -7,10 +7,8 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
-use App\Services\Poster\Presets\PresetThemes;
 use App\Services\Poster\TemplateCopier;
 use App\Services\Poster\TemplateLibrary;
-use App\Services\Poster\TemplatePresetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -39,13 +37,9 @@ class TemplateLibraryController extends Controller
 
     public function index(): View
     {
-        $presets = app(TemplatePresetService::class);
-
         return view('backend.pages.template-library.index', [
             'templates' => $this->library->query()->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()->groupBy('type'),
             'types' => TournamentTemplate::TYPES,
-            'presets' => collect($presets->all())->sortBy([['type', 'asc'], ['sort', 'asc']])->groupBy('type'),
-            'themes' => PresetThemes::all(),
             'breadcrumbs' => ['title' => __('Template library')],
         ]);
     }
@@ -159,19 +153,6 @@ class TemplateLibraryController extends Controller
         return back()->with('success', $template->is_active
             ? "\"{$template->name}\" will be copied into new tournaments."
             : "\"{$template->name}\" stays in the library but new tournaments will not get it.");
-    }
-
-    public function addPreset(Request $request, TemplatePresetService $presets): RedirectResponse
-    {
-        $data = $request->validate([
-            'preset' => ['required', 'string', Rule::in(array_keys($presets->all()))],
-            'theme' => ['nullable', 'string', Rule::in(array_keys(PresetThemes::all()))],
-        ]);
-
-        $template = $presets->addToLibrary($data['preset'], $data['theme'] ?? null);
-
-        return redirect()->route('admin.template-library.index')
-            ->with('success', "\"{$template->name}\" added to the library. Open it to make it your own.");
     }
 
     /** "Save to library" on a tournament's template: a copy, files and all. */

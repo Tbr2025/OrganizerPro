@@ -5,46 +5,15 @@
 @endsection
 
 @section('admin-content')
-<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" x-data="{ adding: false }">
+<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" >
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
     <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <p class="text-sm text-gray-500 dark:text-gray-400 max-w-3xl">
             {{ __('Every new tournament starts with a copy of each active template here, and a new season can too. Edit a template here and the next tournament gets the edited version; tournaments that already have a copy keep their own. The Default of each type becomes the new tournament\'s default.') }}
         </p>
-        <div class="flex gap-2 flex-shrink-0">
-            <button type="button" @click="adding = !adding" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200">
-                {{ __('Add a ready-made design') }}
-            </button>
-        </div>
     </div>
-
-    {{-- Ready-made designs, dropped into the library to be edited --}}
-    <div x-show="adding" x-cloak class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
-        <form method="POST" action="{{ route('admin.template-library.add-preset') }}" class="flex flex-col sm:flex-row gap-3 sm:items-end">
-            @csrf
-            <label class="flex-1 text-sm text-gray-700 dark:text-gray-300">{{ __('Design') }}
-                <select name="preset" required class="form-control w-full mt-1">
-                    @foreach($presets as $type => $list)
-                        <optgroup label="{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}">
-                            @foreach($list as $p)
-                                <option value="{{ $p['key'] }}">{{ $p['name'] }}{{ $p['is_active'] ? '' : ' (' . __('switched off') . ')' }}</option>
-                            @endforeach
-                        </optgroup>
-                    @endforeach
-                </select>
-            </label>
-            <label class="sm:w-56 text-sm text-gray-700 dark:text-gray-300">{{ __('Theme') }}
-                <select name="theme" class="form-control w-full mt-1">
-                    @foreach($themes as $theme)
-                        <option value="{{ $theme['key'] }}">{{ $theme['name'] }}</option>
-                    @endforeach
-                </select>
-            </label>
-            <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">{{ __('Add to library') }}</button>
-        </form>
-        <p class="text-xs text-gray-500">{{ __('To bring in a design you already made for a tournament, open that tournament\'s Templates page and use "Save to library" on it.') }}</p>
-    </div>
+    <p class="text-xs text-gray-500">{{ __('To bring in a design already made for a tournament, open that tournament\'s Templates page and use "Save to library" on it.') }}</p>
 
     @foreach($types as $type)
         @php $list = $templates[$type] ?? collect(); @endphp

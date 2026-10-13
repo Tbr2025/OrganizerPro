@@ -974,19 +974,11 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
     // Live Match Ticker (1920x1080 Broadcast Display)
     Route::get('/matches/{match}/live-ticker', [MatchesController::class, 'liveTicker'])->name('matches.live-ticker');
 
-    // Ready-made designs: thumbnails, and Super Admin's switches
-    Route::get('/presets/thumb/{key}/{theme}', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'thumb'])
-        ->where(['key' => '[a-z0-9_]+', 'theme' => '[a-z]+'])->name('presets.thumb');
-    Route::get('/template-presets', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'index'])->name('template-presets.index');
-    Route::post('/template-presets/{key}', [\App\Http\Controllers\Backend\TemplatePresetController::class, 'update'])
-        ->where('key', '[a-z0-9_]+')->name('template-presets.update');
-
     // Template library: Super Admin's templates that every new tournament starts with
     Route::controller(\App\Http\Controllers\Backend\TemplateLibraryController::class)->group(function () {
         Route::get('/template-library', 'index')->name('template-library.index');
         Route::get('/template-library/create', 'create')->name('template-library.create');
         Route::post('/template-library', 'store')->name('template-library.store');
-        Route::post('/template-library/add-preset', 'addPreset')->name('template-library.add-preset');
         Route::post('/template-library/upload-overlay', 'uploadOverlay')->name('template-library.upload-overlay');
         Route::post('/template-library/delete-overlay', 'deleteOverlay')->name('template-library.delete-overlay');
         Route::get('/template-library/{template}/edit', 'edit')->whereNumber('template')->name('template-library.edit');
@@ -1454,9 +1446,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::get('/templates', [TournamentTemplateController::class, 'index'])->name('templates.index');
             Route::get('/templates/{template}/edit', [TournamentTemplateController::class, 'edit'])->name('templates.edit');
             Route::get('/templates/generate', [TournamentTemplateController::class, 'generate'])->name('templates.generate');
-            // Ready-made designs: anyone who makes posters can start from one.
-            Route::get('/templates/presets', [TournamentTemplateController::class, 'presets'])->name('templates.presets');
-            Route::post('/templates/apply-preset', [TournamentTemplateController::class, 'applyPreset'])->name('templates.apply-preset');
             Route::post('/templates/generate-preview', [TournamentTemplateController::class, 'generatePreview'])->name('templates.generate-preview')->middleware('credits.posters');
             Route::post('/templates/{template}/render-preview', [TournamentTemplateController::class, 'renderPreview'])->name('templates.render-preview');
             Route::get('/templates/{template}/download', [TournamentTemplateController::class, 'download'])->name('templates.download')->middleware('credits.posters');

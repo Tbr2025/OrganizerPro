@@ -1314,32 +1314,6 @@
                 </div>
             </div>
 
-            {{-- Ready-made designs.
-
-                 Applying one creates an ordinary template from an authored layout, so the
-                 organizer gets a poster that already looks like something instead of an empty
-                 canvas. It is never made the default — see TemplatePresetService::apply(). --}}
-            {{-- Ready-made designs: pick a design and a theme; applying adds an ordinary
-                 template (with its own copy of the background) that can be edited like any
-                 other. It is never made the default — see TemplatePresetService::apply(). --}}
-            <div id="presetSection" class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-1 flex items-center text-sm">
-                    <span class="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 flex items-center justify-center mr-2.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    </span>
-                    Start from a ready-made design
-                </h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mb-3 ml-9">Pick a theme, then a design. It is added as a new template you can edit.</p>
-                <div id="presetThemes" class="flex flex-wrap gap-2 mb-3 ml-9"></div>
-                <div id="presetGrid" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
-                <p id="presetEmpty" class="text-sm text-gray-500 dark:text-gray-400 hidden">No ready-made design for this poster type yet.</p>
-                <form id="presetApplyForm" method="POST" action="{{ route('admin.tournaments.templates.apply-preset', $tournament) }}" class="hidden">
-                    @csrf
-                    <input type="hidden" name="preset">
-                    <input type="hidden" name="theme">
-                </form>
-            </div>
-
             {{-- Field Visibility Toggles --}}
             <div id="fieldTogglesSection" class="hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                 <h3 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center text-sm cursor-pointer" onclick="document.getElementById('togglesBody').classList.toggle('hidden'); this.querySelector('.chevron-icon').classList.toggle('rotate-180')">
@@ -2441,48 +2415,8 @@ function playingXiPanel() {
  * `hidden` class and the page looked like it had failed to load. Split out of updateType so it
  * can also run at first paint, without re-fetching the template list Blade has already drawn.
  */
-// ─── Ready-made designs gallery ─────────────────────────────────────────────
-let presetTheme = 'midnight';
-let presetRequest = 0;
 function escHtml(v) {
     return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-async function loadPresetGallery(type) {
-    const grid = document.getElementById('presetGrid');
-    if (!grid) return;
-    const req = ++presetRequest;
-    const url = `{{ route('admin.tournaments.templates.presets', $tournament) }}?type=${encodeURIComponent(type)}&theme=${encodeURIComponent(presetTheme)}`;
-    let data;
-    try {
-        const r = await fetch(url, { headers: { Accept: 'application/json' } });
-        if (!r.ok) return;
-        data = await r.json();
-    } catch (e) { return; }
-    if (req !== presetRequest) return; // a newer tab click won
-
-    const themes = document.getElementById('presetThemes');
-    themes.innerHTML = data.themes.map(t => `<button type="button" data-theme="${escHtml(t.key)}"
-        class="px-2.5 py-1 rounded-full text-xs font-semibold border-2 ${t.key === presetTheme ? 'border-emerald-500' : 'border-transparent'}"
-        style="background:linear-gradient(135deg, ${escHtml(t.from)}, ${escHtml(t.to)}); color:${escHtml(t.accent)}">${escHtml(t.name)}</button>`).join('');
-    themes.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { presetTheme = b.dataset.theme; loadPresetGallery(currentType); }));
-
-    grid.innerHTML = data.presets.map(p => `<button type="button" data-preset="${escHtml(p.key)}"
-        class="text-left border-2 border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden hover:border-emerald-400 hover:shadow-md transition group">
-        <img src="${escHtml(p.thumb)}" alt="" loading="lazy" class="w-full bg-gray-100 dark:bg-gray-900" style="aspect-ratio:4/5;object-fit:contain">
-        <span class="block p-2">
-            <span class="block text-sm font-semibold text-gray-900 dark:text-white group-hover:text-emerald-600">${escHtml(p.name)}</span>
-            <span class="block text-[11px] text-gray-500 dark:text-gray-400 leading-snug">${escHtml(p.description)}</span>
-            <span class="block text-[11px] mt-1 ${p.price ? 'text-amber-600 font-semibold' : 'text-gray-400'}">${p.price ? escHtml(p.price) : (p.themed ? 'Free' : 'Free · own colours')}</span>
-        </span></button>`).join('');
-    grid.querySelectorAll('button[data-preset]').forEach(b => b.addEventListener('click', () => {
-        const p = data.presets.find(x => x.key === b.dataset.preset);
-        if (p.price && !confirm(`${p.name} costs ${p.price}, charged once for this tournament. Continue?`)) return;
-        const f = document.getElementById('presetApplyForm');
-        f.elements.preset.value = p.key;
-        f.elements.theme.value = presetTheme;
-        f.submit();
-    }));
-    document.getElementById('presetEmpty').classList.toggle('hidden', data.presets.length > 0);
 }
 
 /**
@@ -2541,7 +2475,6 @@ function syncTypeSections(type) {
     const newLink = document.getElementById('newTemplateLink');
     if (newLink) newLink.href = `{{ route('admin.tournaments.templates.create', $tournament) }}?type=${type}`;
 
-    loadPresetGallery(type);
 
     // Show/hide innings selector
     showInningsSelector();
