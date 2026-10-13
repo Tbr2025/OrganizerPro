@@ -15,11 +15,12 @@ use Illuminate\Support\Facades\Storage;
  * path is not safe here: replacing a background deletes the old file, which
  * would blank every other template still pointing at it.
  *
- * Used by "Duplicate" on the templates page and by starting a new season.
+ * Used by "Duplicate" on the templates page, by starting a new season, and by
+ * the template library (TemplateLibrary) — a null tournament is the library.
  */
 class TemplateCopier
 {
-    public function copy(TournamentTemplate $template, int $toTournamentId, ?string $name = null, bool $keepDefault = false): TournamentTemplate
+    public function copy(TournamentTemplate $template, ?int $toTournamentId, ?string $name = null, bool $keepDefault = false): TournamentTemplate
     {
         $new = $template->replicate();
         $new->tournament_id = $toTournamentId;

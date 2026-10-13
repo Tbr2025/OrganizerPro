@@ -356,12 +356,19 @@ class TournamentController extends Controller
         $requestedStatus = $validated['status'];
         $tournament = Tournament::create(array_merge($validated, ['status' => 'draft']));
 
-        // A ready-made design for every poster type, made the defaults of a tournament
-        // that has none yet. A failure here never loses the tournament.
+        // Starting templates: copies of Super Admin's template library, or — while the
+        // library is empty — a ready-made design for every poster type. Either way they
+        // become the defaults of a tournament that has none yet. A failure here never
+        // loses the tournament.
         if (! empty($starter['starter_kit'])) {
             try {
-                app(\App\Services\Poster\TemplatePresetService::class)
-                    ->starterKit($tournament, $starter['starter_theme'] ?? 'midnight', $user);
+                $library = app(\App\Services\Poster\TemplateLibrary::class);
+                if ($library->count() > 0) {
+                    $library->copyInto($tournament);
+                } else {
+                    app(\App\Services\Poster\TemplatePresetService::class)
+                        ->starterKit($tournament, $starter['starter_theme'] ?? 'midnight', $user);
+                }
             } catch (\Throwable $e) {
                 report($e);
             }

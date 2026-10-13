@@ -1,6 +1,21 @@
 @extends('backend.layouts.app')
 
-@section('title', ($template ? 'Edit' : 'Create') . ' Template | ' . $tournament->name)
+@php
+    /*
+     * Where the editor goes back to, saves to and stores overlays. A tournament's own
+     * templates by default; the template library (TemplateLibraryController) passes its own,
+     * with no tournament at all.
+     */
+    $editorUrls = $editorUrls ?? [
+        'owner' => $tournament->name,
+        'back' => route('admin.tournaments.templates.index', $tournament),
+        'save' => $template ? route('admin.tournaments.templates.update', [$tournament, $template]) : route('admin.tournaments.templates.store', $tournament),
+        'upload_overlay' => route('admin.tournaments.templates.upload-overlay', $tournament),
+        'delete_overlay' => route('admin.tournaments.templates.delete-overlay', $tournament),
+    ];
+@endphp
+
+@section('title', ($template ? 'Edit' : 'Create') . ' Template | ' . $editorUrls['owner'])
 
 @push('styles')
 {{-- Built-in fonts served from the SAME local TTFs the GD renderer uses, so the
@@ -310,7 +325,7 @@
     {{-- Header --}}
     <div class="editor-header">
         <div class="flex items-center gap-4 flex-1 header-title">
-            <a href="{{ route('admin.tournaments.templates.index', $tournament) }}" class="toolbar-btn" title="Back">
+            <a href="{{ $editorUrls['back'] }}" class="toolbar-btn" title="Back">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             </a>
             <input type="text" id="templateName" value="{{ $template?->name ?? 'Untitled Template' }}" class="bg-transparent border-none text-white font-medium text-sm focus:outline-none focus:bg-gray-800 px-2 py-1 rounded" style="min-width: 200px;">
@@ -1679,7 +1694,7 @@
 </div>
 
 {{-- Hidden form --}}
-<form id="saveForm" method="POST" action="{{ $template ? route('admin.tournaments.templates.update', [$tournament, $template]) : route('admin.tournaments.templates.store', $tournament) }}" enctype="multipart/form-data" class="hidden">
+<form id="saveForm" method="POST" action="{{ $editorUrls['save'] }}" enctype="multipart/form-data" class="hidden">
     @csrf
     @if($template) @method('PUT') @endif
     <input type="hidden" name="name" id="formName">
@@ -3578,7 +3593,7 @@ const editor = {
         formData.append('overlay_image', file);
         formData.append('_token', '{{ csrf_token() }}');
 
-        fetch('{{ route("admin.tournaments.templates.upload-overlay", $tournament) }}', {
+        fetch(@json($editorUrls['upload_overlay']), {
             method: 'POST',
             body: formData,
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
@@ -3625,7 +3640,7 @@ const editor = {
     removeOverlay(index) {
         const ov = this.uploadedOverlays[index];
         if (!ov) return;
-        fetch('{{ route("admin.tournaments.templates.delete-overlay", $tournament) }}', {
+        fetch(@json($editorUrls['delete_overlay']), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
             body: JSON.stringify({ path: ov.path })

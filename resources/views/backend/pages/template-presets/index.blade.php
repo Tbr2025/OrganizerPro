@@ -10,6 +10,9 @@
 
     <p class="text-sm text-gray-500 dark:text-gray-400">
         {{ __('Every design is available in :n themes. Switch a design off to hide it. Set a price in :term to charge for it (once per tournament); 0 means free.', ['n' => count($themes), 'term' => $credits->term()]) }}
+        {{ __('These layouts are fixed in code. To change one, add it to the') }}
+        <a href="{{ route('admin.template-library.index') }}" class="text-indigo-600 hover:text-indigo-800 font-medium">{{ __('template library') }}</a>
+        {{ __('and edit it there.') }}
     </p>
 
     @foreach($presets as $type => $list)

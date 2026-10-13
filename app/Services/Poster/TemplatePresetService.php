@@ -134,9 +134,44 @@ class TemplatePresetService
             $tournament->templates()->where('type', $preset['type'])->update(['is_default' => false]);
         }
 
-        return $tournament->templates()->create([
+        return $tournament->templates()->create(
+            $this->templateAttributes($preset, $theme, $this->uniqueName($tournament, $this->presetName($preset, $theme)), $asDefault)
+        );
+    }
+
+    /**
+     * Put a ready-made design into the template library (TemplateLibrary), where Super Admin
+     * can edit it like any template before new tournaments copy it. Never charged.
+     */
+    public function addToLibrary(string $key, ?string $theme = null): TournamentTemplate
+    {
+        $theme = PresetThemes::find($theme) ? $theme : self::DEFAULT_THEME;
+        $preset = $this->find($key, $theme);
+
+        if (! $preset) {
+            throw new \InvalidArgumentException("Unknown template preset [{$key}].");
+        }
+
+        $library = app(TemplateLibrary::class);
+        // The first design of a type in the library is what new tournaments default to.
+        $asDefault = ! $library->query()->where('type', $preset['type'])->where('is_default', true)->exists();
+
+        return TournamentTemplate::create(['tournament_id' => null] + $this->templateAttributes(
+            $preset, $theme, $library->uniqueName($this->presetName($preset, $theme)), $asDefault
+        ));
+    }
+
+    private function presetName(array $preset, string $theme): string
+    {
+        return $preset['name'] . ($preset['themed'] ? ' — ' . PresetThemes::find($theme)['name'] : '');
+    }
+
+    /** The template row a preset becomes, wherever it is going. */
+    private function templateAttributes(array $preset, string $theme, string $name, bool $asDefault): array
+    {
+        return [
             'type' => $preset['type'],
-            'name' => $this->uniqueName($tournament, $preset['name'] . ($preset['themed'] ? ' — ' . PresetThemes::find($theme)['name'] : '')),
+            'name' => $name,
             'layout_json' => $preset['layout'],
             'background_image' => $preset['themed'] ? PresetThemes::copyForTemplate($theme, $preset['canvas_width'], $preset['canvas_height']) : null,
             'canvas_width' => $preset['canvas_width'],
@@ -144,10 +179,10 @@ class TemplatePresetService
             'placeholders' => TournamentTemplate::getDefaultPlaceholders($preset['type']),
             'is_default' => $asDefault,
             'is_active' => true,
-            'preset_key' => $key,
+            'preset_key' => $preset['key'],
             'preset_version' => $preset['version'],
             'preset_theme' => $preset['themed'] ? $theme : null,
-        ]);
+        ];
     }
 
     /**

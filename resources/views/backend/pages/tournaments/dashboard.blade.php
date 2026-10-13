@@ -397,7 +397,15 @@
                             each team's squad carries over, approved
                         @endif
                         </span></label>
-                    <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="templates" checked class="mt-1"> <span><strong>Poster templates</strong> — with their backgrounds</span></label>
+                    <div class="flex items-start gap-2">
+                        <span class="mt-0.5 w-4 flex-shrink-0"></span>
+                        <div class="space-y-1">
+                            <strong>Poster templates</strong>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="templates" checked class="mt-1"> <span>Copy {{ $tournament->name }}'s, with their backgrounds</span></label>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="library" class="mt-1"> <span>Start from the template library — the latest library designs</span></label>
+                            <label class="flex items-start gap-2"><input type="radio" name="copy[]" value="" class="mt-1"> <span>None</span></label>
+                        </div>
+                    </div>
                     <label class="flex items-start gap-2"><input type="checkbox" name="copy[]" value="settings" checked class="mt-1"> <span><strong>Settings &amp; forms</strong> — registration form, terms, branding, awards, sponsors</span></label>
                 </fieldset>
                 <p class="text-xs text-gray-500">The new season starts as a draft. Fixtures, results and statistics are never copied.</p>

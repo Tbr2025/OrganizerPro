@@ -11,6 +11,7 @@ use App\Models\TournamentSeries;
 use App\Models\TournamentSetting;
 use App\Models\User;
 use App\Services\Poster\TemplateCopier;
+use App\Services\Poster\TemplateLibrary;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -31,9 +32,13 @@ use Illuminate\Support\Str;
  */
 class SeasonService
 {
-    public const COPY = ['teams', 'squads', 'templates', 'settings'];
+    /** `templates` copies last season's; `library` copies the template library instead. */
+    public const COPY = ['teams', 'squads', 'templates', 'library', 'settings'];
 
-    public function __construct(private readonly TemplateCopier $templates) {}
+    public function __construct(
+        private readonly TemplateCopier $templates,
+        private readonly TemplateLibrary $library,
+    ) {}
 
     /**
      * @param  array{name: string, start_date: string, end_date: string, copy: string[]}  $data
@@ -72,7 +77,13 @@ class SeasonService
             }
             $season->organizers()->syncWithoutDetaching(array_unique($organizerIds));
 
-            $templateMap = in_array('templates', $copy, true) ? $this->copyTemplates($from, $season) : [];
+            $templateMap = [];
+            if (in_array('templates', $copy, true)) {
+                $templateMap = $this->copyTemplates($from, $season);
+            } elseif (in_array('library', $copy, true)) {
+                // Library copies carry their own defaults; last season's default ids map to nothing.
+                $this->library->copyInto($season);
+            }
 
             if (in_array('settings', $copy, true)) {
                 $this->copySettings($from, $season, $templateMap);

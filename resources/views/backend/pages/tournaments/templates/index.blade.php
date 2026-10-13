@@ -40,6 +40,15 @@
                     </svg>
                     New Template
                 </a>
+                @can('feature.manage')
+                    <form method="POST" action="{{ route('admin.template-library.copy-to-tournament', $tournament) }}"
+                          onsubmit="return confirm('Add a copy of every template in the template library to this tournament? Its existing templates and defaults are kept.')">
+                        @csrf
+                        <button class="inline-flex items-center px-3 py-2 sm:px-4 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition whitespace-nowrap">
+                            Add Library Templates
+                        </button>
+                    </form>
+                @endcan
             </div>
         </div>
     </div>
@@ -336,6 +345,14 @@
                                             </form>
                                         @endif
                                     </div>
+                                    @can('feature.manage')
+                                        <form action="{{ route('admin.template-library.save-from-tournament', [$tournament, $template]) }}" method="POST" class="mt-1">
+                                            @csrf
+                                            <button type="submit" class="text-xs text-gray-500 hover:text-indigo-700 font-medium" title="Copy this design into the template library that new tournaments start with">
+                                                Save to library
+                                            </button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </div>
                         @endforeach

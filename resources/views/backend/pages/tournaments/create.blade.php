@@ -167,18 +167,27 @@
                     @enderror
                 </div>
 
-                {{-- Starter kit: a ready-made design for every poster type, in one theme --}}
+                {{-- Starting templates: the template library, or ready-made designs while it is empty --}}
+                @php $libraryCount = app(\App\Services\Poster\TemplateLibrary::class)->count(); @endphp
                 <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                     <label class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                         <input type="checkbox" name="starter_kit" value="1" {{ old('starter_kit', '1') ? 'checked' : '' }}>
-                        Start with ready-made poster designs
+                        @if($libraryCount > 0)
+                            Start with the template library ({{ $libraryCount }} {{ \Illuminate\Support\Str::plural('template', $libraryCount) }})
+                        @else
+                            Start with ready-made poster designs
+                        @endif
                     </label>
-                    <p class="text-xs text-gray-500 mt-1">Welcome cards, match posters, results, awards, flyer, points table and more — ready to generate and edit.</p>
-                    <select name="starter_theme" class="mt-2 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                        @foreach(\App\Services\Poster\Presets\PresetThemes::all() as $theme)
-                            <option value="{{ $theme['key'] }}" @selected(old('starter_theme', 'midnight') === $theme['key'])>{{ $theme['name'] }}</option>
-                        @endforeach
-                    </select>
+                    @if($libraryCount > 0)
+                        <p class="text-xs text-gray-500 mt-1">A copy of every template in the library, ready to generate and edit. Changing them here never changes the library.</p>
+                    @else
+                        <p class="text-xs text-gray-500 mt-1">Welcome cards, match posters, results, awards, flyer, points table and more — ready to generate and edit.</p>
+                        <select name="starter_theme" class="mt-2 block w-full border rounded border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                            @foreach(\App\Services\Poster\Presets\PresetThemes::all() as $theme)
+                                <option value="{{ $theme['key'] }}" @selected(old('starter_theme', 'midnight') === $theme['key'])>{{ $theme['name'] }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
 
                 {{-- Actions --}}
