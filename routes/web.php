@@ -982,6 +982,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/template-library/ready-made', 'addReadyMade')->name('template-library.add-ready-made');
         Route::get('/template-library/ready-made/{key}/{theme}', 'readyMadeThumb')
             ->where(['key' => '[a-z0-9_]+', 'theme' => '[a-z]+'])->name('template-library.ready-made-thumb');
+        Route::get('/template-library/from-tournament', 'tournamentTemplates')->name('template-library.tournament-templates');
+        Route::get('/template-library/from-tournament/{template}/thumb', 'sourceThumb')->whereNumber('template')->name('template-library.source-thumb');
+        Route::post('/template-library/from-tournament/{template}', 'importFromTournament')->whereNumber('template')->name('template-library.import');
         Route::post('/template-library/upload-overlay', 'uploadOverlay')->name('template-library.upload-overlay');
         Route::post('/template-library/delete-overlay', 'deleteOverlay')->name('template-library.delete-overlay');
         Route::get('/template-library/{template}/edit', 'edit')->whereNumber('template')->name('template-library.edit');

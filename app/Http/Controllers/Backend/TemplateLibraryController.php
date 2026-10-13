@@ -60,6 +60,7 @@ class TemplateLibraryController extends Controller
             'types' => TournamentTemplate::TYPES,
             'readyMade' => collect($presets->all())->sortBy([['type', 'asc'], ['sort', 'asc']])->groupBy('type'),
             'themes' => PresetThemes::all(),
+            'sourceTournaments' => $this->sourceTournaments($user, $scope),
             'breadcrumbs' => ['title' => __('Template presets')],
         ]);
     }
@@ -237,6 +238,50 @@ class TemplateLibraryController extends Controller
         return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => 'private, max-age=86400']);
     }
 
+    /** A previous tournament's templates, as pictures, to start a preset from. */
+    public function tournamentTemplates(Request $request): JsonResponse
+    {
+        $tournament = Tournament::findOrFail((int) $request->query('tournament'));
+        $this->authorizeSource($request->user(), $tournament);
+
+        return response()->json([
+            'templates' => $tournament->templates()->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()
+                ->map(fn (TournamentTemplate $t) => [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'type' => TournamentTemplate::getTypeDisplay($t->type),
+                    'thumb' => route('admin.template-library.source-thumb', $t),
+                ])->values(),
+        ]);
+    }
+
+    public function sourceThumb(Request $request, TournamentTemplate $template)
+    {
+        abort_if($template->tournament_id === null, 404);
+        $this->authorizeSource($request->user(), $template->tournament()->firstOrFail());
+
+        $path = $this->library->thumbnail($template);
+        if (! $path) {
+            abort_unless($template->background_image && Storage::disk('public')->exists($template->background_image), 404);
+            $path = $template->background_image;
+        }
+
+        return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => 'private, max-age=86400']);
+    }
+
+    /** Start a preset from a previous tournament's template: a copy in the scope, opened in the editor. */
+    public function importFromTournament(Request $request, TournamentTemplate $template): RedirectResponse
+    {
+        abort_if($template->tournament_id === null, 404);
+        $user = $request->user();
+        $this->authorizeSource($user, $template->tournament()->firstOrFail());
+
+        $copy = $this->library->saveFromTournament($template, $this->scopeFrom($request, $user));
+
+        return redirect()->route('admin.template-library.edit', $copy)
+            ->with('success', "\"{$copy->name}\" copied from {$template->tournament->name}. Change anything, then save.");
+    }
+
     /** "Save as preset" on a tournament's template: a copy, files and all. */
     public function saveFromTournament(Request $request, Tournament $tournament, TournamentTemplate $template): RedirectResponse
     {
@@ -327,6 +372,25 @@ class TemplateLibraryController extends Controller
     private function authorizeTournament(User $user, Tournament $tournament): void
     {
         abort_unless($user->hasRole('Superadmin') || (int) $tournament->organization_id === (int) $user->organization_id, 403);
+    }
+
+    /**
+     * Tournaments a user can start presets from: the ones they can see (Tournament::forUser),
+     * narrowed to the organization being edited, and only those with templates.
+     */
+    private function sourceTournaments(User $user, ?int $scope)
+    {
+        return Tournament::forUser($user)
+            ->when($scope !== null, fn ($q) => $q->where('organization_id', $scope))
+            ->whereHas('templates')
+            ->withCount('templates')
+            ->orderByDesc('start_date')->orderByDesc('id')
+            ->get(['id', 'name', 'start_date', 'organization_id']);
+    }
+
+    private function authorizeSource(User $user, Tournament $tournament): void
+    {
+        abort_unless(Tournament::forUser($user)->whereKey($tournament->id)->exists(), 404);
     }
 
     private function backToScope(TournamentTemplate $template): RedirectResponse

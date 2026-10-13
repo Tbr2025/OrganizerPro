@@ -5,7 +5,20 @@
 @endsection
 
 @section('admin-content')
-<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" x-data="{ readyMade: false, theme: @js(array_key_first($themes)) }">
+<div class="p-4 mx-auto sm:p-6 max-w-7xl space-y-6" x-data="{
+        panel: null,
+        theme: @js(array_key_first($themes)),
+        source: '', sourceTemplates: [], sourceLoading: false,
+        async loadSource() {
+            this.sourceTemplates = [];
+            if (!this.source) return;
+            this.sourceLoading = true;
+            try {
+                const r = await fetch(@js(route('admin.template-library.tournament-templates')) + '?tournament=' + encodeURIComponent(this.source), { headers: { Accept: 'application/json' } });
+                this.sourceTemplates = r.ok ? (await r.json()).templates : [];
+            } finally { this.sourceLoading = false; }
+        },
+    }">
     <x-breadcrumbs :breadcrumbs="$breadcrumbs" />
 
     {{-- Whose presets --}}
@@ -35,14 +48,55 @@
                     </select>
                 </form>
             @endif
-            <button type="button" @click="readyMade = !readyMade" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200">
+            <button type="button" @click="panel = panel === 'tournament' ? null : 'tournament'"
+                    :class="panel === 'tournament' ? 'bg-indigo-50 border-indigo-400 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-600'"
+                    class="px-4 py-2 rounded-lg border text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ __('Start from a previous tournament') }}
+            </button>
+            <button type="button" @click="panel = panel === 'readyMade' ? null : 'readyMade'"
+                    :class="panel === 'readyMade' ? 'bg-indigo-50 border-indigo-400 dark:bg-indigo-900/30' : 'border-gray-300 dark:border-gray-600'"
+                    class="px-4 py-2 rounded-lg border text-sm font-medium text-gray-700 dark:text-gray-200">
                 {{ __('Start from a ready-made design') }}
             </button>
         </div>
     </div>
 
+    {{-- A previous tournament's template: copied in as a preset, files and all --}}
+    <div x-show="panel === 'tournament'" x-cloak class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
+        @if($sourceTournaments->isEmpty())
+            <p class="text-sm text-gray-500">{{ __('No tournament you can see has any templates yet.') }}</p>
+        @else
+            <div class="flex flex-col sm:flex-row sm:items-end gap-3">
+                <label class="flex-1 text-sm text-gray-700 dark:text-gray-300">{{ __('Tournament') }}
+                    <select x-model="source" @change="loadSource()" class="form-control w-full mt-1">
+                        <option value="">{{ __('Choose a tournament…') }}</option>
+                        @foreach($sourceTournaments as $t)
+                            <option value="{{ $t->id }}">{{ $t->name }}{{ $t->start_date ? ' · ' . \Illuminate\Support\Carbon::parse($t->start_date)->format('M Y') : '' }} ({{ trans_choice(':n template|:n templates', $t->templates_count, ['n' => $t->templates_count]) }})</option>
+                        @endforeach
+                    </select>
+                </label>
+            </div>
+            <p class="text-xs text-gray-500">{{ __('Click a template to copy it into these presets and open it in the editor. The tournament keeps its own.') }}</p>
+            <p x-show="sourceLoading" class="text-sm text-gray-500">{{ __('Loading…') }}</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                <template x-for="t in sourceTemplates" :key="t.id">
+                    <form method="POST" :action="@js(route('admin.template-library.import', ['template' => '__ID__', 'scope' => $scopeParam])).replace('__ID__', t.id)">
+                        @csrf
+                        <button class="w-full text-left rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden hover:border-indigo-400 transition">
+                            <img :src="t.thumb" loading="lazy" alt="" class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain" onerror="this.style.visibility='hidden'">
+                            <span class="block p-1.5">
+                                <span class="block text-xs font-medium text-gray-900 dark:text-white truncate" x-text="t.name"></span>
+                                <span class="block text-[11px] text-gray-500 truncate" x-text="t.type"></span>
+                            </span>
+                        </button>
+                    </form>
+                </template>
+            </div>
+        @endif
+    </div>
+
     {{-- Ready-made designs: a starting point that becomes an ordinary, editable preset --}}
-    <div x-show="readyMade" x-cloak class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
+    <div x-show="panel === 'readyMade'" x-cloak class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <p class="text-sm text-gray-600 dark:text-gray-300">{{ __('Pick a theme, then a design. It is added to these presets and opened in the editor so you can make it your own.') }}</p>
             <div class="flex flex-wrap gap-1.5">
