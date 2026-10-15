@@ -41,7 +41,7 @@
                         <label data-org="{{ $preset->organization_id ?? '' }}" data-offered="{{ $preset->offered_to ? implode(',', $preset->offered_to) : '' }}"
                                data-auction="{{ \App\Models\TournamentTemplate::isAuctionType($preset->type) ? 1 : 0 }}"
                                class="preset-pick relative block cursor-pointer rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden has-[:checked]:border-indigo-500 has-[:checked]:ring-2 has-[:checked]:ring-indigo-500/30">
-                            <input type="checkbox" name="presets[]" value="{{ $preset->id }}" data-price="{{ $preset->isPremium() ? $preset->price : 0 }}" class="absolute top-1.5 right-1.5 z-10" @checked($preset->is_active)>
+                            <input type="checkbox" name="presets[]" value="{{ $preset->id }}" data-price="{{ (int) ($preset->effective_price ?? ($preset->isPremium() ? $preset->price : 0)) }}" class="absolute top-1.5 right-1.5 z-10" @checked($preset->is_active)>
                             <img src="{{ route('admin.template-library.thumb', [$preset, 'v' => $preset->design_version]) }}" alt="" loading="lazy"
                                  class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain"
                                  onerror="this.style.visibility='hidden'">
@@ -55,7 +55,10 @@
                                         <span class="text-[10px] px-1.5 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">{{ __('Default') }}</span>
                                     @endif
                                     @if($preset->isPremium())
-                                        <span class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ __('Premium') }} · {{ app(\App\Services\Credits\CreditService::class)->format($preset->price) }}</span>
+                                        @php $pays = auth()->user()?->hasRole('Superadmin') ? (int) $preset->price : (int) ($preset->effective_price ?? $preset->price); @endphp
+                                        <span class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ __('Premium') }} ·
+                                            @if($pays < $preset->price)<s class="opacity-60">{{ number_format($preset->price) }}</s>@endif
+                                            {{ $pays === 0 ? __('free for you') : app(\App\Services\Credits\CreditService::class)->format($pays) }}</span>
                                     @else
                                         <span class="text-[10px] px-1.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" title="{{ __('Only its background can be changed') }}">{{ __('Free') }}</span>
                                     @endif

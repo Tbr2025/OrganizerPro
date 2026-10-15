@@ -191,7 +191,7 @@ class CreditAdminController extends Controller
             'code' => 'nullable|string|max:40|alpha_dash|unique:discounts,code',
             'type' => 'required|in:percent,fixed',
             'value' => 'required|integer|min:1|max:1000000',
-            'applies_to' => ['required', 'string', Rule::in(array_merge(['topup', 'features'], CreditFeature::pluck('key')->map(fn ($k) => 'feature:' . $k)->all()))],
+            'applies_to' => ['required', 'string', Rule::in(array_merge(['topup', 'features', 'feature:' . \App\Services\Poster\TemplateLibrary::PREMIUM_FEATURE], CreditFeature::pluck('key')->map(fn ($k) => 'feature:' . $k)->all()))],
             'organization_ids' => 'nullable|array',
             'organization_ids.*' => 'integer|exists:organizations,id',
             'starts_at' => 'nullable|date',
@@ -202,7 +202,7 @@ class CreditAdminController extends Controller
         if ($data['type'] === 'percent' && $data['value'] > 100) {
             return back()->withInput()->withErrors(['value' => 'A percentage cannot be more than 100.']);
         }
-        $data['code'] = $data['code'] ? strtoupper($data['code']) : null;
+        $data['code'] = ! empty($data['code']) ? strtoupper($data['code']) : null;
         $data['organization_ids'] = ! empty($data['organization_ids']) ? array_map('intval', $data['organization_ids']) : null;
 
         Discount::create($data + ['is_active' => true]);

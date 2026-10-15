@@ -233,4 +233,42 @@ class PresetTiersTest extends TestCase
         $this->assertStringStartsWith('data:image/jpeg;base64,', $uri);
         $this->assertSame($files, count(Storage::disk('public')->allFiles()), 'Nothing is written for a live preview');
     }
+
+    #[Test]
+    public function a_premium_preset_can_be_free_or_cheaper_for_one_organization(): void
+    {
+        $premium = $this->preset('match_poster', 'Gold', ['tier' => 'premium', 'price' => 40]);
+
+        // Super Admin adds a discount on premium presets for one organization.
+        $this->actingAs($this->super)->post(route('admin.credits.discounts.store'), [
+            'name' => 'Club half price', 'type' => 'percent', 'value' => 50,
+            'applies_to' => 'feature:premium_preset', 'organization_ids' => [$this->org->id],
+        ])->assertSessionHas('success');
+
+        // The picker shows each organization its own price.
+        $mine = $this->tournament();
+        $theirs = $this->tournament('open', $this->other);
+        $this->assertSame(20, $this->library->pickerFor($this->admin, $mine)->firstWhere('id', $premium->id)->effective_price);
+        $this->assertSame(40, $this->library->pickerFor($this->admin, $theirs)->firstWhere('id', $premium->id)->effective_price);
+
+        // Charged at the discounted price, and the saving recorded.
+        $this->credits->grant($this->org, 25, 'promo', 'test');
+        $this->library->copyInto($mine, [$premium->id], $this->admin);
+        $this->assertSame(5, $this->credits->balance($this->org->fresh()));
+        $this->assertSame(1, \App\Models\Credits\DiscountRedemption::where('organization_id', $this->org->id)->count());
+
+        // The other organization pays the full price.
+        $this->credits->grant($this->other, 40, 'promo', 'test');
+        $rivalAdmin = User::factory()->create(['organization_id' => $this->other->id])->assignRole('Admin');
+        $this->library->copyInto($theirs, [$premium->id], $rivalAdmin);
+        $this->assertSame(0, $this->credits->balance($this->other->fresh()));
+
+        // 100% makes it free for that organization.
+        \App\Models\Credits\Discount::query()->update(['value' => 100]);
+        $again = $this->tournament();
+        $this->assertSame(0, $this->library->premiumCost($this->org->id, 'open', [$premium->id], $again, $this->admin));
+        $this->library->copyInto($again, [$premium->id], $this->admin);
+        $this->assertSame(5, $this->credits->balance($this->org->fresh()));
+        $this->assertSame(1, $again->templates()->count());
+    }
 }

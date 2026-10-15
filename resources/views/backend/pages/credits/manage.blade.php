@@ -303,6 +303,7 @@
                         <option value="features">{{ __('Every feature') }}</option>
                         <option value="topup">{{ __('Top-ups (buying :term)', ['term' => $term]) }}</option>
                         @foreach($features as $f)<option value="feature:{{ $f->key }}">{{ $f->name }}</option>@endforeach
+                        <option value="feature:{{ \App\Services\Poster\TemplateLibrary::PREMIUM_FEATURE }}">{{ __('Premium template presets') }}</option>
                     </select>
                 </label>
                 <div class="grid grid-cols-2 gap-2">
@@ -333,7 +334,7 @@
                     @php
                         $expired = $d->ends_at && $d->ends_at->isPast();
                         $state = ! $d->is_active ? [__('Off'), 'bg-gray-100 text-gray-600'] : ($expired ? [__('Ended'), 'bg-gray-100 text-gray-600'] : [__('Live'), 'bg-emerald-50 text-emerald-700']);
-                        $on = $d->applies_to === 'topup' ? __('Top-ups') : ($d->applies_to === 'features' ? __('Every feature') : ($features->firstWhere('key', \Illuminate\Support\Str::after($d->applies_to, 'feature:'))?->name ?? $d->applies_to));
+                        $on = $d->applies_to === 'topup' ? __('Top-ups') : ($d->applies_to === 'features' ? __('Every feature') : ($d->applies_to === 'feature:' . \App\Services\Poster\TemplateLibrary::PREMIUM_FEATURE ? __('Premium template presets') : ($features->firstWhere('key', \Illuminate\Support\Str::after($d->applies_to, 'feature:'))?->name ?? $d->applies_to)));
                     @endphp
                     <tr>
                         <td class="px-4 py-3"><span class="font-medium text-gray-900 dark:text-white">{{ $d->name }}</span> <span class="ml-1 px-2 py-0.5 rounded-full text-xs {{ $state[1] }}">{{ $state[0] }}</span></td>

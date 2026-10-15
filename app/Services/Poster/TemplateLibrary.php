@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Poster;
 
 use App\Models\Credits\CreditLedgerEntry;
+use App\Models\Organization;
 use App\Models\Tournament;
 use App\Models\TournamentTemplate;
 use App\Models\User;
@@ -40,6 +41,9 @@ use Illuminate\Support\Facades\Storage;
  */
 class TemplateLibrary
 {
+    /** The ledger and discount key for premium presets: a discount on "feature:premium_preset". */
+    public const PREMIUM_FEATURE = 'premium_preset';
+
     public function __construct(private readonly TemplateCopier $copier) {}
 
     public function query(): Builder
@@ -81,9 +85,13 @@ class TemplateLibrary
             ? $this->offeredTo($tournament->organization_id, $tournament->type ?? 'open')
             : ($user->hasRole('Superadmin') ? $this->query() : $this->offeredTo($user->organization_id));
 
+        // The price shown is what THIS organization pays, after its discounts.
+        $org = Organization::find($tournament?->organization_id ?? $user->organization_id);
+
         return $query->with('organization:id,name')
             ->orderByRaw('organization_id IS NULL')->orderBy('type')->orderByDesc('is_default')->orderBy('name')
-            ->get();
+            ->get()
+            ->each(fn (TournamentTemplate $p) => $p->setAttribute('effective_price', $this->priceFor($p, $org, $user)));
     }
 
     /** May this user change this preset? Super Admin: any. Others: their organization's own. */
@@ -128,12 +136,31 @@ class TemplateLibrary
             return 0;
         }
 
+        $org = $organizationId ? Organization::find($organizationId) : null;
+
         return (int) $this->offeredTo($organizationId, $tournamentType)
             ->whereIn('id', array_map('intval', $ids))
             ->where('tier', TournamentTemplate::TIER_PREMIUM)
-            ->get(['id', 'price'])
+            ->get(['id', 'tier', 'price'])
             ->reject(fn ($p) => $tournament && CreditLedgerEntry::where('idempotency_key', $this->premiumKey($p->id, $tournament))->exists())
-            ->sum('price');
+            ->sum(fn ($p) => $this->priceFor($p, $org, $actor));
+    }
+
+    /**
+     * What a premium preset costs this organization: its price after the best automatic
+     * discount (Credits → Discounts, "Premium template presets" or "Every feature").
+     * 0 for a free preset, and for a Superadmin.
+     */
+    public function priceFor(TournamentTemplate $preset, ?Organization $org, ?User $actor = null): int
+    {
+        if (! $preset->isPremium()) {
+            return 0;
+        }
+        if (! $org) {
+            return (int) $preset->price;
+        }
+
+        return app(CreditService::class)->quoteAmount($org, (int) $preset->price, self::PREMIUM_FEATURE, $actor ?? auth()->user())['cost'];
     }
 
     /**
@@ -204,7 +231,7 @@ class TemplateLibrary
 
         DB::transaction(function () use ($premium, $tournament, $org, $credits, $actor) {
             foreach ($premium as $preset) {
-                $credits->chargeAmount($org, (int) $preset->price, 'premium_preset', $preset, $this->premiumKey($preset->id, $tournament), $actor);
+                $credits->chargeAmount($org, (int) $preset->price, self::PREMIUM_FEATURE, $preset, $this->premiumKey($preset->id, $tournament), $actor, 'Premium preset: ' . $preset->name);
             }
         });
     }

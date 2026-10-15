@@ -115,6 +115,24 @@ class CreditService
         $feature = $this->feature($featureKey);
         $base = ($feature && $feature->is_active) ? $feature->cost * max(1, $qty) : 0;
 
+        return $this->discounted($org, $featureKey, $base, $charges);
+    }
+
+    /**
+     * A price set somewhere other than the feature catalogue (a premium preset carries
+     * its own), after the best automatic discount for this organization — a discount on
+     * "Premium template presets" (feature:premium_preset) or on every feature.
+     *
+     * @return array{cost:int, base:int, discount:?Discount, saved:int, free:bool}
+     */
+    public function quoteAmount(Organization $org, int $amount, string $featureKey, ?User $actor = null): array
+    {
+        return $this->discounted($org, $featureKey, max(0, $amount), $this->charges($org, $actor));
+    }
+
+    /** The best automatic discount applied to a base price. */
+    private function discounted(Organization $org, string $featureKey, int $base, bool $charges): array
+    {
         if ($base === 0 || ! $charges) {
             return ['cost' => 0, 'base' => $base, 'discount' => null, 'saved' => 0, 'free' => true];
         }
@@ -189,34 +207,43 @@ class CreditService
 
     /**
      * Charge a price set somewhere other than the feature catalogue (a premium design
-     * carries its own). Same rules as charge(): only credits organizations pay, never a
-     * Superadmin, one row per idempotency key, nothing changes when short.
+     * carries its own). Same rules as charge(): the best automatic discount applies,
+     * never a Superadmin, one row per idempotency key, nothing changes when short.
      */
-    public function chargeAmount(Organization $org, int $amount, string $featureKey, ?Model $reference = null, ?string $idempotencyKey = null, ?User $actor = null): ?CreditLedgerEntry
+    public function chargeAmount(Organization $org, int $amount, string $featureKey, ?Model $reference = null, ?string $idempotencyKey = null, ?User $actor = null, ?string $description = null): ?CreditLedgerEntry
     {
         $actor ??= Auth::user();
-        if ($amount <= 0 || ! $this->charges($org, $actor)) {
+        $quote = $this->quoteAmount($org, $amount, $featureKey, $actor);
+        if ($quote['cost'] <= 0) {
             return null;
         }
 
-        return DB::transaction(function () use ($org, $amount, $featureKey, $reference, $idempotencyKey, $actor) {
+        return DB::transaction(function () use ($org, $featureKey, $reference, $idempotencyKey, $actor, $quote, $description) {
             if ($idempotencyKey && ($done = CreditLedgerEntry::where('idempotency_key', $idempotencyKey)->first())) {
                 return $done;
             }
 
             $wallet = CreditWallet::whereKey($this->wallet($org)->id)->lockForUpdate()->first();
-            if ($wallet->balance < $amount) {
-                throw new InsufficientCreditsException($amount, $wallet->balance, $this->term());
+            if ($wallet->balance < $quote['cost']) {
+                throw new InsufficientCreditsException($quote['cost'], $wallet->balance, $this->term());
             }
 
-            return $this->write($wallet, 'usage', -$amount, [
+            $entry = $this->write($wallet, 'usage', -$quote['cost'], [
                 'feature_key' => substr($featureKey, 0, 40),
                 'reference_type' => $reference?->getMorphClass(),
                 'reference_id' => $reference?->getKey(),
                 'idempotency_key' => $idempotencyKey,
-                'description' => $featureKey,
+                'discount_id' => $quote['discount']?->id,
+                'description' => $description ?? $featureKey,
+                'meta' => ['base' => $quote['base'], 'saved' => $quote['saved']],
                 'created_by' => $actor?->id,
             ]);
+
+            if ($quote['discount']) {
+                DiscountRedemption::create(['discount_id' => $quote['discount']->id, 'organization_id' => $org->id, 'ledger_id' => $entry->id, 'saved' => $quote['saved']]);
+            }
+
+            return $entry;
         });
     }
 
