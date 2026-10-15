@@ -108,9 +108,9 @@ class CreditSystemTest extends TestCase
         $this->credits->charge($this->org, CreditFeature::POSTER, null, 'k1');
         $this->getJson(route('admin.credits.balance'))->assertJson(['balance' => 7]);
 
-        // A package-plan organization sees no pill.
+        // The old package setting no longer hides anything: every organization is on credits.
         $this->org->update(['billing_mode' => 'package']);
-        $this->getJson(route('admin.credits.balance'))->assertJson(['show' => false]);
+        $this->getJson(route('admin.credits.balance'))->assertJson(['show' => true, 'balance' => 7]);
         $this->get(route('admin.dashboard'))->assertOk()->assertSee(route('admin.credits.balance'), false);
     }
 
@@ -128,14 +128,18 @@ class CreditSystemTest extends TestCase
     }
 
     #[Test]
-    public function every_feature_starts_free_and_package_organizations_never_pay(): void
+    public function every_feature_starts_free_and_every_organization_pays_once_priced(): void
     {
         $this->assertSame(0, CreditFeature::sum('cost'), 'Nothing is charged until Super Admin sets a price');
 
+        // A free feature never charges, whatever the old package setting says.
+        $legacy = Organization::create(['name' => 'Legacy', 'billing_mode' => 'package']);
+        $this->assertNull($this->credits->charge($legacy, CreditFeature::POSTER));
+
+        // Priced, the package setting no longer exempts anyone.
         $this->price(CreditFeature::POSTER, 5);
-        $package = Organization::create(['name' => 'Legacy']); // default billing_mode = package
-        $this->assertNull($this->credits->charge($package, CreditFeature::POSTER));
-        $this->assertSame(0, CreditLedgerEntry::count());
+        $this->expectException(\App\Services\Credits\InsufficientCreditsException::class);
+        $this->credits->charge($legacy, CreditFeature::POSTER);
     }
 
     #[Test]
@@ -314,15 +318,16 @@ class CreditSystemTest extends TestCase
     }
 
     #[Test]
-    public function a_free_feature_on_credits_records_the_unlock_and_package_organizations_skip_it(): void
+    public function a_free_feature_records_the_unlock_for_every_organization(): void
     {
         $this->put(route('admin.tournaments.settings.status', $this->tournament), ['status' => 'registration'])->assertSessionHas('success');
         $this->assertTrue(CreditFeatureUnlock::where('feature_key', 'tournament_publish')->exists());
 
+        // The old package setting is ignored: the unlock is recorded all the same.
         $this->org->update(['billing_mode' => 'package']);
         $other = Tournament::create(['name' => 'Two', 'slug' => 'two-' . uniqid(), 'start_date' => now(), 'organization_id' => $this->org->id, 'status' => 'draft']);
         $this->put(route('admin.tournaments.settings.status', $other), ['status' => 'registration'])->assertSessionHas('success');
-        $this->assertSame(1, CreditFeatureUnlock::count());
+        $this->assertSame(2, CreditFeatureUnlock::count());
     }
 
     #[Test]

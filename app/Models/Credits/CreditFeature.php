@@ -13,6 +13,7 @@ class CreditFeature extends Model
     public const POSTER = 'poster';
     public const AUCTION = 'auction_access';
     public const LEDWALL = 'ledwall';
+    public const SCORING = 'scoring';
 
     protected $fillable = ['key', 'name', 'description', 'cost', 'charge_trigger', 'scope', 'is_active', 'sort'];
 

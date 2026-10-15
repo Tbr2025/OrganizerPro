@@ -23,6 +23,7 @@ class MatchQuickPlayerController extends Controller
     public function __construct(private readonly QuickPlayerService $quickPlayers)
     {
         $this->middleware('permission:scoring.quick_add_player');
+        $this->middleware('credits.unlock:' . \App\Models\Credits\CreditFeature::SCORING);
     }
 
     public function store(Request $request, Matches $match): JsonResponse

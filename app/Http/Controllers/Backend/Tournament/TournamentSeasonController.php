@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Backend\Tournament;
 
 use App\Http\Controllers\Controller;
+use App\Models\Credits\CreditFeature;
 use App\Models\Organization;
 use App\Models\Tournament;
+use App\Services\Credits\CreditGate;
+use App\Services\Credits\CreditService;
+use App\Services\Credits\InsufficientCreditsException;
 use App\Services\Tournament\SeasonService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +23,11 @@ use Illuminate\Validation\Rule;
  */
 class TournamentSeasonController extends Controller
 {
-    public function __construct(private readonly SeasonService $seasons)
+    public function __construct(
+        private readonly SeasonService $seasons,
+        private readonly CreditGate $gate,
+        private readonly CreditService $credits,
+    )
     {
         $this->middleware('permission:tournament.create')->only('store');
         $this->middleware('role:Superadmin')->only('link');
@@ -39,14 +47,20 @@ class TournamentSeasonController extends Controller
         $data['copy'] = $data['copy'] ?? [];
 
         $user = Auth::user();
-        if (! $user->hasRole('Superadmin')) {
-            $org = Organization::find($tournament->organization_id);
-            if ($org && $org->hasReachedTournamentLimit()) {
-                return back()->withInput()->with('error', 'Tournament limit reached for your organization (' . $org->max_tournaments . ' max).');
-            }
-        }
+        $org = Organization::findOrFail($tournament->organization_id);
 
-        $season = $this->seasons->startNextSeason($tournament, $data, $user);
+        // Credits: a new season is a new tournament and pays the tournament fee as it is
+        // created (Superadmin creates free). Not enough credits → nothing is created.
+        $fee = $this->gate->fee(CreditFeature::TOURNAMENT_PUBLISH, $org, $user);
+        if ($fee > $this->credits->balance($org)) {
+            return back()->withInput()->with('error', 'A new season needs ' . $this->credits->format($fee)
+                . '; your balance is ' . $this->credits->format($this->credits->balance($org)) . '. Top up from the Credits page.');
+        }
+        try {
+            $season = $this->gate->createTournament($org, fn () => $this->seasons->startNextSeason($tournament, $data, $user), $user);
+        } catch (InsufficientCreditsException $e) {
+            return back()->withInput()->with('error', $e->getMessage() . ' Top up from the Credits page.');
+        }
 
         return redirect()->route('admin.tournaments.dashboard', $season)
             ->with('success', "{$season->name} created as Season {$season->season_number}. Review its dates and settings, then open registration.");

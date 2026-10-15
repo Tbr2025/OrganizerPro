@@ -1014,7 +1014,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/topups/{topup}/reject', [\App\Http\Controllers\Backend\CreditAdminController::class, 'rejectTopup'])->name('topups.reject');
         Route::post('/features/{feature}', [\App\Http\Controllers\Backend\CreditAdminController::class, 'updateFeature'])->name('features.update');
         Route::post('/settings', [\App\Http\Controllers\Backend\CreditAdminController::class, 'updateSettings'])->name('settings.update');
-        Route::post('/organizations/{organization}/mode', [\App\Http\Controllers\Backend\CreditAdminController::class, 'setBillingMode'])->name('organizations.mode');
         Route::post('/discounts', [\App\Http\Controllers\Backend\CreditAdminController::class, 'storeDiscount'])->name('discounts.store');
         Route::post('/discounts/{discount}/toggle', [\App\Http\Controllers\Backend\CreditAdminController::class, 'toggleDiscount'])->name('discounts.toggle');
     });

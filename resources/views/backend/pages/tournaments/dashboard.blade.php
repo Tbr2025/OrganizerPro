@@ -416,7 +416,8 @@
                 <p class="text-xs text-gray-500">The new season starts as a draft. Fixtures, results and statistics are never copied.</p>
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="open = false" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">Cancel</button>
-                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Create season</button>
+                    @php $seasonFee = app(\App\Services\Credits\CreditGate::class)->feeLabel(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament->organization); @endphp
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Create season @if($seasonFee)<span class="font-normal opacity-90">({{ $seasonFee }})</span>@endif</button>
                 </div>
             </form>
         </div>

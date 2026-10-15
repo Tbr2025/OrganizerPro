@@ -181,7 +181,7 @@ class AuctionAdminController extends Controller
     {
         $organizations = Organization::orderBy('name')->get();
         // Auctions attach only to auction-type tournaments (budget/pools apply there).
-        $tournaments = Tournament::forUser(auth()->user())->where('type', 'auction')->orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->with('organization')->where('type', 'auction')->orderBy('name')->get();
 
         // Available players for the pool builder: approved somewhere, and never retained
         // (retained players are pre-kept by their team and managed on the Pools screen).
@@ -1795,7 +1795,7 @@ class AuctionAdminController extends Controller
     {
         $organizations = Organization::orderBy('name')->get();
         // Auctions attach only to auction-type tournaments (budget/pools apply there).
-        $tournaments = Tournament::forUser(auth()->user())->where('type', 'auction')->orderBy('name')->get();
+        $tournaments = Tournament::forUser(auth()->user())->with('organization')->where('type', 'auction')->orderBy('name')->get();
 
         // Load the players currently in the auction, its pools, tournament, and budgets.
         $auction->load(['auctionPlayers.player', 'pools.players.player', 'tournament', 'teamBudgets']);

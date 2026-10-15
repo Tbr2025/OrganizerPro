@@ -121,7 +121,9 @@
                                 <select name="tournament_id" id="tournament_id" class="form-control" required>
                                     <option value="">Select Tournament</option>
                                     @foreach ($tournaments as $tournament)
-                                        <option value="{{ $tournament->id }}" data-org="{{ $tournament->organization_id }}"
+                                        @php $auctionFee = app(\App\Services\Credits\CreditService::class)->hasUnlock($tournament->organization, \App\Models\Credits\CreditFeature::AUCTION, $tournament)
+                                            ? null : app(\App\Services\Credits\CreditGate::class)->feeLabel(\App\Models\Credits\CreditFeature::AUCTION, $tournament->organization); @endphp
+                                        <option value="{{ $tournament->id }}" data-org="{{ $tournament->organization_id }}" data-fee="{{ $auctionFee }}"
                                             {{ old('tournament_id') == $tournament->id ? 'selected' : '' }}>
                                             {{ $tournament->name }}</option>
                                     @endforeach
@@ -803,8 +805,18 @@
 
                         <div x-show="step === 5" x-cloak>
                             <button type="submit" class="btn btn-success">
-                                Create Auction
+                                Create Auction <span id="auctionFee" class="font-normal opacity-90"></span>
                             </button>
+                            <script>
+                                (function () {
+                                    // The auction fee is paid once per tournament: show it for the tournament picked.
+                                    const sel = document.getElementById('tournament_id');
+                                    const out = document.getElementById('auctionFee');
+                                    const show = () => { const fee = sel.selectedOptions[0]?.dataset.fee; out.textContent = fee ? '(' + fee + ')' : ''; };
+                                    sel.addEventListener('change', show);
+                                    show();
+                                })();
+                            </script>
                         </div>
                     </div>
                 </div>

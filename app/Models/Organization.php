@@ -24,10 +24,14 @@ class Organization extends Model
         'max_tournaments' => 'integer',
     ];
 
-    /** Pays per feature with credits (true) or works to the old package limits (false). */
+    /**
+     * Every organization pays per feature in credits. The old package columns
+     * (package_type, max_tournaments, auction_enabled, auction_modes, billing_mode)
+     * are kept in the table but no longer limit anything.
+     */
     public function usesCredits(): bool
     {
-        return $this->billing_mode === 'credits';
+        return true;
     }
 
     public function wallet()
@@ -55,63 +59,25 @@ class Organization extends Model
         return $this->hasMany(ActualTeam::class, 'organization_id');
     }
 
+    /** No tournament cap: creating is free and publishing costs credits. */
     public function hasReachedTournamentLimit(): bool
     {
-        // On credits there is no cap: publishing is what costs.
-        if ($this->usesCredits() || is_null($this->max_tournaments)) {
-            return false;
-        }
-
-        return $this->tournaments()->count() >= $this->max_tournaments;
+        return false;
     }
 
     public function remainingTournamentSlots(): ?int
     {
-        if ($this->usesCredits() || is_null($this->max_tournaments)) {
-            return null;
-        }
-
-        return max(0, $this->max_tournaments - $this->tournaments()->count());
+        return null;
     }
 
+    /** Auctions are unlocked per tournament with credits (CreditFeature::AUCTION). */
     public function isAuctionEnabled(): bool
     {
-        // On credits, auctions are unlocked per tournament (CreditFeature::AUCTION).
-        return $this->usesCredits() || $this->auction_enabled;
+        return true;
     }
 
     public function isAuctionModeAllowed(string $mode): bool
     {
-        if ($this->usesCredits()) {
-            return true;
-        }
-
-        if (! $this->auction_enabled) {
-            return false;
-        }
-
-        if (empty($this->auction_modes)) {
-            return true;
-        }
-
-        return in_array($mode, $this->auction_modes);
-    }
-
-    public function getPackageLabelAttribute(): string
-    {
-        return match ($this->package_type) {
-            'premium' => 'Premium',
-            'enterprise' => 'Enterprise',
-            default => 'Starter',
-        };
-    }
-
-    public function getPackageBadgeClassAttribute(): string
-    {
-        return match ($this->package_type) {
-            'premium' => 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-            'enterprise' => 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-            default => 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
-        };
+        return true;
     }
 }

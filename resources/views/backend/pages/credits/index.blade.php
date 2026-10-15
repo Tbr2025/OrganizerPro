@@ -25,9 +25,6 @@
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
             <p class="text-sm text-gray-500">{{ $org->name }} · {{ __('Balance') }}</p>
             <p class="text-4xl font-black text-gray-900 dark:text-white mt-1">{{ number_format($wallet->balance) }} <span class="text-lg font-semibold text-gray-500">{{ $credits->term($wallet->balance) }}</span></p>
-            @unless($org->usesCredits())
-                <p class="mt-2 text-xs text-amber-600">{{ __('This organization works to its package limits; nothing is charged in :term.', ['term' => $term]) }}</p>
-            @endunless
         </div>
 
         {{-- Top-up request --}}

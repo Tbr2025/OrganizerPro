@@ -46,7 +46,7 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ $term }} {{ __('control centre') }}</h1>
             <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {{ __('Organizations billed in :term pay for what they use. Everyone else keeps their package limits.', ['term' => $term]) }}
+                {{ __('Every organization pays in :term for what it uses.', ['term' => $term]) }}
                 @if($rate > 0) <span class="whitespace-nowrap">· 1 {{ $one }} = {{ $money(1) }}</span> @endif
             </p>
         </div>
@@ -68,7 +68,7 @@
             [__(':term held by organizations', ['term' => $term]), number_format($kpis['held']), $money($kpis['held']) ? __('worth :m', ['m' => $money($kpis['held'])]) : null, 'lucide:coins', 'text-amber-600 bg-amber-50 dark:bg-amber-900/20'],
             [__('Spent in the last 30 days'), number_format($kpis['used30']), $money($kpis['used30']) ? __('worth :m', ['m' => $money($kpis['used30'])]) : null, 'lucide:trending-down', 'text-rose-600 bg-rose-50 dark:bg-rose-900/20'],
             [__('Top-ups waiting'), number_format($kpis['pending']), $kpis['pending'] ? trim($currency . ' ' . number_format($kpis['pendingValue'], 2)) . ' ' . __('to confirm') : __('Nothing to confirm'), 'lucide:hourglass', 'text-orange-600 bg-orange-50 dark:bg-orange-900/20'],
-            [__('Organizations on :term', ['term' => $term]), $kpis['creditOrgs'] . ' / ' . $kpis['orgs'], __('the rest use package limits'), 'lucide:building-2', 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'],
+            [__('Organizations'), number_format($kpis['orgs']), __('each with its own wallet'), 'lucide:building-2', 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20'],
             [__('Payments received'), trim($currency . ' ' . number_format($kpis['received'], 2)), __('from approved top-ups'), 'lucide:banknote', 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20'],
         ] as [$label, $value, $hint, $icon, $tone])
             <div class="{{ $card }} p-4">
@@ -158,11 +158,6 @@
                 <iconify-icon icon="lucide:search" width="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></iconify-icon>
                 <input name="q" value="{{ request('q') }}" placeholder="{{ __('Search organizations') }}" class="form-control pl-9 w-full">
             </div>
-            <select name="mode" class="form-control w-auto" onchange="this.form.submit()">
-                <option value="">{{ __('All billing') }}</option>
-                <option value="credits" @selected(request('mode') === 'credits')>{{ __('On :term', ['term' => $term]) }}</option>
-                <option value="package" @selected(request('mode') === 'package')>{{ __('On package limits') }}</option>
-            </select>
             <button class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">{{ __('Search') }}</button>
         </form>
         <div class="overflow-x-auto">
@@ -170,7 +165,6 @@
                 <thead class="bg-gray-50 dark:bg-gray-800/50 text-left text-xs uppercase tracking-wide text-gray-500">
                     <tr>
                         <th class="px-4 py-3">{{ __('Organization') }}</th>
-                        <th class="px-4 py-3">{{ __('Billing') }}</th>
                         <th class="px-4 py-3 text-right">{{ __('Balance') }}</th>
                         <th class="px-4 py-3 text-right">{{ __('Spent, 30 days') }}</th>
                         <th class="px-4 py-3">{{ __('Last activity') }}</th>
@@ -179,23 +173,10 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse($organizations as $o)
-                    @php $onCredits = $o->billing_mode === 'credits'; $stat = $perOrg[$o->id] ?? null; @endphp
+                    @php $stat = $perOrg[$o->id] ?? null; @endphp
                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40">
                         <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ $o->name }}</td>
-                        <td class="px-4 py-3">
-                            <form method="POST" action="{{ route('admin.credits.organizations.mode', $o) }}"
-                                  onsubmit="return confirm(@js(__('Change how :name is billed?', ['name' => $o->name])))">
-                                @csrf
-                                <input type="hidden" name="billing_mode" value="{{ $onCredits ? 'package' : 'credits' }}">
-                                <button class="inline-flex items-center gap-2 group" title="{{ __('Click to switch') }}">
-                                    <span class="relative inline-flex h-5 w-9 rounded-full transition {{ $onCredits ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600' }}">
-                                        <span class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition {{ $onCredits ? 'left-[18px]' : 'left-0.5' }}"></span>
-                                    </span>
-                                    <span class="text-xs {{ $onCredits ? 'text-indigo-700 dark:text-indigo-300 font-semibold' : 'text-gray-500' }}">{{ $onCredits ? $term : __('Package limits') }}</span>
-                                </button>
-                            </form>
-                        </td>
-                        <td class="px-4 py-3 text-right font-semibold {{ ($balances[$o->id] ?? 0) <= 0 && $onCredits ? 'text-red-600' : 'text-gray-900 dark:text-white' }}">{{ number_format((int) ($balances[$o->id] ?? 0)) }}</td>
+                        <td class="px-4 py-3 text-right font-semibold {{ ($balances[$o->id] ?? 0) <= 0 ? 'text-red-600' : 'text-gray-900 dark:text-white' }}">{{ number_format((int) ($balances[$o->id] ?? 0)) }}</td>
                         <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format((int) ($stat->used30 ?? 0)) }}</td>
                         <td class="px-4 py-3 text-gray-500 whitespace-nowrap">{{ $stat?->last_at ? \Carbon\Carbon::parse($stat->last_at)->diffForHumans() : '—' }}</td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -205,12 +186,11 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-500">{{ __('No organizations match.') }}</td></tr>
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-500">{{ __('No organizations match.') }}</td></tr>
                 @endforelse
                 </tbody>
             </table>
         </div>
-        <p class="px-4 py-3 text-xs text-gray-500 border-t border-gray-100 dark:border-gray-800">{{ __('Switching an organization to :term creates its wallet. Switching back to package limits keeps the balance; nothing is charged while it is on package limits.', ['term' => $term]) }}</p>
     </section>
 
     {{-- ============ Top-ups ============ --}}

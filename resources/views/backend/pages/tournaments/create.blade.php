@@ -6,28 +6,17 @@
     <div class="p-4 mx-auto max-w-2xl md:p-6">
         <x-breadcrumbs :breadcrumbs="[['label' => 'Tournaments', 'url' => route('admin.tournaments.index')], ['label' => 'Create']]" />
 
-        @if(!empty($organizationLimits))
-            @if($organizationLimits['reached'])
-                <div class="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                    <div class="flex items-center gap-3">
-                        <iconify-icon icon="lucide:alert-triangle" class="text-red-500 text-xl"></iconify-icon>
-                        <div>
-                            <p class="text-sm font-semibold text-red-800 dark:text-red-300">Tournament limit reached</p>
-                            <p class="text-xs text-red-600 dark:text-red-400">Your organization has used all {{ $organizationLimits['max'] }} tournament slots. Contact your administrator to upgrade.</p>
-                        </div>
+        @if(!empty($creditsInfo) && $creditsInfo['fee'] > 0 && ! $creditsInfo['enough'])
+            <div class="mt-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <div class="flex items-center gap-3">
+                    <iconify-icon icon="lucide:alert-triangle" class="text-red-500 text-xl"></iconify-icon>
+                    <div>
+                        <p class="text-sm font-semibold text-red-800 dark:text-red-300">Not enough {{ app(\App\Services\Credits\CreditService::class)->term() }}</p>
+                        <p class="text-xs text-red-600 dark:text-red-400">Creating a tournament uses {{ $creditsInfo['label'] }}. Your balance is {{ $creditsInfo['balance'] }}.
+                            <a href="{{ route('admin.credits.index') }}" class="font-semibold underline">Top up</a></p>
                     </div>
                 </div>
-            @elseif($organizationLimits['remaining'] !== null && $organizationLimits['remaining'] <= 2)
-                <div class="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                    <div class="flex items-center gap-3">
-                        <iconify-icon icon="lucide:alert-circle" class="text-yellow-500 text-xl"></iconify-icon>
-                        <div>
-                            <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-300">Approaching tournament limit</p>
-                            <p class="text-xs text-yellow-600 dark:text-yellow-400">{{ $organizationLimits['remaining'] }} of {{ $organizationLimits['max'] }} slots remaining.</p>
-                        </div>
-                    </div>
-                </div>
-            @endif
+            </div>
         @endif
 
         <div class="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-md rounded-xl p-6">
@@ -184,9 +173,15 @@
                         Cancel
                     </a>
 
-                    <button type="submit"
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    @if(!empty($creditsInfo['label']))
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Balance: {{ $creditsInfo['balance'] }}</span>
+                    @endif
+                    <button type="submit" @disabled(!empty($creditsInfo) && ! $creditsInfo['enough'])
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         Create Tournament
+                        @if(!empty($creditsInfo['label']))
+                            <span class="ml-1 font-normal opacity-90">({{ $creditsInfo['label'] }})</span>
+                        @endif
                     </button>
                 </div>
             </form>

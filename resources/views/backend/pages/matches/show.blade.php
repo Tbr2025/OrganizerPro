@@ -2154,4 +2154,50 @@ async function syncScoreNow() {
 }
 </script>
 @endpush
+{{-- Credits: live scoring is unlocked once per tournament. Viewing the match stays open. --}}
+@if($scoringLock)
+<div id="scoringLock" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-md rounded-xl bg-white dark:bg-gray-900 shadow-xl p-6">
+        <div class="flex items-center gap-3 mb-3">
+            <iconify-icon icon="lucide:lock" class="text-2xl text-indigo-600"></iconify-icon>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('Unlock live scoring') }}</h3>
+        </div>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+            {{ __('Live scoring for :t uses :fee, once for the whole tournament. You can view this match without it.', ['t' => $scoringLock['tournament']->name, 'fee' => $scoringLock['fee']]) }}
+        </p>
+        @if($scoringLock['canUnlock'])
+            <p class="text-sm mt-2 {{ $scoringLock['enough'] ? 'text-gray-500' : 'text-red-600 font-medium' }}">{{ __('Balance: :b', ['b' => $scoringLock['balance']]) }}</p>
+        @endif
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+            <button type="button" onclick="document.getElementById('scoringLock').classList.add('hidden')"
+                    class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">{{ __('Just view') }}</button>
+            @if(! $scoringLock['canUnlock'])
+                <p class="w-full text-sm text-amber-600">{{ __('Ask your organization admin to unlock live scoring for this tournament.') }}</p>
+            @elseif($scoringLock['enough'])
+                <form method="POST" action="{{ route('admin.credits.unlock.store') }}">
+                    @csrf
+                    <input type="hidden" name="feature" value="{{ $scoringLock['feature'] }}">
+                    <input type="hidden" name="tournament" value="{{ $scoringLock['tournament']->id }}">
+                    <input type="hidden" name="return" value="{{ route('admin.matches.show', $match) }}">
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">{{ __('Unlock') }} ({{ $scoringLock['fee'] }})</button>
+                </form>
+            @else
+                <a href="{{ route('admin.credits.index') }}" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">{{ __('Top up') }}</a>
+            @endif
+        </div>
+    </div>
+</div>
+<script>
+    // Any scoring call the server refuses for credits (402) brings the popup back.
+    (function () {
+        const lock = document.getElementById('scoringLock');
+        const fetch0 = window.fetch;
+        window.fetch = async function (...args) {
+            const res = await fetch0.apply(this, args);
+            if (res.status === 402) lock.classList.remove('hidden');
+            return res;
+        };
+    })();
+</script>
+@endif
 @endsection

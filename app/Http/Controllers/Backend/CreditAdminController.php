@@ -42,9 +42,6 @@ class CreditAdminController extends Controller
 
         $organizations = Organization::orderBy('name')
             ->when($request->filled('q'), fn ($q) => $q->where('name', 'like', '%' . $request->input('q') . '%'))
-            ->when(in_array($request->query('mode'), ['credits', 'package'], true), fn ($q) => $request->query('mode') === 'credits'
-                ? $q->where('billing_mode', 'credits')
-                : $q->where(fn ($q) => $q->whereNull('billing_mode')->orWhere('billing_mode', '!=', 'credits')))
             ->get();
         $allOrganizations = Organization::orderBy('name')->get(['id', 'name', 'billing_mode']);
         $balances = CreditWallet::pluck('balance', 'organization_id');
@@ -65,7 +62,7 @@ class CreditAdminController extends Controller
         ")->first();
 
         $pending = CreditTopupRequest::with(['organization', 'requester', 'discount'])->where('status', 'pending')->oldest()->get();
-        $creditOrgIds = $allOrganizations->where('billing_mode', 'credits')->pluck('id');
+        $creditOrgIds = $allOrganizations->pluck('id');
 
         // Last 14 days of spending, oldest first, for the overview bars.
         $daily = CreditLedgerEntry::where('type', 'usage')->where('created_at', '>=', now()->subDays(13)->startOfDay())
@@ -185,17 +182,6 @@ class CreditAdminController extends Controller
         }
 
         return back()->with('success', 'Settings saved.');
-    }
-
-    public function setBillingMode(Request $request, Organization $organization): RedirectResponse
-    {
-        $mode = $request->validate(['billing_mode' => ['required', Rule::in(['package', 'credits'])]])['billing_mode'];
-        $organization->update(['billing_mode' => $mode]);
-        if ($mode === 'credits') {
-            $this->credits->wallet($organization);
-        }
-
-        return back()->with('success', "{$organization->name} now uses " . ($mode === 'credits' ? $this->credits->term() : 'its package limits') . '.');
     }
 
     public function storeDiscount(Request $request): RedirectResponse

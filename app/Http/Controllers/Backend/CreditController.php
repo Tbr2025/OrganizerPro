@@ -160,7 +160,7 @@ class CreditController extends Controller
         ]);
 
         $tournament = Tournament::forUser(Auth::user())->findOrFail($data['tournament']);
-        abort_unless(Auth::user()->can('tournament.view') || Auth::user()->can('auction.view') || Auth::user()->can('ledwall.operate'), 403);
+        abort_unless(Auth::user()->can('tournament.view') || Auth::user()->can('auction.view') || Auth::user()->can('ledwall.operate') || Auth::user()->can('match.edit'), 403);
 
         return [CreditFeature::where('key', $data['feature'])->firstOrFail(), $tournament, $tournament->organization()->firstOrFail()];
     }

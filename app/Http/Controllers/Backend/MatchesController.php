@@ -40,6 +40,11 @@ class MatchesController extends Controller
             'goLive', 'cancelMatch', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring', 'setBowlerLimit', 'updateFormat',
             'editOvers', 'updateOvers', 'addAppreciation', 'generatePoster',
         ]);
+
+        // Credits: live scoring is unlocked once per tournament.
+        $this->middleware('credits.unlock:' . \App\Models\Credits\CreditFeature::SCORING)->only([
+            'goLive', 'saveToss', 'switchInnings', 'endMatch', 'reopenScoring',
+        ]);
     }
 
     public function index(Request $request): View
@@ -218,6 +223,7 @@ class MatchesController extends Controller
 
         return view('backend.pages.matches.show', [
             'match' => $match,
+            'scoringLock' => $this->scoringLock($match),
             'summary' => $state['summary'],
             'battingPlayers' => $battingPlayers,
             'bowlingPlayers' => $bowlingPlayers,
@@ -704,6 +710,39 @@ class MatchesController extends Controller
                 'status' => 'live',
             ],
         ]);
+    }
+
+    /**
+     * Credits: anyone may view a match, but live scoring is unlocked once per
+     * tournament. Null when it is unlocked (or free, or the viewer cannot score);
+     * otherwise what the unlock popup on the match page shows.
+     */
+    private function scoringLock(Matches $match): ?array
+    {
+        $user = auth()->user();
+        $tournament = $match->tournament;
+        if (! $tournament || ! $user?->can('match.edit')) {
+            return null;
+        }
+
+        $gate = app(\App\Services\Credits\CreditGate::class);
+        if (! $gate->allows(\App\Models\Credits\CreditFeature::SCORING, $tournament, route('admin.matches.show', $match))) {
+            return null;
+        }
+
+        $credits = app(\App\Services\Credits\CreditService::class);
+        $org = $tournament->organization;
+        $fee = $gate->fee(\App\Models\Credits\CreditFeature::SCORING, $org, $user);
+
+        return [
+            'feature' => \App\Models\Credits\CreditFeature::SCORING,
+            'tournament' => $tournament,
+            'fee' => $credits->format($fee),
+            'balance' => $credits->format($credits->balance($org)),
+            'enough' => $credits->balance($org) >= $fee,
+            // Spending the wallet is for whoever holds it; a Scorer is told to ask.
+            'canUnlock' => $user->can('credits.view') || $user->can('credits.manage'),
+        ];
     }
 
     /**

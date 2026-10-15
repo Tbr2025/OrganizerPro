@@ -117,26 +117,33 @@ class TemplateLibraryTest extends TestCase
     }
 
     #[Test]
-    public function an_org_admin_builds_their_own_presets_and_can_only_copy_a_global_one(): void
+    public function only_super_admin_builds_presets_and_org_admins_only_pick_them(): void
     {
-        $organizer = $this->orgAdmin();
         $global = $this->preset('welcome_card', 'Global Welcome', default: true);
+        foreach ([$this->orgAdmin(), User::factory()->create(['organization_id' => $this->org->id])->assignRole('Admin')] as $admin) {
+            $this->actingAs($admin)->get(route('admin.template-library.index'))->assertForbidden();
+            $this->actingAs($admin)->get(route('admin.template-library.create'))->assertForbidden();
+            $this->actingAs($admin)->postJson(route('admin.template-library.store'), ['name' => 'Ours', 'type' => 'flyer', 'layout_json' => '[]'])->assertForbidden();
+            $this->actingAs($admin)->putJson(route('admin.template-library.update', $global), ['name' => 'x', 'type' => 'welcome_card'])->assertForbidden();
+            $this->actingAs($admin)->post(route('admin.template-library.duplicate', $global))->assertForbidden();
+            $this->actingAs($admin)->post(route('admin.template-library.add-ready-made'), ['preset' => 'flyer_bold'])->assertForbidden();
+        }
+        $this->assertSame(1, TournamentTemplate::whereNull('tournament_id')->count());
 
-        $this->actingAs($organizer)->get(route('admin.template-library.index'))->assertOk()->assertSee('Club presets');
-
-        $this->actingAs($organizer)->postJson(route('admin.template-library.store'), [
-            'name' => 'Ours', 'type' => 'flyer', 'layout_json' => '[]', 'scope' => 'global',
+        // Super Admin builds one for the organization; its organizers are offered it.
+        $this->actingAs($this->super)->postJson(route('admin.template-library.store', ['scope' => $this->org->id]), [
+            'name' => 'Club Flyer', 'type' => 'flyer', 'layout_json' => '[]',
         ])->assertOk();
-        $ours = TournamentTemplate::where('name', 'Ours')->firstOrFail();
-        $this->assertSame($this->org->id, $ours->organization_id, 'An org admin cannot post into the global scope');
+        $ours = TournamentTemplate::where('name', 'Club Flyer')->firstOrFail();
+        $this->assertSame($this->org->id, $ours->organization_id);
         $this->assertTrue($ours->is_default, 'The first of its type in the scope');
-
-        $this->actingAs($organizer)->putJson(route('admin.template-library.update', $global), ['name' => 'x', 'type' => 'welcome_card'])->assertForbidden();
-
-        $this->actingAs($organizer)->post(route('admin.template-library.duplicate', $global))->assertRedirect();
-        $copy = TournamentTemplate::whereNull('tournament_id')->where('organization_id', $this->org->id)->where('type', 'welcome_card')->firstOrFail();
-        $this->assertSame('Global Welcome', $copy->name);
         $this->assertTrue($global->fresh()->is_default, 'A scope\'s defaults never touch another scope');
+
+        $organizer = $this->orgAdmin();
+        $this->actingAs($organizer)->get(route('admin.tournaments.create'))->assertOk()->assertSee('Club Flyer')->assertSee('Global Welcome');
+        $this->actingAs($organizer)->get(route('admin.template-library.thumb', $ours))->assertOk();
+        $cup = $this->createTournament($organizer, 'Club Cup', [$ours, $global]);
+        $this->assertEqualsCanonicalizing(['Club Flyer', 'Global Welcome'], $cup->templates()->pluck('name')->all());
     }
 
     #[Test]
@@ -158,7 +165,7 @@ class TemplateLibraryTest extends TestCase
     #[Test]
     public function a_ready_made_design_becomes_an_editable_preset_in_the_chosen_scope(): void
     {
-        $this->actingAs($this->orgAdmin())->post(route('admin.template-library.add-ready-made'), ['preset' => 'flyer_bold', 'theme' => 'royal'])
+        $this->actingAs($this->super)->post(route('admin.template-library.add-ready-made', ['scope' => $this->org->id]), ['preset' => 'flyer_bold', 'theme' => 'royal'])
             ->assertRedirect();
         $made = TournamentTemplate::where('preset_key', 'flyer_bold')->firstOrFail();
         $this->assertNull($made->tournament_id);
@@ -188,39 +195,44 @@ class TemplateLibraryTest extends TestCase
         $this->actingAs($this->super)->get(route('admin.tournaments.templates.edit', [$cup, $preset]))->assertNotFound();
         $this->actingAs($this->super)->get(route('admin.template-library.edit', $own))->assertNotFound();
 
+        // Save as preset is Super Admin's; adding presets to a tournament is anyone's who edits it.
         $organizer = $this->orgAdmin();
-        $cup->organizers()->attach($organizer->id); // an Organizer reaches only their own tournaments
-        $this->actingAs($organizer)->post(route('admin.template-library.save-from-tournament', [$cup, $own]), ['scope' => 'global'])->assertRedirect();
+        $cup->organizers()->attach($organizer->id);
+        $this->actingAs($organizer)->post(route('admin.template-library.save-from-tournament', [$cup, $own]))->assertForbidden();
+        $this->actingAs($this->super)->post(route('admin.template-library.save-from-tournament', [$cup, $own]), ['scope' => $this->org->id])->assertRedirect();
         $this->assertSame($this->org->id, TournamentTemplate::whereNull('tournament_id')->latest('id')->value('organization_id'));
 
-        $rival = $this->createTournament($this->super, 'Rival Cup', [], $this->other);
-        $rival->organizers()->attach($organizer->id);
+        $this->actingAs($organizer)->post(route('admin.template-library.copy-to-tournament', $cup), ['presets' => [$preset->id]])->assertRedirect();
+        $this->assertSame(2, $cup->templates()->count());
+
         // Another organization's tournament is out of reach (hidden by its scope, or refused).
+        $rival = $this->createTournament($this->super, 'Rival Cup', [], $this->other);
         $status = $this->actingAs($organizer)->post(route('admin.template-library.copy-to-tournament', $rival), ['presets' => [$preset->id]])->status();
         $this->assertContains($status, [403, 404]);
         $this->assertSame(0, $rival->templates()->count());
-        $this->actingAs($this->super)->post(route('admin.template-library.copy-to-tournament', $rival), ['presets' => [$preset->id]])->assertRedirect();
-        $this->assertSame(1, $rival->templates()->count());
     }
 
     #[Test]
     public function a_preset_can_start_from_a_previous_tournaments_template(): void
     {
-        $organizer = $this->orgAdmin();
         $past = $this->createTournament($this->super, 'Past Cup');
-        $past->organizers()->attach($organizer->id);
         Storage::disk('public')->put($bg = 'tournament_templates/past.png', 'png');
         $old = TournamentTemplate::create(['tournament_id' => $past->id, 'type' => 'match_poster', 'name' => 'Past Match', 'background_image' => $bg,
             'layout_json' => [['type' => 'text', 'text' => 'VS', 'x' => 50, 'y' => 50]], 'canvas_width' => 1080, 'canvas_height' => 1080]);
+        $rival = $this->createTournament($this->super, 'Rival Cup', [], $this->other);
+        TournamentTemplate::create(['tournament_id' => $rival->id, 'type' => 'flyer', 'name' => 'Rival Flyer', 'layout_json' => []]);
 
-        // Offered on the presets page, listed with pictures.
-        $this->actingAs($organizer)->get(route('admin.template-library.index'))->assertOk()->assertSee('Past Cup');
-        $list = $this->actingAs($organizer)->getJson(route('admin.template-library.tournament-templates', ['tournament' => $past->id]))->assertOk()->json('templates');
+        // Offered on the presets page, narrowed to the organization being edited.
+        $this->actingAs($this->super)->get(route('admin.template-library.index', ['scope' => $this->org->id]))->assertOk()
+            ->assertSee('Past Cup')->assertDontSee('Rival Cup');
+        $this->actingAs($this->super)->get(route('admin.template-library.index'))->assertSee('Past Cup')->assertSee('Rival Cup');
+
+        $list = $this->actingAs($this->super)->getJson(route('admin.template-library.tournament-templates', ['tournament' => $past->id]))->assertOk()->json('templates');
         $this->assertSame(['Past Match'], array_column($list, 'name'));
-        $this->actingAs($organizer)->get($list[0]['thumb'])->assertOk();
+        $this->actingAs($this->super)->get($list[0]['thumb'])->assertOk();
 
-        // Copied into the organization's presets, files and all, and opened in the editor.
-        $this->actingAs($organizer)->post(route('admin.template-library.import', ['template' => $old, 'scope' => 'global']))
+        // Copied into the chosen presets, files and all, and opened in the editor.
+        $this->actingAs($this->super)->post(route('admin.template-library.import', ['template' => $old, 'scope' => $this->org->id]))
             ->assertRedirectContains('/template-library/');
         $preset = TournamentTemplate::whereNull('tournament_id')->where('name', 'Past Match')->firstOrFail();
         $this->assertSame($this->org->id, $preset->organization_id);
@@ -228,26 +240,20 @@ class TemplateLibraryTest extends TestCase
         $this->assertNotSame($bg, $preset->background_image);
         $this->assertSame(1, $past->templates()->count(), 'The tournament keeps its own');
 
-        // Super Admin picks the scope.
-        $this->actingAs($this->super)->post(route('admin.template-library.import', ['template' => $old, 'scope' => 'global']))->assertRedirect();
-        $this->assertSame(1, TournamentTemplate::whereNull('tournament_id')->whereNull('organization_id')->count());
-
-        // Never another organization's tournament, nor one an Organizer is not on.
-        $rival = $this->createTournament($this->super, 'Rival Cup', [], $this->other);
-        $theirs = TournamentTemplate::create(['tournament_id' => $rival->id, 'type' => 'flyer', 'name' => 'Rival Flyer', 'layout_json' => []]);
-        $this->actingAs($organizer)->get(route('admin.template-library.index'))->assertDontSee('Rival Cup');
-        $this->actingAs($organizer)->getJson(route('admin.template-library.tournament-templates', ['tournament' => $rival->id]))->assertNotFound();
-        $this->actingAs($organizer)->post(route('admin.template-library.import', $theirs))->assertNotFound();
-
-        $unassigned = $this->createTournament($this->super, 'Other Club Cup');
-        $this->actingAs($organizer)->getJson(route('admin.template-library.tournament-templates', ['tournament' => $unassigned->id]))->assertNotFound();
+        // Nobody else.
+        $organizer = $this->orgAdmin();
+        $past->organizers()->attach($organizer->id);
+        $this->actingAs($organizer)->getJson(route('admin.template-library.tournament-templates', ['tournament' => $past->id]))->assertForbidden();
+        $this->actingAs($organizer)->post(route('admin.template-library.import', $old))->assertForbidden();
     }
 
     #[Test]
-    public function only_roles_with_the_presets_permission_reach_them(): void
+    public function only_super_admin_reaches_the_presets_page(): void
     {
-        $viewer = User::factory()->create(['organization_id' => $this->org->id])->assignRole('Viewer');
-        $this->actingAs($viewer)->get(route('admin.template-library.index'))->assertForbidden();
+        foreach (['Viewer', 'Admin', 'Organizer', 'Auction Organizer'] as $role) {
+            $user = User::factory()->create(['organization_id' => $this->org->id])->assignRole($role);
+            $this->actingAs($user)->get(route('admin.template-library.index'))->assertForbidden();
+        }
         $this->actingAs($this->super)->get(route('admin.template-library.index', ['scope' => $this->other->id]))->assertOk()->assertSee('Rival presets');
     }
 

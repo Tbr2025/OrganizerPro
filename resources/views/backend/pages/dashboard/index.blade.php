@@ -75,7 +75,7 @@
                             </div>
                             <div class="min-w-0">
                                 <p class="font-semibold text-gray-900 dark:text-white text-sm truncate">{{ $org->name }}</p>
-                                <span class="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full {{ $org->package_badge_class }}">{{ $org->package_label }}</span>
+                                <span class="inline-block px-2 py-0.5 text-[10px] font-medium rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">{{ app(\App\Services\Credits\CreditService::class)->format((int) ($org->wallet?->balance ?? 0)) }}</span>
                             </div>
                         </div>
                     </div>

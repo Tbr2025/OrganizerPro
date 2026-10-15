@@ -15,9 +15,9 @@ class OrganizationController extends Controller
         $user = Auth::user();
 
         if ($user->hasRole('Superadmin')) {
-            $organizations = Organization::latest()->paginate(10);
+            $organizations = Organization::with('wallet')->latest()->paginate(10);
         } else {
-            $organizations = Organization::where('id', $user->organization_id)->paginate(10);
+            $organizations = Organization::with('wallet')->where('id', $user->organization_id)->paginate(10);
         }
 
         return view('backend.pages.organizations.index', compact('organizations'));
@@ -34,27 +34,11 @@ class OrganizationController extends Controller
         $this->authorize('organization.create');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:organizations,name',
-            'package_type' => 'nullable|in:starter,premium,enterprise',
-            'max_tournaments' => 'nullable|integer|min:1',
-            'auction_enabled' => 'nullable|boolean',
-            'auction_modes' => 'nullable|array',
-            'auction_modes.*' => 'in:open,closed,offline',
-            'billing_mode' => 'nullable|in:package,credits',
         ]);
 
-        if (! auth()->user()->hasRole('Superadmin')) {
-            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes'], $validated['billing_mode']);
-        }
-
-        $validated['auction_enabled'] = $validated['auction_enabled'] ?? false;
-        // New organizations pay per feature in credits unless Super Admin chose the package model.
-        $validated['billing_mode'] = $validated['billing_mode'] ?? 'credits';
-
-        $organization = Organization::create($validated);
-
-        if ($organization->usesCredits()) {
-            app(\App\Services\Credits\CreditService::class)->welcome($organization);
-        }
+        // Every organization pays per feature in credits; there are no package limits.
+        $organization = Organization::create($validated + ['billing_mode' => 'credits']);
+        app(\App\Services\Credits\CreditService::class)->welcome($organization);
 
         return redirect()->route('admin.organizations.index')->with('success', 'Organization created successfully.');
     }
@@ -67,8 +51,14 @@ class OrganizationController extends Controller
         $auctionCount = \App\Models\Auction::whereHas('tournament', function ($q) use ($organization) {
             $q->where('organization_id', $organization->id);
         })->count();
+        $credits = app(\App\Services\Credits\CreditService::class);
 
-        return view('backend.pages.organizations.edit', compact('organization', 'tournamentCount', 'auctionCount'));
+        return view('backend.pages.organizations.edit', [
+            'organization' => $organization,
+            'tournamentCount' => $tournamentCount,
+            'auctionCount' => $auctionCount,
+            'balance' => $credits->format($credits->balance($organization)),
+        ]);
     }
 
     public function update(Request $request, Organization $organization)
@@ -76,25 +66,7 @@ class OrganizationController extends Controller
         $this->authorize('organization.edit');
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:organizations,name,' . $organization->id,
-            'package_type' => 'nullable|in:starter,premium,enterprise',
-            'max_tournaments' => 'nullable|integer|min:1',
-            'auction_enabled' => 'nullable|boolean',
-            'auction_modes' => 'nullable|array',
-            'auction_modes.*' => 'in:open,closed,offline',
         ]);
-
-        if (! auth()->user()->hasRole('Superadmin')) {
-            unset($validated['package_type'], $validated['max_tournaments'], $validated['auction_enabled'], $validated['auction_modes']);
-        }
-
-        if (array_key_exists('auction_enabled', $validated)) {
-            $validated['auction_enabled'] = $validated['auction_enabled'] ?? false;
-        }
-
-        // Handle "unlimited" toggle — if max_tournaments not in request, set to null
-        if (auth()->user()->hasRole('Superadmin') && ! $request->has('max_tournaments')) {
-            $validated['max_tournaments'] = null;
-        }
 
         $organization->update($validated);
 

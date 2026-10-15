@@ -26,6 +26,7 @@ class BallController extends Controller
     {
         $this->middleware('permission:match.view')->only(['index', 'summary', 'lastBall']);
         $this->middleware('permission:match.edit')->only(['create', 'store', 'ajaxStore', 'destroy']);
+        $this->middleware('credits.unlock:' . \App\Models\Credits\CreditFeature::SCORING)->only(['ajaxStore', 'destroy']);
     }
 
     public function index()

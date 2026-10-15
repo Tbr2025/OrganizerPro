@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Models\Auction;
-use App\Models\Matches;
-use App\Models\Tournament;
-use App\Models\TournamentRegistration;
+use App\Services\Credits\CreditGate;
 use App\Services\Credits\PosterMeter;
 use Closure;
 use Illuminate\Http\Request;
@@ -25,7 +22,7 @@ class MeterPosters
 
     public function handle(Request $request, Closure $next): Response
     {
-        $tournament = $this->tournament($request);
+        $tournament = CreditGate::tournamentFromRoute($request);
         if (! $tournament) {
             return $next($request);
         }
@@ -38,21 +35,5 @@ class MeterPosters
         } finally {
             $this->meter->end();
         }
-    }
-
-    private function tournament(Request $request): ?Tournament
-    {
-        foreach ($request->route()?->parameters() ?? [] as $param) {
-            $t = match (true) {
-                $param instanceof Tournament => $param,
-                $param instanceof Matches, $param instanceof Auction, $param instanceof TournamentRegistration => $param->tournament,
-                default => null,
-            };
-            if ($t) {
-                return $t;
-            }
-        }
-
-        return null;
     }
 }

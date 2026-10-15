@@ -256,18 +256,18 @@ class TournamentController extends Controller
                 ->get();
         }
 
-        // 5. Check tournament limit for the user's organization
-        $organizationLimits = null;
-        if (! $user->hasRole('Superadmin') && $user->organization_id) {
-            $org = Organization::find($user->organization_id);
-            if ($org) {
-                $organizationLimits = [
-                    'max' => $org->max_tournaments,
-                    'used' => $org->tournaments()->count(),
-                    'remaining' => $org->remainingTournamentSlots(),
-                    'reached' => $org->hasReachedTournamentLimit(),
-                ];
-            }
+        // 5. Credits: what creating costs, for the button, and whether the wallet covers it.
+        $creditsInfo = null;
+        if (! $user->hasRole('Superadmin') && ($org = Organization::find($user->organization_id))) {
+            $credits = app(\App\Services\Credits\CreditService::class);
+            $fee = app(\App\Services\Credits\CreditGate::class)->fee(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $org, $user);
+            $balance = $credits->balance($org);
+            $creditsInfo = [
+                'fee' => $fee,
+                'label' => $fee > 0 ? $credits->format($fee) : null,
+                'balance' => $credits->format($balance),
+                'enough' => $balance >= $fee,
+            ];
         }
 
         // 6. Return the view with the correctly scoped data.
@@ -275,7 +275,7 @@ class TournamentController extends Controller
             'organizations' => $organizations,
             'locations' => $locations,
             'zones' => $zones,
-            'organizationLimits' => $organizationLimits,
+            'creditsInfo' => $creditsInfo,
             'breadcrumbs' => [
                 ['label' => 'Tournaments', 'url' => route('admin.tournaments.index')],
                 ['label' => 'Create Tournament'],
@@ -319,13 +319,14 @@ class TournamentController extends Controller
             }
         }
 
-        // Check tournament limit (bypass for Superadmin)
-        if (! $user->hasRole('Superadmin')) {
-            $organization = Organization::find($validated['organization_id']);
-            if ($organization && $organization->hasReachedTournamentLimit()) {
-                return redirect()->back()->withInput()
-                    ->with('error', 'Tournament limit reached for your organization (' . $organization->max_tournaments . ' max). Please contact your administrator to upgrade your package.');
-            }
+        $organization = Organization::findOrFail($validated['organization_id']);
+
+        // Credits: refuse before any upload when the wallet cannot cover the tournament fee.
+        $fee = app(\App\Services\Credits\CreditGate::class)->fee(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $organization, $user);
+        $credits = app(\App\Services\Credits\CreditService::class);
+        if ($fee > $credits->balance($organization)) {
+            return redirect()->back()->withInput()->with('error', 'Creating a tournament needs ' . $credits->format($fee)
+                . '; your balance is ' . $credits->format($credits->balance($organization)) . '. Top up from the Credits page.');
         }
 
         // Handle empty zone_id
@@ -351,10 +352,17 @@ class TournamentController extends Controller
         }
         unset($validated['logo_cropped']);
 
-        // Credits: publishing (any status but draft) is paid once. Save as a draft
-        // and confirm the charge first; the confirm page applies the status.
         $requestedStatus = $validated['status'];
-        $tournament = Tournament::create(array_merge($validated, ['status' => 'draft']));
+
+        // Credits: the tournament fee is paid as it is created (Superadmin creates free).
+        // Not enough credits → nothing is created.
+        try {
+            $tournament = app(\App\Services\Credits\CreditGate::class)->createTournament(
+                $organization, fn () => Tournament::create(array_merge($validated, ['status' => 'draft']))
+            );
+        } catch (\App\Services\Credits\InsufficientCreditsException $e) {
+            return redirect()->back()->withInput()->with('error', $e->getMessage() . ' Top up from the Credits page to create a tournament.');
+        }
 
         // Starting templates: copies of the presets ticked on the form (global and the
         // organization's own; TemplateLibrary ignores any other). A failure here never
