@@ -212,8 +212,9 @@ class TemplateLibraryController extends Controller
             return back()->with('error', 'A premium preset needs a price in credits.');
         }
 
-        $offered = null;
-        if ($template->organization_id === null && ($data['offer'] ?? 'all') === 'selected') {
+        // The Prices page sends only tier and price: availability stays as it is.
+        $offered = $request->has('offer') ? null : $template->offered_to;
+        if ($template->organization_id === null && ($data['offer'] ?? null) === 'selected') {
             $offered = array_values(array_unique(array_map('intval', $data['offered_to'] ?? [])));
             if (! $offered) {
                 return back()->with('error', 'Pick at least one organization, or offer it to all.');

@@ -271,4 +271,30 @@ class PresetTiersTest extends TestCase
         $this->assertSame(5, $this->credits->balance($this->org->fresh()));
         $this->assertSame(1, $again->templates()->count());
     }
+
+    #[Test]
+    public function super_admin_sets_every_price_on_the_prices_page(): void
+    {
+        $preset = $this->preset('flyer', 'Picked', ['offered_to' => [$this->org->id]]);
+
+        $this->actingAs($this->super)->get(route('admin.credits.manage', ['tab' => 'prices']))->assertOk()
+            ->assertSee('Live scoring')->assertSee('Change a template background')->assertSee('Template presets')->assertSee('Picked');
+
+        // A module: any price, or free.
+        $scoring = CreditFeature::where('key', CreditFeature::SCORING)->first();
+        $this->post(route('admin.credits.features.update', $scoring), ['cost' => 300, 'is_active' => 1])->assertSessionHas('success');
+        $this->assertSame(300, $scoring->fresh()->cost);
+        $this->post(route('admin.credits.features.update', $scoring), ['cost' => 300])->assertSessionHas('success');
+        $this->assertFalse($scoring->fresh()->is_active, 'Switched off = free');
+
+        // A preset's price, from the same page, keeps who it is offered to.
+        $this->post(route('admin.template-library.settings', $preset), ['tier' => 'premium', 'price' => 30])->assertSessionHas('success');
+        $preset->refresh();
+        $this->assertSame(30, $preset->price);
+        $this->assertSame([$this->org->id], $preset->offered_to);
+
+        // Nobody else can change prices.
+        $this->actingAs($this->admin)->post(route('admin.credits.features.update', $scoring), ['cost' => 0, 'is_active' => 1])->assertForbidden();
+        $this->post(route('admin.template-library.settings', $preset), ['tier' => 'free'])->assertForbidden();
+    }
 }

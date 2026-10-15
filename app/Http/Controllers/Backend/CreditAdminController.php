@@ -86,6 +86,8 @@ class CreditAdminController extends Controller
             'pending' => $pending,
             'processed' => CreditTopupRequest::with(['organization', 'requester'])->where('status', '!=', 'pending')->latest('processed_at')->limit(20)->get(),
             'features' => CreditFeature::orderBy('sort')->get(),
+            'presets' => \App\Models\TournamentTemplate::whereNull('tournament_id')->with('organization:id,name')
+                ->orderByRaw('organization_id IS NULL DESC')->orderBy('type')->orderBy('name')->get(),
             'discounts' => Discount::withCount('redemptions')->latest('id')->get(),
             'recent' => CreditLedgerEntry::with(['wallet.organization', 'creator'])->latest('id')->limit(8)->get(),
             'activity' => $activity,

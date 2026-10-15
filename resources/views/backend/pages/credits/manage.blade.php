@@ -248,7 +248,7 @@
 
     {{-- ============ Prices ============ --}}
     <section x-show="tab === 'prices'" x-cloak class="space-y-4">
-        <p class="text-sm text-gray-500">{{ __('What each feature costs. 0, or switched off, means free. Only organizations billed in :term pay, and they always see the price before anything is charged.', ['term' => $term]) }}</p>
+        <p class="text-sm text-gray-500">{{ __('What each module costs every organization. Any number of :term, or 0 (or switched off) for free. A new price applies from the next use; organizers always see the price before anything is charged. To make a module free or cheaper for one organization, add a discount on the Discounts tab.', ['term' => $term]) }}</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             @foreach($features as $f)
                 <form method="POST" action="{{ route('admin.credits.features.update', $f) }}" class="{{ $card }} p-5 space-y-3"
@@ -280,6 +280,35 @@
                 </form>
             @endforeach
         </div>
+
+        {{-- Premium template presets carry their own price; set them here or on the presets page. --}}
+        @can('template.presets')
+            <div class="{{ $card }} p-5 space-y-3">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                        <p class="font-semibold text-gray-900 dark:text-white">{{ __('Template presets') }}</p>
+                        <p class="text-xs text-gray-500">{{ __('Free: tournaments can change only the background (priced above). Premium: its price is charged once per tournament, and the design can be edited fully.') }}</p>
+                    </div>
+                    <a href="{{ route('admin.template-library.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('Open template presets') }}</a>
+                </div>
+                @forelse($presets as $p)
+                    <form method="POST" action="{{ route('admin.template-library.settings', $p) }}" class="flex flex-wrap items-center gap-3 text-sm border-t border-gray-100 dark:border-gray-800 pt-3"
+                          x-data="{ tier: @js($p->tier ?? 'free') }">
+                        @csrf
+                        <div class="flex-1 min-w-[180px]">
+                            <p class="font-medium text-gray-900 dark:text-white">{{ $p->name }}</p>
+                            <p class="text-xs text-gray-500">{{ \App\Models\TournamentTemplate::getTypeDisplay($p->type) }} · {{ $p->organization?->name ?? __('Global') }}</p>
+                        </div>
+                        <label class="flex items-center gap-1"><input type="radio" name="tier" value="free" x-model="tier"> {{ __('Free') }}</label>
+                        <label class="flex items-center gap-1"><input type="radio" name="tier" value="premium" x-model="tier"> {{ __('Premium') }}</label>
+                        <input type="number" name="price" min="1" value="{{ $p->price ?: '' }}" x-show="tier === 'premium'" x-cloak placeholder="{{ $term }}" class="form-control w-28">
+                        <button class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700">{{ __('Save') }}</button>
+                    </form>
+                @empty
+                    <p class="text-sm text-gray-500">{{ __('No template presets yet.') }}</p>
+                @endforelse
+            </div>
+        @endcan
     </section>
 
     {{-- ============ Discounts ============ --}}
