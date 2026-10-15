@@ -995,6 +995,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/template-library/{template}/set-default', 'setDefault')->whereNumber('template')->name('template-library.set-default');
         Route::post('/template-library/{template}/toggle-active', 'toggleActive')->whereNumber('template')->name('template-library.toggle-active');
         Route::post('/template-library/{template}/move', 'move')->whereNumber('template')->name('template-library.move');
+        Route::post('/template-library/{template}/settings', 'settings')->whereNumber('template')->name('template-library.settings');
+        Route::post('/template-library/{template}/sync', 'sync')->whereNumber('template')->name('template-library.sync');
         Route::post('/tournaments/{tournament}/templates/{template}/save-to-library', 'saveFromTournament')->name('template-library.save-from-tournament');
         Route::post('/tournaments/{tournament}/templates/from-library', 'copyToTournament')->name('template-library.copy-to-tournament');
     });
@@ -1445,6 +1447,7 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
             Route::post('/templates/{template}/update-background', [TournamentTemplateController::class, 'updateBackground'])->name('templates.update-background');
+            Route::post('/templates/{template}/use-preset-version', [TournamentTemplateController::class, 'usePresetVersion'])->name('templates.use-preset-version');
         });
 
         // Template listing, viewing, generate & download

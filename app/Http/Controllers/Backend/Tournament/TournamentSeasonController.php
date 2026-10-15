@@ -51,7 +51,10 @@ class TournamentSeasonController extends Controller
 
         // Credits: a new season is a new tournament and pays the tournament fee as it is
         // created (Superadmin creates free). Not enough credits → nothing is created.
-        $fee = $this->gate->fee(CreditFeature::TOURNAMENT_PUBLISH, $org, $user);
+        $fee = $this->gate->fee(CreditFeature::TOURNAMENT_PUBLISH, $org, $user)
+            + (in_array('library', $data['copy'], true)
+                ? app(\App\Services\Poster\TemplateLibrary::class)->premiumCost($org->id, $tournament->type ?? 'open', $data['presets'] ?? null, null, $user)
+                : 0);
         if ($fee > $this->credits->balance($org)) {
             return back()->withInput()->with('error', 'A new season needs ' . $this->credits->format($fee)
                 . '; your balance is ' . $this->credits->format($this->credits->balance($org)) . '. Top up from the Credits page.');

@@ -152,7 +152,7 @@
                     @foreach($list as $template)
                         <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                             <a href="{{ route('admin.template-library.edit', $template) }}" class="block relative">
-                                <img src="{{ route('admin.template-library.thumb', $template) }}" alt="{{ $template->name }}" loading="lazy"
+                                <img src="{{ route('admin.template-library.thumb', [$template, 'v' => $template->design_version]) }}" alt="{{ $template->name }}" loading="lazy"
                                      class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain" onerror="this.style.visibility='hidden'">
                                 <div class="absolute top-2 left-2 flex flex-wrap gap-1">
                                     @if($template->is_default)
@@ -161,6 +161,11 @@
                                     <span class="{{ $template->is_active ? 'bg-indigo-500' : 'bg-gray-500' }} text-white text-xs px-2 py-0.5 rounded-full font-medium">
                                         {{ $template->is_active ? __('Ticked by default') : __('Not ticked') }}
                                     </span>
+                                    @if($template->isPremium())
+                                        <span class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">{{ __('Premium') }} · {{ number_format($template->price) }}</span>
+                                    @else
+                                        <span class="bg-sky-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">{{ __('Free') }}</span>
+                                    @endif
                                 </div>
                             </a>
                             <div class="p-3 space-y-2">
@@ -186,6 +191,50 @@
                                         <button class="text-red-600 hover:text-red-800">{{ __('Delete') }}</button>
                                     </form>
                                 </div>
+                                @php $use = $usage[$template->id] ?? ['copies' => 0, 'behind' => 0]; @endphp
+                                @if($use['copies'] > 0)
+                                    <div class="flex items-center justify-between gap-2 text-xs rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-2 py-1.5">
+                                        <span class="text-gray-600 dark:text-gray-300">
+                                            {{ trans_choice('Used by :n tournament template|Used by :n tournament templates', $use['copies'], ['n' => $use['copies']]) }}@if($use['behind']) · <span class="text-amber-600 font-medium">{{ __(':n behind', ['n' => $use['behind']]) }}</span>@endif
+                                        </span>
+                                        @if($use['behind'])
+                                            <form method="POST" action="{{ route('admin.template-library.sync', $template) }}"
+                                                  onsubmit="return confirm(@js(__('Update the tournaments\' copies to this version? Copies a tournament has edited are left as they are.')))">@csrf
+                                                <button class="text-indigo-600 hover:text-indigo-800 font-semibold whitespace-nowrap">{{ __('Update tournaments') }}</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                @endif
+
+                                {{-- Free or Premium, and who it is offered to --}}
+                                <details class="text-xs">
+                                    <summary class="cursor-pointer text-gray-600 dark:text-gray-300 font-medium">{{ __('Pricing & availability') }}</summary>
+                                    <form method="POST" action="{{ route('admin.template-library.settings', $template) }}" class="mt-2 space-y-2"
+                                          x-data="{ tier: @js($template->tier ?? 'free'), offer: @js($template->offered_to ? 'selected' : 'all') }">
+                                        @csrf
+                                        <div class="flex items-center gap-3">
+                                            <label class="flex items-center gap-1"><input type="radio" name="tier" value="free" x-model="tier"> {{ __('Free') }}</label>
+                                            <label class="flex items-center gap-1"><input type="radio" name="tier" value="premium" x-model="tier"> {{ __('Premium') }}</label>
+                                            <input type="number" name="price" min="1" value="{{ $template->price ?: '' }}" x-show="tier === 'premium'" x-cloak
+                                                   placeholder="{{ __('Credits') }}" class="w-24 text-xs py-0.5 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-800">
+                                        </div>
+                                        <p class="text-gray-500" x-show="tier === 'free'">{{ __('Free: tournaments can change only its background (a paid change).') }}</p>
+                                        <p class="text-gray-500" x-show="tier === 'premium'" x-cloak>{{ __('Premium: charged once per tournament; tournaments can edit it fully.') }}</p>
+                                        @if($template->organization_id === null && $organizations->isNotEmpty())
+                                            <div class="space-y-1">
+                                                <label class="flex items-center gap-1"><input type="radio" name="offer" value="all" x-model="offer"> {{ __('Offered to every organization') }}</label>
+                                                <label class="flex items-center gap-1"><input type="radio" name="offer" value="selected" x-model="offer"> {{ __('Only to selected organizations') }}</label>
+                                                <div x-show="offer === 'selected'" x-cloak class="max-h-28 overflow-y-auto pl-4 space-y-0.5">
+                                                    @foreach($organizations as $org)
+                                                        <label class="flex items-center gap-1"><input type="checkbox" name="offered_to[]" value="{{ $org->id }}" @checked(in_array($org->id, $template->offered_to ?? []))> {{ $org->name }}</label>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                        <button class="px-2 py-1 rounded bg-indigo-600 text-white font-semibold">{{ __('Save') }}</button>
+                                    </form>
+                                </details>
+
                                 @if($isSuper)
                                     <form method="POST" action="{{ route('admin.template-library.move', $template) }}" class="flex items-center gap-1.5 text-xs">
                                         @csrf
@@ -219,7 +268,7 @@
                     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                         @foreach($list as $template)
                             <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                                <img src="{{ route('admin.template-library.thumb', $template) }}" alt="" loading="lazy"
+                                <img src="{{ route('admin.template-library.thumb', [$template, 'v' => $template->design_version]) }}" alt="" loading="lazy"
                                      class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain" onerror="this.style.visibility='hidden'">
                                 <div class="p-1.5 space-y-1">
                                     <p class="text-xs font-medium text-gray-900 dark:text-white truncate">{{ $template->name }}</p>

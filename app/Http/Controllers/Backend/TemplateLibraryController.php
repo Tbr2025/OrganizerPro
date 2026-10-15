@@ -59,7 +59,8 @@ class TemplateLibraryController extends Controller
             'scopeName' => $scope ? Organization::find($scope)?->name : __('Global'),
             'organizations' => $isSuper ? Organization::orderBy('name')->get(['id', 'name']) : collect(),
             'isSuper' => $isSuper,
-            'templates' => $this->library->scope($scope)->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()->groupBy('type'),
+            'templates' => $templates = $this->library->scope($scope)->orderBy('type')->orderByDesc('is_default')->orderBy('name')->get()->groupBy('type'),
+            'usage' => $templates->flatten()->mapWithKeys(fn ($t) => [$t->id => $this->library->usage($t)]),
             // Shown read-only under an organization's own: what its tournaments are offered too.
             'global' => $scope !== null ? $this->library->scope(null)->orderBy('type')->orderBy('name')->get()->groupBy('type') : collect(),
             'types' => TournamentTemplate::TYPES,
@@ -133,13 +134,18 @@ class TemplateLibraryController extends Controller
             Storage::disk('public')->delete($template->background_image);
         }
 
-        $template->update($validated);
+        // A new version: tournaments' copies now show they are behind it.
+        $template->update($validated + ['design_version' => (int) $template->design_version + 1]);
+        $usage = $this->library->usage($template);
+        $message = $usage['copies'] > 0
+            ? "Preset saved. {$usage['copies']} tournament template(s) use it — press Update tournaments on the presets page to bring them up to date."
+            : 'Preset saved. Tournaments created from now on get this version.';
 
         if ($request->ajax() || $request->wantsJson()) {
-            return response()->json(['success' => true, 'message' => 'Preset saved. Tournaments created from now on get this version.']);
+            return response()->json(['success' => true, 'message' => $message]);
         }
 
-        return $this->backToScope($template)->with('success', 'Preset saved.');
+        return $this->backToScope($template)->with('success', $message);
     }
 
     public function destroy(Request $request, TournamentTemplate $template): RedirectResponse
@@ -187,6 +193,51 @@ class TemplateLibraryController extends Controller
         return back()->with('success', $template->is_active
             ? "\"{$template->name}\" is ticked by default when a tournament is created."
             : "\"{$template->name}\" is still offered, but no longer ticked by default.");
+    }
+
+    /** Free or Premium (with its price), and which organizations a global preset is offered to. */
+    public function settings(Request $request, TournamentTemplate $template): RedirectResponse
+    {
+        $this->authorizeEdit($request, $template);
+        $data = $request->validate([
+            'tier' => ['required', Rule::in([TournamentTemplate::TIER_FREE, TournamentTemplate::TIER_PREMIUM])],
+            'price' => 'nullable|integer|min:0|max:1000000',
+            'offer' => ['nullable', Rule::in(['all', 'selected'])],
+            'offered_to' => 'nullable|array',
+            'offered_to.*' => 'integer|exists:organizations,id',
+        ]);
+
+        $premium = $data['tier'] === TournamentTemplate::TIER_PREMIUM;
+        if ($premium && (int) ($data['price'] ?? 0) <= 0) {
+            return back()->with('error', 'A premium preset needs a price in credits.');
+        }
+
+        $offered = null;
+        if ($template->organization_id === null && ($data['offer'] ?? 'all') === 'selected') {
+            $offered = array_values(array_unique(array_map('intval', $data['offered_to'] ?? [])));
+            if (! $offered) {
+                return back()->with('error', 'Pick at least one organization, or offer it to all.');
+            }
+        }
+
+        $template->forceFill([
+            'tier' => $data['tier'],
+            'price' => $premium ? (int) $data['price'] : 0,
+            'offered_to' => $offered,
+        ])->save();
+
+        return back()->with('success', "\"{$template->name}\" saved: " . ($premium ? "Premium, {$template->price} credits per tournament" : 'Free')
+            . ($offered ? ', offered to ' . count($offered) . ' organization(s).' : '.'));
+    }
+
+    /** Bring the tournaments' copies of a preset up to its current design (see TemplateLibrary::syncCopies). */
+    public function sync(Request $request, TournamentTemplate $template): RedirectResponse
+    {
+        $this->authorizeEdit($request, $template);
+        $result = $this->library->syncCopies($template);
+
+        return back()->with('success', "Updated {$result['updated']} tournament template(s)."
+            . ($result['skipped'] ? " {$result['skipped']} edited by their tournament were left as they are; they show \"update available\"." : ''));
     }
 
     /** Super Admin: move a preset between global and an organization. */
@@ -240,7 +291,8 @@ class TemplateLibraryController extends Controller
             $path = $template->background_image;
         }
 
-        return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => 'private, max-age=86400']);
+        // The URL carries the design version (?v=), so a new design is a new URL.
+        return response()->file(Storage::disk('public')->path($path), ['Cache-Control' => $request->has('v') ? 'private, max-age=31536000, immutable' : 'private, max-age=300']);
     }
 
     /** A previous tournament's templates, as pictures, to start a preset from. */
@@ -307,7 +359,11 @@ class TemplateLibraryController extends Controller
         $this->authorizeTournament($request->user(), $tournament);
         $data = $request->validate(['presets' => 'required|array|min:1', 'presets.*' => 'integer']);
 
-        $added = count($this->library->copyInto($tournament, $data['presets']));
+        try {
+            $added = count($this->library->copyInto($tournament, $data['presets']));
+        } catch (\App\Services\Credits\InsufficientCreditsException $e) {
+            return back()->with('error', $e->getMessage() . ' Premium presets are paid once per tournament. Top up from the Credits page.');
+        }
 
         return back()->with('success', "{$added} preset(s) added to {$tournament->name}.");
     }

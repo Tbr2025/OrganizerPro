@@ -417,7 +417,23 @@
                 <div class="flex justify-end gap-2">
                     <button type="button" @click="open = false" class="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm">Cancel</button>
                     @php $seasonFee = app(\App\Services\Credits\CreditGate::class)->feeLabel(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament->organization); @endphp
-                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Create season @if($seasonFee)<span class="font-normal opacity-90">({{ $seasonFee }})</span>@endif</button>
+                    <button class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">Create season <span id="seasonFee" class="font-normal opacity-90">@if($seasonFee)({{ $seasonFee }})@endif</span></button>
+                    @unless(auth()->user()->hasRole('Superadmin'))
+                        <script>
+                            // Picking presets: the tournament fee plus the premium presets ticked.
+                            (function () {
+                                const base = {{ app(\App\Services\Credits\CreditGate::class)->fee(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $tournament->organization) }};
+                                let premium = 0;
+                                const show = () => {
+                                    const fromPresets = document.querySelector('input[name="copy[]"][value="library"]')?.checked;
+                                    const total = base + (fromPresets ? premium : 0);
+                                    document.getElementById('seasonFee').textContent = total > 0 ? '(' + total.toLocaleString() + ' ' + @json(app(\App\Services\Credits\CreditService::class)->term()) + ')' : '';
+                                };
+                                document.addEventListener('presets-changed', e => { premium = e.detail.premium || 0; show(); });
+                                document.querySelectorAll('input[name="copy[]"]').forEach(r => r.addEventListener('change', show));
+                            })();
+                        </script>
+                    @endunless
                 </div>
             </form>
         </div>

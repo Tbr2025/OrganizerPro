@@ -321,12 +321,14 @@ class TournamentController extends Controller
 
         $organization = Organization::findOrFail($validated['organization_id']);
 
-        // Credits: refuse before any upload when the wallet cannot cover the tournament fee.
-        $fee = app(\App\Services\Credits\CreditGate::class)->fee(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $organization, $user);
+        // Credits: refuse before any upload when the wallet cannot cover the tournament fee
+        // plus the premium presets ticked.
+        $fee = app(\App\Services\Credits\CreditGate::class)->fee(\App\Models\Credits\CreditFeature::TOURNAMENT_PUBLISH, $organization, $user)
+            + app(\App\Services\Poster\TemplateLibrary::class)->premiumCost($organization->id, $validated['type'] ?? 'open', $starter['presets'] ?? null, null, $user);
         $credits = app(\App\Services\Credits\CreditService::class);
         if ($fee > $credits->balance($organization)) {
-            return redirect()->back()->withInput()->with('error', 'Creating a tournament needs ' . $credits->format($fee)
-                . '; your balance is ' . $credits->format($credits->balance($organization)) . '. Top up from the Credits page.');
+            return redirect()->back()->withInput()->with('error', 'Creating this tournament needs ' . $credits->format($fee)
+                . ' (tournament fee and premium presets); your balance is ' . $credits->format($credits->balance($organization)) . '. Top up from the Credits page.');
         }
 
         // Handle empty zone_id

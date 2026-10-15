@@ -1212,11 +1212,13 @@
                             {{-- Sibling of the label, not inside it, so pressing an action never
                                  also selects the template underneath. --}}
                             <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
+                                @if($template->fullyEditableBy(auth()->user()))
                                 <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
                                    target="_blank" title="Edit template"
                                    class="p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 </a>
+                                @endif
                                 <form action="{{ route('admin.tournaments.templates.duplicate', [$tournament, $template]) }}" method="POST" class="inline">
                                     @csrf
                                     <button type="submit" title="Duplicate — opens the copy in the editor"
@@ -1239,15 +1241,15 @@
                                 <form action="{{ route('admin.tournaments.templates.update-background', [$tournament, $template]) }}"
                                       method="POST" enctype="multipart/form-data" class="inline">
                                     @csrf
-                                    <label title="Set background photo"
+                                    <label title="{{ $template->bg_only && $bgFeeLabel ? 'Change background (' . $bgFeeLabel . ')' : 'Set background photo' }}"
                                            class="cursor-pointer inline-flex p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                         <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp"
                                                class="hidden" onchange="this.form.submit()">
                                     </label>
                                 </form>
-                                <form action="{{ route('admin.tournaments.templates.destroy', [$tournament, $template]) }}" method="POST" class="inline"
-                                      onsubmit="return confirm('Delete the template &quot;{{ $template->name }}&quot;? This cannot be undone.')">
+                                <form action="{{ route('admin.tournaments.templates.destroy', [$tournament, $template]) }}" method="POST" class="inline" data-ajax-delete
+                                      data-confirm="Delete the template &quot;{{ $template->name }}&quot;? This cannot be undone.">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" title="Delete template"
@@ -2524,9 +2526,9 @@ function templateActions(t, editBaseUrl) {
 
     return `
         <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
-            <a href="${editBaseUrl}/${t.id}/edit" target="_blank" title="Edit template" class="${btn}">
+            ${t.full_edit === false ? '' : `<a href="${editBaseUrl}/${t.id}/edit" target="_blank" title="Edit template" class="${btn}">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            </a>
+            </a>`}
             <form action="${editBaseUrl}/${t.id}/duplicate" method="POST" class="inline">
                 <input type="hidden" name="_token" value="${csrf}">
                 <button type="submit" title="Duplicate — opens the copy in the editor" class="${btn}">
@@ -2536,13 +2538,13 @@ function templateActions(t, editBaseUrl) {
             ${setDefault}
             <form action="${editBaseUrl}/${t.id}/update-background" method="POST" enctype="multipart/form-data" class="inline">
                 <input type="hidden" name="_token" value="${csrf}">
-                <label title="Set background photo" class="cursor-pointer inline-flex ${btn}">
+                <label title="${t.bg_only && BG_FEE_LABEL ? 'Change background (' + BG_FEE_LABEL + ')' : 'Set background photo'}" class="cursor-pointer inline-flex ${btn}">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp" class="hidden" onchange="this.form.submit()">
                 </label>
             </form>
-            <form action="${editBaseUrl}/${t.id}" method="POST" class="inline"
-                  onsubmit="return confirm('Delete the template &quot;${name}&quot;? This cannot be undone.')">
+            <form action="${editBaseUrl}/${t.id}" method="POST" class="inline" data-ajax-delete
+                  data-confirm="Delete the template &quot;${name}&quot;? This cannot be undone.">
                 <input type="hidden" name="_token" value="${csrf}">
                 <input type="hidden" name="_method" value="DELETE">
                 <button type="submit" title="Delete template" class="p-1.5 rounded-lg bg-red-600/80 backdrop-blur text-white hover:bg-red-600 shadow-sm transition">
@@ -2551,6 +2553,30 @@ function templateActions(t, editBaseUrl) {
             </form>
         </div>`;
 }
+
+// The price of a new background on a free design, for the button's title.
+const BG_FEE_LABEL = @json($bgFeeLabel);
+
+/*
+ * Deleting a template from this page: in place, without reloading it — a reload
+ * re-runs the whole page and loses the match, side and XI already picked.
+ */
+document.addEventListener('submit', function (e) {
+    const form = e.target.closest('form[data-ajax-delete]');
+    if (!form) return;
+    e.preventDefault();
+    if (!confirm(form.dataset.confirm || 'Delete this template?')) return;
+    const card = form.closest('.group') || form.parentElement;
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(form),
+    }).then(r => r.ok ? r.json() : Promise.reject(r)).then(() => {
+        card.style.transition = 'opacity .2s';
+        card.style.opacity = '0';
+        setTimeout(() => card.remove(), 200);
+    }).catch(() => form.submit());
+});
 
 // Which person images each template draws, keyed by template id. Seeded with the
 // server-rendered list and extended by loadTemplates() after a type switch.
@@ -3252,22 +3278,24 @@ function showDataSummary(data) {
 // re-rendering meant clicking Preview after every nudge. These auto-refresh it.
 //
 // Renders happen on the server (GD, plus a cached rembg cut-out), so a slider
-// drag must not fire one render per pixel: changes are debounced, and a new
-// render aborts an in-flight auto-refresh rather than queueing behind it.
+// drag must not fire one render per pixel: changes are debounced, and only ONE
+// render runs at a time. Aborting in the browser does not stop the server — the
+// cancelled render kept running and piled up behind the next — so a change that
+// lands mid-render waits and is rendered once, with its latest values, after.
 let livePreviewEnabled = true;   // the "Live" checkbox
 let livePreviewArmed = false;    // set after the first successful render
 let livePreviewTimer = null;
 let livePreviewPending = false;  // a change landed while a manual render was running
 let activePreview = null;        // { controller, live } for the in-flight request
 
-function schedulePreviewRefresh(delay = 600) {
+function schedulePreviewRefresh(delay = 900) {
     if (!livePreviewEnabled || !livePreviewArmed) return;
 
     clearTimeout(livePreviewTimer);
     livePreviewTimer = setTimeout(() => {
-        // Never cancel a Preview / Generate & Save the user asked for — wait and
-        // re-fire once it lands, so the last slider position still gets rendered.
-        if (activePreview && !activePreview.live) {
+        // One render at a time: wait for the one running and re-fire once it lands,
+        // so the last slider position still gets rendered.
+        if (activePreview) {
             livePreviewPending = true;
             return;
         }
@@ -3304,8 +3332,8 @@ function generatePreview(saveMode = false, live = false) {
         return;
     }
 
-    // Supersede an in-flight auto-refresh; its result is already stale.
-    if (activePreview?.live) {
+    // A Preview / Generate the user clicked supersedes an in-flight auto-refresh.
+    if (activePreview?.live && !live) {
         activePreview.controller.abort();
         activePreview = null;
     }

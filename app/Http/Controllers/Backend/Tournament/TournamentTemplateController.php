@@ -41,7 +41,7 @@ class TournamentTemplateController extends Controller
         })->only([
             'index', 'create', 'store', 'edit', 'update', 'destroy',
             'duplicate', 'setDefault', 'uploadOverlay', 'deleteOverlay', 'updateSize',
-            'updateBackground', 'preview',
+            'updateBackground', 'preview', 'usePresetVersion',
         ]);
     }
 
@@ -67,12 +67,16 @@ class TournamentTemplateController extends Controller
                     // exactly the person images this design draws, without a
                     // second round trip when the organizer switches template.
                     'person_image_placeholders' => $t->personImagePlaceholders(),
+                    // A free design shows no Edit; its background is a paid change.
+                    'full_edit' => $t->fullyEditableBy(auth()->user()),
+                    'bg_only' => (bool) $t->bg_only,
                 ]);
 
             return response()->json(['templates' => $templates]);
         }
 
         $templates = $tournament->templates()
+            ->with('sourcePreset:id,design_version,tournament_id')
             ->orderBy('type')
             ->orderByDesc('is_default')
             ->get()
@@ -336,7 +340,13 @@ class TournamentTemplateController extends Controller
             fn ($t) => [$t->id => $t->personImagePlaceholders()]
         );
 
+        // What a new background costs on a free design (null when free).
+        $bgFeeLabel = $tournament->organization
+            ? app(\App\Services\Credits\CreditGate::class)->feeLabel(\App\Models\Credits\CreditFeature::TEMPLATE_BACKGROUND, $tournament->organization)
+            : null;
+
         return view('backend.pages.tournaments.templates.generate', compact(
+            'bgFeeLabel',
             'tournament',
             'type',
             'templates',
@@ -626,8 +636,7 @@ class TournamentTemplateController extends Controller
             if ($template->type === TournamentTemplate::TYPE_AWARD_POSTER) {
                 // Handle custom player image upload
                 if ($request->hasFile('player_image_file')) {
-                    $uploadedPath = $request->file('player_image_file')
-                        ->store('temp_previews', 'public');
+                    $uploadedPath = $this->tempUpload($request->file('player_image_file'));
                     $data['player_image'] = $uploadedPath;
                     $tempFiles[] = $uploadedPath;
 
@@ -671,7 +680,7 @@ class TournamentTemplateController extends Controller
 
                 foreach ($summaryImageFields as $fileKey => $dataKey) {
                     if ($request->hasFile($fileKey)) {
-                        $uploadedPath = $request->file($fileKey)->store('temp_previews', 'public');
+                        $uploadedPath = $this->tempUpload($request->file($fileKey));
                         $data[$dataKey] = $uploadedPath;
                         $tempFiles[] = $uploadedPath;
                     }
@@ -801,8 +810,7 @@ class TournamentTemplateController extends Controller
                  * writing it there would be a surprising side effect of drawing a graphic.
                  */
                 if ($request->hasFile('featured_player_image_file')) {
-                    $uploadedPath = $request->file('featured_player_image_file')
-                        ->store('temp_previews', 'public');
+                    $uploadedPath = $this->tempUpload($request->file('featured_player_image_file'));
                     $data['featured_player_image'] = $uploadedPath;
                     $tempFiles[] = $uploadedPath;
                 }
@@ -935,7 +943,7 @@ class TournamentTemplateController extends Controller
                 $fileKey = $sponsorKey . '_file';
 
                 if ($request->hasFile($fileKey)) {
-                    $uploadedPath = $request->file($fileKey)->store('temp_previews', 'public');
+                    $uploadedPath = $this->tempUpload($request->file($fileKey));
                     $data[$sponsorKey] = $uploadedPath;
                     $tempFiles[] = $uploadedPath;
                 }
@@ -993,13 +1001,11 @@ class TournamentTemplateController extends Controller
             // Live preview (re-rendered as fields are edited) is free and gets only the
             // on-screen image; "Generate" is one poster charge and gets the lossless PNG.
             $isLive = $request->boolean('live') && ! $request->boolean('save_poster');
-            $render = fn () => $renderService->renderWithPreview($template, $data, (bool) $hasMatchData);
-            $rendered = $isLive ? app(\App\Services\Credits\PosterMeter::class)->suspended($render) : $render();
-            $base64Image = $rendered['preview'];
-            $renderedPath = $rendered['path'];
-
+            $rendered = null;
             if ($isLive) {
-                Storage::disk('public')->delete($renderedPath);
+                // Drawn in memory and sent as a light JPEG: no PNG written and thrown away.
+                $base64Image = app(\App\Services\Credits\PosterMeter::class)
+                    ->suspended(fn () => $renderService->renderLivePreview($template, $data, (bool) $hasMatchData));
 
                 return response()->json([
                     'success' => true,
@@ -1009,6 +1015,10 @@ class TournamentTemplateController extends Controller
                     'poster_type' => $template->type,
                 ]);
             }
+
+            $rendered = $renderService->renderWithPreview($template, $data, (bool) $hasMatchData);
+            $base64Image = $rendered['preview'];
+            $renderedPath = $rendered['path'];
 
             // Save poster to storage and database (only when explicitly requested)
             $shouldSave = $request->boolean('save_poster', false);
@@ -1051,10 +1061,7 @@ class TournamentTemplateController extends Controller
                 }
             }
 
-            // Clean up temp uploaded files
-            foreach ($tempFiles as $tempPath) {
-                Storage::disk('public')->delete($tempPath);
-            }
+            // Uploads are content-named and shared between refreshes; tempUpload() sweeps old ones.
 
             return response()->json([
                 'success' => true,
@@ -1069,10 +1076,6 @@ class TournamentTemplateController extends Controller
                 'poster_created' => $savedPoster?->created_at?->format('M d, h:i A'),
             ]);
         } catch (\Exception $e) {
-            // Clean up temp files on error too
-            foreach ($tempFiles as $tempPath) {
-                Storage::disk('public')->delete($tempPath);
-            }
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to generate: ' . $e->getMessage(),
@@ -1322,6 +1325,12 @@ class TournamentTemplateController extends Controller
             ]);
         }
 
+        // A free design: only its background can be changed (from the templates page).
+        if (! $template->fullyEditableBy(auth()->user())) {
+            return redirect()->route('admin.tournaments.templates.index', $tournament)
+                ->with('error', __('":name" is a free design: only its background can be changed. Use Change background on its card.', ['name' => $template->name]));
+        }
+
         $type = $template->type;
         $placeholders = TournamentTemplate::getDefaultPlaceholders($template->type);
 
@@ -1340,6 +1349,7 @@ class TournamentTemplateController extends Controller
     public function update(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
+        $this->abortUnlessFullyEditable($template, $request);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -1387,6 +1397,11 @@ class TournamentTemplateController extends Controller
             $validated['overlay_images'] = json_decode($validated['overlay_images'], true);
         }
 
+        // Edited here: an update of its preset no longer overwrites it silently.
+        if ($template->source_preset_id) {
+            $validated['customized'] = true;
+        }
+
         $template->update($validated);
 
         // Set as default if requested
@@ -1417,8 +1432,9 @@ class TournamentTemplateController extends Controller
             'canvas_width' => 'required|integer|min:540|max:3840',
             'canvas_height' => 'required|integer|min:540|max:3840',
         ]);
+        $this->abortUnlessFullyEditable($template, $request);
 
-        $template->update($validated);
+        $template->update($validated + ($template->source_preset_id ? ['customized' => true] : []));
 
         return response()->json(['success' => true, 'message' => 'Size updated.']);
     }
@@ -1457,6 +1473,20 @@ class TournamentTemplateController extends Controller
             return back()->with('error', __('That image could not be read.'));
         }
 
+        // A free design's background is a paid change (CreditFeature `template_background`);
+        // charged before anything is written, so not enough credits changes nothing.
+        if ($template->bg_only && $tournament->organization) {
+            try {
+                app(\App\Services\Credits\CreditService::class)->charge(
+                    $tournament->organization, \App\Models\Credits\CreditFeature::TEMPLATE_BACKGROUND, $template
+                );
+            } catch (\App\Services\Credits\InsufficientCreditsException $e) {
+                imagedestroy($image);
+
+                return back()->with('error', $e->getMessage() . ' ' . __('Top up from the Credits page to change this background.'));
+            }
+        }
+
         $srcW = imagesx($image);
         $srcH = imagesy($image);
         $scale = max($width / $srcW, $height / $srcH);
@@ -1486,7 +1516,7 @@ class TournamentTemplateController extends Controller
          * Same guard as destroy().
          */
         $previous = $template->background_image;
-        $template->update(['background_image' => $path]);
+        $template->update(['background_image' => $path] + ($template->source_preset_id ? ['bg_changed' => true] : []));
 
         if ($previous && $previous !== $path) {
             $stillInUse = TournamentTemplate::where('background_image', $previous)->exists();
@@ -1497,6 +1527,63 @@ class TournamentTemplateController extends Controller
         }
 
         return back()->with('success', __('Background updated for ":name".', ['name' => $template->name]));
+    }
+
+    /**
+     * An uploaded photo for a preview, stored under a name taken from its content.
+     *
+     * The generate page re-sends the same photo on every live refresh. Stored under a new
+     * random name each time, the background-removal cache (keyed by file name) never hit,
+     * and every refresh started rembg from cold — the main reason generating felt slow. The
+     * same photo now lands on the same file, so removal runs once per photo. Old uploads
+     * are swept now and then (there is no scheduler on the server).
+     */
+    private function tempUpload(\Illuminate\Http\UploadedFile $file): string
+    {
+        $disk = Storage::disk('public');
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->guessExtension() ?: 'png');
+        $path = 'temp_previews/' . sha1_file($file->getRealPath()) . '.' . $ext;
+        if (! $disk->exists($path)) {
+            $disk->putFileAs('temp_previews', $file, basename($path));
+        }
+
+        if (random_int(1, 30) === 1) {
+            $cutoff = time() - 6 * 3600;
+            foreach (glob($disk->path('temp_previews') . '/*') ?: [] as $old) {
+                if (is_file($old) && @filemtime($old) < $cutoff) {
+                    @unlink($old);
+                }
+            }
+        }
+        // Touched on every use, so a photo in use is never swept.
+        @touch($disk->path($path));
+
+        return $path;
+    }
+
+    /** "Use the preset's new version": replace an edited copy's design with its preset's current one. */
+    public function usePresetVersion(Tournament $tournament, TournamentTemplate $template)
+    {
+        abort_if($template->tournament_id !== $tournament->id, 404);
+        $preset = $template->sourcePreset;
+        abort_unless($preset && $preset->tournament_id === null, 404);
+
+        app(\App\Services\Poster\TemplateLibrary::class)->applyPreset($template, $preset, keepBackground: $template->bg_only && $template->bg_changed);
+
+        return back()->with('success', __('":name" now uses the latest version of its preset.', ['name' => $template->name]));
+    }
+
+    /** Free designs change only their background; Super Admin may change anything. */
+    private function abortUnlessFullyEditable(TournamentTemplate $template, Request $request): void
+    {
+        if ($template->fullyEditableBy(auth()->user())) {
+            return;
+        }
+        $message = __('This is a free design: only its background can be changed.');
+        if ($request->expectsJson() || $request->ajax()) {
+            throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json(['success' => false, 'message' => $message], 403));
+        }
+        abort(403, $message);
     }
 
     public function destroy(Tournament $tournament, TournamentTemplate $template)
@@ -1522,6 +1609,10 @@ class TournamentTemplateController extends Controller
         }
 
         $template->delete();
+
+        if (request()->expectsJson()) {
+            return response()->json(['success' => true]);
+        }
 
         /*
          * Back to wherever the delete was pressed, not always the template list.
@@ -1721,8 +1812,10 @@ class TournamentTemplateController extends Controller
         // Files are copied, never shared — see TemplateCopier.
         $newTemplate = app(\App\Services\Poster\TemplateCopier::class)->copy($template, $tournament->id, $newName);
 
+        // A free design's copy is background-only too, so it opens on the list, not the editor.
         return redirect()
-            ->route('admin.tournaments.templates.edit', [$tournament, $newTemplate])
+            ->route($newTemplate->fullyEditableBy(auth()->user()) ? 'admin.tournaments.templates.edit' : 'admin.tournaments.templates.index',
+                $newTemplate->fullyEditableBy(auth()->user()) ? [$tournament, $newTemplate] : $tournament)
             ->with('success', 'Template duplicated as "' . $newName . '".');
     }
 

@@ -196,9 +196,41 @@ class TemplateRenderService extends PosterGeneratorService
             }
         }
 
+        // A live preview keeps the picture in memory: no PNG is written only to be thrown away.
+        if ($this->keepCanvas) {
+            $this->keptCanvas = $canvas;
+
+            return '';
+        }
+
         // Save and return path
         $filename = $this->generateFilename('template-' . $template->id . ($preview ? '-preview' : ''));
         return $this->saveImage($canvas, $filename);
+    }
+
+    /** Set while renderLivePreview() runs: renderTemplate() hands back the canvas instead of saving it. */
+    protected bool $keepCanvas = false;
+
+    protected ?\GdImage $keptCanvas = null;
+
+    /**
+     * The on-screen preview the generate page refreshes as fields change: drawn in
+     * memory, shrunk to LIVE_PREVIEW_MAX_EDGE and sent as a light JPEG. Nothing is
+     * written to disk and nothing is charged. Never use it for a poster that is
+     * saved, sent or downloaded — that is renderWithPreview()['path'].
+     */
+    public function renderLivePreview(TournamentTemplate $template, array $data = [], bool $skipBlanks = false): string
+    {
+        $this->keepCanvas = true;
+        try {
+            $this->renderTemplate($template, $data, true, $skipBlanks);
+            $canvas = $this->keptCanvas;
+        } finally {
+            $this->keepCanvas = false;
+            $this->keptCanvas = null;
+        }
+
+        return $this->previewFromImage($canvas, static::LIVE_PREVIEW_MAX_EDGE, static::LIVE_PREVIEW_QUALITY);
     }
 
     /**
@@ -3511,6 +3543,11 @@ class TemplateRenderService extends PosterGeneratorService
      */
     protected const PREVIEW_MAX_EDGE = 2200;
 
+    /** The live preview is an on-screen picture, refreshed as fields change: a third of the bytes. */
+    protected const LIVE_PREVIEW_MAX_EDGE = 1350;
+
+    protected const LIVE_PREVIEW_QUALITY = 85;
+
     /**
      * Quality for the preview JPEG.
      *
@@ -3536,7 +3573,10 @@ class TemplateRenderService extends PosterGeneratorService
      */
     public function renderWithPreview(TournamentTemplate $template, array $data = [], bool $skipBlanks = false): array
     {
-        $this->prunePreviewRenders();
+        // Sweeping the folder lists thousands of files; once in a while is enough.
+        if (random_int(1, 25) === 1) {
+            $this->prunePreviewRenders();
+        }
 
         $path = $this->renderTemplate($template, $data, true, $skipBlanks);
 
@@ -3585,12 +3625,18 @@ class TemplateRenderService extends PosterGeneratorService
             return 'data:image/png;base64,' . base64_encode((string) @file_get_contents($fullPath));
         }
 
+        return $this->previewFromImage($image, static::PREVIEW_MAX_EDGE, static::PREVIEW_QUALITY);
+    }
+
+    /** A JPEG data-URI of a rendered canvas, shrunk to $maxEdge. Destroys $image. */
+    protected function previewFromImage(\GdImage $image, int $maxEdge, int $quality): string
+    {
         $srcWidth = imagesx($image);
         $srcHeight = imagesy($image);
         $longestEdge = max($srcWidth, $srcHeight);
 
-        if ($longestEdge > static::PREVIEW_MAX_EDGE) {
-            $scale = static::PREVIEW_MAX_EDGE / $longestEdge;
+        if ($longestEdge > $maxEdge) {
+            $scale = $maxEdge / $longestEdge;
             $shrunk = app(\App\Services\PlayerImageService::class)->downscale(
                 $image,
                 max(1, (int) round($srcWidth * $scale)),
@@ -3611,7 +3657,7 @@ class TemplateRenderService extends PosterGeneratorService
         imagedestroy($image);
 
         ob_start();
-        imagejpeg($flat, null, static::PREVIEW_QUALITY);
+        imagejpeg($flat, null, $quality);
         $imageData = ob_get_clean();
         imagedestroy($flat);
 
@@ -3634,12 +3680,9 @@ class TemplateRenderService extends PosterGeneratorService
             $disk = Storage::disk('public');
             $cutoff = time() - $maxAgeSeconds;
 
-            foreach ($disk->files($this->outputDirectory) as $file) {
-                if (! str_contains(basename($file), '-preview-')) {
-                    continue;
-                }
-                if ($disk->lastModified($file) < $cutoff) {
-                    $disk->delete($file);
+            foreach (glob($disk->path($this->outputDirectory) . '/*-preview-*') ?: [] as $file) {
+                if (@filemtime($file) < $cutoff) {
+                    @unlink($file);
                 }
             }
         } catch (\Throwable $e) {

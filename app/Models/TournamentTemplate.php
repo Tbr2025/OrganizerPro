@@ -26,6 +26,15 @@ class TournamentTemplate extends Model
         'preset_key',
         'preset_version',
         'preset_theme',
+        'tier',
+        'price',
+        'offered_to',
+        'design_version',
+        'source_preset_id',
+        'source_version',
+        'bg_only',
+        'customized',
+        'bg_changed',
     ];
 
     protected $casts = [
@@ -34,7 +43,63 @@ class TournamentTemplate extends Model
         'placeholders' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',
+        'offered_to' => 'array',
+        'price' => 'integer',
+        'design_version' => 'integer',
+        'source_version' => 'integer',
+        'bg_only' => 'boolean',
+        'customized' => 'boolean',
+        'bg_changed' => 'boolean',
     ];
+
+    public const TIER_FREE = 'free';
+    public const TIER_PREMIUM = 'premium';
+
+    /**
+     * Poster types that only mean something in an auction tournament: the auction
+     * cards and the retained-player welcome card. Presets of these types are offered
+     * to auction tournaments only.
+     */
+    public const AUCTION_TYPES = [
+        'auction_poster',
+        'auction_poster_portrait',
+        'retained_welcome_card',
+    ];
+
+    public function isPremium(): bool
+    {
+        return $this->tier === self::TIER_PREMIUM && $this->price > 0;
+    }
+
+    public static function isAuctionType(string $type): bool
+    {
+        return in_array($type, self::AUCTION_TYPES, true);
+    }
+
+    /** The preset a tournament's copy came from. */
+    public function sourcePreset()
+    {
+        return $this->belongsTo(self::class, 'source_preset_id');
+    }
+
+    /** A tournament's copies of this preset. */
+    public function copies()
+    {
+        return $this->hasMany(self::class, 'source_preset_id')->whereNotNull('tournament_id');
+    }
+
+    /** A copy whose preset has been changed since it was copied. */
+    public function hasPresetUpdate(): bool
+    {
+        return $this->source_preset_id !== null && $this->sourcePreset
+            && (int) $this->sourcePreset->design_version > (int) $this->source_version;
+    }
+
+    /** Can this user change more than the background? Free-preset copies: Super Admin only. */
+    public function fullyEditableBy(?\App\Models\User $user): bool
+    {
+        return ! $this->bg_only || ($user && $user->hasRole('Superadmin'));
+    }
 
     public const TYPE_WELCOME_CARD = 'welcome_card';
     public const TYPE_MATCH_POSTER = 'match_poster';

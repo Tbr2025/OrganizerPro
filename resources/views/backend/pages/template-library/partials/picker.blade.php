@@ -6,6 +6,11 @@
     @param string|null                    $orgSelect  CSS selector of an organization <select>; presets of
                                                       other organizations are hidden (and not posted)
                                                       while it points elsewhere — the create form, for Super Admin
+    @param string|null                    $typeSelect CSS selector of the tournament type <select>; auction poster
+                                                      presets are hidden unless it says "auction"
+
+    Premium presets carry their price; whenever the ticks change the picker fires
+    `presets-changed` on document with {premium: <credits for the ticked premium presets>}.
 --}}
 @php
     $pickerId = 'presetPicker' . uniqid();
@@ -33,10 +38,11 @@
                 <p class="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1.5">{{ \App\Models\TournamentTemplate::getTypeDisplay($type) }}</p>
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     @foreach($list as $preset)
-                        <label data-org="{{ $preset->organization_id ?? '' }}"
+                        <label data-org="{{ $preset->organization_id ?? '' }}" data-offered="{{ $preset->offered_to ? implode(',', $preset->offered_to) : '' }}"
+                               data-auction="{{ \App\Models\TournamentTemplate::isAuctionType($preset->type) ? 1 : 0 }}"
                                class="preset-pick relative block cursor-pointer rounded-lg border-2 border-gray-200 dark:border-gray-700 overflow-hidden has-[:checked]:border-indigo-500 has-[:checked]:ring-2 has-[:checked]:ring-indigo-500/30">
-                            <input type="checkbox" name="presets[]" value="{{ $preset->id }}" class="absolute top-1.5 right-1.5 z-10" @checked($preset->is_active)>
-                            <img src="{{ route('admin.template-library.thumb', $preset) }}" alt="" loading="lazy"
+                            <input type="checkbox" name="presets[]" value="{{ $preset->id }}" data-price="{{ $preset->isPremium() ? $preset->price : 0 }}" class="absolute top-1.5 right-1.5 z-10" @checked($preset->is_active)>
+                            <img src="{{ route('admin.template-library.thumb', [$preset, 'v' => $preset->design_version]) }}" alt="" loading="lazy"
                                  class="w-full bg-gray-100 dark:bg-gray-800" style="aspect-ratio:4/5;object-fit:contain"
                                  onerror="this.style.visibility='hidden'">
                             <span class="block p-1.5">
@@ -47,6 +53,11 @@
                                     </span>
                                     @if($preset->is_default)
                                         <span class="text-[10px] px-1.5 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300">{{ __('Default') }}</span>
+                                    @endif
+                                    @if($preset->isPremium())
+                                        <span class="text-[10px] px-1.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ __('Premium') }} · {{ app(\App\Services\Credits\CreditService::class)->format($preset->price) }}</span>
+                                    @else
+                                        <span class="text-[10px] px-1.5 rounded bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300" title="{{ __('Only its background can be changed') }}">{{ __('Free') }}</span>
                                     @endif
                                 </span>
                             </span>
@@ -63,17 +74,24 @@
 (function () {
     const root = document.getElementById(@json($pickerId));
     const orgSelect = @json($orgSelect ?? null) ? document.querySelector(@json($orgSelect ?? '')) : null;
+    const typeSelect = @json($typeSelect ?? null) ? document.querySelector(@json($typeSelect ?? '')) : null;
     const items = () => [...root.querySelectorAll('.preset-pick')];
     const visible = () => items().filter(l => l.style.display !== 'none');
 
     function count() {
-        const n = visible().filter(l => l.querySelector('input').checked).length;
-        root.querySelector('[data-pick-count]').textContent = n + ' {{ __('ticked') }}';
+        const ticked = visible().map(l => l.querySelector('input')).filter(i => i.checked);
+        const premium = ticked.reduce((sum, i) => sum + Number(i.dataset.price || 0), 0);
+        root.querySelector('[data-pick-count]').textContent = ticked.length + ' {{ __('ticked') }}'
+            + (premium ? ' · {{ __('premium') }} ' + premium.toLocaleString() + ' {{ app(\App\Services\Credits\CreditService::class)->term() }}' : '');
+        document.dispatchEvent(new CustomEvent('presets-changed', { detail: { premium } }));
     }
     function filter() {
         const org = orgSelect ? String(orgSelect.value || '') : null;
+        const auction = typeSelect ? typeSelect.value === 'auction' : true;
         items().forEach(l => {
-            const show = org === null || l.dataset.org === '' || l.dataset.org === org;
+            const offered = l.dataset.offered ? l.dataset.offered.split(',') : null;
+            const forOrg = org === null || (l.dataset.org === '' ? (! offered || ! org || offered.includes(org)) : l.dataset.org === org);
+            const show = forOrg && (auction || l.dataset.auction !== '1');
             l.style.display = show ? '' : 'none';
             l.querySelector('input').disabled = !show; // a hidden preset is never posted
         });
@@ -88,6 +106,7 @@
     }));
     root.addEventListener('change', count);
     if (orgSelect) orgSelect.addEventListener('change', filter);
+    if (typeSelect) typeSelect.addEventListener('change', filter);
     filter();
 })();
 </script>

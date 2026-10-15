@@ -26,12 +26,37 @@ class TemplateCopier
         $new->tournament_id = $toTournamentId;
         $new->name = $name ?? $template->name;
         $new->is_default = $keepDefault ? $template->is_default : false;
+        $new->forceFill($this->design($template));
+        $new->save();
 
-        if ($template->background_image && Storage::disk('public')->exists($template->background_image)) {
-            $ext = pathinfo($template->background_image, PATHINFO_EXTENSION);
-            $newPath = 'tournament_templates/' . uniqid('bg_') . '.' . $ext;
-            Storage::disk('public')->copy($template->background_image, $newPath);
-            $new->background_image = $newPath;
+        return $new;
+    }
+
+    /**
+     * The design of a template — background, overlays, layout, canvas — with every
+     * file it references copied to a new path, ready to fill into another row.
+     * Used to make a copy, and to bring a copy up to its preset's new version.
+     *
+     * @param  bool  $withBackground  false keeps the target's own background
+     */
+    public function design(TournamentTemplate $template, bool $withBackground = true): array
+    {
+        $design = [
+            'layout_json' => $template->layout_json,
+            'overlay_images' => $template->overlay_images,
+            'canvas_width' => $template->canvas_width,
+            'canvas_height' => $template->canvas_height,
+            'placeholders' => $template->placeholders,
+        ];
+
+        if ($withBackground) {
+            $design['background_image'] = $template->background_image;
+            if ($template->background_image && Storage::disk('public')->exists($template->background_image)) {
+                $ext = pathinfo($template->background_image, PATHINFO_EXTENSION);
+                $newPath = 'tournament_templates/' . uniqid('bg_') . '.' . $ext;
+                Storage::disk('public')->copy($template->background_image, $newPath);
+                $design['background_image'] = $newPath;
+            }
         }
 
         // Copy every uploaded-image file the template references and remap the
@@ -71,7 +96,7 @@ class TemplateCopier
                     $overlays[] = $overlay;
                 }
             }
-            $new->overlay_images = $overlays;
+            $design['overlay_images'] = $overlays;
         }
 
         // layout_json: remap any element (e.g. uploadedImage) that embeds imagePath.
@@ -83,11 +108,9 @@ class TemplateCopier
                 }
             }
             unset($el);
-            $new->layout_json = $layout;
+            $design['layout_json'] = $layout;
         }
 
-        $new->save();
-
-        return $new;
+        return $design;
     }
 }

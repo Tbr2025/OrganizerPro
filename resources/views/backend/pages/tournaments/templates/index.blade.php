@@ -260,6 +260,7 @@
 
                 <div class="p-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        @php $bgFee ??= $tournament->organization ? app(\App\Services\Credits\CreditGate::class)->feeLabel(\App\Models\Credits\CreditFeature::TEMPLATE_BACKGROUND, $tournament->organization) : null; @endphp
                         @foreach($templates[$type] as $template)
                             <div class="group relative bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:border-indigo-300 transition">
                                 {{-- Preview Image --}}
@@ -284,16 +285,24 @@
                                         @if(!$template->is_active)
                                             <span class="bg-gray-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Inactive</span>
                                         @endif
+                                        @if($template->bg_only)
+                                            <span class="bg-sky-500 text-white text-xs px-2 py-0.5 rounded-full font-medium" title="Free design: only its background can be changed">Free design</span>
+                                        @endif
+                                        @if($template->hasPresetUpdate())
+                                            <span class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">Update available</span>
+                                        @endif
                                     </div>
 
                                     {{-- Hover Actions (always visible on mobile, hover on desktop) --}}
                                     <div class="absolute inset-0 bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                                        @if($fullEdit = $template->fullyEditableBy(auth()->user()))
                                         <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
-                                           class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Edit">
-                                            <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                        </a>
+                                               class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Edit">
+                                                <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                </svg>
+                                            </a>
+                                        @endif
                                         <a href="{{ route('admin.tournaments.templates.preview', [$tournament, $template]) }}"
                                            class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Preview" target="_blank">
                                             <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,6 +334,25 @@
                                 {{-- Info --}}
                                 <div class="p-3">
                                     <h4 class="font-medium text-gray-900 dark:text-white text-sm truncate">{{ $template->name }}</h4>
+                                    @if(! $fullEdit)
+                                        {{-- A free design: only the background changes, and that costs credits. --}}
+                                        <form action="{{ route('admin.tournaments.templates.update-background', [$tournament, $template]) }}" method="POST" enctype="multipart/form-data" class="mt-1.5">
+                                            @csrf
+                                            <label class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer">
+                                                <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp" class="hidden"
+                                                       onchange="if (this.files.length && confirm(@js(__('Replace the background of :name?', ['name' => $template->name])) + @js($bgFee ? ' ' . __('This uses :fee.', ['fee' => $bgFee]) : ''))) this.form.submit()">
+                                                Change background @if($bgFee)<span class="font-normal text-gray-500">({{ $bgFee }})</span>@endif
+                                            </label>
+                                        </form>
+                                    @endif
+                                    @if($template->hasPresetUpdate() && $template->customized)
+                                        <form action="{{ route('admin.tournaments.templates.use-preset-version', [$tournament, $template]) }}" method="POST" class="mt-1"
+                                              onsubmit="return confirm(@js(__('Replace your edits with the preset\'s new version?')))">
+                                            @csrf
+                                            <button class="text-xs font-medium text-amber-700 hover:text-amber-900">Use the preset's new version</button>
+                                        </form>
+                                    @endif
+                                    @if($fullEdit)
                                     <div class="flex items-center gap-2 mt-1 relative" x-data="{ showSizes: false }">
                                         <button @click="showSizes = !showSizes" class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer" title="Change size">
                                             <span id="sizeLabel-{{ $template->id }}">{{ $template->canvas_width ?? 1080 }} x {{ $template->canvas_height ?? 1080 }}</span>
@@ -349,6 +377,7 @@
                                             <button onclick="updateTemplateSize({{ $template->id }}, 3508, 2480, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">A4 Landscape (3508x2480)</button>
                                         </div>
                                     </div>
+                                    @endif
                                     <div class="flex items-center justify-between mt-2">
                                         <span class="text-xs text-gray-500">{{ $template->created_at->diffForHumans() }}</span>
                                         @if(!$template->is_default)

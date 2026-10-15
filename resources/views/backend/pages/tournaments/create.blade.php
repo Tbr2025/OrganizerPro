@@ -163,6 +163,7 @@
                     @include('backend.pages.template-library.partials.picker', [
                         'presets' => app(\App\Services\Poster\TemplateLibrary::class)->pickerFor(auth()->user()),
                         'orgSelect' => '#organization_id',
+                        'typeSelect' => '#type',
                     ])
                 </div>
 
@@ -173,16 +174,25 @@
                         Cancel
                     </a>
 
-                    @if(!empty($creditsInfo['label']))
+                    @if(!empty($creditsInfo))
                         <span class="text-xs text-gray-500 dark:text-gray-400">Balance: {{ $creditsInfo['balance'] }}</span>
                     @endif
-                    <button type="submit" @disabled(!empty($creditsInfo) && ! $creditsInfo['enough'])
+                    <button type="submit" id="createTournamentBtn" @disabled(!empty($creditsInfo) && ! $creditsInfo['enough'])
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">
                         Create Tournament
-                        @if(!empty($creditsInfo['label']))
-                            <span class="ml-1 font-normal opacity-90">({{ $creditsInfo['label'] }})</span>
-                        @endif
+                        <span id="createTournamentFee" class="ml-1 font-normal opacity-90">@if(!empty($creditsInfo['label']))({{ $creditsInfo['label'] }})@endif</span>
                     </button>
+                    @if(!empty($creditsInfo))
+                        <script>
+                            // The price on the button: the tournament fee plus the premium presets ticked.
+                            document.addEventListener('presets-changed', function (e) {
+                                const base = {{ (int) $creditsInfo['fee'] }}, balance = {{ (int) app(\App\Services\Credits\CreditService::class)->balance(\App\Models\Organization::find(auth()->user()->organization_id)) }};
+                                const total = base + (e.detail.premium || 0);
+                                document.getElementById('createTournamentFee').textContent = total > 0 ? '(' + total.toLocaleString() + ' ' + @json(app(\App\Services\Credits\CreditService::class)->term()) + ')' : '';
+                                document.getElementById('createTournamentBtn').disabled = total > balance;
+                            });
+                        </script>
+                    @endif
                 </div>
             </form>
         </div>

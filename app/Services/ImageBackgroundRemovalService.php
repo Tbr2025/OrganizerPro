@@ -301,17 +301,17 @@ PYTHON;
             return null;
         }
 
-        // Skip images that already have transparency
-        if ($this->hasTransparency($fullPath)) {
-            return null;
-        }
-
         $pathInfo = pathinfo($imagePath);
         $outputPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '-nobg.png';
 
-        // Check cache
+        // Cache first: it is a file check, where hasTransparency() decodes the whole image.
         if (Storage::disk('public')->exists($outputPath)) {
             return $outputPath;
+        }
+
+        // Skip images that already have transparency
+        if ($this->hasTransparency($fullPath)) {
+            return null;
         }
 
         $outputFullPath = Storage::disk('public')->path($outputPath);
