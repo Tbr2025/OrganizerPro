@@ -97,7 +97,8 @@ class PresetTiersTest extends TestCase
         $this->assertSame(10, $this->credits->balance($this->org->fresh()));
 
         // Adding it again to the same tournament costs nothing more.
-        $this->post(route('admin.template-library.copy-to-tournament', $t), ['presets' => [$premium->id]])->assertSessionHas('success');
+        $this->post(route('admin.template-library.copy-to-tournament', $t), ['presets' => [$premium->id]])->assertForbidden();
+        $this->library->copyInto($t, [$premium->id], $this->admin);
         $this->assertSame(10, $this->credits->balance($this->org->fresh()));
 
         // The premium copy is fully editable; the free one is background-only.
@@ -141,11 +142,22 @@ class PresetTiersTest extends TestCase
         $this->assertTrue($copy->bg_only);
         $this->price(CreditFeature::TEMPLATE_BACKGROUND, 7);
 
+        // Organization users never edit, duplicate or add templates: those pages send them to the poster page.
         $this->actingAs($this->admin)->get(route('admin.tournaments.templates.edit', [$t, $copy]))
-            ->assertRedirect(route('admin.tournaments.templates.index', $t));
+            ->assertRedirect(route('admin.tournaments.templates.generate', $t));
+        $this->get(route('admin.tournaments.templates.index', $t))->assertRedirect(route('admin.tournaments.templates.generate', $t));
         $this->putJson(route('admin.tournaments.templates.update', [$t, $copy]), ['name' => 'Hacked', 'layout_json' => '[]'])->assertForbidden();
+        $this->post(route('admin.tournaments.templates.duplicate', [$t, $copy]))->assertForbidden();
         $this->assertSame('Free one', $copy->fresh()->name);
-        $this->get(route('admin.tournaments.templates.index', $t))->assertOk()->assertSee('Free design')->assertSee('Change background');
+
+        // The poster page offers them only Change background, and only on the free design.
+        $own = TournamentTemplate::create(['tournament_id' => $t->id, 'type' => 'match_poster', 'name' => 'Older one', 'layout_json' => []]);
+        $page = $this->get(route('admin.tournaments.templates.generate', [$t, 'type' => 'match_poster']))->assertOk();
+        $page->assertSee(route('admin.tournaments.templates.update-background', [$t, $copy]), false)
+            ->assertDontSee(route('admin.tournaments.templates.update-background', [$t, $own]), false)
+            ->assertDontSee(route('admin.tournaments.templates.duplicate', [$t, $copy]), false)
+            ->assertDontSee('Add from Presets');
+        $this->post(route('admin.tournaments.templates.update-background', [$t, $own]), ['background_image' => UploadedFile::fake()->image('bg.jpg', 800, 800)])->assertForbidden();
 
         // Short: nothing changes. Paid: the background is replaced and the charge recorded.
         $before = $copy->background_image;
@@ -176,7 +188,7 @@ class PresetTiersTest extends TestCase
 
         // The free copy paid for its own background; the premium copy was edited.
         $freeCopy->update(['background_image' => 'tournament_templates/mine.jpg', 'bg_changed' => true]);
-        $this->actingAs($this->admin)->putJson(route('admin.tournaments.templates.update', [$t, $richCopy]), [
+        $this->actingAs($this->super)->putJson(route('admin.tournaments.templates.update', [$t, $richCopy]), [
             'name' => 'Rich (ours)', 'layout_json' => json_encode([['type' => 'text', 'text' => 'Ours']]),
         ])->assertOk();
         $this->assertTrue($richCopy->fresh()->customized);
@@ -201,7 +213,7 @@ class PresetTiersTest extends TestCase
         $richCopy->refresh();
         $this->assertSame('Ours', $richCopy->layout_json[0]['text'], 'An edited copy is never overwritten silently');
         $this->assertTrue($richCopy->hasPresetUpdate());
-        $this->actingAs($this->admin)->get(route('admin.tournaments.templates.index', $t))->assertSee('Update available');
+        $this->actingAs($this->super)->get(route('admin.tournaments.templates.index', $t))->assertSee('Update available');
 
         // The tournament takes the new version when it chooses to.
         $this->post(route('admin.tournaments.templates.use-preset-version', [$t, $richCopy]))->assertSessionHas('success');
@@ -215,7 +227,8 @@ class PresetTiersTest extends TestCase
         $t = $this->tournament();
         $own = TournamentTemplate::create(['tournament_id' => $t->id, 'type' => 'flyer', 'name' => 'Mine', 'layout_json' => []]);
 
-        $this->actingAs($this->admin)->deleteJson(route('admin.tournaments.templates.destroy', [$t, $own]))
+        $this->actingAs($this->admin)->deleteJson(route('admin.tournaments.templates.destroy', [$t, $own]))->assertForbidden();
+        $this->actingAs($this->super)->deleteJson(route('admin.tournaments.templates.destroy', [$t, $own]))
             ->assertOk()->assertJson(['success' => true]);
         $this->assertNull(TournamentTemplate::find($own->id));
     }

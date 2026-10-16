@@ -23,11 +23,10 @@ use Illuminate\View\View;
  * Template presets (see TemplateLibrary): designed in the same drag editor as a
  * tournament's own templates; only the URLs it saves to differ.
  *
- * Only Super Admin builds presets (`template.presets`): the global ones, and any
- * organization's own. Everyone else only PICKS from the presets offered to their
- * organization — on the new tournament and new season forms, and "Add from
- * Presets" on a tournament they can edit — so the picture of a preset and the
- * copy into a tournament are open to them too.
+ * Only Super Admin builds presets (`template.presets`), the global ones and any
+ * organization's own, and only Super Admin adds them to an existing tournament
+ * ("Add from Presets"). Everyone else only PICKS presets on the new tournament
+ * and new season forms, so the picture of a preset is open to them.
  *
  * Ready-made designs come in here as starting points, and a tournament's
  * template can be saved as a preset; tournaments pick presets when they are
@@ -42,8 +41,8 @@ class TemplateLibraryController extends Controller
     {
         $this->middleware('permission:template.presets')->except(['thumb', 'copyToTournament']);
         // Picking presets: whoever creates tournaments or edits a tournament's templates.
-        $this->middleware('permission:template.presets|tournament.create|template.manage')->only('thumb');
-        $this->middleware('permission:template.presets|template.manage')->only('copyToTournament');
+        $this->middleware('permission:template.presets|tournament.create')->only('thumb');
+        $this->middleware('permission:template.presets')->only('copyToTournament');
     }
 
     public function index(Request $request): View

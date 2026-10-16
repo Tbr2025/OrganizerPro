@@ -195,21 +195,17 @@ class TemplateLibraryTest extends TestCase
         $this->actingAs($this->super)->get(route('admin.tournaments.templates.edit', [$cup, $preset]))->assertNotFound();
         $this->actingAs($this->super)->get(route('admin.template-library.edit', $own))->assertNotFound();
 
-        // Save as preset is Super Admin's; adding presets to a tournament is anyone's who edits it.
+        // Save as preset and Add from Presets are Super Admin's alone.
         $organizer = $this->orgAdmin();
         $cup->organizers()->attach($organizer->id);
         $this->actingAs($organizer)->post(route('admin.template-library.save-from-tournament', [$cup, $own]))->assertForbidden();
         $this->actingAs($this->super)->post(route('admin.template-library.save-from-tournament', [$cup, $own]), ['scope' => $this->org->id])->assertRedirect();
         $this->assertSame($this->org->id, TournamentTemplate::whereNull('tournament_id')->latest('id')->value('organization_id'));
 
-        $this->actingAs($organizer)->post(route('admin.template-library.copy-to-tournament', $cup), ['presets' => [$preset->id]])->assertRedirect();
+        $this->actingAs($organizer)->post(route('admin.template-library.copy-to-tournament', $cup), ['presets' => [$preset->id]])->assertForbidden();
+        $this->assertSame(1, $cup->templates()->count());
+        $this->actingAs($this->super)->post(route('admin.template-library.copy-to-tournament', $cup), ['presets' => [$preset->id]])->assertRedirect();
         $this->assertSame(2, $cup->templates()->count());
-
-        // Another organization's tournament is out of reach (hidden by its scope, or refused).
-        $rival = $this->createTournament($this->super, 'Rival Cup', [], $this->other);
-        $status = $this->actingAs($organizer)->post(route('admin.template-library.copy-to-tournament', $rival), ['presets' => [$preset->id]])->status();
-        $this->assertContains($status, [403, 404]);
-        $this->assertSame(0, $rival->templates()->count());
     }
 
     #[Test]

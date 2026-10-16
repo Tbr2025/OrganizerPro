@@ -282,6 +282,7 @@ class RolesService
             'feature.manage',
             // Template presets are built by Super Admin only; admins pick from them.
             'template.presets',
+            'template.manage',
         ]; // Added more critical exclusions
         $adminPermissions = array_diff($allPermissionNames, $adminExcludedPermissions);
         $roles['admin'] = $this->createOrSyncRole('Admin', $adminPermissions);
@@ -331,8 +332,6 @@ class RolesService
             'image-templates.edit',
             // Posters from the tournament's templates
             'template.generate',
-            // ...and edit their tournaments' designs, ready-made ones included
-            'template.manage',
             // Scoring and the LED wall for their matches
             'scoring.update',
             'scoring.quick_add_player',
@@ -398,7 +397,6 @@ class RolesService
             'player.view',
             'player.edit',
             'template.generate',
-            'template.manage',
             'auctions.view',
             'auction.view',
             'auction.create',
@@ -575,6 +573,12 @@ class RolesService
                     'organization.create',
                     'organization.edit',
                     'organization.delete',
+                    // Super Admin only — kept in step with createPredefinedRoles().
+                    'credits.manage',
+                    'discount.manage',
+                    'feature.manage',
+                    'template.presets',
+                    'template.manage',
                 ];
                 return array_diff($getAllPermissionNames(), $adminExcludedPermissions);
 

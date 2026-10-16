@@ -80,10 +80,10 @@ class RoleMatrixTest extends TestCase
     {
         return [
             'Superadmin' => ['Superadmin', 200],
-            // They edit their own tournaments' designs, ready-made ones included.
-            'Admin' => ['Admin', 200],
-            'Organizer' => ['Organizer', 200],
-            'Auction Organizer' => ['Auction Organizer', 200],
+            // Templates are designed by Super Admin only; organization users make posters.
+            'Admin' => ['Admin', 403],
+            'Organizer' => ['Organizer', 403],
+            'Auction Organizer' => ['Auction Organizer', 403],
             'Team Manager' => ['Team Manager', 302], // sent to their own dashboard
             'Scorer' => ['Scorer', 403],
         ];

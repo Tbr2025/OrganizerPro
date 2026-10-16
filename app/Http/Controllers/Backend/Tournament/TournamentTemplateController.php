@@ -35,13 +35,20 @@ class TournamentTemplateController extends Controller
                 if ($request->has('ajax_layout') && $request->isMethod('GET')) {
                     return $next($request);
                 }
+                // Templates are Super Admin's to design. Someone who makes posters, opening
+                // the templates list or an edit link, lands on the poster page instead.
+                if ($request->isMethod('GET') && auth()->user()->can('template.generate')
+                    && in_array($request->route()?->getActionMethod(), ['index', 'edit', 'create'], true)) {
+                    return redirect()->route('admin.tournaments.templates.generate', $request->route('tournament'))
+                        ->with('info', __('Templates are designed by Super Admin. Make posters here.'));
+                }
                 abort(403, 'You do not have permission to manage templates.');
             }
             return $next($request);
         })->only([
             'index', 'create', 'store', 'edit', 'update', 'destroy',
             'duplicate', 'setDefault', 'uploadOverlay', 'deleteOverlay', 'updateSize',
-            'updateBackground', 'preview', 'usePresetVersion',
+            'preview', 'usePresetVersion',
         ]);
     }
 
@@ -1454,6 +1461,9 @@ class TournamentTemplateController extends Controller
     public function updateBackground(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
+        // Super Admin changes any background; organization users only a free design's.
+        abort_unless(auth()->user()->can('template.manage') || ($template->bg_only && auth()->user()->can('template.generate')), 403,
+            __('Only Super Admin can change this template.'));
 
         $request->validate([
             'background_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',

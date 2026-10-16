@@ -1446,7 +1446,6 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::post('/templates/upload-overlay', [TournamentTemplateController::class, 'uploadOverlay'])->name('templates.upload-overlay');
             Route::post('/templates/delete-overlay', [TournamentTemplateController::class, 'deleteOverlay'])->name('templates.delete-overlay');
             Route::patch('/templates/{template}/update-size', [TournamentTemplateController::class, 'updateSize'])->name('templates.update-size');
-            Route::post('/templates/{template}/update-background', [TournamentTemplateController::class, 'updateBackground'])->name('templates.update-background');
             Route::post('/templates/{template}/use-preset-version', [TournamentTemplateController::class, 'usePresetVersion'])->name('templates.use-preset-version');
         });
 
@@ -1462,6 +1461,9 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
             Route::get('/matches/{match}/awards', [TournamentTemplateController::class, 'getMatchAwards'])->name('matches.get-awards');
             Route::post('/templates/generate-fixtures-poster', [TournamentTemplateController::class, 'generateFixturesPoster'])->name('templates.generate-fixtures-poster')->middleware('credits.posters');
             Route::post('/templates/toggle-auto-welcome', [TournamentTemplateController::class, 'toggleAutoWelcome'])->name('templates.toggle-auto-welcome');
+            // A free design's background: organizers may change it (a paid action); the
+            // controller allows anything else only to template.manage (Super Admin).
+            Route::post('/templates/{template}/update-background', [TournamentTemplateController::class, 'updateBackground'])->name('templates.update-background');
             Route::delete('/generated-posters/{poster}', [TournamentTemplateController::class, 'deleteGeneratedPoster'])->name('generated-posters.destroy');
             Route::post('/generated-posters/{poster}/set-match-poster', [TournamentTemplateController::class, 'setMatchPoster'])->name('generated-posters.set-match-poster');
         });

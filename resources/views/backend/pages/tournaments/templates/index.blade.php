@@ -40,7 +40,7 @@
                     </svg>
                     New Template
                 </a>
-                @canany(['template.presets', 'template.manage'])
+                @can('template.presets')
                     <div x-data="{ open: false }">
                         <button type="button" @click="open = true" class="inline-flex items-center px-3 py-2 sm:px-4 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition whitespace-nowrap">
                             Add from Presets
@@ -63,7 +63,7 @@
                             </form>
                         </div>
                     </div>
-                @endcanany
+                @endcan
             </div>
         </div>
     </div>
