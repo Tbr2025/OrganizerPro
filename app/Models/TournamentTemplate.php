@@ -102,8 +102,8 @@ class TournamentTemplate extends Model
     }
 
     /**
-     * Can this user change the background? Super Admin: any template. Organization
-     * users who make posters: a free design (a paid change) or a premium design (free).
+     * Can this user change the background? Super Admin: any template.
+     * Organizers who generate posters: any template in their tournament.
      */
     public function backgroundChangeableBy(?\App\Models\User $user): bool
     {
@@ -111,8 +111,7 @@ class TournamentTemplate extends Model
             return false;
         }
 
-        return $user->can('template.manage')
-            || ($user->can('template.generate') && ($this->bg_only || $this->isPremiumCopy()));
+        return $user->can('template.manage') || $user->can('template.generate');
     }
 
     /** Can this user change more than the background? Free-preset copies: Super Admin only. */

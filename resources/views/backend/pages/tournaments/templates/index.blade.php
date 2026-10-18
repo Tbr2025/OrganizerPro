@@ -297,14 +297,14 @@
 
                                     {{-- Hover Actions (always visible on mobile, hover on desktop) --}}
                                     <div class="absolute inset-0 bg-black/60 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition flex items-center justify-center gap-2">
-                                        @if($fullEdit = $template->fullyEditableBy(auth()->user()))
+                                        @can('template.manage')
                                         <a href="{{ route('admin.tournaments.templates.edit', [$tournament, $template]) }}"
                                                class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Edit">
                                                 <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                                 </svg>
                                             </a>
-                                        @endif
+                                        @endcan
                                         <a href="{{ route('admin.tournaments.templates.preview', [$tournament, $template]) }}"
                                            class="p-2 bg-white rounded-lg hover:bg-gray-100 transition" title="Preview" target="_blank">
                                             <svg class="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,14 +338,14 @@
                                 {{-- Info --}}
                                 <div class="p-3">
                                     <h4 class="font-medium text-gray-900 dark:text-white text-sm truncate">{{ $template->name }}</h4>
-                                    @if(! $fullEdit)
-                                        {{-- A free design: only the background changes, and that costs credits. --}}
+                                    @if($template->backgroundChangeableBy(auth()->user()) && ! auth()->user()?->can('template.manage'))
+                                        {{-- Organizers: change background on any template. --}}
                                         <form action="{{ route('admin.tournaments.templates.update-background', [$tournament, $template]) }}" method="POST" enctype="multipart/form-data" class="mt-1.5">
                                             @csrf
                                             <label class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer">
                                                 <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp" class="hidden"
                                                        onchange="if (this.files.length && confirm(@js(__('Replace the background of :name?', ['name' => $template->name])) + @js($bgFee ? ' ' . __('This uses :fee.', ['fee' => $bgFee]) : ''))) this.form.submit()">
-                                                Change background @if($bgFee)<span class="font-normal text-gray-500">({{ $bgFee }})</span>@endif
+                                                Change background @if($bgFee && $template->bg_only)<span class="font-normal text-gray-500">({{ $bgFee }})</span>@endif
                                             </label>
                                         </form>
                                     @endif
@@ -358,7 +358,7 @@
                                         </form>
                                     @endif
                                     @endcan
-                                    @if($fullEdit)
+                                    @can('template.manage')
                                     <div class="flex items-center gap-2 mt-1 relative" x-data="{ showSizes: false }">
                                         <button @click="showSizes = !showSizes" class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer" title="Change size">
                                             <span id="sizeLabel-{{ $template->id }}">{{ $template->canvas_width ?? 1080 }} x {{ $template->canvas_height ?? 1080 }}</span>
@@ -383,7 +383,7 @@
                                             <button onclick="updateTemplateSize({{ $template->id }}, 3508, 2480, this)" @click="showSizes = false" class="w-full text-left px-3 py-1.5 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-700 dark:text-gray-300">A4 Landscape (3508x2480)</button>
                                         </div>
                                     </div>
-                                    @endif
+                                    @endcan
                                     <div class="flex items-center justify-between mt-2">
                                         <span class="text-xs text-gray-500">{{ $template->created_at->diffForHumans() }}</span>
                                         @if(!$template->is_default)
