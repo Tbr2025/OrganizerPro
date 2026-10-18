@@ -35,7 +35,10 @@ class LedQueueService
     private const EVENT_PANELS = ['wicket', 'boundary', 'last_over', 'innings_summary', 'result'];
 
     /** Between innings the wall rotates the first innings' story, not the live strip. */
-    private const BREAK_PANELS = ['innings_summary', 'top_batting', 'top_bowling', 'tournament_batting', 'tournament_bowling', 'sponsor'];
+    private const BREAK_PANELS = ['innings_summary', 'full_scorecard', 'top_batting', 'top_bowling', 'tournament_batting', 'tournament_bowling', 'sponsor'];
+
+    /** Before the match starts: teams, toss, and (when set) the Playing XI. */
+    private const PREMATCH_PANELS = ['prematch', 'playing_xi', 'sponsor'];
 
     /** After the match: the result, then who starred. */
     private const AFTER_PANELS = ['result', 'top_batting', 'top_bowling', 'sponsor'];
@@ -336,6 +339,7 @@ class LedQueueService
     private function queueFiller(LedDisplay $display, CarbonInterface $now): ?LedQueueItem
     {
         $fillers = match ($this->phase($display)) {
+            'prematch' => self::PREMATCH_PANELS,
             'innings_break' => self::BREAK_PANELS,
             'completed' => self::AFTER_PANELS,
             default => array_values(array_intersect(LedDisplay::FILLERS, (array) $display->setting('fillers'))),
@@ -380,6 +384,9 @@ class LedQueueService
             'bowler_card' => $state && $state['bowler'] ? ['bowler' => $state['bowler']] : null,
             'last_over' => $state && $state['last_over'] ? ['over' => $state['last_over']] : null,
             'innings_summary' => $state ? ['innings' => $state['innings'][$this->summaryInnings($state)] ?? null] : null,
+            'full_scorecard' => $state ? ['innings' => $state['innings'][$this->summaryInnings($state)] ?? null] : null,
+            'playing_xi' => $state && ! empty($state['lineups']) ? ['lineups' => $state['lineups'], 'teams' => $state['teams']] : null,
+            'opening' => $state ? $this->openingPayload($state) : null,
             'result' => $state && $state['result'] ? ['result' => $state['result']] : null,
             // Live panels draw from the state the screen already holds.
             default => [],
@@ -390,6 +397,40 @@ class LedQueueService
     private function phase(LedDisplay $display): ?string
     {
         return $display->match ? ($this->wall->forMatch($display->match)['status'] ?? null) : null;
+    }
+
+    /** Opening pair + first bowler from the current innings (or from lineups when no ball bowled yet). */
+    private function openingPayload(array $state): ?array
+    {
+        $striker = $state['striker'];
+        $nonStriker = $state['non_striker'];
+
+        // Before the first ball: fall back to lineup batting_order 1 & 2.
+        if (! $striker && ! $nonStriker) {
+            $battingId = $state['batting']['id'] ?? null;
+            $bowlingId = $state['bowling']['id'] ?? null;
+            $lineup = ($battingId && isset($state['lineups'][$battingId])) ? $state['lineups'][$battingId]['players'] : [];
+            if (count($lineup) < 2) {
+                return null;
+            }
+            $sorted = collect($lineup)->sortBy('batting_order')->values();
+            $striker = ['name' => $sorted[0]['name']];
+            $nonStriker = ['name' => $sorted[1]['name']];
+
+            // First bowler from the bowling side's lineup.
+            $bowlLineup = ($bowlingId && isset($state['lineups'][$bowlingId])) ? $state['lineups'][$bowlingId]['players'] : [];
+            $bowler = ! empty($bowlLineup) ? ['name' => $bowlLineup[0]['name']] : null;
+        } else {
+            $bowler = $state['bowler'];
+        }
+
+        return [
+            'striker' => $striker,
+            'non_striker' => $nonStriker,
+            'bowler' => $bowler,
+            'batting' => $state['batting'],
+            'bowling' => $state['bowling'],
+        ];
     }
 
     /** The innings worth summarising: the one just finished while the next has not begun. */

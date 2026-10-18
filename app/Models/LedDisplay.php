@@ -35,6 +35,9 @@ class LedDisplay extends Model
         'result' => 'Result',
         'sponsor' => 'Sponsors',
         'prematch' => 'Teams & toss',
+        'playing_xi' => 'Playing XI',
+        'full_scorecard' => 'Full scorecard',
+        'opening' => 'Opening pair',
     ];
 
     public const DEFAULT_SETTINGS = [

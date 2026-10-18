@@ -131,6 +131,7 @@ class WallState
             'top_batters' => array_map(fn ($b) => $this->batter($b), $s['top_batters']),
             'top_bowlers' => array_map(fn ($b) => $this->bowler($b), $s['top_bowlers']),
             'result' => $s['result'] ? $this->result($s['result'], $teams) : null,
+            'lineups' => $this->lineups($match, $teams),
         ];
     }
 
@@ -169,6 +170,23 @@ class WallState
 
             return ['tournament_batting' => $batting, 'tournament_bowling' => $bowling, 'sponsors' => $sponsors];
         });
+    }
+
+    private function lineups(Matches $match, array $teams): array
+    {
+        $out = [];
+        foreach ($match->lineups->groupBy('actual_team_id') as $teamId => $entries) {
+            $out[(int) $teamId] = [
+                'team' => $teams[(int) $teamId] ?? null,
+                'players' => $entries->sortBy('batting_order')->values()->map(fn ($e) => [
+                    'name' => $e->player?->name,
+                    'role' => $e->role,
+                    'batting_order' => $e->batting_order,
+                ])->all(),
+            ];
+        }
+
+        return $out;
     }
 
     private function batter(array $b): array

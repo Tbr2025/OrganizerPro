@@ -203,6 +203,45 @@
         <div class="center">${img(b?.logo, 'logo')}<div class="h1">${esc(b?.name)}</div></div></div>
         <div class="center h2 mut" style="margin-top:40px">${esc(st.match?.toss || '')}</div>`;
     },
+    playing_xi(st, p) {
+      const lineups = p.lineups || st?.lineups || {};
+      const sides = Object.values(lineups);
+      if (!sides.length) return `<div class="center h1">No lineups set</div>`;
+      const col = side => {
+        const team = side.team || {};
+        const players = (side.players || []).slice(0, 11);
+        return `<div style="flex:1">
+          <div class="row" style="gap:16px;margin-bottom:24px">${img(team.logo, '')} <span class="h2">${esc(team.name)}</span></div>
+          <table class="lb"><tr><th>#</th><th>Player</th><th>Role</th></tr>
+          ${players.map((p, i) => `<tr><td>${esc(p.batting_order ?? i + 1)}</td><td>${esc(p.name)}</td><td class="n">${esc(p.role || '')}</td></tr>`).join('')}</table></div>`;
+      };
+      return `<div class="center h2" style="color:var(--accent);letter-spacing:.2em;margin-bottom:24px">PLAYING XI</div>
+        <div class="row" style="gap:48px;align-items:flex-start">${sides.map(col).join('')}</div>`;
+    },
+    full_scorecard(st, p) {
+      const i = p.innings || {};
+      const bat = (i.batters || []);
+      const bowl = (i.bowlers || []);
+      return `<div class="row" style="justify-content:space-between;margin-bottom:24px">
+        <div class="h1">${esc(i.team?.name || 'Innings')}</div>
+        <div class="h1">${esc(i.runs)}/${esc(i.wickets)} <span class="mut">(${esc(i.overs)})</span></div></div>
+        <div class="row" style="gap:48px;align-items:flex-start">
+        <table class="lb" style="flex:1.3"><tr><th>Batter</th><th>How out</th><th class="n">R</th><th class="n">B</th><th class="n">4s</th><th class="n">6s</th><th class="n">SR</th></tr>
+        ${bat.map(b => `<tr><td>${esc(b.name)}${b.out ? '' : '*'}</td><td class="mut">${esc(b.how_out || 'not out')}</td><td class="n">${esc(b.runs)}</td><td class="n">${esc(b.balls)}</td><td class="n">${esc(b.fours)}</td><td class="n">${esc(b.sixes)}</td><td class="n">${esc(b.strike_rate)}</td></tr>`).join('')}
+        <tr><td colspan="2" class="mut">Extras</td><td class="n" colspan="5">${esc(i.extras?.total ?? 0)}</td></tr></table>
+        <table class="lb" style="flex:1"><tr><th>Bowler</th><th class="n">O</th><th class="n">M</th><th class="n">R</th><th class="n">W</th><th class="n">Econ</th></tr>
+        ${bowl.map(b => `<tr><td>${esc(b.name)}</td><td class="n">${esc(b.overs)}</td><td class="n">${esc(b.maidens)}</td><td class="n">${esc(b.runs)}</td><td class="n">${esc(b.wickets)}</td><td class="n">${esc(b.economy)}</td></tr>`).join('')}</table></div>`;
+    },
+    opening(st, p) {
+      const s = p.striker || {}, n = p.non_striker || {}, bw = p.bowler;
+      return `<div class="center">
+        <div class="h2" style="color:var(--accent);letter-spacing:.2em">OPENING PAIR</div>
+        <div class="row" style="justify-content:center;gap:80px;margin-top:40px">
+          <div>${img(p.batting?.logo, 'logo')}<div class="h1">${esc(s.name)}</div><div class="h2 mut">Striker</div></div>
+          <div class="h1 mut">&amp;</div>
+          <div>${img(p.batting?.logo, 'logo')}<div class="h1">${esc(n.name)}</div><div class="h2 mut">Non-striker</div></div></div>
+        ${bw ? `<div class="h2 mut" style="margin-top:40px">Opening bowler: <span style="color:var(--ink)">${esc(bw.name)}</span>${p.bowling ? ' (' + esc(p.bowling.short || p.bowling.name) + ')' : ''}</div>` : ''}</div>`;
+    },
   };
 
   // ---- ticker strip (always on) ----

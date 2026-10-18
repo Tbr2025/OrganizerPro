@@ -7,6 +7,7 @@ namespace App\Services\LedWall;
 use App\Models\LedDisplay;
 use App\Models\LedPreset;
 use App\Models\Matches;
+use App\Models\TournamentSetting;
 
 /**
  * How the live-video score ticker (/live/{match}) looks: colours, size, where
@@ -106,7 +107,47 @@ class TickerDesign
         $display = LedDisplay::where('match_id', $match->id)->whereNull('revoked_at')->oldest()->first();
         $own = $display ? (($display->settings ?? [])['ticker'] ?? null) : null;
 
-        return self::normalize($own ?: self::defaultTemplate($match->tournament?->organization_id));
+        return self::normalize($own ?: self::defaultTemplate($match->tournament?->organization_id) ?: self::fromTournament($match->tournament_id));
+    }
+
+    /**
+     * Map a tournament's branding colours to ticker design keys.
+     * Returns null when the tournament has no colours set.
+     */
+    private static function fromTournament(?int $tournamentId): ?array
+    {
+        if (! $tournamentId) {
+            return null;
+        }
+
+        $settings = TournamentSetting::where('tournament_id', $tournamentId)->first();
+        if (! $settings) {
+            return null;
+        }
+
+        $primary = $settings->primary_color;
+        $secondary = $settings->secondary_color;
+        $accent = $settings->accent_color;
+
+        if (! $primary && ! $secondary && ! $accent) {
+            return null;
+        }
+
+        $design = [];
+        if ($primary) {
+            $design['bg'] = $primary;
+            $design['panel_from'] = $primary;
+        }
+        if ($secondary) {
+            $design['panel_to'] = $secondary;
+        }
+        if ($accent) {
+            $design['accent_from'] = $accent;
+            $design['accent_to'] = $accent;
+            $design['highlight'] = $accent;
+        }
+
+        return $design;
     }
 
     /** The organization's default ticker template, else the platform's. */

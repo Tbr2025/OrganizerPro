@@ -561,6 +561,39 @@
                     <span class="text-white/50 text-3xl oswald">vs</span><p class="text-white text-4xl font-bold oswald">${esc(b?.name)}</p>${logoImg(b?.logo)}</div>
                     ${st?.match?.toss ? `<p class="text-center text-yellow-400 text-2xl mt-3">${esc(st.match.toss)}</p>` : ''}`);
             },
+            playing_xi(p, st) {
+                const lineups = p.lineups || st?.lineups || {};
+                const sides = Object.values(lineups);
+                if (!sides.length) return '';
+                const col = side => {
+                    const team = side.team || {};
+                    const players = (side.players || []).slice(0, 11);
+                    return `<div class="flex-1">${head(team.name || 'Team')}<table>
+                        <tr><th>#</th><th>Player</th><th class="n">Role</th></tr>
+                        ${players.map((p, i) => `<tr><td>${esc(p.batting_order ?? i + 1)}</td><td>${esc(p.name)}</td><td class="n">${esc(p.role || '')}</td></tr>`).join('')}</table></div>`;
+                };
+                return card(`${head('Playing XI')}<div class="flex gap-10">${sides.map(col).join('')}</div>`);
+            },
+            full_scorecard(p) {
+                const i = p.innings || {};
+                const bat = (i.batters || []);
+                const bowl = (i.bowlers || []);
+                return card(`<div class="flex items-baseline justify-between">${head(i.team?.name || 'Innings')}
+                    <p class="text-white text-4xl font-bold oswald">${esc(i.runs)}/${esc(i.wickets)} <span class="text-white/60 text-2xl">(${esc(i.overs)})</span></p></div>
+                    <div class="flex gap-10"><table class="flex-1"><tr><th>Batter</th><th>How out</th><th class="n">R</th><th class="n">B</th><th class="n">4s</th><th class="n">6s</th><th class="n">SR</th></tr>
+                    ${bat.map(b => `<tr><td>${esc(b.name)}${b.out ? '' : '*'}</td><td class="text-white/40">${esc(b.how_out || 'not out')}</td><td class="n">${esc(b.runs)}</td><td class="n">${esc(b.balls)}</td><td class="n">${esc(b.fours)}</td><td class="n">${esc(b.sixes)}</td><td class="n">${esc(b.strike_rate)}</td></tr>`).join('')}
+                    <tr><td colspan="2" class="text-white/40">Extras</td><td class="n" colspan="5">${esc(i.extras?.total ?? 0)}</td></tr></table>
+                    <table><tr><th>Bowler</th><th class="n">O</th><th class="n">M</th><th class="n">R</th><th class="n">W</th><th class="n">Econ</th></tr>
+                    ${bowl.map(b => `<tr><td>${esc(b.name)}</td><td class="n">${esc(b.overs)}</td><td class="n">${esc(b.maidens)}</td><td class="n">${esc(b.runs)}</td><td class="n">${esc(b.wickets)}</td><td class="n">${esc(b.economy)}</td></tr>`).join('')}</table></div>`);
+            },
+            opening(p, st) {
+                const s = p.striker || {}, n = p.non_striker || {}, bw = p.bowler;
+                return card(`<div class="flex items-center justify-center gap-8">${head('Opening pair')}
+                    <p class="text-white text-4xl font-bold oswald">${esc(s.name)}</p>
+                    <span class="text-white/50 text-3xl oswald">&amp;</span>
+                    <p class="text-white text-4xl font-bold oswald">${esc(n.name)}</p>
+                    ${bw ? `<span class="text-white/50 text-2xl ml-6">vs ${esc(bw.name)}</span>` : ''}</div>`);
+            },
         };
 
         let shownOverlay = null, overlayTimer = null, ledChannel = null;
