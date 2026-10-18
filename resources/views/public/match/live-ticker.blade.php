@@ -116,6 +116,23 @@
         .score-overlay { position: relative; }
         .score-overlay::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 0; }
         .score-overlay > * { position: relative; z-index: 1; }
+        /* Smaller balls in This Over bar */
+        #ticker-this-over #this-over > div { width: 22px !important; height: 22px !important; font-size: 9px !important; }
+        /* Pre-match screen */
+        #prematch-screen .team-split { position: absolute; inset: 0; display: flex; }
+        #prematch-screen .team-split > div { flex: 1; opacity: 0.25; }
+        @keyframes prematch-in { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
+        #prematch-screen .pm-content { animation: prematch-in 0.6s ease-out; }
+        /* Control panel */
+        #control-panel .ctrl-btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; transition: all 0.15s; border: 1px solid rgba(255,255,255,0.15); background: transparent; color: #fff; }
+        #control-panel .ctrl-btn:hover { background: rgba(255,255,255,0.1); }
+        #control-panel .ctrl-btn.active { background: #f59e0b; color: #000; border-color: #f59e0b; }
+        #control-panel .ctrl-toggle { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; font-size: 13px; }
+        #control-panel .ctrl-toggle input[type="checkbox"] { accent-color: #f59e0b; width: 16px; height: 16px; cursor: pointer; }
+        /* Extra section toggles */
+        body.t-no-score #ticker-score { display: none !important; }
+        body.t-no-innings #ticker-innings-badge { display: none !important; }
+        body.t-hidden #ticker-card, body.t-hidden #ticker-badge { display: none !important; }
     </style>
 </head>
 <body>
@@ -154,6 +171,81 @@
             </div>
         </div>
 
+        <!-- Pre-match Overlay Screen -->
+        <div id="prematch-screen" class="fixed inset-0 z-40 hidden" style="overflow:hidden">
+            <div class="team-split">
+                <div style="background:{{ $match->teamA->primary_color ?? '#1e40af' }}"></div>
+                <div style="background:{{ $match->teamB->primary_color ?? '#047857' }}"></div>
+            </div>
+            <div class="absolute inset-0 bg-black/60"></div>
+            <div class="relative z-10 flex flex-col items-center justify-center h-full pm-content">
+                @if($match->tournament?->logo)
+                    <img src="{{ Storage::url($match->tournament->logo) }}" class="h-24 w-24 object-contain rounded-2xl bg-white/10 p-2 mb-4">
+                @endif
+                <p class="text-yellow-400 text-2xl font-bold oswald uppercase tracking-widest mb-16">{{ $match->tournament->name ?? 'Tournament' }}</p>
+                <div class="flex items-center gap-24">
+                    <div class="flex flex-col items-center">
+                        @if($match->teamA?->team_logo)
+                            <img src="{{ Storage::url($match->teamA->team_logo) }}" class="h-44 w-44 object-contain rounded-full ring-4 ring-white/20 shadow-2xl mb-6" style="background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
+                        @else
+                            <div class="h-44 w-44 rounded-full flex items-center justify-center ring-4 ring-white/20 shadow-2xl mb-6" style="background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
+                                <span class="text-5xl font-black text-white oswald">{{ substr($match->teamA->short_name ?? $match->teamA->name ?? 'A', 0, 3) }}</span>
+                            </div>
+                        @endif
+                        <p class="text-white text-5xl font-black oswald uppercase tracking-wider">{{ $match->teamA->short_name ?? Str::limit($match->teamA->name ?? 'A', 6, '') }}</p>
+                        <p class="text-white/40 text-xl oswald mt-1">{{ $match->teamA->name ?? 'Team A' }}</p>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        <span class="text-white/20 text-5xl font-black oswald" style="letter-spacing:6px">VS</span>
+                    </div>
+                    <div class="flex flex-col items-center">
+                        @if($match->teamB?->team_logo)
+                            <img src="{{ Storage::url($match->teamB->team_logo) }}" class="h-44 w-44 object-contain rounded-full ring-4 ring-white/20 shadow-2xl mb-6" style="background:{{ $match->teamB->primary_color ?? '#047857' }}">
+                        @else
+                            <div class="h-44 w-44 rounded-full flex items-center justify-center ring-4 ring-white/20 shadow-2xl mb-6" style="background:{{ $match->teamB->primary_color ?? '#047857' }}">
+                                <span class="text-5xl font-black text-white oswald">{{ substr($match->teamB->short_name ?? $match->teamB->name ?? 'B', 0, 3) }}</span>
+                            </div>
+                        @endif
+                        <p class="text-white text-5xl font-black oswald uppercase tracking-wider">{{ $match->teamB->short_name ?? Str::limit($match->teamB->name ?? 'B', 6, '') }}</p>
+                        <p class="text-white/40 text-xl oswald mt-1">{{ $match->teamB->name ?? 'Team B' }}</p>
+                    </div>
+                </div>
+                <div class="mt-16 text-center">
+                    @if($match->match_number)
+                        <p class="text-white/30 text-xl oswald uppercase tracking-widest mb-3">MATCH {{ $match->match_number }}</p>
+                    @endif
+                    <p class="text-white text-2xl font-bold oswald uppercase">{{ $match->overs ?? 20 }} OVERS</p>
+                    @if($match->venue)
+                        <p class="text-yellow-400/70 text-xl oswald uppercase tracking-wider mt-4">LIVE FROM {{ strtoupper($match->venue) }}</p>
+                    @endif
+                    <p class="text-white/30 text-lg oswald mt-2">{{ $match->match_date?->format('d M Y') ?? '' }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel (press C to toggle) -->
+        <div id="control-panel" class="fixed top-4 left-4 z-50 rounded-xl p-4 text-white hidden" style="min-width:260px; background:rgba(17,24,39,0.95); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1);">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-3">Ticker Controls <span class="text-white/20 ml-1">C to close</span></p>
+            <div class="flex gap-2 mb-4">
+                <button onclick="setView('prematch')" id="btn-prematch" class="ctrl-btn flex-1">Pre-match</button>
+                <button onclick="setView('live')" id="btn-live" class="ctrl-btn flex-1 active">Live</button>
+            </div>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-white/30 mb-2">Show / Hide</p>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('score',this.checked)"> Score</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('players',this.checked)"> Batters</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('bowler',this.checked)"> Bowler</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('stats',this.checked)"> Stats (CRR / Target)</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('this-over',this.checked)"> This Over</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('badge',this.checked)"> Badge</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('moments',this.checked)"> Overlays</label>
+            <label class="ctrl-toggle"><input type="checkbox" checked onchange="toggleSection('innings',this.checked)"> Current Innings</label>
+            <div class="border-t border-white/10 my-3"></div>
+            <div class="flex gap-2">
+                <button onclick="hideAll()" class="ctrl-btn flex-1" style="color:#f87171;border-color:rgba(248,113,113,0.3)">Hide All</button>
+                <button onclick="showAll()" class="ctrl-btn flex-1" style="color:#4ade80;border-color:rgba(74,222,128,0.3)">Show All</button>
+            </div>
+        </div>
+
         <!-- Main Ticker Container - Bottom of screen -->
         <div id="ticker-wrap" class="fixed bottom-0 left-0 right-0">
             <!-- What the LED console puts up (wicket, boundary, cards, stats), above the strip. -->
@@ -180,7 +272,7 @@
                     </div>
 
                     <!-- 2. Score Block (dark overlay on team color) -->
-                    <div class="team-a-gradient score-overlay flex flex-col justify-center px-6" style="min-width:280px;background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
+                    <div id="ticker-score" class="team-a-gradient score-overlay flex flex-col justify-center px-6" style="min-width:280px;background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
                         <div class="flex items-center gap-4">
                             <span class="text-white font-black text-2xl oswald uppercase tracking-wide" style="min-width:48px">{{ $match->teamA->short_name ?? Str::limit($match->teamA->name ?? 'A', 3, '') }}</span>
                             <span id="team-a-score" class="text-white font-black oswald leading-none score-box" style="font-size:40px">0/0</span>
@@ -195,35 +287,37 @@
                     </div>
 
                     <!-- 3. Batters Block (BRIGHT team A color — no overlay) -->
-                    <div id="ticker-players" class="team-a-gradient flex-1 flex flex-col justify-center px-8" style="background:{{ $match->teamA->primary_color ?? '#1e40af' }};min-width:320px">
-                        <!-- Striker -->
-                        <div class="flex items-center">
-                            <span id="striker-name" class="text-white font-black text-2xl oswald uppercase tracking-wide truncate" style="max-width:240px">-</span>
-                            <div class="ml-auto flex items-baseline gap-5 flex-shrink-0">
-                                <span id="striker-runs" class="text-white font-black oswald" style="font-size:36px">0</span>
-                                <span id="striker-balls" class="text-white/50 text-2xl oswald font-bold">0</span>
+                    <div id="ticker-players" class="team-a-gradient flex-1 flex items-center px-6" style="background:{{ $match->teamA->primary_color ?? '#1e40af' }};min-width:280px">
+                        <div class="flex flex-col justify-center w-full" style="max-width:400px">
+                            <div class="flex items-center justify-between">
+                                <span id="striker-name" class="text-white font-black text-2xl oswald uppercase tracking-wide truncate" style="max-width:200px">-</span>
+                                <div class="flex items-baseline gap-4 flex-shrink-0">
+                                    <span id="striker-runs" class="text-white font-black oswald" style="font-size:36px">0</span>
+                                    <span id="striker-balls" class="text-white/50 text-2xl oswald font-bold">0</span>
+                                </div>
                             </div>
-                        </div>
-                        <!-- Non-Striker -->
-                        <div class="flex items-center mt-1.5">
-                            <div class="flex items-center gap-2">
-                                <span class="text-white/50 text-lg font-bold">✓</span>
-                                <span id="non-striker-name" class="text-white/50 font-bold text-lg oswald uppercase tracking-wide truncate" style="max-width:220px">-</span>
+                            <div class="flex items-center justify-between mt-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-white/50 text-lg font-bold">✓</span>
+                                    <span id="non-striker-name" class="text-white/50 font-bold text-lg oswald uppercase tracking-wide truncate" style="max-width:180px">-</span>
+                                </div>
+                                <div class="flex items-baseline gap-4 flex-shrink-0">
+                                    <span id="non-striker-runs" class="text-white/50 font-bold text-2xl oswald">0</span>
+                                    <span id="non-striker-balls" class="text-white/30 text-xl oswald font-bold">0</span>
+                                </div>
                             </div>
-                            <div class="ml-auto flex items-baseline gap-5 flex-shrink-0">
-                                <span id="non-striker-runs" class="text-white/50 font-bold text-2xl oswald">0</span>
-                                <span id="non-striker-balls" class="text-white/30 text-xl oswald font-bold">0</span>
+                            <div class="hidden">
+                                <span id="striker-fours">0</span><span id="striker-sixes">0</span><span id="striker-sr">0.00</span>
+                                <span id="non-striker-fours">0</span><span id="non-striker-sixes">0</span>
                             </div>
-                        </div>
-                        <!-- Hidden stats for JS -->
-                        <div class="hidden">
-                            <span id="striker-fours">0</span><span id="striker-sixes">0</span><span id="striker-sr">0.00</span>
-                            <span id="non-striker-fours">0</span><span id="non-striker-sixes">0</span>
                         </div>
                     </div>
 
                     <!-- 4. Chase / Stats Block (GOLD) -->
                     <div class="gold-gradient flex flex-col items-center justify-center px-6" style="min-width:150px">
+                        <div id="ticker-innings-badge" class="text-center mb-1">
+                            <span id="current-innings" class="text-black/40 text-[10px] font-bold oswald uppercase tracking-wider">1ST INNINGS</span>
+                        </div>
                         <div class="t-stat text-center">
                             <p class="text-black/40 text-sm font-bold oswald uppercase tracking-wider">CRR</p>
                             <p id="crr" class="text-black text-3xl font-black oswald leading-tight">0.00</p>
@@ -239,29 +333,28 @@
                     </div>
 
                     <!-- 5. Bowler Block (BRIGHT team B color — no overlay) -->
-                    <div id="ticker-bowler" class="team-b-gradient flex-1 flex flex-col justify-center px-8" style="background:{{ $match->teamB->primary_color ?? '#047857' }};min-width:320px">
-                        <!-- Bowler -->
-                        <div class="flex items-center">
-                            <span id="bowler-name" class="text-white font-black text-2xl oswald uppercase tracking-wide truncate" style="max-width:240px">-</span>
-                            <div class="ml-auto flex items-baseline gap-4 flex-shrink-0">
-                                <span class="text-white font-black oswald" style="font-size:36px"><span id="bowler-wickets">0</span><span class="text-white/40">-</span><span id="bowler-runs">0</span></span>
-                                <span id="bowler-overs" class="text-white/50 text-2xl oswald font-bold">0.0</span>
+                    <div id="ticker-bowler" class="team-b-gradient flex-1 flex items-center px-6" style="background:{{ $match->teamB->primary_color ?? '#047857' }};min-width:280px">
+                        <div class="flex flex-col justify-center w-full" style="max-width:400px;margin-left:auto">
+                            <div class="flex items-center justify-between">
+                                <span id="bowler-name" class="text-white font-black text-2xl oswald uppercase tracking-wide truncate" style="max-width:200px">-</span>
+                                <div class="flex items-baseline gap-4 flex-shrink-0">
+                                    <span class="text-white font-black oswald" style="font-size:36px"><span id="bowler-wickets">0</span><span class="text-white/40">-</span><span id="bowler-runs">0</span></span>
+                                    <span id="bowler-overs" class="text-white/50 text-2xl oswald font-bold">0.0</span>
+                                </div>
                             </div>
-                        </div>
-                        <!-- Required Rate / Match Status -->
-                        <div class="flex items-center mt-1.5">
-                            <div id="rrr-section" class="t-stat flex items-center gap-3 hidden">
-                                <span class="text-white/50 text-sm font-bold oswald uppercase tracking-wider">REQUIRED RATE</span>
-                                <span id="rrr" class="text-white font-black text-2xl oswald">-</span>
+                            <div class="flex items-center justify-between mt-1">
+                                <div id="rrr-section" class="t-stat flex items-center gap-3 hidden">
+                                    <span class="text-white/50 text-sm font-bold oswald uppercase tracking-wider">REQ RATE</span>
+                                    <span id="rrr" class="text-white font-black text-2xl oswald">-</span>
+                                </div>
+                                <div id="ticker-status">
+                                    <span id="match-status" class="text-white/40 text-sm font-bold oswald uppercase tracking-wider">{{ $match->overs ?? 20 }} OVERS MATCH</span>
+                                </div>
                             </div>
-                            <div id="ticker-status">
-                                <span id="match-status" class="text-white/40 text-sm font-bold oswald uppercase tracking-wider">{{ $match->overs ?? 20 }} OVERS MATCH</span>
+                            <div class="hidden">
+                                <span id="bowler-maidens">0</span>
+                                <span id="bowler-economy">0.00</span>
                             </div>
-                        </div>
-                        <!-- Hidden bowler stats -->
-                        <div class="hidden">
-                            <span id="bowler-maidens">0</span>
-                            <span id="bowler-economy">0.00</span>
                         </div>
                     </div>
 
@@ -563,12 +656,10 @@
             return inn && inn.batted ? inn : null;
         }
 
-        async function fetchScores() {
+        async function fetchScores(pushData) {
             clearTimeout(timer);
             try {
-                const response = await fetch(STATE_URL, { headers: { Accept: 'application/json' }, cache: 'no-store' });
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                const data = await response.json();
+                const data = pushData || await fetch(STATE_URL, { headers: { Accept: 'application/json' }, cache: 'no-store' }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
                 lastVersion = data.version;
 
                 // Scores by TEAM (team A's box is team A's, whoever batted first).
@@ -641,6 +732,11 @@
                     live: (data.in_powerplay ? 'POWERPLAY · ' : '') + `${data.match?.overs_limit ?? maxOvers} OVERS MATCH` + ((data.total_innings || 2) > 2 ? ` · INNINGS ${data.current_innings} OF ${data.total_innings}` : '') }[data.status];
                 if (statusText) updateText('match-status', statusText);
 
+                // Current innings indicator
+                const inn = data.current_innings || 1;
+                const suffix = inn === 1 ? 'ST' : inn === 2 ? 'ND' : inn === 3 ? 'RD' : 'TH';
+                updateText('current-innings', inn + suffix + ' INNINGS');
+
                 drawOverlay(data);
                 applyDesign(draftDesign || data.design);
             } catch (error) {
@@ -648,14 +744,14 @@
             } finally {
                 // Chained, never stacked: a slow response cannot queue a second
                 // request behind itself. 15 s with push healthy, else 3 s.
-                timer = setTimeout(fetchScores, pushOk ? 15000 : 3000);
+                timer = setTimeout(fetchScores, pushOk ? 30000 : 5000);
             }
         }
 
         fetchScores();
 
         try {
-            window.pushChannel?.('match.' + matchId)?.listen('.score.updated', e => { if (e.version > lastVersion) fetchScores(); });
+            window.pushChannel?.('match.' + matchId)?.listen('.score.updated', e => { if (e.version > lastVersion) { e.score ? fetchScores(e) : fetchScores(); } });
             const conn = window.Echo?.connector?.pusher?.connection;
             conn?.bind('connected', () => { pushOk = true; fetchScores(); });
             conn?.bind('unavailable', () => { pushOk = false; });
@@ -665,6 +761,38 @@
         }
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchScores(); });
 
+        // ---- control panel ----
+        let currentView = 'live';
+        const sections = ['score', 'players', 'bowler', 'stats', 'this-over', 'badge', 'moments', 'innings'];
+
+        function setView(view) {
+            currentView = view;
+            document.getElementById('prematch-screen').classList.toggle('hidden', view !== 'prematch');
+            document.getElementById('ticker-wrap').style.display = view === 'prematch' ? 'none' : '';
+            document.getElementById('btn-prematch').classList.toggle('active', view === 'prematch');
+            document.getElementById('btn-live').classList.toggle('active', view === 'live');
+        }
+
+        function toggleSection(section, show) {
+            if (section === 'badge') {
+                document.body.classList.toggle('t-badge-hidden', !show);
+            } else {
+                document.body.classList.toggle('t-no-' + section, !show);
+            }
+        }
+
+        function hideAll() {
+            document.body.classList.add('t-hidden');
+            document.querySelectorAll('#control-panel input[type=checkbox]').forEach(cb => { cb.checked = false; });
+            sections.forEach(s => toggleSection(s, false));
+        }
+
+        function showAll() {
+            document.body.classList.remove('t-hidden');
+            document.querySelectorAll('#control-panel input[type=checkbox]').forEach(cb => { cb.checked = true; });
+            sections.forEach(s => toggleSection(s, true));
+        }
+
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             if (e.key === 'r' || e.key === 'R') {
@@ -672,6 +800,16 @@
             }
             if (e.key === 'f' || e.key === 'F') {
                 document.documentElement.requestFullscreen?.() || document.body.webkitRequestFullscreen?.();
+            }
+            if (e.key === 'c' || e.key === 'C') {
+                document.getElementById('control-panel').classList.toggle('hidden');
+            }
+            if (e.key === 'p' || e.key === 'P') {
+                setView(currentView === 'prematch' ? 'live' : 'prematch');
+            }
+            if (e.key === 'h' || e.key === 'H') {
+                const hidden = document.body.classList.toggle('t-hidden');
+                if (!hidden) showAll();
             }
         });
     </script>

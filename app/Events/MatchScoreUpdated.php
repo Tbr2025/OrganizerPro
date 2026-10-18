@@ -42,6 +42,18 @@ class MatchScoreUpdated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        try {
+            $match = \App\Models\Matches::find($this->matchId);
+            if ($match) {
+                return app(\App\Services\LedWall\WallState::class)->forMatch($match) + [
+                    'overlay' => app(\App\Services\LedWall\OverlayQueue::class)->forTicker($match),
+                    'design' => \App\Services\LedWall\TickerDesign::forMatch($match),
+                ];
+            }
+        } catch (Throwable $e) {
+            Log::warning('Broadcast state build failed: ' . $e->getMessage());
+        }
+
         return ['match' => $this->matchId, 'version' => $this->version];
     }
 }
