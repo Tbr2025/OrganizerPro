@@ -310,7 +310,7 @@
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Registrations</p>
         </a>
 
-        @can('template.manage')
+        @canany(['template.manage', 'template.generate'])
         <a href="{{ route('admin.tournaments.templates.index', $tournament) }}"
            class="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:border-pink-500 transition text-center group">
             <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center group-hover:scale-110 transition">
@@ -320,7 +320,7 @@
             </div>
             <p class="font-semibold text-gray-900 dark:text-white text-sm">Templates</p>
         </a>
-        @endcan
+        @endcanany
 
         @can('template.generate')
         <a href="{{ route('admin.tournaments.templates.generate', $tournament) }}"

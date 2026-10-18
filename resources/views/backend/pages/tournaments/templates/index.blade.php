@@ -33,6 +33,7 @@
                     </svg>
                     Generate Poster
                 </a>
+                @can('template.manage')
                 <a href="{{ route('admin.tournaments.templates.create', $tournament) }}"
                    class="inline-flex items-center px-3 py-2 sm:px-4 bg-white text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 transition whitespace-nowrap">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,7 +41,8 @@
                     </svg>
                     New Template
                 </a>
-                @can('template.presets')
+                @endcan
+                @canany(['template.presets', 'template.generate'])
                     <div x-data="{ open: false }">
                         <button type="button" @click="open = true" class="inline-flex items-center px-3 py-2 sm:px-4 bg-white/20 text-white text-sm font-semibold rounded-lg hover:bg-white/30 transition whitespace-nowrap">
                             Add from Presets
@@ -63,7 +65,7 @@
                             </form>
                         </div>
                     </div>
-                @endcan
+                @endcanany
             </div>
         </div>
     </div>
@@ -310,6 +312,7 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                             </svg>
                                         </a>
+                                        @can('template.manage')
                                         <form action="{{ route('admin.tournaments.templates.duplicate', [$tournament, $template]) }}" method="POST" class="inline">
                                             @csrf
                                             <button type="submit" class="p-2 bg-white rounded-lg hover:bg-blue-50 transition" title="Duplicate">
@@ -328,6 +331,7 @@
                                                 </svg>
                                             </button>
                                         </form>
+                                        @endcan
                                     </div>
                                 </div>
 
@@ -345,6 +349,7 @@
                                             </label>
                                         </form>
                                     @endif
+                                    @can('template.manage')
                                     @if($template->hasPresetUpdate() && $template->customized)
                                         <form action="{{ route('admin.tournaments.templates.use-preset-version', [$tournament, $template]) }}" method="POST" class="mt-1"
                                               onsubmit="return confirm(@js(__('Replace your edits with the preset\'s new version?')))">
@@ -352,6 +357,7 @@
                                             <button class="text-xs font-medium text-amber-700 hover:text-amber-900">Use the preset's new version</button>
                                         </form>
                                     @endif
+                                    @endcan
                                     @if($fullEdit)
                                     <div class="flex items-center gap-2 mt-1 relative" x-data="{ showSizes: false }">
                                         <button @click="showSizes = !showSizes" class="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded hover:bg-indigo-100 hover:text-indigo-600 dark:hover:bg-indigo-900/40 dark:hover:text-indigo-400 transition flex items-center gap-1 cursor-pointer" title="Change size">

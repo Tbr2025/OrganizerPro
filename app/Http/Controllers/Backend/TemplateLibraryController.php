@@ -40,9 +40,10 @@ class TemplateLibraryController extends Controller
     public function __construct(private readonly TemplateLibrary $library)
     {
         $this->middleware('permission:template.presets')->except(['thumb', 'copyToTournament']);
-        // Picking presets: whoever creates tournaments or edits a tournament's templates.
-        $this->middleware('permission:template.presets|tournament.create')->only('thumb');
-        $this->middleware('permission:template.presets')->only('copyToTournament');
+        // Picking presets: whoever creates tournaments, edits templates, or browses from the index.
+        $this->middleware('permission:template.presets|template.generate|tournament.create')->only('thumb');
+        // Organizers add presets to their own tournament from the templates index page.
+        $this->middleware('permission:template.presets|template.generate')->only('copyToTournament');
     }
 
     public function index(Request $request): View

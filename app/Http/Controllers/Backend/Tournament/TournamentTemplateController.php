@@ -35,10 +35,16 @@ class TournamentTemplateController extends Controller
                 if ($request->has('ajax_layout') && $request->isMethod('GET')) {
                     return $next($request);
                 }
+                // Organizers may view the template list (to add presets / change backgrounds),
+                // preview posters, and choose which template is default — no design editing.
+                if (auth()->user()->can('template.generate')
+                    && in_array($request->route()?->getActionMethod(), ['index', 'preview', 'setDefault'], true)) {
+                    return $next($request);
+                }
                 // Templates are Super Admin's to design. Someone who makes posters, opening
-                // the templates list or an edit link, lands on the poster page instead.
+                // an edit link, lands on the poster page instead.
                 if ($request->isMethod('GET') && auth()->user()->can('template.generate')
-                    && in_array($request->route()?->getActionMethod(), ['index', 'edit', 'create'], true)) {
+                    && in_array($request->route()?->getActionMethod(), ['edit', 'create'], true)) {
                     return redirect()->route('admin.tournaments.templates.generate', $request->route('tournament'))
                         ->with('info', __('Templates are designed by Super Admin. Make posters here.'));
                 }
