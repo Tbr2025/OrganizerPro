@@ -521,7 +521,8 @@
         const OVERLAY = {
             wicket(p, st) {
                 const w = p.wicket || {};
-                return card(`<div class="flex items-center gap-8"><span class="ov-word oswald text-red-500">WICKET</span><div>
+                const img = w.image ? `<img src="${esc(w.image)}" class="h-24 w-24 object-cover rounded-full ring-2 ring-red-400/50 shadow-lg flex-shrink-0">` : '';
+                return card(`<div class="flex items-center gap-8">${img}<span class="ov-word oswald text-red-500">WICKET</span><div>
                     <p class="text-white text-4xl font-bold oswald">${esc(w.name)} ${esc(w.runs)} <span class="text-white/60">(${esc(w.balls)})</span></p>
                     <p class="text-white/60 text-2xl mt-1">${esc(w.how_out || '')}</p></div>
                     <p class="ml-auto text-yellow-400 text-3xl font-bold oswald">${esc(p.team?.short || '')} ${esc(p.score || '')}</p></div>`, '#ef4444');
@@ -542,15 +543,17 @@
             },
             batter_card(p, st) {
                 const b = p.batter || st?.striker || {};
-                return card(`<div class="flex items-center gap-8"><div>${head('Batting')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p></div>
-                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.runs)} <span class="text-white/60 text-3xl">(${esc(b.balls)})</span></p>
-                    <p class="text-white/70 text-2xl">4s ${esc(b.fours)} · 6s ${esc(b.sixes)} · SR ${esc(b.strike_rate)}</p></div>`);
+                const img = b.image ? `<img src="${esc(b.image)}" class="h-28 w-28 object-cover rounded-full ring-2 ring-yellow-400/50 shadow-lg flex-shrink-0">` : '';
+                return card(`<div class="flex items-center gap-8">${img}<div>${head('Batting')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p>
+                    <p class="text-white/70 text-2xl mt-2">4s ${esc(b.fours)} · 6s ${esc(b.sixes)} · SR ${esc(b.strike_rate)}</p></div>
+                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.runs)} <span class="text-white/60 text-3xl">(${esc(b.balls)})</span></p></div>`);
             },
             bowler_card(p, st) {
                 const b = p.bowler || st?.bowler || {};
-                return card(`<div class="flex items-center gap-8"><div>${head('Bowling')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p></div>
-                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.wickets)}-${esc(b.runs)}</p>
-                    <p class="text-white/70 text-2xl">${esc(b.overs)} ov · ${esc(b.maidens)} m · Econ ${esc(b.economy)}</p></div>`);
+                const img = b.image ? `<img src="${esc(b.image)}" class="h-28 w-28 object-cover rounded-full ring-2 ring-yellow-400/50 shadow-lg flex-shrink-0">` : '';
+                return card(`<div class="flex items-center gap-8">${img}<div>${head('Bowling')}<p class="text-white text-4xl font-bold oswald">${esc(b.name)}</p>
+                    <p class="text-white/70 text-2xl mt-2">${esc(b.overs)} ov · ${esc(b.maidens)} m · Econ ${esc(b.economy)}</p></div>
+                    <p class="ml-auto text-white text-6xl font-bold oswald">${esc(b.wickets)}-${esc(b.runs)}</p></div>`);
             },
             partnership(p, st) {
                 const pt = p.partnership || st?.partnership || {}, a = p.striker || st?.striker, b = p.non_striker || st?.non_striker;
@@ -577,9 +580,7 @@
                 const r = p.result || st?.result || {};
                 return card(`<div class="flex items-center justify-center gap-6">${logoImg(r.winner?.logo)}<p class="text-green-400 text-5xl font-bold oswald uppercase">${esc(r.text)}</p></div>`, '#22c55e');
             },
-            sponsor(p) {
-                return card(`${head('Our sponsors')}<div class="flex flex-wrap items-center justify-center gap-10">${(p.sponsors || []).map(x => x.image ? `<img src="${esc(x.image)}" alt="" class="max-h-24 max-w-[320px] object-contain">` : '').join('')}</div>`);
-            },
+            sponsor() { return ''; },
             prematch(p, st) {
                 const [a, b] = st?.teams || [];
                 return card(`<div class="flex items-center justify-center gap-10">${logoImg(a?.logo)}<p class="text-white text-4xl font-bold oswald">${esc(a?.name)}</p>

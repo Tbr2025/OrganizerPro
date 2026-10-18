@@ -445,6 +445,7 @@ class MatchStateService
         if ($fow !== []) {
             $w = end($fow);
             $lastWicket = [
+                'id' => (int) $w['batter_id'],
                 'name' => $w['name'],
                 'runs' => $batters[$w['batter_id']]['runs'] ?? 0,
                 'balls' => $batters[$w['batter_id']]['balls'] ?? 0,

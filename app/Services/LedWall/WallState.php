@@ -48,6 +48,16 @@ class WallState
         ] : null;
 
         $teams = [(int) $match->team_a_id => $team($match->teamA), (int) $match->team_b_id => $team($match->teamB)];
+
+        $images = [];
+        foreach ([$match->teamA, $match->teamB] as $side) {
+            foreach ($side?->players ?? [] as $tp) {
+                if ($tp->player?->image_path) {
+                    $images[(int) $tp->player->id] = Storage::url($tp->player->image_path);
+                }
+            }
+        }
+
         $live = $s['innings'][$s['current_innings']];
 
         $innings = [];
@@ -62,8 +72,8 @@ class WallState
                 'extras' => $i['extras'],
                 'batted' => $i['balls_bowled'] > 0,
                 'complete' => $i['complete'],
-                'batters' => array_map(fn ($b) => $this->batter($b), $i['batters']),
-                'bowlers' => array_map(fn ($b) => $this->bowler($b), $i['bowlers']),
+                'batters' => array_map(fn ($b) => $this->batter($b, $images), $i['batters']),
+                'bowlers' => array_map(fn ($b) => $this->bowler($b, $images), $i['bowlers']),
                 'fall_of_wickets' => array_map(fn ($w) => array_diff_key($w, ['batter_id' => 1]), $i['fall_of_wickets']),
                 'overs_summary' => array_map(fn ($o) => array_diff_key($o, ['bowler_id' => 1]), $i['overs_summary']),
             ];
@@ -72,7 +82,7 @@ class WallState
         $batters = collect($live['batters'])->keyBy('id');
         $bowlers = collect($live['bowlers'])->keyBy('id');
         $atCrease = fn (?int $id, bool $onStrike) => $id && $batters->has($id)
-            ? $this->batter($batters[$id]) + ['on_strike' => $onStrike]
+            ? $this->batter($batters[$id], $images) + ['on_strike' => $onStrike]
             : null;
 
         $striker = $match->striker_id ? (int) $match->striker_id : $live['striker_id'];
@@ -121,15 +131,15 @@ class WallState
             'chase' => $s['chase'],
             'striker' => $live['balls_bowled'] ? $atCrease($striker, true) : null,
             'non_striker' => $live['balls_bowled'] ? $atCrease($nonStriker, false) : null,
-            'bowler' => $live['bowler_id'] && $bowlers->has($live['bowler_id']) ? $this->bowler($bowlers[$live['bowler_id']]) : null,
+            'bowler' => $live['bowler_id'] && $bowlers->has($live['bowler_id']) ? $this->bowler($bowlers[$live['bowler_id']], $images) : null,
             'partnership' => $live['partnership'],
-            'last_wicket' => $live['last_wicket'],
+            'last_wicket' => $live['last_wicket'] ? $live['last_wicket'] + ['image' => $images[$live['last_wicket']['id'] ?? 0] ?? null] : null,
             'last_over' => $lastComplete ? array_diff_key($lastComplete, ['bowler_id' => 1]) + [
                 'bowler' => $bowlers->has($lastComplete['bowler_id']) ? $bowlers[$lastComplete['bowler_id']]['name'] : null,
             ] : null,
             'innings' => $innings,
-            'top_batters' => array_map(fn ($b) => $this->batter($b), $s['top_batters']),
-            'top_bowlers' => array_map(fn ($b) => $this->bowler($b), $s['top_bowlers']),
+            'top_batters' => array_map(fn ($b) => $this->batter($b, $images), $s['top_batters']),
+            'top_bowlers' => array_map(fn ($b) => $this->bowler($b, $images), $s['top_bowlers']),
             'result' => $s['result'] ? $this->result($s['result'], $teams) : null,
             'lineups' => $this->lineups($match, $teams),
         ];
@@ -189,20 +199,22 @@ class WallState
         return $out;
     }
 
-    private function batter(array $b): array
+    private function batter(array $b, array $images = []): array
     {
         return [
             'name' => $b['name'], 'runs' => $b['runs'], 'balls' => $b['balls'],
             'fours' => $b['fours'], 'sixes' => $b['sixes'], 'strike_rate' => $b['strike_rate'],
             'out' => $b['out'], 'how_out' => $b['how_out'],
+            'image' => $images[$b['id'] ?? 0] ?? null,
         ];
     }
 
-    private function bowler(array $b): array
+    private function bowler(array $b, array $images = []): array
     {
         return [
             'name' => $b['name'], 'overs' => $b['overs'], 'maidens' => $b['maidens'],
             'runs' => $b['runs'], 'wickets' => $b['wickets'], 'economy' => $b['economy'],
+            'image' => $images[$b['id'] ?? 0] ?? null,
         ];
     }
 
