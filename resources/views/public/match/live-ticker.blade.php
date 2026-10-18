@@ -107,8 +107,8 @@
         body.t-top #ticker-wrap { display: flex; flex-direction: column-reverse; }
         body.t-top .ov { margin: 14px auto 0; }
 
-        /* Ticker strip section separator */
-        .ticker-sep { border-left: 2px solid rgba(255,255,255,0.12); }
+        /* Green score highlight box */
+        .score-box { background: #16a34a; border-radius: 4px; padding: 2px 12px; }
     </style>
 </head>
 <body>
@@ -158,61 +158,61 @@
                 <div class="gold-gradient" style="height:3px"></div>
 
                 <!-- Main single-row strip -->
-                <div class="flex items-stretch" style="min-height:86px">
-                    <!-- 1. Team A Logo -->
-                    <div class="team-a-gradient flex items-center justify-center" style="width:80px">
+                <div class="flex items-stretch" style="min-height:90px">
+                    <!-- 1. Team A Logo (darkened) -->
+                    <div class="team-a-gradient relative flex items-center justify-center" style="width:100px;background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
+                        <div class="absolute inset-0 bg-black/30"></div>
                         @if($match->teamA?->team_logo)
                             <img src="{{ Storage::url($match->teamA->team_logo) }}"
                                  alt="{{ $match->teamA->name }}"
-                                 class="h-14 w-14 object-cover rounded-full ring-2 ring-white/50 shadow-lg">
+                                 class="h-16 w-16 object-contain rounded-full ring-2 ring-white/40 shadow-lg relative z-10">
                         @else
-                            <div class="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center ring-2 ring-white/30">
-                                <span class="text-xl font-bold text-white oswald">{{ substr($match->teamA->short_name ?? $match->teamA->name ?? 'A', 0, 3) }}</span>
+                            <div class="h-16 w-16 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/30 relative z-10">
+                                <span class="text-xl font-black text-white oswald">{{ substr($match->teamA->short_name ?? $match->teamA->name ?? 'A', 0, 3) }}</span>
                             </div>
                         @endif
                     </div>
 
-                    <!-- 2. Score Block -->
-                    <div class="team-a-gradient flex flex-col justify-center px-5 border-l border-white/15" style="min-width:200px">
-                        <!-- Team A (primary) -->
-                        <div class="flex items-baseline gap-2">
-                            <span class="text-white font-bold text-base oswald uppercase tracking-wider" style="min-width:44px">{{ $match->teamA->short_name ?? Str::limit($match->teamA->name ?? 'A', 3, '') }}</span>
-                            <span id="team-a-score" class="text-white font-black oswald score-shadow leading-none" style="font-size:38px">0/0</span>
-                            <span id="team-a-overs" class="text-white/60 text-sm oswald ml-1">(0.0)</span>
-                        </div>
-                        <!-- Team B (secondary) -->
-                        <div class="flex items-baseline gap-2 mt-1 opacity-50">
-                            <span class="text-white font-semibold text-xs oswald uppercase tracking-wider" style="min-width:44px">{{ $match->teamB->short_name ?? Str::limit($match->teamB->name ?? 'B', 3, '') }}</span>
-                            <span id="team-b-score" class="text-white font-bold text-lg oswald leading-none">0/0</span>
-                            <span id="team-b-overs" class="text-white/40 text-xs oswald ml-1">(0.0)</span>
+                    <!-- 2. Score Block (darkened team A color) -->
+                    <div class="team-a-gradient relative flex flex-col justify-center px-5" style="min-width:240px;background:{{ $match->teamA->primary_color ?? '#1e40af' }}">
+                        <div class="absolute inset-0 bg-black/20"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-3">
+                                <span class="text-white font-black text-xl oswald uppercase tracking-wide" style="min-width:40px">{{ $match->teamA->short_name ?? Str::limit($match->teamA->name ?? 'A', 3, '') }}</span>
+                                <span id="team-a-score" class="text-white font-black oswald leading-none score-box" style="font-size:36px">0/0</span>
+                                <span id="team-a-overs" class="text-white/80 text-base oswald font-bold">(0.0)</span>
+                            </div>
+                            <div class="flex items-center gap-3 mt-1">
+                                <span class="text-white/50 text-xs oswald font-semibold uppercase">v {{ $match->teamB->short_name ?? Str::limit($match->teamB->name ?? 'B', 3, '') }}</span>
+                                <span id="team-b-score" class="text-white/40 text-sm oswald font-bold">0/0</span>
+                                <span id="team-b-overs" class="text-white/25 text-[10px] oswald">(0.0)</span>
+                                <span class="text-white/20 text-[10px] oswald">#{{ ($match->teamA->short_name ?? 'A') }}v{{ ($match->teamB->short_name ?? 'B') }}</span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- 3. Batters Block -->
-                    <div id="ticker-players" class="ipl-gradient flex-1 flex flex-col justify-center px-5 ticker-sep" style="border-color:{{ $match->teamA->primary_color ?? '#3b82f6' }};min-width:250px">
+                    <!-- 3. Batters Block (bright team A color) -->
+                    <div id="ticker-players" class="team-a-gradient flex-1 flex flex-col justify-center px-6" style="background:{{ $match->teamA->primary_color ?? '#1e40af' }};min-width:280px">
                         <!-- Striker -->
-                        <div class="flex items-center gap-3">
-                            <span class="w-2.5 h-2.5 bg-yellow-400 rounded-full animate-pulse flex-shrink-0"></span>
-                            <span id="striker-name" class="text-white font-bold text-lg oswald uppercase truncate" style="max-width:150px">-</span>
-                            <div class="flex items-center gap-1 ml-auto flex-shrink-0">
-                                <span id="striker-runs" class="text-yellow-400 font-black text-2xl oswald">0</span>
-                                <span class="text-white/25 text-xs">(</span>
-                                <span id="striker-balls" class="text-white/50 text-sm">0</span>
-                                <span class="text-white/25 text-xs">)</span>
+                        <div class="flex items-center">
+                            <span id="striker-name" class="text-white font-black text-xl oswald uppercase truncate" style="max-width:200px">-</span>
+                            <div class="ml-auto flex items-baseline gap-4 flex-shrink-0">
+                                <span id="striker-runs" class="text-white font-black text-3xl oswald">0</span>
+                                <span id="striker-balls" class="text-white/60 text-xl oswald font-bold">0</span>
                             </div>
                         </div>
                         <!-- Non-Striker -->
-                        <div class="flex items-center gap-3 mt-0.5 opacity-50">
-                            <span class="w-2.5 h-2.5 bg-gray-600 rounded-full flex-shrink-0"></span>
-                            <span id="non-striker-name" class="text-white font-semibold text-sm oswald uppercase truncate" style="max-width:150px">-</span>
-                            <div class="flex items-center gap-1 ml-auto flex-shrink-0">
-                                <span id="non-striker-runs" class="text-white font-bold text-lg oswald">0</span>
-                                <span class="text-white/25 text-xs">(</span>
-                                <span id="non-striker-balls" class="text-white/40 text-xs">0</span>
-                                <span class="text-white/25 text-xs">)</span>
+                        <div class="flex items-center mt-1">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-white/60 text-sm font-bold">✓</span>
+                                <span id="non-striker-name" class="text-white/60 font-bold text-base oswald uppercase truncate" style="max-width:180px">-</span>
+                            </div>
+                            <div class="ml-auto flex items-baseline gap-4 flex-shrink-0">
+                                <span id="non-striker-runs" class="text-white/60 font-bold text-xl oswald">0</span>
+                                <span id="non-striker-balls" class="text-white/40 text-lg oswald">0</span>
                             </div>
                         </div>
-                        <!-- Hidden stats for JS compatibility -->
+                        <!-- Hidden stats for JS -->
                         <div class="hidden">
                             <span id="striker-fours">0</span><span id="striker-sixes">0</span><span id="striker-sr">0.00</span>
                             <span id="non-striker-fours">0</span><span id="non-striker-sixes">0</span>
@@ -220,61 +220,58 @@
                     </div>
 
                     <!-- 4. Chase / Stats Block (gold) -->
-                    <div class="gold-gradient flex flex-col items-center justify-center px-4 border-l border-white/10" style="min-width:110px">
+                    <div class="gold-gradient flex flex-col items-center justify-center px-5" style="min-width:140px">
                         <div class="t-stat text-center">
-                            <p class="text-black/40 text-[10px] font-bold oswald uppercase tracking-widest">CRR</p>
-                            <p id="crr" class="text-black text-xl font-black oswald leading-tight">0.00</p>
+                            <p class="text-black/40 text-xs font-bold oswald uppercase tracking-wider">CRR</p>
+                            <p id="crr" class="text-black text-2xl font-black oswald leading-tight">0.00</p>
                         </div>
                         <div id="target-section" class="t-stat text-center mt-1 hidden">
-                            <p class="text-black/40 text-[10px] font-bold oswald uppercase tracking-widest">TARGET</p>
-                            <p id="target" class="text-black text-3xl font-black oswald leading-none">-</p>
+                            <p class="text-black/40 text-xs font-bold oswald uppercase tracking-wider">TARGET</p>
+                            <p id="target" class="text-black font-black oswald leading-none" style="font-size:44px">-</p>
                         </div>
                         <div id="required-section" class="t-stat text-center mt-1 hidden">
-                            <p class="text-black/40 text-[10px] font-bold oswald uppercase tracking-widest">NEED</p>
-                            <p id="required" class="text-black/80 text-lg font-black oswald leading-tight">-</p>
+                            <p class="text-black/40 text-xs font-bold oswald uppercase tracking-wider">NEED</p>
+                            <p id="required" class="text-black/80 text-lg font-black oswald">-</p>
                         </div>
                     </div>
 
-                    <!-- 5. Bowler Block -->
-                    <div id="ticker-bowler" class="team-b-gradient flex-1 flex flex-col justify-center px-5 ticker-sep" style="border-color:{{ $match->teamB->primary_color ?? '#10b981' }};min-width:230px">
+                    <!-- 5. Bowler Block (team B color) -->
+                    <div id="ticker-bowler" class="team-b-gradient flex-1 flex flex-col justify-center px-6" style="background:{{ $match->teamB->primary_color ?? '#047857' }};min-width:280px">
                         <!-- Bowler -->
-                        <div class="flex items-center gap-3">
-                            <span id="bowler-name" class="text-white font-bold text-lg oswald uppercase truncate" style="max-width:150px">-</span>
-                            <div class="flex items-center gap-1 ml-auto flex-shrink-0">
-                                <span id="bowler-wickets" class="text-white font-black text-2xl oswald">0</span>
-                                <span class="text-white/30 text-lg oswald font-light">-</span>
-                                <span id="bowler-runs" class="text-white font-bold text-2xl oswald">0</span>
-                                <span class="text-white/25 text-xs ml-1">(</span>
-                                <span id="bowler-overs" class="text-white/60 text-sm oswald">0.0</span>
-                                <span class="text-white/25 text-xs">)</span>
+                        <div class="flex items-center">
+                            <span id="bowler-name" class="text-white font-black text-xl oswald uppercase truncate" style="max-width:200px">-</span>
+                            <div class="ml-auto flex items-baseline gap-3 flex-shrink-0">
+                                <span class="text-white font-black text-3xl oswald"><span id="bowler-wickets">0</span><span class="text-white/40">-</span><span id="bowler-runs">0</span></span>
+                                <span id="bowler-overs" class="text-white/60 text-xl oswald font-bold">0.0</span>
                             </div>
                         </div>
                         <!-- Required Rate / Match Status -->
-                        <div class="flex items-center gap-3 mt-0.5">
-                            <div id="rrr-section" class="t-stat flex items-center gap-1.5 hidden">
-                                <span class="text-white/40 text-[10px] font-bold oswald uppercase tracking-wider">REQ RATE</span>
-                                <span id="rrr" class="text-yellow-400 font-bold text-sm oswald">-</span>
+                        <div class="flex items-center mt-1">
+                            <div id="rrr-section" class="t-stat flex items-center gap-2 hidden">
+                                <span class="text-white/60 text-xs font-bold oswald uppercase tracking-wider">REQUIRED RATE</span>
+                                <span id="rrr" class="text-white font-black text-lg oswald">-</span>
                             </div>
                             <div id="ticker-status">
-                                <span id="match-status" class="text-white/50 text-xs font-semibold oswald uppercase tracking-wide">{{ $match->overs ?? 20 }} OVERS MATCH</span>
+                                <span id="match-status" class="text-white/50 text-xs font-bold oswald uppercase tracking-wider">{{ $match->overs ?? 20 }} OVERS MATCH</span>
                             </div>
                         </div>
-                        <!-- Hidden bowler stats for JS -->
+                        <!-- Hidden bowler stats -->
                         <div class="hidden">
                             <span id="bowler-maidens">0</span>
                             <span id="bowler-economy">0.00</span>
                         </div>
                     </div>
 
-                    <!-- 6. Team B Logo -->
-                    <div class="team-b-gradient flex items-center justify-center" style="width:80px">
+                    <!-- 6. Team B Logo (darkened) -->
+                    <div class="team-b-gradient relative flex items-center justify-center" style="width:100px;background:{{ $match->teamB->primary_color ?? '#047857' }}">
+                        <div class="absolute inset-0 bg-black/20"></div>
                         @if($match->teamB?->team_logo)
                             <img src="{{ Storage::url($match->teamB->team_logo) }}"
                                  alt="{{ $match->teamB->name }}"
-                                 class="h-14 w-14 object-cover rounded-full ring-2 ring-white/50 shadow-lg">
+                                 class="h-16 w-16 object-contain rounded-full ring-2 ring-white/40 shadow-lg relative z-10">
                         @else
-                            <div class="h-14 w-14 rounded-full bg-white/20 flex items-center justify-center ring-2 ring-white/30">
-                                <span class="text-xl font-bold text-white oswald">{{ substr($match->teamB->short_name ?? $match->teamB->name ?? 'B', 0, 3) }}</span>
+                            <div class="h-16 w-16 rounded-full bg-white/15 flex items-center justify-center ring-2 ring-white/30 relative z-10">
+                                <span class="text-xl font-black text-white oswald">{{ substr($match->teamB->short_name ?? $match->teamB->name ?? 'B', 0, 3) }}</span>
                             </div>
                         @endif
                     </div>
