@@ -1490,9 +1490,9 @@ class TournamentTemplateController extends Controller
             return back()->with('error', __('That image could not be read.'));
         }
 
-        // A free design's background is a paid change (CreditFeature `template_background`);
-        // charged before anything is written, so not enough credits changes nothing.
-        if ($template->bg_only && $tournament->organization) {
+        // Background changes cost credits unless it's a premium copy (those are free)
+        // or the user is Super Admin (CreditService::charge returns null for zero cost).
+        if (! $template->isPremiumCopy() && $tournament->organization) {
             try {
                 app(\App\Services\Credits\CreditService::class)->charge(
                     $tournament->organization, \App\Models\Credits\CreditFeature::TEMPLATE_BACKGROUND, $template

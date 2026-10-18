@@ -345,7 +345,7 @@
                                             <label class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer">
                                                 <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp" class="hidden"
                                                        onchange="if (this.files.length && confirm(@js(__('Replace the background of :name?', ['name' => $template->name])) + @js($bgFee ? ' ' . __('This uses :fee.', ['fee' => $bgFee]) : ''))) this.form.submit()">
-                                                Change background @if($bgFee && $template->bg_only)<span class="font-normal text-gray-500">({{ $bgFee }})</span>@endif
+                                                Change background @if($bgFee && ! $template->isPremiumCopy())<span class="font-normal text-gray-500">({{ $bgFee }})</span>@endif
                                             </label>
                                         </form>
                                     @endif
