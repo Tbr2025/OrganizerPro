@@ -141,7 +141,7 @@ class WallState
             'top_batters' => array_map(fn ($b) => $this->batter($b, $images), $s['top_batters']),
             'top_bowlers' => array_map(fn ($b) => $this->bowler($b, $images), $s['top_bowlers']),
             'result' => $s['result'] ? $this->result($s['result'], $teams) : null,
-            'lineups' => $this->lineups($match, $teams),
+            'lineups' => $this->lineups($match, $teams, $images),
         ];
     }
 
@@ -182,7 +182,7 @@ class WallState
         });
     }
 
-    private function lineups(Matches $match, array $teams): array
+    private function lineups(Matches $match, array $teams, array $images = []): array
     {
         $out = [];
         foreach ($match->lineups->groupBy('actual_team_id') as $teamId => $entries) {
@@ -192,6 +192,7 @@ class WallState
                     'name' => $e->player?->name,
                     'role' => $e->role,
                     'batting_order' => $e->batting_order,
+                    'image' => $images[$e->player_id ?? 0] ?? null,
                 ])->all(),
             ];
         }

@@ -57,6 +57,31 @@
   #dot { position:absolute; right:18px; top:18px; width:18px; height:18px; border-radius:50%; background:#f59e0b; display:none; }
   #dot.on { display:block; }
   .center { text-align:center; }
+  /* ---- IPL-style Opening Pair ---- */
+  .op{position:absolute;inset:0;display:flex;overflow:hidden}
+  .op-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+  .op-l{animation:opSl .7s cubic-bezier(.16,1,.3,1) both}
+  .op-r{animation:opSr .7s cubic-bezier(.16,1,.3,1) both}
+  @keyframes opSl{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
+  @keyframes opSr{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
+  .op-wm{position:absolute;width:320px;height:320px;object-fit:contain;opacity:.08;top:45%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
+  .op-img{width:280px;height:360px;object-fit:cover;object-position:top;border-radius:16px;border:3px solid var(--accent);box-shadow:0 8px 40px rgba(0,0,0,.5);position:relative;z-index:1;animation:opPh .65s cubic-bezier(.16,1,.3,1) .15s both}
+  .op-img.empty{display:flex;align-items:center;justify-content:center;background:var(--panel)}
+  @keyframes opPh{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
+  .op-pname{font-size:44px;font-weight:900;text-transform:uppercase;letter-spacing:2px;margin-top:20px;position:relative;z-index:1;animation:opFi .5s ease-out .45s both}
+  .op-prole{font-size:22px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:4px;margin-top:6px;position:relative;z-index:1;animation:opFi .5s ease-out .55s both}
+  @keyframes opFi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .op-div{width:3px;align-self:stretch;margin:40px 0;background:linear-gradient(180deg,transparent,var(--accent) 30%,var(--accent) 70%,transparent);z-index:2;animation:opLn .5s ease-out .2s both;transform-origin:center}
+  @keyframes opLn{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+  .op-top{position:absolute;top:0;left:50%;transform:translateX(-50%);z-index:3;text-align:center;animation:opDn .6s ease-out .1s both}
+  @keyframes opDn{from{opacity:0;transform:translate(-50%,-24px)}to{opacity:1;transform:translate(-50%,0)}}
+  .op-top-text{font-size:40px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:6px}
+  .op-top-line{width:180px;height:3px;background:var(--accent);margin:6px auto;border-radius:2px}
+  .op-bot{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);z-index:3;text-align:center;animation:opFi .5s ease-out .75s both;white-space:nowrap}
+  .op-bot-label{font-size:16px;color:var(--muted);letter-spacing:3px;text-transform:uppercase}
+  .op-bot-name{font-size:32px;font-weight:800;margin-top:2px}
+  .op-bot-team{font-size:18px;color:var(--muted)}
+  body.still .op *{animation-duration:0s!important;animation-delay:0s!important}
 </style>
 </head>
 <body>
@@ -234,13 +259,29 @@
     },
     opening(st, p) {
       const s = p.striker || {}, n = p.non_striker || {}, bw = p.bowler;
-      return `<div class="center">
-        <div class="h2" style="color:var(--accent);letter-spacing:.2em">OPENING PAIR</div>
-        <div class="row" style="justify-content:center;gap:80px;margin-top:40px">
-          <div>${img(p.batting?.logo, 'logo')}<div class="h1">${esc(s.name)}</div><div class="h2 mut">Striker</div></div>
-          <div class="h1 mut">&amp;</div>
-          <div>${img(p.batting?.logo, 'logo')}<div class="h1">${esc(n.name)}</div><div class="h2 mut">Non-striker</div></div></div>
-        ${bw ? `<div class="h2 mut" style="margin-top:40px">Opening bowler: <span style="color:var(--ink)">${esc(bw.name)}</span>${p.bowling ? ' (' + esc(p.bowling.short || p.bowling.name) + ')' : ''}</div>` : ''}</div>`;
+      const bLogo = p.batting?.logo;
+      const pcard = (pl, role, side) => {
+        const ph = pl.image
+          ? `<img class="op-img" src="${esc(pl.image)}" alt="">`
+          : `<div class="op-img empty">${bLogo ? `<img src="${esc(bLogo)}" style="width:45%;height:45%;object-fit:contain;opacity:.4" alt="">` : ''}</div>`;
+        return `<div class="op-side op-${side}">
+          ${bLogo ? `<img class="op-wm" src="${esc(bLogo)}" alt="">` : ''}
+          ${ph}
+          <div class="op-pname">${esc(pl.name)}</div>
+          <div class="op-prole">${esc(role)}</div>
+        </div>`;
+      };
+      return `<div class="op">
+        <div class="op-top"><div class="op-top-text">Opening Pair</div><div class="op-top-line"></div></div>
+        ${pcard(s, 'Striker', 'l')}
+        <div class="op-div"></div>
+        ${pcard(n, 'Non-Striker', 'r')}
+        ${bw ? `<div class="op-bot">
+          <div class="op-bot-label">Opening Bowler</div>
+          <div class="op-bot-name">${esc(bw.name)}</div>
+          ${p.bowling ? `<div class="op-bot-team">${esc(p.bowling.short || p.bowling.name)}</div>` : ''}
+        </div>` : ''}
+      </div>`;
     },
   };
 

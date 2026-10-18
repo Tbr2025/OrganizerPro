@@ -414,12 +414,12 @@ class LedQueueService
                 return null;
             }
             $sorted = collect($lineup)->sortBy('batting_order')->values();
-            $striker = ['name' => $sorted[0]['name']];
-            $nonStriker = ['name' => $sorted[1]['name']];
+            $striker = ['name' => $sorted[0]['name'], 'image' => $sorted[0]['image'] ?? null];
+            $nonStriker = ['name' => $sorted[1]['name'], 'image' => $sorted[1]['image'] ?? null];
 
             // First bowler from the bowling side's lineup.
             $bowlLineup = ($bowlingId && isset($state['lineups'][$bowlingId])) ? $state['lineups'][$bowlingId]['players'] : [];
-            $bowler = ! empty($bowlLineup) ? ['name' => $bowlLineup[0]['name']] : null;
+            $bowler = ! empty($bowlLineup) ? ['name' => $bowlLineup[0]['name'], 'image' => $bowlLineup[0]['image'] ?? null] : null;
         } else {
             $bowler = $state['bowler'];
         }
