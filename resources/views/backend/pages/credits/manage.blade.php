@@ -287,7 +287,7 @@
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div>
                         <p class="font-semibold text-gray-900 dark:text-white">{{ __('Template presets') }}</p>
-                        <p class="text-xs text-gray-500">{{ __('Free: tournaments can change only the background (priced above). Premium: its price is charged once per tournament, and the design can be edited fully.') }}</p>
+                        <p class="text-xs text-gray-500">{{ __('Free: organizers can change only the background, at the price above. Premium: its price is charged once per tournament, and organizers change its background for free. Only Super Admin edits designs.') }}</p>
                     </div>
                     <a href="{{ route('admin.template-library.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">{{ __('Open template presets') }}</a>
                 </div>

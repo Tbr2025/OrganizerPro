@@ -310,4 +310,38 @@ class PresetTiersTest extends TestCase
         $this->actingAs($this->admin)->post(route('admin.credits.features.update', $scoring), ['cost' => 0, 'is_active' => 1])->assertForbidden();
         $this->post(route('admin.template-library.settings', $preset), ['tier' => 'free'])->assertForbidden();
     }
+
+    #[Test]
+    public function organizers_change_a_premium_designs_background_for_free(): void
+    {
+        $premium = $this->preset('match_poster', 'Gold', ['tier' => 'premium', 'price' => 10]);
+        $t = $this->tournament();
+        $this->credits->grant($this->org, 10, 'promo', 'test');
+        $copy = TournamentTemplate::find($this->library->copyInto($t, [$premium->id], $this->admin)[$premium->id]);
+        $this->assertFalse($copy->bg_only);
+        $this->assertTrue($copy->isPremiumCopy());
+        $this->price(CreditFeature::TEMPLATE_BACKGROUND, 7);
+
+        // Offered on the poster page as a free change; the design itself stays locked.
+        $this->actingAs($this->admin)->get(route('admin.tournaments.templates.generate', [$t, 'type' => 'match_poster']))->assertOk()
+            ->assertSee(route('admin.tournaments.templates.update-background', [$t, $copy]), false)->assertSee('Change background (free)');
+        $this->putJson(route('admin.tournaments.templates.update', [$t, $copy]), ['name' => 'Mine', 'layout_json' => '[]'])->assertForbidden();
+
+        $before = $copy->background_image;
+        $this->post(route('admin.tournaments.templates.update-background', [$t, $copy]), ['background_image' => UploadedFile::fake()->image('bg.jpg', 900, 900)])
+            ->assertSessionHas('success');
+        $copy->refresh();
+        $this->assertNotSame($before, $copy->background_image);
+        $this->assertSame(0, $this->credits->balance($this->org->fresh()), 'Only the preset was paid for; the background change is free');
+
+        // A preset update still reaches it, keeping the background it chose.
+        $mine = $copy->background_image;
+        $this->actingAs($this->super)->putJson(route('admin.template-library.update', $premium), [
+            'name' => 'Gold', 'type' => 'match_poster', 'layout_json' => json_encode([['type' => 'text', 'text' => 'Version 2']]),
+        ])->assertOk();
+        $this->post(route('admin.template-library.sync', $premium))->assertSessionHas('success');
+        $copy->refresh();
+        $this->assertSame('Version 2', $copy->layout_json[0]['text']);
+        $this->assertSame($mine, $copy->background_image);
+    }
 }

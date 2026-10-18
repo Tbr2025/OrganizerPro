@@ -77,6 +77,7 @@ class TournamentTemplateController extends Controller
                     // A free design shows no Edit; its background is a paid change.
                     'full_edit' => $t->fullyEditableBy(auth()->user()),
                     'bg_only' => (bool) $t->bg_only,
+                    'bg_changeable' => $t->backgroundChangeableBy(auth()->user()),
                 ]);
 
             return response()->json(['templates' => $templates]);
@@ -1461,9 +1462,9 @@ class TournamentTemplateController extends Controller
     public function updateBackground(Tournament $tournament, TournamentTemplate $template, Request $request)
     {
         abort_if($template->tournament_id !== $tournament->id, 404);
-        // Super Admin changes any background; organization users only a free design's.
-        abort_unless(auth()->user()->can('template.manage') || ($template->bg_only && auth()->user()->can('template.generate')), 403,
-            __('Only Super Admin can change this template.'));
+        // Super Admin changes any background; organization users a free design's (paid)
+        // or a premium design's (free).
+        abort_unless($template->backgroundChangeableBy(auth()->user()), 403, __('Only Super Admin can change this template.'));
 
         $request->validate([
             'background_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:8192',
@@ -1578,7 +1579,7 @@ class TournamentTemplateController extends Controller
         $preset = $template->sourcePreset;
         abort_unless($preset && $preset->tournament_id === null, 404);
 
-        app(\App\Services\Poster\TemplateLibrary::class)->applyPreset($template, $preset, keepBackground: $template->bg_only && $template->bg_changed);
+        app(\App\Services\Poster\TemplateLibrary::class)->applyPreset($template, $preset, keepBackground: $template->bg_changed);
 
         return back()->with('success', __('":name" now uses the latest version of its preset.', ['name' => $template->name]));
     }

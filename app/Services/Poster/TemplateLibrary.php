@@ -26,9 +26,9 @@ use Illuminate\Support\Facades\Storage;
  * organization_id X is made for that organization alone.
  *
  * Free or Premium: a premium preset costs its `price` in credits, once per
- * tournament. A copy of a FREE preset is `bg_only` — its organizers can change
- * its background (a paid action, CreditFeature `template_background`) and
- * nothing else. Auction poster types are offered to auction tournaments only.
+ * tournament. Organizers never edit a design; they change only its background:
+ * on a copy of a FREE preset (`bg_only`) that is a paid action (CreditFeature
+ * `template_background`), on a copy of a PREMIUM preset it is free. Auction poster types are offered to auction tournaments only.
  *
  * A tournament or season starts with COPIES of the presets ticked when it is
  * created (files included — see TemplateCopier). Each copy remembers its preset
@@ -243,9 +243,9 @@ class TemplateLibrary
 
     /**
      * Bring tournaments' copies of a preset up to its current design. A copy nobody
-     * edited takes the whole new design; a free (background-only) copy whose
-     * background was changed keeps that background and takes the rest. A copy
-     * someone edited is left alone — it shows "update available" instead.
+     * edited takes the whole new design; a copy whose organizers changed only its
+     * background keeps that background and takes the rest. A copy whose design was
+     * edited (Super Admin) is left alone — it shows "update available" instead.
      *
      * @return array{updated:int, skipped:int}
      */
@@ -256,7 +256,7 @@ class TemplateLibrary
 
         $preset->copies()->where(fn ($q) => $q->whereNull('source_version')->orWhere('source_version', '<', $preset->design_version))
             ->each(function (TournamentTemplate $copy) use ($preset, &$updated, &$skipped) {
-                if ($copy->customized || ($copy->bg_changed && ! $copy->bg_only)) {
+                if ($copy->customized) {
                     $skipped++;
 
                     return;

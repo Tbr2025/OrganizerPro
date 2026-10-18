@@ -1258,17 +1258,18 @@
                                     </button>
                                 </form>
                             </div>
-                            @elseif($template->bg_only && auth()->user()->can('template.generate'))
-                            {{-- A free design: its organizers may change only the background (a paid action). --}}
+                            @elseif($template->backgroundChangeableBy(auth()->user()))
+                            {{-- Organizers change only the background: a free design's (paid) or a premium design's (free). --}}
+                            @php $thisBgFee = $template->bg_only ? $bgFeeLabel : null; @endphp
                             <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
                                 <form action="{{ route('admin.tournaments.templates.update-background', [$tournament, $template]) }}"
                                       method="POST" enctype="multipart/form-data" class="inline">
                                     @csrf
-                                    <label title="{{ $bgFeeLabel ? 'Change background (' . $bgFeeLabel . ')' : 'Change background' }}"
+                                    <label title="{{ $thisBgFee ? 'Change background (' . $thisBgFee . ')' : 'Change background (free)' }}"
                                            class="cursor-pointer inline-flex p-1.5 rounded-lg bg-black/55 backdrop-blur text-white hover:bg-black/75 shadow-sm transition">
                                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                         <input type="file" name="background_image" accept="image/jpeg,image/png,image/webp"
-                                               class="hidden" onchange="if (this.files.length && confirm(@js(__('Replace the background of :name?', ['name' => $template->name])) + @js($bgFeeLabel ? ' ' . __('This uses :fee.', ['fee' => $bgFeeLabel]) : ''))) this.form.submit()">
+                                               class="hidden" onchange="if (this.files.length && confirm(@js(__('Replace the background of :name?', ['name' => $template->name])) + @js($thisBgFee ? ' ' . __('This uses :fee.', ['fee' => $thisBgFee]) : ''))) this.form.submit()">
                                     </label>
                                 </form>
                             </div>
@@ -2570,13 +2571,13 @@ function templateActions(t, editBaseUrl) {
 
 // The price of a new background on a free design, for the button's title.
 const BG_FEE_LABEL = @json($bgFeeLabel);
-const CAN_GENERATE = @json(auth()->user()->can('template.generate'));
 
-/** A free design, for someone who makes posters: only "Change background" (a paid action). */
+/** For someone who makes posters: only "Change background" — paid on a free design, free on a premium one. */
 function backgroundOnlyAction(t, editBaseUrl) {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '{{ csrf_token() }}';
-    const title = BG_FEE_LABEL ? 'Change background (' + BG_FEE_LABEL + ')' : 'Change background';
-    const ask = 'Replace this background?' + (BG_FEE_LABEL ? ' This uses ' + BG_FEE_LABEL + '.' : '');
+    const fee = t.bg_only ? BG_FEE_LABEL : null;
+    const title = fee ? 'Change background (' + fee + ')' : 'Change background (free)';
+    const ask = 'Replace this background?' + (fee ? ' This uses ' + fee + '.' : '');
     return `
         <div class="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all z-10">
             <form action="${editBaseUrl}/${t.id}/update-background" method="POST" enctype="multipart/form-data" class="inline">
@@ -2690,7 +2691,7 @@ function loadTemplates(type) {
                                 </div>
                             </div>
                         </label>
-                        ${isSuperadmin ? templateActions(t, editBaseUrl) : (t.bg_only && CAN_GENERATE ? backgroundOnlyAction(t, editBaseUrl) : '')}
+                        ${isSuperadmin ? templateActions(t, editBaseUrl) : (t.bg_changeable ? backgroundOnlyAction(t, editBaseUrl) : '')}
                     </div>
                 `).join('');
                 data.templates.forEach(t => {

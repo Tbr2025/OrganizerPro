@@ -219,7 +219,7 @@
                                                    placeholder="{{ __('Credits') }}" class="w-24 text-xs py-0.5 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-800">
                                         </div>
                                         <p class="text-gray-500" x-show="tier === 'free'">{{ __('Free: tournaments can change only its background (a paid change).') }}</p>
-                                        <p class="text-gray-500" x-show="tier === 'premium'" x-cloak>{{ __('Premium: charged once per tournament; tournaments can edit it fully.') }}</p>
+                                        <p class="text-gray-500" x-show="tier === 'premium'" x-cloak>{{ __('Premium: charged once per tournament; organizers can change its background for free.') }}</p>
                                         @if($template->organization_id === null && $organizations->isNotEmpty())
                                             <div class="space-y-1">
                                                 <label class="flex items-center gap-1"><input type="radio" name="offer" value="all" x-model="offer"> {{ __('Offered to every organization') }}</label>

@@ -95,6 +95,26 @@ class TournamentTemplate extends Model
             && (int) $this->sourcePreset->design_version > (int) $this->source_version;
     }
 
+    /** A tournament's copy of a PREMIUM preset (a free preset's copy is bg_only). */
+    public function isPremiumCopy(): bool
+    {
+        return $this->tournament_id !== null && $this->source_preset_id !== null && ! $this->bg_only;
+    }
+
+    /**
+     * Can this user change the background? Super Admin: any template. Organization
+     * users who make posters: a free design (a paid change) or a premium design (free).
+     */
+    public function backgroundChangeableBy(?\App\Models\User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $user->can('template.manage')
+            || ($user->can('template.generate') && ($this->bg_only || $this->isPremiumCopy()));
+    }
+
     /** Can this user change more than the background? Free-preset copies: Super Admin only. */
     public function fullyEditableBy(?\App\Models\User $user): bool
     {
