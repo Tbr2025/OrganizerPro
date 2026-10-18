@@ -59,17 +59,21 @@
   .center { text-align:center; }
   /* ---- IPL-style Opening Pair ---- */
   .op{position:absolute;inset:0;display:flex;overflow:hidden}
-  .op-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative}
+  .op-side{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:24px;position:relative}
+  /* Accent glow behind each player */
+  .op-side::before{content:'';position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,var(--accent) 0%,transparent 70%);opacity:.1;top:15%;left:50%;transform:translateX(-50%);z-index:0;pointer-events:none}
   .op-l{animation:opSl .7s cubic-bezier(.16,1,.3,1) both}
   .op-r{animation:opSr .7s cubic-bezier(.16,1,.3,1) both}
   @keyframes opSl{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:none}}
   @keyframes opSr{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:none}}
-  .op-wm{position:absolute;width:320px;height:320px;object-fit:contain;opacity:.08;top:45%;left:50%;transform:translate(-50%,-50%);pointer-events:none}
-  .op-img{width:280px;height:360px;object-fit:cover;object-position:top;border-radius:16px;border:3px solid var(--accent);box-shadow:0 8px 40px rgba(0,0,0,.5);position:relative;z-index:1;animation:opPh .65s cubic-bezier(.16,1,.3,1) .15s both}
-  .op-img.empty{display:flex;align-items:center;justify-content:center;background:var(--panel)}
-  @keyframes opPh{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:none}}
-  .op-pname{font-size:44px;font-weight:900;text-transform:uppercase;letter-spacing:2px;margin-top:20px;position:relative;z-index:1;animation:opFi .5s ease-out .45s both}
-  .op-prole{font-size:22px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:4px;margin-top:6px;position:relative;z-index:1;animation:opFi .5s ease-out .55s both}
+  .op-wm{position:absolute;width:360px;height:360px;object-fit:contain;opacity:.06;top:10%;left:50%;transform:translateX(-50%);pointer-events:none;z-index:0}
+  /* Player photo: no border, gradient fade at bottom for cutout feel */
+  .op-img{width:340px;height:440px;object-fit:cover;object-position:top center;border:none;border-radius:0;position:relative;z-index:1;animation:opPh .65s cubic-bezier(.16,1,.3,1) .15s both;-webkit-mask-image:linear-gradient(to bottom,black 60%,transparent 100%);mask-image:linear-gradient(to bottom,black 60%,transparent 100%)}
+  .op-img.empty{display:flex;align-items:center;justify-content:center;background:transparent;width:260px;height:340px;border:2px solid var(--line);border-radius:16px;-webkit-mask-image:none;mask-image:none}
+  @keyframes opPh{from{opacity:0;transform:scale(.9) translateY(20px)}to{opacity:1;transform:none}}
+  .op-pname{font-size:48px;font-weight:900;text-transform:uppercase;letter-spacing:3px;margin-top:0;position:relative;z-index:2;animation:opFi .5s ease-out .45s both}
+  .op-prole{font-size:22px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:4px;margin-top:4px;position:relative;z-index:2;animation:opFi .5s ease-out .55s both}
+  .op-team{font-size:18px;color:var(--muted);margin-top:4px;position:relative;z-index:2;animation:opFi .5s ease-out .6s both}
   @keyframes opFi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   .op-div{width:3px;align-self:stretch;margin:40px 0;background:linear-gradient(180deg,transparent,var(--accent) 30%,var(--accent) 70%,transparent);z-index:2;animation:opLn .5s ease-out .2s both;transform-origin:center}
   @keyframes opLn{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
@@ -259,7 +263,7 @@
     },
     opening(st, p) {
       const s = p.striker || {}, n = p.non_striker || {}, bw = p.bowler;
-      const bLogo = p.batting?.logo;
+      const bLogo = p.batting?.logo, batName = p.batting?.short || p.batting?.name || '';
       const pcard = (pl, role, side) => {
         const ph = pl.image
           ? `<img class="op-img" src="${esc(pl.image)}" alt="">`
@@ -269,6 +273,7 @@
           ${ph}
           <div class="op-pname">${esc(pl.name)}</div>
           <div class="op-prole">${esc(role)}</div>
+          <div class="op-team">${esc(batName)}</div>
         </div>`;
       };
       return `<div class="op">

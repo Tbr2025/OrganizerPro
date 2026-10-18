@@ -614,11 +614,12 @@
             },
             opening(p, st) {
                 const s = p.striker || {}, n = p.non_striker || {}, bw = p.bowler;
-                const pImg = pl => pl.image ? `<img src="${esc(pl.image)}" class="h-28 w-28 object-cover rounded-full ring-2 ring-yellow-400/50 shadow-lg flex-shrink-0" alt="">` : '';
+                const batName = p.batting?.short || p.batting?.name || '';
+                const pImg = pl => pl.image ? `<img src="${esc(pl.image)}" class="h-32 w-32 object-cover object-top rounded-2xl shadow-lg flex-shrink-0" style="-webkit-mask-image:linear-gradient(to bottom,black 65%,transparent);mask-image:linear-gradient(to bottom,black 65%,transparent)" alt="">` : '';
                 return card(`<div class="flex items-center gap-6">
-                    <div class="flex items-center gap-4 flex-1">${pImg(s)}${logoImg(p.batting?.logo)}<div><p class="text-white text-3xl font-bold oswald">${esc(s.name)}</p><p class="text-yellow-400 text-lg font-bold oswald tracking-wider">STRIKER</p></div></div>
+                    <div class="flex items-center gap-4 flex-1">${pImg(s)}${logoImg(p.batting?.logo)}<div><p class="text-white text-3xl font-bold oswald">${esc(s.name)}</p><p class="text-yellow-400 text-lg font-bold oswald tracking-wider">STRIKER</p><p class="text-white/40 text-base">${esc(batName)}</p></div></div>
                     <div class="text-yellow-400 text-xl font-bold oswald tracking-[.3em] px-4" style="border-left:2px solid rgba(250,204,21,.3);border-right:2px solid rgba(250,204,21,.3)">VS</div>
-                    <div class="flex items-center gap-4 flex-1 justify-end text-right""><div><p class="text-white text-3xl font-bold oswald">${esc(n.name)}</p><p class="text-yellow-400 text-lg font-bold oswald tracking-wider">NON-STRIKER</p></div>${logoImg(p.batting?.logo)}${pImg(n)}</div>
+                    <div class="flex items-center gap-4 flex-1 justify-end text-right"><div><p class="text-white text-3xl font-bold oswald">${esc(n.name)}</p><p class="text-yellow-400 text-lg font-bold oswald tracking-wider">NON-STRIKER</p><p class="text-white/40 text-base">${esc(batName)}</p></div>${logoImg(p.batting?.logo)}${pImg(n)}</div>
                     </div>${bw ? `<div class="flex items-center justify-center gap-3 mt-3 pt-3" style="border-top:1px solid rgba(255,255,255,.08)"><span class="text-white/50 text-lg uppercase tracking-wider">Opening Bowler</span><span class="text-white text-2xl font-bold oswald">${esc(bw.name)}</span>${p.bowling ? `<span class="text-white/50 text-lg">(${esc(p.bowling.short || p.bowling.name)})</span>` : ''}</div>` : ''}`, '#facc15');
             },
         };
