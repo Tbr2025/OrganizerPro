@@ -298,3 +298,49 @@ the dump from locking tables on a live database.
   exist. The same goes for API keys, tokens and private keys.
 - Backups stored in `/home/ubuntu/` on the server
 - Use `sudo -u www-data php artisan tinker` for live queries (permission issues with plain `php artisan tinker`)
+
+## Template Editor — Image Element Properties
+
+Image placeholders (logos, team crests, photos) in the template editor now have a dedicated
+properties panel with **Logo Style** (Transparent / Circle) and explicit Width / Height controls.
+
+### How It Works
+- `borderRadius` is the underlying property: `0` = transparent/rectangular, `50` = circle
+- The editor serializes, deserializes, and preserves `borderRadius` through undo/redo
+- The renderer (`TemplateRenderService`) already handled it: `borderRadius >= 50` dispatches
+  to `addCircularImage()`, otherwise `addImage()` (transparent/as-is)
+- The editor placeholder rect visually rounds when circle mode is selected (`rx`/`ry` set to half diameter)
+
+### Broken Text Detection
+The renderer strips text values that contain leaked JS interpolation strings from Fabric.js
+serialization. Detected patterns:
+- `item.` (any property prefix — `item.placeholder`, `item.text`, etc.)
+- `{{ ... }}` (Vue/JS double-curly template literals)
+
+This is defensive — the root cause is in the editor's Fabric.js serialization, but the renderer
+protects all existing and future templates.
+
+### Skip Blank Images
+`skipBlanks = true` (the default for `renderAndSave()`) hides empty placeholders:
+- Empty non-person images (logos, sponsors, group photos) → skipped entirely
+- Empty person images → fall back to default silhouette
+
+### Key Code Locations
+| What | Where |
+|------|-------|
+| Image properties panel HTML | `editor.blade.php` — `#imagePropertiesPanel` |
+| Image panel toggle | `editor.blade.php` — `showProperties()` → `isImage` flag |
+| Update method | `editor.blade.php` — `updateImageProperties()` |
+| Serialization | `editor.blade.php` — image branch adds `borderRadius` |
+| Deserialization | `editor.blade.php` — image branch reads `item.borderRadius`, sets `rx`/`ry` |
+| History preservation | `editor.blade.php` — `saveHistory()` → `toJSON()` includes `borderRadius` |
+| Broken text detection | `TemplateRenderService.php` — ~line 302 |
+| Circle dispatch | `TemplateRenderService.php` — `renderImageElement()` ~line 902 |
+
+### Rules for Future Development
+- New image rendering modes: add an option to the `#propLogoStyle` dropdown, map its value
+  to a `borderRadius` integer, and handle the new value in `renderImageElement()`
+- Never remove the broken-text detection — templates already saved with leaked interpolation
+  strings exist in the database and will resurface
+- `skipBlanks` must stay `true` for `renderAndSave()` — turning it off shows ugly placeholder
+  boxes on generated posters
