@@ -1581,6 +1581,33 @@
                 </div>
             </div>
 
+            {{-- Image Properties --}}
+            <div id="imagePropertiesPanel" class="hidden">
+                <div class="prop-section">
+                    <div class="prop-section-title">Image Settings</div>
+                    <div class="prop-group">
+                        <label class="prop-label">Logo Style</label>
+                        <select id="propLogoStyle" class="prop-input" onchange="editor.updateImageProperties()">
+                            <option value="0">Transparent</option>
+                            <option value="50">Circle</option>
+                        </select>
+                    </div>
+                    <div class="prop-input-row">
+                        <div class="prop-group">
+                            <label class="prop-label">Width</label>
+                            <input type="number" id="propImageWidth" class="prop-input" min="10" onchange="editor.updateImageProperties()">
+                        </div>
+                        <div class="prop-group">
+                            <label class="prop-label">Height</label>
+                            <input type="number" id="propImageHeight" class="prop-input" min="10" onchange="editor.updateImageProperties()">
+                        </div>
+                    </div>
+                    <div id="propImagePlaceholderInfo" class="hidden mt-1">
+                        <span class="text-xs text-indigo-300" id="propImagePlaceholderName"></span>
+                    </div>
+                </div>
+            </div>
+
             {{-- Common Properties --}}
             <div id="commonPropertiesPanel" class="hidden">
                 <div class="prop-section">
@@ -3090,6 +3117,7 @@ const editor = {
         const isIcon = obj.elementType === 'icon';
         const isText = !isIcon && (obj.elementType === 'text' || obj.type === 'i-text');
         const isShape = !isIcon && obj.elementType === 'shape';
+        const isImage = obj.elementType === 'image';
         const isTable = obj.elementType === 'tableArea';
         const isScorecard = obj.elementType === 'scorecardTable';
         const isFixture = obj.elementType === 'fixtureArea';
@@ -3097,6 +3125,7 @@ const editor = {
         document.getElementById('iconPropertiesPanel').classList.toggle('hidden', !isIcon);
         document.getElementById('textPropertiesPanel').classList.toggle('hidden', !isText);
         document.getElementById('shapePropertiesPanel').classList.toggle('hidden', !isShape);
+        document.getElementById('imagePropertiesPanel').classList.toggle('hidden', !isImage);
         document.getElementById('tablePropertiesPanel').classList.toggle('hidden', !isTable);
         document.getElementById('scorecardPropertiesPanel').classList.toggle('hidden', !isScorecard);
         document.getElementById('fixturePropertiesPanel').classList.toggle('hidden', !isFixture);
@@ -3123,6 +3152,19 @@ const editor = {
             const iconSize = obj.iconType === 'svg' ? Math.round((obj.width || 64) * (obj.scaleX || 1)) : Math.round(obj.fontSize || 64);
             document.getElementById('propIconColor').value = this.colorToHex(iconColor);
             document.getElementById('propIconSize').value = iconSize;
+        }
+        if (isImage) {
+            document.getElementById('propLogoStyle').value = String(obj.borderRadius || 0);
+            document.getElementById('propImageWidth').value = Math.round((obj.placeholderWidth || 150) * (obj.scaleX || 1));
+            document.getElementById('propImageHeight').value = Math.round((obj.placeholderHeight || 150) * (obj.scaleY || 1));
+            const infoEl = document.getElementById('propImagePlaceholderInfo');
+            const nameEl = document.getElementById('propImagePlaceholderName');
+            if (obj.placeholder) {
+                infoEl.classList.remove('hidden');
+                nameEl.textContent = obj.placeholder.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) + '  (' + obj.placeholder + ')';
+            } else {
+                infoEl.classList.add('hidden');
+            }
         }
         if (isText) {
             const placeholderInfoEl = document.getElementById('propPlaceholderInfo');
@@ -3386,6 +3428,27 @@ const editor = {
             left: parseInt(document.getElementById('propPosX').value) || 0,
             top: parseInt(document.getElementById('propPosY').value) || 0,
         });
+        this.canvas.renderAll();
+        this.saveHistory();
+    },
+
+    updateImageProperties() {
+        const obj = this.canvas.getActiveObject();
+        if (!obj || obj.elementType !== 'image') return;
+        const borderRadius = parseInt(document.getElementById('propLogoStyle').value) || 0;
+        const newW = parseInt(document.getElementById('propImageWidth').value) || 150;
+        const newH = parseInt(document.getElementById('propImageHeight').value) || 150;
+        obj.borderRadius = borderRadius;
+        // Update visual placeholder rect inside the group
+        const rect = obj.getObjects('rect')[0];
+        if (rect) {
+            const rxy = borderRadius >= 50 ? Math.min(newW, newH) / 2 : 8;
+            rect.set({ width: newW, height: newH, rx: rxy, ry: rxy });
+        }
+        obj.placeholderWidth = newW;
+        obj.placeholderHeight = newH;
+        obj.set({ scaleX: 1, scaleY: 1 });
+        obj.addWithUpdate();
         this.canvas.renderAll();
         this.saveHistory();
     },
@@ -3759,7 +3822,7 @@ const editor = {
 
     // History
     saveHistory() {
-        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'fillOpacity', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor', 'autoSize', 'baseFontSize']);
+        const json = this.canvas.toJSON(['placeholder', 'elementType', 'shapeType', 'placeholderWidth', 'placeholderHeight', 'imagePath', 'gradientAngle', 'gradientFillConfig', 'fillOpacity', 'tableConfig', 'textTransform', 'iconName', 'iconUnicode', 'iconType', 'iconColor', 'autoSize', 'baseFontSize', 'borderRadius']);
         this.history = this.history.slice(0, this.historyIndex + 1);
         this.history.push(JSON.stringify(json));
         this.historyIndex++;
@@ -3980,13 +4043,16 @@ const editor = {
                 this.canvas.add(text);
             } else if (item.type === 'image') {
                 const w = item.width || 150, h = item.height || 150;
-                const rect = new fabric.Rect({ width: w, height: h, fill: 'rgba(99, 102, 241, 0.3)', stroke: '#6366f1', strokeWidth: 2, strokeDashArray: [5, 5], rx: 8, ry: 8, originX: 'center', originY: 'center' });
+                const br = item.borderRadius || 0;
+                const rxy = br >= 50 ? Math.min(w, h) / 2 : 8;
+                const rect = new fabric.Rect({ width: w, height: h, fill: 'rgba(99, 102, 241, 0.3)', stroke: '#6366f1', strokeWidth: 2, strokeDashArray: [5, 5], rx: rxy, ry: rxy, originX: 'center', originY: 'center' });
                 const label = new fabric.Text((item.placeholder || 'image').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), { fontSize: 14, fill: '#fff', fontFamily: 'Arial', originX: 'center', originY: 'center', textAlign: 'center' });
                 const group = new fabric.Group([rect, label], { left: x, top: y, angle: item.rotation || 0, opacity: (item.opacity ?? 100) / 100, originX: 'center', originY: 'center' });
                 group.placeholder = item.placeholder;
                 group.elementType = 'image';
                 group.placeholderWidth = w;
                 group.placeholderHeight = h;
+                group.borderRadius = br;
                 group._layoutIndex = layoutIndex;
                 this.canvas.add(group);
             } else if (item.type === 'icon' && item.iconType === 'svg') {
@@ -4260,7 +4326,7 @@ const editor = {
                 const textContent = obj.text || '';
                 return { ...base, text: textContent, fontSize: obj.fontSize, baseFontSize: obj.baseFontSize || obj.fontSize, autoSize: obj.autoSize || false, width: (obj.width || 0) * (obj.scaleX || 1), fontFamily: obj.fontFamily, fontWeight: obj.fontWeight, fontStyle: obj.fontStyle || 'normal', underline: obj.underline || false, linethrough: obj.linethrough || false, skewX: obj.skewX || 0, color: obj.fill, textAlign: obj.textAlign, textTransform: obj.textTransform || 'none', shadow: obj.shadow ? { blur: obj.shadow.blur, offsetX: obj.shadow.offsetX, offsetY: obj.shadow.offsetY, color: obj.shadow.color || '#000000' } : null, stroke: obj.stroke || null, strokeWidth: obj.strokeWidth || 0 };
             } else if (obj.elementType === 'image') {
-                return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1) };
+                return { ...base, width: (obj.placeholderWidth || 150) * (obj.scaleX || 1), height: (obj.placeholderHeight || 150) * (obj.scaleY || 1), borderRadius: obj.borderRadius || 0 };
             } else if (obj.elementType === 'shape') {
                 // Serialize gradient fill config if present
                 let fillData = obj.fill;

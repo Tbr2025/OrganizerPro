@@ -299,8 +299,14 @@ class TemplateRenderService extends PosterGeneratorService
 
         // Get value from data, element's static text, or placeholder display
         $staticText = $element['text'] ?? '';
-        // Ignore broken JS interpolation text saved by template editor
-        if (str_contains($staticText, 'item.placeholder') || str_contains($staticText, 'item.text')) {
+        // Ignore broken JS interpolation text saved by template editor.
+        // The Fabric.js serializer occasionally bakes Vue/JS template literals
+        // into the text field instead of the resolved value.
+        if (str_contains($staticText, 'item.placeholder')
+            || str_contains($staticText, 'item.text')
+            || str_contains($staticText, 'item.')
+            || (str_contains($staticText, '{{') && str_contains($staticText, '}}'))
+        ) {
             $staticText = '';
         }
         if ($this->skipBlanks) {
