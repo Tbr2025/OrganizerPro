@@ -16,6 +16,7 @@ class MatchSummary extends Model
         'commentary',
         'summary_poster',
         'poster_template',
+        'group_photo',
         'poster_sent',
         'poster_sent_at',
     ];

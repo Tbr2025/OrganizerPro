@@ -219,6 +219,7 @@ class TournamentTemplate extends Model
             'sponsor_logo',
             'sponsor_logo_2',
             'sponsor_logo_3',
+            'group_photo',
         ];
     }
 
@@ -460,6 +461,8 @@ class TournamentTemplate extends Model
                 'match_summary_table',
                 'fall_of_wickets_a',
                 'fall_of_wickets_b',
+                // Group photo
+                'group_photo',
             ],
             self::TYPE_AWARD_POSTER => [
                 'tournament_name',

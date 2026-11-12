@@ -1503,6 +1503,8 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'r
         Route::post('/summary/auto-assign-awards', [MatchSummaryController::class, 'autoAssignAwardsFromCricHeroes'])->name('summary.auto-assign-awards');
         Route::post('/summary/award/{award}/update-image', [MatchSummaryController::class, 'updateAwardPlayerImage'])->name('summary.update-award-image');
         Route::post('/summary/recalculate-statistics', [MatchSummaryController::class, 'recalculateStatistics'])->name('summary.recalculate-statistics');
+        Route::post('/summary/group-photo', [MatchSummaryController::class, 'uploadGroupPhoto'])->name('summary.upload-group-photo');
+        Route::delete('/summary/group-photo', [MatchSummaryController::class, 'deleteGroupPhoto'])->name('summary.delete-group-photo');
     });
 
     // Tournament Awards Management

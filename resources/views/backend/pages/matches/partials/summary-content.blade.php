@@ -807,6 +807,88 @@
                     </form>
                 </div>
 
+                <!-- Group Photo Upload -->
+                <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700"
+                     x-data="{
+                         uploading: false,
+                         hasPhoto: {{ $summary->group_photo ? 'true' : 'false' }},
+                         photoUrl: '{{ $summary->group_photo ? Storage::url($summary->group_photo) : '' }}',
+                         async upload(e) {
+                             const file = e.target.files[0];
+                             if (!file) return;
+                             this.uploading = true;
+                             const fd = new FormData();
+                             fd.append('group_photo', file);
+                             fd.append('_token', '{{ csrf_token() }}');
+                             try {
+                                 const res = await fetch('{{ route('admin.matches.summary.upload-group-photo', $match) }}', {
+                                     method: 'POST', headers: { 'Accept': 'application/json' }, body: fd
+                                 });
+                                 const data = await res.json();
+                                 if (data.success) {
+                                     this.hasPhoto = true;
+                                     this.photoUrl = data.image_url;
+                                     if (typeof showToast === 'function') showToast(data.message, 'success');
+                                 } else {
+                                     if (typeof showToast === 'function') showToast(data.message || 'Upload failed', 'error');
+                                 }
+                             } catch (err) {
+                                 if (typeof showToast === 'function') showToast('Upload failed: ' + err.message, 'error');
+                             }
+                             this.uploading = false;
+                             e.target.value = '';
+                         },
+                         async remove() {
+                             if (!confirm('Remove group photo?')) return;
+                             try {
+                                 const res = await fetch('{{ route('admin.matches.summary.delete-group-photo', $match) }}', {
+                                     method: 'DELETE', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' }
+                                 });
+                                 const data = await res.json();
+                                 if (data.success) {
+                                     this.hasPhoto = false;
+                                     this.photoUrl = '';
+                                     if (typeof showToast === 'function') showToast(data.message, 'success');
+                                 }
+                             } catch (err) {
+                                 if (typeof showToast === 'function') showToast('Failed to remove', 'error');
+                             }
+                         }
+                     }">
+                    <h4 class="font-medium text-sm mb-3 text-gray-600 dark:text-gray-400">Group Photo</h4>
+
+                    <!-- Preview -->
+                    <template x-if="hasPhoto">
+                        <div class="relative mb-3">
+                            <img :src="photoUrl" class="w-full rounded-lg border border-gray-200 dark:border-gray-700 object-cover" style="max-height: 200px;">
+                            <button type="button" @click="remove()"
+                                    class="absolute top-2 right-2 p-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg transition"
+                                    title="Remove group photo">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                    </template>
+
+                    <!-- Upload -->
+                    <label class="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed rounded-xl cursor-pointer transition"
+                           :class="uploading ? 'border-gray-300 bg-gray-50 dark:bg-gray-800' : 'border-gray-300 dark:border-gray-600 hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/20'">
+                        <template x-if="!uploading">
+                            <span class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <span x-text="hasPhoto ? 'Replace photo' : 'Upload group photo'"></span>
+                            </span>
+                        </template>
+                        <template x-if="uploading">
+                            <span class="flex items-center gap-2 text-sm text-gray-400">
+                                <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                                Uploading...
+                            </span>
+                        </template>
+                        <input type="file" accept="image/*" class="hidden" @change="upload($event)" :disabled="uploading">
+                    </label>
+                    <p class="text-xs text-gray-400 mt-1.5">Use as <code class="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">group_photo</code> placeholder in summary templates. Max 10MB.</p>
+                </div>
+
                 <!-- Share Links -->
                 <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <h4 class="font-medium text-sm mb-3 text-gray-600 dark:text-gray-400">Share & Preview</h4>

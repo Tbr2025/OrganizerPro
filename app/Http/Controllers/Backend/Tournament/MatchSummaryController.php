@@ -831,6 +831,55 @@ class MatchSummaryController extends Controller
     }
 
     /**
+     * Upload a group photo for the match summary.
+     */
+    public function uploadGroupPhoto(Request $request, Matches $match)
+    {
+        $request->validate([
+            'group_photo' => 'required|image|max:10240',
+        ]);
+
+        $summary = $match->getOrCreateSummary();
+
+        // Delete old group photo if it exists
+        if ($summary->group_photo && \Storage::disk('public')->exists($summary->group_photo)) {
+            \Storage::disk('public')->delete($summary->group_photo);
+        }
+
+        $path = $request->file('group_photo')->store('match_group_photos', 'public');
+        $summary->update(['group_photo' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'image_url' => \Storage::url($path),
+            'message' => 'Group photo uploaded successfully.',
+        ]);
+    }
+
+    /**
+     * Remove the group photo from the match summary.
+     */
+    public function deleteGroupPhoto(Matches $match)
+    {
+        $summary = $match->summary;
+
+        if (! $summary || ! $summary->group_photo) {
+            return response()->json(['success' => false, 'message' => 'No group photo found.'], 404);
+        }
+
+        if (\Storage::disk('public')->exists($summary->group_photo)) {
+            \Storage::disk('public')->delete($summary->group_photo);
+        }
+
+        $summary->update(['group_photo' => null]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Group photo removed.',
+        ]);
+    }
+
+    /**
      * Get CricHeroes heroes data from match result's scorecard_data.
      */
     private function getHeroesData(Matches $match): ?array
@@ -1143,6 +1192,12 @@ class MatchSummaryController extends Controller
                     ])->values()->toArray();
                 }
             }
+        }
+
+        // Group photo from summary
+        $summary = $match->summary;
+        if ($summary?->group_photo) {
+            $data['group_photo'] = $summary->group_photo;
         }
 
         return $data;

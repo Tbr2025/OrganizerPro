@@ -110,6 +110,12 @@ class MatchSummaryPosterService extends PosterGeneratorService
             'a' => $data['team_a_short_name'], 'b' => $data['team_b_short_name'],
         ]));
 
+        // Group photo from summary
+        $summary = $match->summary;
+        if ($summary?->group_photo) {
+            $data['group_photo'] = $summary->group_photo;
+        }
+
         // Render using template
         $filename = TemplateRenderService::posterFilename('summary-' . $match->id);
         return $this->templateRenderService->renderAndSave($template, $data, $filename);
